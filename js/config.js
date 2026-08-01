@@ -11,6 +11,12 @@ export const CFG = {
   INTERACT_DIST: 2.6,
   WORLD_BOUND: 60,          // absolute |x|,|z| safety clamp if a collider is ever missed
 
+  // --- fly mode (spectator flight — W/S along the look direction, no collisions) ---
+  FLY_SPEED: 14,
+  FLY_FAST: 34,             // Shift, or a fully-pushed touch stick
+  FLY_MAX_ALT: 150,         // must stay well inside SKY_R (see world.js gotcha)
+  FLY_MIN_CLEAR: 0.5,       // lowest flight = floorY(x,z) + this
+
   // --- venue dimensions (meters — the placeholder shell is sized from these) ---
   // Compass convention: the stage sits at -z ("north"), the foyer at +x ("east").
   BALLROOM: { W: 30, L: 50, H: 8 },      // x-width, z-length, ceiling height
@@ -22,7 +28,7 @@ export const CFG = {
   COLUMN:   { R: 0.5, X: 10.5, Z0: -15, SPACING: 6, COUNT: 6 },  // two rows at ±X
   WALL_T: 0.3,
   DOOR_H: 2.6,              // lintels start here above every opening
-  SKY_R: 140,
+  SKY_R: 240,               // sky-dome radius — must exceed FLY_MAX_ALT + WORLD_BOUND diagonal
   SEED: 20260111,           // 01.11.2026 — the big day
 
   // --- lighting (warm hotel interior) ---

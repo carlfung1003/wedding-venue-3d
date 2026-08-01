@@ -113,9 +113,23 @@ export function initTouch(G) {
     return el;
   }
 
+  /* press-and-hold buttons (fly ▲▼) — set a flag while touched */
+  function hold(id, set) {
+    const el = document.getElementById(id);
+    const down = e => { e.preventDefault(); e.stopPropagation(); el.classList.add('held'); set(true); };
+    const up = e => { e.preventDefault(); el.classList.remove('held'); set(false); };
+    el.addEventListener('touchstart', down, { passive: false });
+    el.addEventListener('touchend', up, { passive: false });
+    el.addEventListener('touchcancel', up, { passive: false });
+    return el;
+  }
+
   G.btnInteract = tap('btnInteract', () => {
     if (G.player.nearest) G.player.nearest.use();
   });
+  tap('btnFly', () => G.toggleMode());
+  hold('btnUp', v => { G.flyUp = v; });
+  hold('btnDown', v => { G.flyDown = v; });
 
   G.showTouchUI = () => ui.classList.remove('hidden');
 }

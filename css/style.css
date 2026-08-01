@@ -93,6 +93,16 @@ body.touch .touchOnly{display:grid}
   text-shadow:0 2px 14px rgba(0,0,0,.8);
 }
 #momentName i{font-size:18px;font-style:italic;color:var(--gold)}
+#modeChip{
+  margin:6px auto 0;width:max-content;
+  font-family:'Inter',sans-serif;font-weight:600;font-size:10px;
+  letter-spacing:.22em;text-transform:uppercase;
+  color:var(--faint);
+  border:1px solid rgba(157,148,166,.35);border-radius:12px;
+  padding:3px 12px;
+  background:rgba(20,16,26,.6);
+}
+#modeChip.fly{color:var(--gold);border-color:var(--gold-dim)}
 
 #prompt{
   position:fixed;left:50%;bottom:108px;transform:translateX(-50%);
@@ -177,6 +187,9 @@ body.touch .touchOnly{display:grid}
 }
 .tbtn.held{background:rgba(216,180,106,.3)}
 .tbtn.pulse{border-color:var(--gold);box-shadow:0 0 14px rgba(216,180,106,.6)}
+#btnFly{font-size:12px;font-weight:700;letter-spacing:.08em}
+#touch .flyOnly{display:none}
+#touch.flymode .flyOnly{display:flex}
 
 /* ────────────────────────── small screens ────────────────────────── */
 @media (max-width:560px){

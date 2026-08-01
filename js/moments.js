@@ -219,6 +219,7 @@ export function initMoments(G) {
     for (const mm of CFG.MOMENTS) groups[mm.id].visible = mm === m;
     G.colliders.length = 0;
     G.colliders.push(...staticColliders, ...cols[m.id]);
+    G.setMode?.('walk', { quiet: true });   // spawns are authored as ground positions
     G.player.pos.set(m.spawn.x, CFG.EYE_HEIGHT, m.spawn.z);
     setFacing(m.spawn.yaw);
     syncCamera(G);

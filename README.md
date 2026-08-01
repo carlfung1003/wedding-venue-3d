@@ -19,7 +19,10 @@ No build, no install — Three.js loads from a CDN.
 ## How it plays
 
 WASD (or the touch stick) to walk, mouse (or drag) to look, **E** to
-interact. Keys **1–5** or the chips at the bottom jump between moments:
+interact. Press **F** (or the FLY button) to lift off into free flight —
+W/S fly along wherever you're looking, **Space**/**C** (or ▲▼) climb and
+dive, Shift goes fast; press F again to land. Keys **1–5** or the chips at
+the bottom jump between moments:
 
 1. **Prewedding Setup** — the bridal suite: garment rack, good light, one
    very important dress
@@ -35,9 +38,10 @@ interact. Keys **1–5** or the chips at the bottom jump between moments:
 - Three.js r180 via CDN importmap — pure static HTML/CSS/JS, zero build
 - Procedural everything: CanvasTexture carpets, marble, parquet and night
   sky; seeded PRNG so the venue is identical every load
-- First-person controls ported from
+- First-person walking controls ported from
   [Lassen Nights](https://camp.carlfung.dev), renderer setup from
-  [Alice Lunch Party](https://alice.carlfung.dev)
+  [Alice Lunch Party](https://alice.carlfung.dev), free-flight spectator
+  mode in the spirit of [Broomflight](https://wizard.carlfung.dev)
 - The venue itself is a placeholder — it gets rebuilt from the real hotel's
   walkthrough video
 

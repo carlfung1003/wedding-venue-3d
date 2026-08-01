@@ -4,6 +4,7 @@ export function initUI(G) {
   const el = id => document.getElementById(id);
   const overlay = el('overlay'), promptEl = el('prompt'), toastEl = el('toast');
   const nameEl = el('momentName'), bar = el('moments'), hud = el('hud');
+  const modeEl = el('modeChip');
 
   const chips = [];
   const queue = [];
@@ -25,6 +26,11 @@ export function initUI(G) {
     setMoment(m, idx) {
       nameEl.innerHTML = `${m.name} <i>· ${m.area}</i>`;
       chips.forEach((c, i) => c.classList.toggle('active', i === idx));
+    },
+
+    setMode(mode) {
+      modeEl.textContent = mode === 'fly' ? '🕊 Flying' : 'Walking';
+      modeEl.classList.toggle('fly', mode === 'fly');
     },
 
     prompt(html) {

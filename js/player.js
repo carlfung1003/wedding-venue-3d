@@ -46,6 +46,7 @@ export function initPlayer(G) {
     if (!G.started || G.overlayOpen) return;
     // Tab: cursor mode — freeze the view, free the mouse to click the chips
     if (e.code === 'Tab') { e.preventDefault(); G.toggleCursorMode(); return; }
+    if (e.code === 'KeyF') G.toggleMode();   // walk ↔ fly
     if (e.code === 'KeyE' && G.player.nearest) G.player.nearest.use();
     if (/^Digit[1-5]$/.test(e.code)) G.setMoment(+e.code.slice(5) - 1);
   });
@@ -84,9 +85,45 @@ const camDir = new THREE.Vector3(), toIt = new THREE.Vector3();
 
 export function updatePlayer(G, dt) {
   const { player } = G;
+  const stickMag = Math.hypot(touchInput.x, touchInput.y);
+
+  /* ══ FLY MODE: spectator flight — W/S ride the full look direction (yaw AND
+     pitch), A/D strafe level, Space/C (or ▲▼) climb and dive. No collisions;
+     altitude clamped between floorY + FLY_MIN_CLEAR and FLY_MAX_ALT. ══ */
+  if (G.mode === 'fly') {
+    fwd.set(-Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+    right.set(Math.cos(yaw), 0, -Math.sin(yaw));
+    move.set(0, 0, 0);
+    if (keys['KeyW']) move.add(fwd);
+    if (keys['KeyS']) move.sub(fwd);
+    if (keys['KeyD']) move.add(right);
+    if (keys['KeyA']) move.sub(right);
+    if (G.touchMode && stickMag > 0.15) {
+      move.addScaledVector(fwd, -touchInput.y);   // stick forward = along the gaze
+      move.addScaledVector(right, touchInput.x);
+    }
+    if (keys['Space'] || G.flyUp) move.y += 1;
+    if (keys['KeyC'] || G.flyDown) move.y -= 1;
+    const fast = keys['ShiftLeft'] || keys['ShiftRight'] || (G.touchMode && stickMag > 0.92);
+    player.moving = move.lengthSq() > 0;
+    player.yaw = yaw;
+    if (player.moving) {
+      move.normalize().multiplyScalar((fast ? CFG.FLY_FAST : CFG.FLY_SPEED) * dt);
+      player.pos.add(move);
+    }
+    player.pos.x = Math.max(-CFG.WORLD_BOUND, Math.min(CFG.WORLD_BOUND, player.pos.x));
+    player.pos.z = Math.max(-CFG.WORLD_BOUND, Math.min(CFG.WORLD_BOUND, player.pos.z));
+    player.pos.y = Math.max(floorY(player.pos.x, player.pos.z) + CFG.FLY_MIN_CLEAR,
+      Math.min(CFG.FLY_MAX_ALT, player.pos.y));
+    syncCamera(G);
+    // no interacting mid-air — the {x,z,r} distance test ignores altitude
+    player.nearest = null;
+    G.ui.prompt(null);
+    if (G.btnInteract) G.btnInteract.classList.remove('pulse');
+    return;
+  }
 
   /* ── movement: WASD + touch stick, Shift (or full stick) to run ── */
-  const stickMag = Math.hypot(touchInput.x, touchInput.y);
   fwd.set(-Math.sin(yaw), 0, -Math.cos(yaw));
   right.set(Math.cos(yaw), 0, -Math.sin(yaw));
   move.set(0, 0, 0);

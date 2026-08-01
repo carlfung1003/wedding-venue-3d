@@ -5,7 +5,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 import { CFG } from './config.js';
-import { buildWorld } from './world.js';
+import { buildWorld, floorY } from './world.js';
 import { initPlayer, updatePlayer, lock } from './player.js';
 import { initTouch } from './touch.js';
 import { initMoments, updateMoments } from './moments.js';
@@ -43,6 +43,9 @@ const G = {
   started: false,
   overlayOpen: true,
   cursorMode: false,
+  mode: 'walk',       // 'walk' | 'fly'
+  flyUp: false,       // held touch ▲▼ buttons (touch.js writes)
+  flyDown: false,
   colliders: [],      // {x,z,r} — world statics + the live moment's props
   interactables: [],  // {x,z,r,label(),use(),enabled()}
   momentIndex: -1,
@@ -56,18 +59,41 @@ G.toggleCursorMode = () => {
   else lock(G);
 };
 
+/* F (or the FLY tbtn): walk ↔ spectator flight. Pointer lock is untouched —
+   the look pipeline is identical in both modes. */
+G.setMode = (mode, opts = {}) => {
+  if (G.mode === mode) return;
+  G.mode = mode;
+  G.flyUp = G.flyDown = false;
+  if (mode === 'walk') {
+    // settle back onto the ground at the current x,z; the walk branch's
+    // collider pass nudges us out of anything we landed inside next frame
+    G.player.pos.y = floorY(G.player.pos.x, G.player.pos.z) + CFG.EYE_HEIGHT;
+  }
+  G.ui.setMode(mode);
+  document.getElementById('touch').classList.toggle('flymode', mode === 'fly');
+  if (!opts.quiet) {
+    G.ui.toast(mode === 'fly'
+      ? '🕊 Fly mode — Space / C for height, F to land'
+      : 'Back on your feet.', 2.4);
+  }
+};
+G.toggleMode = () => G.setMode(G.mode === 'fly' ? 'walk' : 'fly');
+
 initUI(G);
 buildWorld(G);
 initPlayer(G);
 if (touchMode) initTouch(G);
 initMoments(G);
 G.ui.buildChips(CFG.MOMENTS);
+G.ui.setMode(G.mode);
 
 /* the ceremony dressing makes the title backdrop — down the aisle at the arch */
 G.setMoment(1, { quiet: true });
 
 /* ── begin ── */
-document.getElementById('begin').addEventListener('click', () => {
+document.getElementById('begin').addEventListener('click', e => {
+  e.currentTarget.blur();   // Space is fly-ascend — a focused button would re-click
   G.overlayOpen = false;
   G.started = true;
   G.ui.hideOverlay();
