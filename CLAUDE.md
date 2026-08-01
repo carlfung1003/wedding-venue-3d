@@ -46,9 +46,15 @@ video, pool videos):
   (full top-down site plan), `cocktail pic.jpeg` + `cocktails samples.jpeg`
   (cocktail-hour dressing reference). Couple photos still to come.
 - `reference/docs/clubhouse-intro.pdf` — the hotel's 隐逸居 clubhouse intro
-  deck (likely floor plans).
-- `reference/suite-interior-brief.md` — modeling brief distilled from the
-  walkthrough frames (committed).
+  deck. No floor plans; spec tables + photos.
+- `reference/clubhouse-pdf-brief.md` (committed) — distilled from the deck:
+  隐逸居 = 3,500 ㎡, 11 keys in 4 building types; presidential suite 588 ㎡
+  two-storey; 酒廊 lounge 280 ㎡ / seats 60 with folding glass walls to the
+  pool terrace (wedding-dinner candidate); signature white portal-frame
+  cabanas + slatted lanterns along the presidential pool; palette = dark
+  mahogany, cream marble, copper fascias.
+- `reference/suite-interior-brief.md` (committed) — modeling brief distilled
+  from the walkthrough frames.
 
 **Rebuild `world.js` + `CFG` venue dimensions from these** — room
 proportions, finishes, where the doors actually are. The moment system,
@@ -61,9 +67,17 @@ on. Facts from Carl's photos (all arrived — clubhouse aerial + full resort
 site map are in `reference/photos/`). Future sessions model from THIS, not
 from the placeholder:
 
-- **Venue**: the **Westin hotel's clubhouse area** — the presidential suite
-  plus ALL surrounding villas are reserved for the wedding. Beachfront
-  resort: palm grove, long beach, open ocean beyond the grounds.
+- **Venue**: **The Westin Sanya Haitang Bay** — the 隐逸居 (Yinyiju)
+  clubhouse enclave: the presidential suite plus ALL surrounding villas are
+  reserved for the wedding. Beachfront resort: palm grove, long beach, open
+  ocean beyond the grounds. Confirmed against `~/projects/wedding-app`,
+  which is the canonical source for names, dates and schedule copy.
+- **Dates (from wedding-app)**: wedding day **2027-03-20** (ceremony
+  ~16:30 CST); prewedding welcome party **2027-03-19 21:30** — the
+  night-pool event at the suite; after party **2027-03-20 21:00**. The
+  title-card kicker and `CFG.SEED` (20270320) carry the date. ⚠️ Do NOT use
+  01.11.2026 anywhere — that is Sarah & Michael's wedding
+  (sarah-michael-site), a different project.
 - **Presidential suite (prewedding venue)**: modern two-storey villa. Wide
   cantilevered flat roof with a copper/bronze fascia; both floors fully
   glazed with folding glass door walls; upper balcony with a glass

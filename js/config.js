@@ -29,7 +29,7 @@ export const CFG = {
   WALL_T: 0.3,
   DOOR_H: 2.6,              // lintels start here above every opening
   SKY_R: 240,               // sky-dome radius — must exceed FLY_MAX_ALT + WORLD_BOUND diagonal
-  SEED: 20260111,           // 01.11.2026 — the big day
+  SEED: 20270320,           // 2027.03.20 — the big day
 
   // --- lighting (warm hotel interior) ---
   LIGHT: {
