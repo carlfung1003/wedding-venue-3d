@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>The Big Day — 3D wedding venue walkthrough</title>
+<meta name="description" content="A first-person 3D walkthrough of Carl &amp; Rachel's wedding venue — five moments of the day, from the bridal suite to the after party. Free in your browser.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="The Big Day">
+<meta property="og:title" content="The Big Day — 3D wedding venue walkthrough">
+<meta property="og:description" content="Walk the venue in 3D before anyone else does — ceremony, cocktail hour, dinner and the after party, all in first person.">
+<meta property="og:url" content="https://venue.carlfung.dev/">
+<!-- TODO: assets/og.jpg doesn't exist yet — render one once the real venue is modeled -->
+<meta property="og:image" content="https://venue.carlfung.dev/assets/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Big Day title screen — a candlelit ballroom aisle leading to a golden arch">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Big Day — 3D wedding venue walkthrough">
+<meta name="twitter:description" content="Walk Carl &amp; Rachel's wedding venue in 3D — five moments of the day, in first person, free in your browser.">
+<meta name="twitter:image" content="https://venue.carlfung.dev/assets/og.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<!-- ────────────────────────── title card ────────────────────────── -->
+<div id="overlay">
+  <div class="card">
+    <p class="kicker">Carl &amp; Rachel · 01 · 11 · 2026</p>
+    <h1>The Big Day</h1>
+    <p class="sub">Walk through our wedding day — before anyone else does</p>
+
+    <div class="controls deskOnly">
+      <div><span class="key">W A S D</span> walk the venue</div>
+      <div><span class="key">Shift</span> hurry (there's a schedule)</div>
+      <div><span class="key">Mouse</span> look around</div>
+      <div><span class="key">E</span> interact</div>
+      <div><span class="key">1 – 5</span> jump between moments</div>
+      <div><span class="key">Tab</span> free the cursor for the chips</div>
+    </div>
+    <div class="controls touchOnly">
+      <div><span class="key">Left thumb</span> walk</div>
+      <div><span class="key">Drag</span> look around</div>
+      <div><span class="key">✦</span> interact</div>
+      <div><span class="key">Chips</span> jump between moments</div>
+    </div>
+
+    <button id="begin">Step inside</button>
+    <p class="legal">A placeholder venue for now — the real hotel gets modeled from the walkthrough video.</p>
+  </div>
+</div>
+
+<!-- ────────────────────────── hud ────────────────────────── -->
+<div id="hud" class="hidden">
+  <div id="momentName"></div>
+</div>
+
+<div id="prompt" class="hidden"></div>
+<div id="toast" class="hidden"></div>
+<div id="moments" class="hidden"></div>
+
+<!-- ────────────────────────── touch ────────────────────────── -->
+<div id="touch" class="hidden">
+  <div id="stick"><div id="stickNub"></div></div>
+  <div class="tbtns">
+    <div class="tbtn" id="btnInteract">✦</div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+// Bootstrap: renderer (modeled on alice-lunch-party — PMREM RoomEnvironment,
+// sRGB output, ACES tone mapping, no post for now), the G context object,
+// the begin-button flow, and the clock loop.
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+import { CFG } from './config.js';
+import { buildWorld } from './world.js';
+import { initPlayer, updatePlayer, lock } from './player.js';
+import { initTouch } from './touch.js';
+import { initMoments, updateMoments } from './moments.js';
+import { initUI } from './ui.js';
+
+/* ── renderer ── */
+const canvas = document.getElementById('scene');
+const touchMode = matchMedia('(pointer: coarse)').matches;
+if (touchMode) document.body.classList.add('touch');
+
+const renderer = new THREE.WebGLRenderer({
+  canvas, antialias: !touchMode, powerPreference: 'high-performance',
+});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0d1a);
+
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .08, 400);
+
+/* environment probe — real reflections in the marble, gold and mirror ball */
+const pmrem = new THREE.PMREMGenerator(renderer);
+pmrem.compileEquirectangularShader();
+const envRT = pmrem.fromScene(new RoomEnvironment(), .04);
+scene.environment = envRT.texture;
+scene.environmentIntensity = CFG.LIGHT.ENV;
+
+/* ── the one context object threaded through every builder ── */
+const G = {
+  canvas, renderer, scene, camera, touchMode,
+  started: false,
+  overlayOpen: true,
+  cursorMode: false,
+  colliders: [],      // {x,z,r} — world statics + the live moment's props
+  interactables: [],  // {x,z,r,label(),use(),enabled()}
+  momentIndex: -1,
+};
+
+/* Tab: cursor mode — freeze the view, free the mouse to click the chips */
+G.toggleCursorMode = () => {
+  if (G.touchMode) return;
+  G.cursorMode = !G.cursorMode;
+  if (G.cursorMode) document.exitPointerLock?.();
+  else lock(G);
+};
+
+initUI(G);
+buildWorld(G);
+initPlayer(G);
+if (touchMode) initTouch(G);
+initMoments(G);
+G.ui.buildChips(CFG.MOMENTS);
+
+/* the ceremony dressing makes the title backdrop — down the aisle at the arch */
+G.setMoment(1, { quiet: true });
+
+/* ── begin ── */
+document.getElementById('begin').addEventListener('click', () => {
+  G.overlayOpen = false;
+  G.started = true;
+  G.ui.hideOverlay();
+  G.ui.showHUD();
+  if (G.touchMode) G.showTouchUI();
+  else lock(G);   // Esc naturally drops the lock; clicking the view re-locks
+  G.momentIndex = -1;          // force the switch even though 1 is dressed
+  G.setMoment(0);              // the day starts in the bridal suite
+});
+
+/* ── resize ── */
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ── loop ── */
+let last = performance.now();
+let time = 0;
+
+function frame(now) {
+  /* clamp low as well as high — the first rAF timestamp can precede the
+     performance.now() captured just before it (alice gotcha) */
+  const dt = Math.max(0, Math.min(.05, (now - last) / 1000));
+  last = now;
+  time += dt;
+
+  if (G.started && !G.overlayOpen) updatePlayer(G, dt);
+  updateMoments(G, dt, time);
+  G.ui.update(dt);
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ── debug hook, always on (house pattern) ── */
+window.__game = {
+  G,
+  setMoment: i => G.setMoment(i),
+  fastForward(seconds) {
+    /* stub — there is no sim clock yet; when the day gets a timeline
+       (lighting arcs, scheduled beats) it must advance through here so
+       tests can drive it, lassen-style */
+  },
+};
