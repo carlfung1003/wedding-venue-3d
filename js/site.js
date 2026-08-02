@@ -104,8 +104,13 @@ export const SITE = {
   EXT_STAIR: { x: 9.0, z: -16.0 },               // exterior stair to 2F balcony
 
   // event plaza — moved WEST of the deck: the east side is now the pavilion
-  // and lounger run down the pool's long edge
-  PLAZA: { x0: -32, x1: -12, z0: -14, z1: -2 },
+  // and lounger run down the pool's long edge.
+  // x0 trimmed −32 → −30 (2026-08-01, pool/room-type pass) to leave a real gap
+  // for the relocated 酒廊: SITE.LOUNGE's roof overhang now reaches x −32.
+  // ...and then moved EAST again in the same pass: the −X side is now the
+  // 3-BR suites and their pool, and the plaza was overlapping the villa at
+  // (−24, −14). East of the cabana run is the only clear ground left.
+  PLAZA: { x0: 18, x1: 38, z0: -14, z1: -2 },
 
   // ------------------------------------------------------------- the atrium
   // The clubhouse's central open-air courtyard — the arrival heart of 隐逸居.
@@ -132,12 +137,34 @@ export const SITE = {
 
   // ------------------------------------------------------- clubhouse & lounge
   // 隐逸居酒廊 — 280 ㎡, seats 60, folding glass to a terrace pool. WEDDING DINNER.
-  // cx sits east of the atrium (which reaches x = 30) — these two used to
-  // interpenetrate by 4 × 9 m, so keep a real gap if either one is resized.
-  LOUNGE: { cx: 46, cz: -30, w: 20, d: 14, h: 4.2, glassZ: -23 },
+  //
+  // ⚠ MOVED TO THE SUITE'S RIGHT, −X (Carl, 2026-08-01 — "pool + room-type
+  // placement"). It used to sit at cx +46 with its pool at (+46, −8), i.e. on
+  // your LEFT when you stand in the great room facing the pool, and that second
+  // sheet of water plus the villa cluster around it was the first thing Carl
+  // called out against the enclave aerial: **the presidential pool must be the
+  // only pool visible from the suite.** In the aerial the teal-umbrella pool is
+  // clearly on the RIGHT of the presidential pool and it is the water the two
+  // Garden 3-BR keys look onto, so the lounge, its pool and both `type: 2`
+  // villas moved together to −X.
+  //
+  // LEFT/RIGHT here is the SUITE'S, facing the pool = local +Z. player.js
+  // builds fwd as (−sin yaw, 0, −cos yaw) and right as (cos yaw, 0, −sin yaw);
+  // facing +Z is yaw = π, so right = (cos π, 0, −sin π) = (−1, 0, 0). LEFT is
+  // +X, RIGHT is −X. Mirroring this sign just mirrors the complaint — it has
+  // already been got backwards twice on this project.
+  //
+  // cx is pinned by two neighbours that may NOT move: SITE.PLAZA's west edge
+  // (x −30; the lounge roof stops at −32) and the ceremony lawn's outer ring
+  // path (LAWN.hedgeR + 3.8 = 27.8 m around (−75, −46); the lounge's NW roof
+  // corner clears it by ~0.5 m). cz is pinned the same way — pushing the lounge
+  // any further north walks its roof straight into that ring path.
+  LOUNGE: { cx: -44, cz: -16, w: 20, d: 14, h: 4.2, glassZ: -9 },
   // same principle as the hero pool — it runs AWAY from the lounge's glass
-  // wall, so from inside you look down its length, not across it
-  LOUNGE_POOL: { cx: 46, cz: -8, w: 9, d: 18, umbrellas: 6 },     // teal umbrellas
+  // wall, so from inside you look down its length, not across it. cz keeps the
+  // 6 m terrace between the folding glass and the coping that the cocktail-hour
+  // dressing (bar + high-tops) needs.
+  LOUNGE_POOL: { cx: -44, cz: 6, w: 9, d: 18, umbrellas: 6 },     // teal umbrellas
 
   // ---------------------------------------------------------- circular lawn
   // Large hedge-ringed event lawn NW of the buildings. CEREMONY.
@@ -166,13 +193,24 @@ export const SITE = {
   //
   // Nothing may be placed at +Z beyond the pool deck again — that ground is
   // the view.
+  // Carl's placement correction (2026-08-01, second half). Facing the pool is
+  // local +Z, so RIGHT = −X and LEFT = +X (derived from player.js: at yaw = π,
+  // right = (cos π, 0, −sin π) = (−1, 0, 0)).
+  //   · the two 3-BEDROOM suites (type 2) sit to the RIGHT of the presidential
+  //     suite, sharing LOUNGE_POOL which moved to −X with them
+  //   · the three 2-BEDROOM POOL suites (type 1) sit BEHIND THE ATRIUM — in
+  //     the aerial they read as walled courtyards with plunge pools on the far
+  //     side of the courtyard from the suite
+  //   · the five Garden Rooms (type 0) take what's left
+  // Nothing may sit to the LEFT of the main pool: that view is the hero shot.
   VILLAS: [
-    // west arm — along the arrival drive, looking out over the lawn to the sea
-    [-30, -14, 0.06, 0], [-30, -32, -0.05, 1], [-30, -50, 0.08, 0],
-    // north arm — the back of the complex, off the atrium's north gallery
-    [-16, -70, 0.10, 0], [4, -70, -0.07, 2], [24, -70, 0.05, 0], [44, -70, -0.10, 1],
-    // east arm — beyond the 酒廊 lounge
-    [52, -52, 0.09, 2], [66, -14, -0.06, 0], [66, -32, 0.11, 1],
+    // 3-BR suites — right of the presidential suite, by their pool
+    [-24, -14, 0.06, 2], [-26, -36, -0.05, 2],
+    // 2-BR pool suites — the walled courtyards behind the atrium
+    [-16, -70, 0.10, 1], [4, -70, -0.07, 1], [24, -70, 0.05, 1],
+    // Garden Rooms
+    [-26, -56, 0.08, 0], [44, -70, -0.10, 0], [52, -52, 0.09, 0],
+    [66, -14, -0.06, 0], [66, -32, 0.11, 0],
   ],
   VILLA: {
     w: 13, d: 11, h: 3.6,          // type 0 footprint
@@ -354,10 +392,10 @@ const MOMENT_PLACES_LOCAL = {
   // the chairs at LAWN.cz + 12 … + 8 (z −34…−38) and the arch at LAWN.cz − 8
   // (z −54), so anything in −34…−38 spawns you inside the seating.
   CEREMONY:   { x: -75, z: -30, yaw: 0 },
-  COCKTAIL:   { x: 46, z: -18, yaw: Math.PI }, // lounge terrace, facing the pool
+  COCKTAIL:   { x: -44, z: -4, yaw: Math.PI },  // lounge terrace, facing its pool
   // inside the lounge just in from the glass, looking NORTH up the room across
   // the six rounds to the head table (the tables sit at z −36…−30)
-  DINNER:     { x: 46, z: -26, yaw: 0 },
+  DINNER:     { x: -44, z: -12, yaw: 0 },      // inside the lounge, looking up the room
   AFTERPARTY: { x: 0, z: -10, yaw: Math.PI },  // suite pool deck, DJ behind you
 };
 
