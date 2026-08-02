@@ -20,14 +20,14 @@ own coordinates. Change the layout there, never in a builder.
 
 | File | Owns |
 |------|------|
-| `js/site.js` | **The master site plan.** `SITE.*` footprints for the suite, deck, pool, cabanas, atrium, lounge, lawn, lagoon, palm grove, beach, ocean, hotel crescent. The ten guest keys are DERIVED here from `ROOM_SPEC` → `ROOMS` / `SITE.VILLAS` / `ROOM_DOORS` / `VILLA_ZONES`, with `snapDoor()` putting every gallery door on the atrium's facade grid. Plus `siteFloorY(x,z)`, `MOMENT_PLACES` (spawns) and `INTRO_PATH` (the opening dive). |
+| `js/site.js` | **The master site plan.** `SITE.*` footprints for the suite, deck, pool, cabanas, atrium, lounge, the grass ground (`GRAND_LAWN` / `BEACH_LAWN` / `DINNER_LAWNS` / `DINNER_WALK` / `FIRE_PIT`), the garden lawn, lagoon, palm grove, beach, ocean, hotel crescent. The ten guest keys are DERIVED here from `ROOM_SPEC` → `ROOMS` / `SITE.VILLAS` / `ROOM_DOORS` / `VILLA_ZONES`, with `snapDoor()` putting every gallery door on the atrium's facade grid. Plus `siteFloorY(x,z)`, `MOMENT_PLACES` (spawns) and `INTRO_PATH` (the opening dive). |
 | `js/config.js` | ALL tuning — walk + fly feel, camera, the intro orbit/dive, day-vs-night lighting levels, the `MOMENTS` table. No magic numbers elsewhere, and **no coordinates** (those are site.js). |
 | `js/main.js` | Renderer bootstrap (PMREM RoomEnvironment, sRGB, ACES), the `G` context object, `G.setMode`/`G.toggleMode` (walk ↔ fly), the begin→dive flow, N-key night toggle, resize, clock loop, `window.__game` debug hook |
 | `js/world.js` | **The integrator.** Builds nothing itself: calls each builder in order, owns `floorY(x,z)` (delegates to `siteFloorY`), owns the day↔night fan-out (`setNight`/`toggleNight`), and runs `G.tickers` each frame. |
 | `js/sky.js` | Sky dome (day + night gradients), sun/moon, stars, fog, and the whole global lighting rig |
 | `js/nature.js` | Ground, beach, animated ocean, the palm population, hedges, topiary, bougainvillea |
 | `js/water.js` | The hero pool (raised plinth, infinity edge, caustics), **the floating lanterns**, the deck + turf + "THE WESTIN" letters, cabana pavilions, loungers, lounge pool, lagoon, villa plunge pools |
-| `js/campus.js` | The 隐逸居 lounge, the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), circular lawn edging, event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
+| `js/campus.js` | The 隐逸居 lounge, the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), **the grass ground** (`buildGrassGround` — the mown lawn panels, the spine + cross paths, the planted terrace edge, the fire pit), garden-lawn edging, event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
 | `js/atrium.js` | The clubhouse's central courtyard AND its corridor — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, and the **ten real guest-room doors** (`buildRoomDoor`) with their lit number plaques |
 | `js/suite.js` | The presidential suite, inside and out — folding glass wall, great room, dining, pantry, the L-stair with its chandelier, the spa, the 2F lounge and balcony |
 | `js/introcam.js` | The opening: a drone orbit of the enclave behind the title card, then a bezier dive over the pool and in through the glass wall, handing the look state to `player.js` on landing |
@@ -134,9 +134,9 @@ teleport to the moment's spawn.
 |---|--------|-------|------|----------|
 | 1 | Welcome Brunch | The Westin Rooftop | 03-18 | the eight existing four-tops dressed (linen, settings, blooms, chair slips + sashes), a buffet run and a champagne service on the teak, a menu easel at the bridge |
 | 2 | Prewedding Setup | Presidential Suite | 03-19 | high-tops on the deck, festoon runs, welcome easel, champagne tower |
-| 3 | Ceremony | The Circular Lawn | 03-20 | 60 white chairs, aisle runner, foliage arch, petals |
-| 4 | Cocktail Hour | Clubhouse Terrace | 03-20 | bar against the lounge glass + eight high-tops |
-| 5 | Wedding Dinner | 隐逸居 Lounge | 03-20 | six rounds of ten, head table, dance floor, festoon |
+| 3 | Ceremony | The Beachfront Lawn | 03-20 | 60 white chairs facing the sea, aisle runner + petals, a 4.8 m dressed arch on stone bases, two urns |
+| 4 | Cocktail Hour | The Beachfront Lawn | 03-20 | same lawn 26 m east: a 6 m bar, eight high-tops, three teal parasols, festoon on poles |
+| 5 | Wedding Dinner | The Pool Lawns | 03-20 | eight rounds of EIGHT (64 covers) across the two lawns, head table + dance floor on the walk between them, festoon on poles |
 | 6 | After Party | Suite Pool Deck | 03-20 | DJ booth, speakers, mirror ball, lounges, string lights |
 
 **The order is CHRONOLOGICAL and the chip bar is read as a timeline** — the
@@ -268,9 +268,108 @@ annulus and its polar hole, and moving the y-ranged colliders with it.
 ⚠️ The hotel is OUTSIDE the enclave transform — plain world coordinates, never
 routed through `enclaveToWorld`.
 
-## QUEUED — the real ceremony / cocktail / dinner grounds (Carl, 2026-08-02)
+## The real ceremony / cocktail / dinner grounds — DONE 2026-08-02
 
-**This moves three of the six moments.** Carl, on the aerials:
+Three of the six moments moved, and the enclave grew the grass ground it never
+had. Carl's words are below; what follows them is what is now built.
+
+**Orientation, derived (this had cost three passes — do not re-derive it by
+eye).** `ENCLAVE.rotY = −π/2`, so `cos = 0`, `sin = −1` and `enclaveToWorld`
+collapses to `world.x = −z + ox`, `world.z = x + oz`. Therefore:
+
+| enclave-local | world | also |
+|---|---|---|
+| **+Z** | **−X = WEST** | toward the sand and the sea |
+| **+X** | **+Z = SOUTH** | the suite's **LEFT** hand facing the pool |
+
+`SITE.BEACH` is world x −136…−160, so the sand's inland edge is **local z 78**
+and the waterline is **local z ≈ 94**. Everything seaward of the pool's far
+coping (local z 21.5) is the grass ground.
+
+| what | local footprint | holds |
+|---|---|---|
+| `SITE.GRAND_LAWN` | x −40…9, z 25…50 | the big grass area — open, empty |
+| palm belt | z 50…58 | with gaps at x −22 (aisle) and x −2 (spine path) |
+| `SITE.BEACH_LAWN` | x −40…12, z 58…75 | **CEREMONY** (x −22) + **COCKTAIL** (x +4) |
+| `SITE.DINNER_LAWNS` | x −23…−11 and −39…−27, z −5…15 | **DINNER**, 4 rounds of 8 each |
+| `SITE.DINNER_WALK` | x −27…−23 | the paved walk, dance floor + head table |
+| `SITE.FIRE_PIT` | (−11, 20) | the square pit in the terrace paving |
+
+Spawns (`MOMENT_PLACES_LOCAL`): CEREMONY `(−22, 59, yaw π)` — the back of the
+aisle, arch at z 71, rows at z 62…66; COCKTAIL `(4, 58.5, yaw π)`; DINNER
+`(−17, −3, yaw π)`. **yaw π faces local +Z = world WEST = the sea** (`fwd =
+(−sin y, 0, −cos y)`); yaw 0 would face the clubhouse, which is what the old
+ceremony spawn did and why the blurb had been lying since the rotation.
+
+**Four things worth knowing before touching any of it:**
+
+- **`SITE.BEACH.x1` moved −118 → −136.** 38 m between the pool and the sand
+  could not hold a lawn, a palm belt, a 12 m aisle and an arch. There are now
+  56. `siteGroundY`'s slope is unchanged in shape, just steeper (24 m of sand
+  rather than 42), which is closer to the reference photo anyway.
+- **Both dinner lawns are on local −X, not one per side.** That is what
+  `reference/photos/lawn-dinner-strips-and-2nd-pool.png` shows — two rectangles
+  stacked between the two sheets of water, split by paving — and it is the only
+  reading under which Carl's follow-up ("*the second pool … there should be more
+  space for the two rectangle shape grass area*") means anything. The +X flank
+  is the cabana run, its hedge wall and `SITE.PLAZA`; it could not hold eight
+  rounds. ⚠ **Note the one thing the aerial and the model disagree on:** read
+  north-up, that aerial puts the cabana blocks on the same side as the lawns,
+  i.e. NORTH of the pool — but the model has them at local +X, which is the
+  suite's LEFT and is Carl-verified on site (see "Layout corrections" below).
+  The left/right relationship Carl checked in person wins; the world-compass
+  side does not. Do not "fix" the cabanas to match an aerial's compass.
+- **`SITE.LOUNGE_POOL` was reshaped and pushed out**: 9 × 18 running along Z at
+  cx −44 → 20 × 13 running along X at cx −56, cz 7. Its stone apron now stops at
+  x −41.5, clearing the outer dinner lawn by 2.5 m. It carries a new `OUTLINE`
+  key — the free-form plan traced off the aerial as a closed normalised polygon
+  whose AABB is exactly w × d. **water.js still builds it as a rectangle and
+  that rectangle is the outline's bounding box**, so nothing is misplaced; the
+  outstanding job is in the polish backlog below.
+- **`SITE.LAWN` still exists and is still built.** It is no longer the ceremony
+  ground — it is a formal garden lawn out by the arrival road. It was NOT
+  deleted because `world.js`'s `enclaveKeepOut()` reads `S.LAWN.hedgeR`
+  unconditionally and world.js was not in this pass's ownership.
+
+**`campus.js`'s `buildGrassGround()` builds every square metre of it through
+`inst()`, and that is a correctness requirement, not a performance one.**
+world.js re-parents campus content into the rotated enclave two ways: named
+groups listed in its `CAMPUS_ENCLAVE_GROUPS` **literal**, and InstancedMeshes,
+whose instances it relocates individually through `isEnclaveLocal()`. A new
+named group is not in that Set and would stand 90° around the map, silently.
+Same reason there are no `THREE.PointLight`s out there — a light needs a parent
+group — so the path lights and the fire bed are emissive instances.
+
+**Verified** (headless Playwright, 1440 × 810, zero page errors, zero console
+errors *or warnings*): all six moments switch, dress, night-flip and spawn on
+flat ground with zero collider drift; walked the aisle from the ceremony spawn
+to the arch (prompt fires) and strafed into the seating; walked the cocktail
+spawn to the bar (prompt fires); walked the dinner spawn up the inner lawn and
+across to the walk (dance-floor prompt fires); walked the whole route pool deck
+→ round the pool → across the terrace → 41 m up the spine path → onto the
+beachfront lawn, feet at y = 0 the entire way; suite spawn → out through the
+folding glass onto the turf still works. From the great room the hero pool
+subtends 5.8°…22.5° off the view axis and the second pool 56.2°…74.6°, against a
+44.6° half-FOV — it is still the only pool visible from the suite, and further
+off-axis than it was (50.8° before). Cost: **+12 draw calls, +20.6k triangles,
++136 colliders, +2 lights** (both inside the dinner group, so both free while it
+is hidden), 35.2 fps against a 35.2 fps baseline.
+
+**Two bugs this pass found and fixed, both invisible to a render:**
+1. **The ceremony arch was built edge-on.** `TorusGeometry` lies in the XY plane
+   so a π arc spans X — and the arch carried `rotation.y = Math.PI / 2`, which
+   mapped that span onto Z, the same axis the aisle ran along. You walked toward
+   a 0.18 m ribbon seen end-on. That is most of what "the arch reads thin" in
+   the polish backlog actually was. There is no y-rotation now and it is a real
+   structure: two 0.34 m posts on stone bases, a 4.8 m span, a 5.0 m crown.
+2. **The planted terrace edge sealed the lawn off.** At `GRAND_LAWN.z0 − 1.3` it
+   sat in the 3.4 m strip between the hero pool's far coping and the lawn — and
+   the coping's collider already reaches z ≈ 22.95 once `CFG.PLAYER_R` is added,
+   leaving a ~1 m slot, then a hedge. A scripted walk from the pool deck simply
+   stopped. It stands at `GRAND_LAWN.z0 + 0.9` now, on the lawn's first metre,
+   with 2 m of clear terrace in front of it across all 49 m.
+
+Carl's words, for the record:
 
 > *"correction for the ceremony, it's actually in a grass lawn area behind the
 > pool and very close to the beach … focus on this area for the clubhouse and
@@ -278,39 +377,32 @@ routed through `enclaveToWorld`.
 > area — our ceremony is actually there, with the cocktail hours as well! Our
 > dinner is actually in this two grass area right outside of the pool."*
 
-References (all in `reference/photos/`): `lawn-big-grass-area.png` (the
-clubhouse with the large open lawn running west to the beach),
-`lawn-private-beachfront.png` (the private lawn nearest the sand — CEREMONY +
-COCKTAIL), `lawn-two-strips-by-pool.png` (the two grass areas flanking the
-pool — DINNER), plus `westin-site-map.jpeg` for the whole context.
+> *"you probably need to first refactor the second pool for the 3 bedroom
+> suites, the shape is different and there should be more space for the two
+> rectangle shape grass area where it would fit ~4 tables of 8 each side of the
+> grass."*
 
-To build:
-1. **The big grass area** between the clubhouse and the beach — an open lawn,
-   not the small hedge-ringed disc `SITE.LAWN` models today. In the aerial it
-   is the dominant green space of the enclave.
-2. **CEREMONY moves** off `SITE.LAWN` to the **private beachfront lawn** at the
-   far west end, closest to the sand. `MOMENT_PLACES.CEREMONY` and the arch /
-   chair / aisle dressing in `moments.js` go with it. The blurb finally becomes
-   true: the arch really does have the sea behind it (that copy has been wrong
-   since the enclave rotated — see the polish backlog).
-3. **COCKTAIL HOUR moves to the same beachfront lawn** — it is no longer at the
-   clubhouse terrace pool. Keep the two spatially distinct within that lawn so
-   the moments still read differently.
-4. **WEDDING DINNER moves to the two grass strips flanking the presidential
-   pool** — right outside it, not inside the 酒廊 lounge. The lounge stays
-   built; it is simply no longer the dinner venue.
+**The references this was modelled from** (all `reference/photos/`, all
+gitignored). The last one is the best photograph on this project and is what the
+lawn's design is actually derived from:
 
-⚠️ Orientation: after the enclave rotation, **enclave-local +Z is world WEST,
-toward the sea** — the suite's glass wall and the 25 m pool look that way. So
-"behind the pool, close to the beach" is local +Z beyond the pool's far end
-(local z ≳ 22), and "the two grass areas right outside the pool" are the
-strips at local ±X flanking it. Derive, don't assume — a sign error here has
-cost us three separate passes already.
-
-⚠️ Do NOT regress: the six-moment chronological order and `momentIndex(id)`
-(nothing holds a raw index), the rooms attached to the atrium, the un-mirrored
-suite, the hero pool being the only pool visible from the suite, or the
-walkable height field. Every moved spawn needs a walk test, not just a render.
+- `clubhouse-lawn-to-beach.png` — **from above the clubhouse, looking west out
+  to sea.** The pool, the square fire pit in the paving, clipped hedge blocks
+  and rounded topiary edging the terrace, then a huge FLAT, UNBROKEN, EMPTY
+  lawn running the full width of the frame to a dense palm grove, then beach,
+  then open sea. It is the whole composition in one frame, and its main lesson
+  is negative: no hedge ring, no coping, no ring path, no ornament. Everything
+  `buildLawn()` does to `SITE.LAWN` is the wrong idea out here.
+- `lawn-dinner-strips-and-2nd-pool.png` — the close aerial that settles DINNER:
+  the free-form second pool, the presidential pool, and the two rectangular
+  grass panels stacked between them with a paved walk down the middle.
+- `lawn-big-grass-area.png` — the top-down of the same ground; the scale
+  reference for GRAND_LAWN and the beachfront clearing.
+- `lawn-private-beachfront.png`, `lawn-two-strips-by-pool.png`,
+  `westin-site-map.jpeg` — context.
+- `beach-pool-circular.png`, `lazy-river-closeup.png` — for the river/lagoon
+  backdrop, not used by this pass. Note for whoever does: **the river is
+  NARROW**, one paddleboard wide, with palms overhanging both banks.
 
 ## Work queue (Carl's order, 2026-08-01)
 
@@ -397,14 +489,26 @@ None of these are guesses — each was found and left by a verified pass:
   it on top of `siteFloorY`. Paste this into site.js's registry when that file
   is next open and delete the patch:
   `rect('cabana-boardwalk', 11.9, -2.4, 14.4, 21.4, 0.30)`.
-- **The ceremony arch reads thin** from the back of the aisle — a 2.4 m torus
-  seen from ~24 m. It's the focal point of that moment; it wants scale or
-  mass.
-- **The ceremony blurb promises "an arch with the sea behind it"**, but after
-  the enclave rotation the lawn faces the hotel. Either re-aim the lawn or fix
-  the copy — currently the words and the view disagree.
-- **`MOMENT_PLACES.COCKTAIL` lands ~0.29 m inside a terrace collider**, so the
-  player is nudged on the first frame. Pre-existing, cosmetic.
+- ~~The ceremony arch reads thin~~ — FIXED 2026-08-02; it was built edge-on (see
+  the grass-ground section) and is now a real 4.8 m structure seen from 12 m.
+- ~~The ceremony blurb's "arch with the sea behind it" disagrees with the
+  view~~ — FIXED 2026-08-02; the aisle now runs local +Z, which is world west.
+- ~~`MOMENT_PLACES.COCKTAIL` lands inside a terrace collider~~ — gone with the
+  move; it spawns on open grass with zero first-frame drift.
+- **`SITE.LOUNGE_POOL` is still drawn as a rectangle.** Its real plan is the
+  free-form outline now published as `SITE.LOUNGE_POOL.OUTLINE` — a closed,
+  counter-clockwise polygon in normalised pool space (`u = x/w`, `v = z/d`, both
+  −0.5…+0.5, first point not repeated), traced off
+  `lawn-dinner-strips-and-2nd-pool.png`. `water.js`'s `buildLoungePool()` calls
+  `makeRectPool()` and was not in the 2026-08-02 pass's ownership. The job:
+  build a `THREE.Shape` from `OUTLINE` scaled by `w`/`d` about `(cx, cz)`, use
+  it for the water surface, the coping band (the shape offset outward ~0.45 m)
+  and the basin, and lay the collider chain along the offset outline instead of
+  four straight runs — keeping the current plinth 0.3 / waterY 0.26 / depth 1.25
+  and the single-Reflector rule (this pool must not add a mirror pass). The
+  outline's AABB is exactly `w × d`, so today's rectangle is its bounding box
+  and nothing is misplaced in the meantime. The straight `v = −0.5` edge is the
+  side facing the lounge's folding glass and must stay straight.
 - **The arrival drive spur is orphaned** — `campus.js`'s `buildRoad()` runs a
   spur to a drop-off circle that used to serve the clubhouse; since the
   enclave moved it ends on empty grass.

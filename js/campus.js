@@ -4,7 +4,12 @@
 //   · SITE.LOUNGE      — the 280 ㎡ / 60-seat 酒廊, wedding-dinner venue
 //   · SITE.VILLAS      — 10 guest keys in 3 types (5 Garden Rooms, 3 Garden Pool
 //                        2-BR with walled courtyards, 2 two-storey Garden 3-BR)
-//   · SITE.LAWN        — the circular ceremony lawn, stone edge + ring path + hedge
+//   · SITE.LAWN        — the formal GARDEN lawn out by the road (NOT the
+//                        ceremony ground any more): stone edge + ring path + hedge
+//   · SITE.GRAND_LAWN / BEACH_LAWN / DINNER_LAWNS / FIRE_PIT
+//                      — the grass ground: the big open lawn running west to the
+//                        beach, the private beachfront lawn (ceremony + cocktail)
+//                        and the two dinner lawns flanking the presidential pool
 //   · SITE.PLAZA       — basalt/turf band paving with in-ground lights
 //   · SITE.PERGOLA / SIGN_PILLAR / EXT_STAIR
 //   · SITE.HOTEL       — the far Westin crescent (fly-mode skyline)
@@ -1175,6 +1180,173 @@ function buildLawn(G, root) {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
+   3b · THE GRASS GROUND  (Carl, 2026-08-02)
+   ════════════════════════════════════════════════════════════════════════
+   The four mown lawns of SITE — GRAND_LAWN, BEACH_LAWN and the two
+   DINNER_LAWNS — plus the paths that link them, the planted terrace edge and
+   the fire pit. This is the ground three of the six moments now stand on.
+
+   Reference: reference/photos/clubhouse-lawn-to-beach.png (from above the
+   clubhouse, looking west out to sea) settles the composition, and the one
+   thing it settles hardest is what NOT to build: the big lawn is flat,
+   unbroken and completely empty. No hedge ring, no coping, no ring path, no
+   ornament — buildLawn()'s vocabulary above is exactly the wrong idea out
+   here. What edges it is soft: clipped hedge blocks, rounded topiary and
+   shrub masses on the terrace side, palms everywhere else (nature.js).
+
+   ⚠ EVERYTHING HERE GOES THROUGH inst(), and that is not a performance
+   choice. world.js re-parents campus.js's content into the rotated enclave
+   two ways: named groups listed in its CAMPUS_ENCLAVE_GROUPS set, and
+   InstancedMeshes, whose instances it relocates one by one through
+   isEnclaveLocal(). That set is a literal in world.js, which this pass does
+   not own — a NEW named group would simply not be in it and would stand 90°
+   around the map at raw local coordinates, silently. Instances are relocated
+   by position and cannot miss. Same reason there are no THREE.PointLights
+   out here: a light needs a parent group. The lanterns and the fire bed are
+   emissive instances, like buildLawn()'s path lights.                       */
+const LAWN_Y = .02;          // mown turf, 20 mm proud of nature.js's ground
+const PATH_Y = .035;         // paving, proud of the turf
+
+function buildGrassGround(G) {
+  const GL = SITE.GRAND_LAWN, BL = SITE.BEACH_LAWN, FP = SITE.FIRE_PIT;
+  const rnd = mulberry32((CFG.SEED ^ 0x6a55) >>> 0);
+  /* mow stripes: one material, two instance tints. A 49 m sheet of a single
+     3 m grass repeat reads as billiard baize from the drone orbit. */
+  const MOW = [new THREE.Color(.90, .96, .88), new THREE.Color(1, 1, 1)];
+
+  /** a mown panel, banded across its SHORT axis */
+  const panel = (L, bandD) => {
+    const w = L.x1 - L.x0, d = L.z1 - L.z0;
+    const along = d >= w ? 'z' : 'x';
+    const n = Math.max(2, Math.round((along === 'z' ? d : w) / bandD));
+    for (let i = 0; i < n; i++) {
+      const a0 = i / n, a1 = (i + 1) / n;
+      const m = along === 'z'
+        ? mat4((L.x0 + L.x1) / 2, LAWN_Y, L.z0 + d * (a0 + a1) / 2, w, 1, d * (a1 - a0))
+        : mat4(L.x0 + w * (a0 + a1) / 2, LAWN_Y, (L.z0 + L.z1) / 2, w * (a1 - a0), 1, d);
+      inst('lawnI', UNIT_PLANE, MAT.turf, m, MOW[i & 1]);
+    }
+  };
+  const paving = (cx, cz, w, d) =>
+    inst('grassPaveI', UNIT_PLANE, MAT.stone, mat4(cx, PATH_Y, cz, w, 1, d));
+  /* A path light is a pale stone block with a glowing cap, not a bare
+     MAT.glowLamp box: glowLamp's day colour is 0x1a1a1c, and buildLawn() gets
+     away with that because its lights line a paved ring path. Out here they sit
+     on open mown grass in daylight, where a dozen 0.2 m black cubes read as
+     bricks dropped on the lawn. */
+  const lamp = (x, z) => {
+    inst('grassLampI', UNIT_BOX, MAT.stone, mat4(x, .1, z, .22, .2, .22));
+    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, .215, z, .17, .05, .17));
+  };
+
+  /* ── the two big lawns ── */
+  panel(GL, 3.1);
+  panel(BL, 2.9);
+
+  /* ── the spine path: pool terrace → up the grand lawn → the beachfront.
+        x = −2 so it threads the gap nature.js leaves in the palm belt
+        (placePalms' gapAt: |x| < 5). A path that ends in a palm trunk is the
+        kind of thing only a walk test finds. ── */
+  const SPX = -2, XZ = BL.z0 - .8;
+  paving(SPX, (GL.z0 - 1.4 + XZ) / 2, 3.4, XZ - GL.z0 + 1.4);
+  /* ── the cross path along the head of the beachfront lawn: it feeds the
+        ceremony aisle at x −22 and the cocktail lawn at x +4 ── */
+  paving((-31 + 10) / 2, XZ, 41, 2.6);
+  for (let i = 0; i < 9; i++) lamp(SPX + (i & 1 ? 1.85 : -1.85), GL.z0 + 1 + i * 3.7);
+  for (let i = 0; i < 9; i++) lamp(-30 + i * 5, XZ + 2.1);
+
+  /* ── the planted terrace edge, between the pool paving and the big lawn.
+        Clipped blocks with real gaps rather than one continuous wall: every
+        block carries a collider (house rule for hedges) and a 49 m sealed run
+        with one opening would funnel everybody through it.
+
+        ⚠ IT STANDS ON THE LAWN'S FIRST METRE, NOT IN FRONT OF IT. At GL.z0 −
+        1.3 the run sat in the 3.4 m strip between the hero pool's far coping
+        and the lawn — and the pool's coping collider already reaches z ≈ 22.95
+        once CFG.PLAYER_R is added, so the only route from the pool deck to the
+        lawn became a ~1 m slot, then a hedge. A walk test from the deck simply
+        stopped. Pushed to GL.z0 + 0.9 the terrace strip is 2 m of clear
+        east–west walking across its whole 49 m, and the hedge is still what you
+        see between the paving and the grass, which is the reference photo. ── */
+  const EZ = GL.z0 + .9;
+  for (let x = GL.x0; x < GL.x1 - 1; ) {
+    const w = 2.6 + rnd() * 1.8;
+    if (!(x < SPX + 2.6 && x + w > SPX - 2.6)) {           // leave the path open
+      const h = .78 + rnd() * .22;
+      inst('hedgeI', UNIT_BOX, MAT.hedge, mat4(x + w / 2, h / 2, EZ, w, h, 1.35));
+      colliderLine(G.colliders, x + .4, EZ, x + w - .4, EZ, .5);
+      if (rnd() > .55) {                                   // rounded topiary
+        const r = 1.0 + rnd() * .5;
+        inst('topiaryI', UNIT_BLOB, MAT.hedge,
+          mat4(x + w / 2 + (rnd() - .5) * 1.4, r * .82, EZ - 1.5 - rnd(), r * 2, r * 1.7, r * 2));
+      }
+      if (rnd() > .72) {                                   // a bougainvillea mass
+        inst('bougI', UNIT_BLOB, MAT.bougain,
+          mat4(x + w / 2, .6, EZ + 1.2, 1.7, 1.1, 1.5));
+      }
+    }
+    x += w + 1.9 + rnd() * 1.4;
+  }
+
+  /* ── the fire pit set into the terrace paving beside the pool ──
+        A square kerb of pale stone in a wider apron with a dark pebble
+        margin, an ember bed that lights after dark. Its kerb is 0.35 m — under
+        CFG.STEP_UP, so floorY would happily let a walker stand in the fire;
+        the four collider runs are what actually keep them out. */
+  {
+    const A = FP.w + FP.rim * 2;
+    paving(FP.cx, FP.cz, A + 2.4, A + 2.4);
+    inst('grassPaveI', UNIT_PLANE, MAT.blackstone,
+      mat4(FP.cx, PATH_Y + .004, FP.cz, A, 1, A));
+    for (const s of [-1, 1]) {
+      inst('firePitI', UNIT_BOX, MAT.stone,
+        mat4(FP.cx + s * FP.w / 2, .175, FP.cz, .5, .35, FP.w + .5));
+      inst('firePitI', UNIT_BOX, MAT.stone,
+        mat4(FP.cx, .175, FP.cz + s * FP.w / 2, FP.w + .5, .35, .5));
+      colliderLine(G.colliders, FP.cx + s * (FP.w / 2 + .25), FP.cz - FP.w / 2,
+        FP.cx + s * (FP.w / 2 + .25), FP.cz + FP.w / 2, .45);
+      colliderLine(G.colliders, FP.cx - FP.w / 2, FP.cz + s * (FP.w / 2 + .25),
+        FP.cx + FP.w / 2, FP.cz + s * (FP.w / 2 + .25), .45);
+    }
+    inst('grassPaveI', UNIT_PLANE, MAT.blackstone,
+      mat4(FP.cx, .07, FP.cz, FP.w - .5, 1, FP.w - .5));
+    inst('glowI', UNIT_BOX, MAT.glowLamp,
+      mat4(FP.cx, .10, FP.cz, FP.w - .9, .06, FP.w - .9));
+  }
+
+  /* ── two teak benches at the seaward edge, facing the water ── */
+  for (const bx of [BL.x0 + 5, BL.x1 - 3]) {
+    inst('benchI', UNIT_BOX, MAT.deck, mat4(bx, .43, BL.z1 - 1.6, 1.9, .09, .5));
+    for (const s of [-1, 1]) {
+      inst('benchI', UNIT_BOX, MAT.deck, mat4(bx + s * .78, .21, BL.z1 - 1.6, .12, .43, .44));
+    }
+    G.colliders.push({ x: bx, z: BL.z1 - 1.6, r: .95 });
+  }
+
+  /* ── the two DINNER lawns and the paved walk between them ── */
+  const DW = SITE.DINNER_WALK;
+  for (const L of SITE.DINNER_LAWNS) {
+    panel(L, 2.8);
+    /* a pale mow strip on all four edges — it is what makes a rectangle of
+       grass in the middle of a lawn read as a laid-out room */
+    for (const s of [-1, 1]) {
+      paving((L.x0 + L.x1) / 2, s < 0 ? L.z0 - .35 : L.z1 + .35, L.x1 - L.x0 + 1.4, .7);
+      paving(s < 0 ? L.x0 - .35 : L.x1 + .35, (L.z0 + L.z1) / 2, .7, L.z1 - L.z0);
+    }
+  }
+  inst('grassPaveI', UNIT_PLANE, MAT.paver,
+    mat4((DW.x0 + DW.x1) / 2, PATH_Y, (DW.z0 + DW.z1) / 2,
+      DW.x1 - DW.x0 - 1.4, 1, DW.z1 - DW.z0));
+  /* the apron that joins both lawns back to the pool terrace */
+  inst('grassPaveI', UNIT_PLANE, MAT.paver,
+    mat4((SITE.DINNER_LAWNS[1].x0 + SITE.DINNER_LAWNS[0].x1) / 2, PATH_Y,
+      SITE.DINNER_LAWNS[0].z0 - 2.4,
+      SITE.DINNER_LAWNS[0].x1 - SITE.DINNER_LAWNS[1].x0, 1, 3.4));
+  for (let i = 0; i < 7; i++) lamp((DW.x0 + DW.x1) / 2, DW.z0 + 1 + i * 3.1);
+  return null;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
    4 · the event plaza — alternating basalt paver bands and turf strips
    ════════════════════════════════════════════════════════════════════════ */
 function buildPlaza(G, root) {
@@ -1997,6 +2169,7 @@ export function buildCampus(G) {
   buildVillas(G, root, rnd);
   buildResortVillas(G, rnd);
   buildLawn(G, root);
+  buildGrassGround(G);
   buildPlaza(G, root);
   buildPergola(G, root);
   buildSign(G, root);

@@ -213,16 +213,120 @@ export const SITE = {
   LOUNGE: { cx: -44, cz: -16, w: 20, d: 14, h: 4.2, glassZ: -9,
     plinth: 0.34, plinthPadX: 2.4, plinthPadZ: 3.0, plinthOffX: 0.5, plinthOffZ: 0.3,
     step2Y: 0.16, step2Z0: 1.0, step2Z1: 1.9 },   // step Zs are offsets from glassZ
-  // same principle as the hero pool — it runs AWAY from the lounge's glass
-  // wall, so from inside you look down its length, not across it. cz keeps the
-  // 6 m terrace between the folding glass and the coping that the cocktail-hour
-  // dressing (bar + high-tops) needs.
-  LOUNGE_POOL: { cx: -44, cz: 6, w: 9, d: 18, umbrellas: 6 },     // teal umbrellas
+  /* THE SECOND POOL — the one the 3-BR keys and the 酒廊 terrace share.
+     ⚠ RESHAPED AND PUSHED OUT 2026-08-02 (Carl): *"you probably need to first
+     refactor the second pool for the 3 bedroom suites, the shape is different
+     and there should be more space for the two rectangle shape grass area"*.
+     Reference: reference/photos/lawn-dinner-strips-and-2nd-pool.png.
 
-  // ---------------------------------------------------------- circular lawn
-  // Large hedge-ringed event lawn NW of the buildings. CEREMONY.
-  // between the complex and the beach — the seaside lawn in the aerial
+     Two things changed and both are load-bearing:
+      · ORIENTATION. It was 9 wide × 18 deep, i.e. running away from the lounge
+        along Z — which put it squarely in the corridor between the presidential
+        pool and the lounge, exactly where DINNER_LAWNS now live. In the aerial
+        its long axis runs along local X (≈24 m) and it is only ≈13 m along Z.
+      · POSITION. cx −44 → −56, which is 12 m further from the hero pool. Its
+        stone apron (water.js lays it at cx ± w/2 ± 4.5) now stops at x −41.5,
+        clearing DINNER_LAWNS[1]'s west edge (−39) by 2.5 m. cz 6 → 7 keeps the
+        apron's north lip (cz − d/2 − 5 = −9.5) at the lounge's glass line.
+     Still on the suite's RIGHT (local −X) — Carl's 2026-08-01 call, and moving
+     it further −X only strengthens "the presidential pool is the ONLY pool
+     visible from the suite": from the great room its nearest corner sits ~70°
+     off the view axis with the lounge's mass in the way.
+
+     ⚠ THE SHAPE IS NOT A RECTANGLE, and water.js — which is not ours to edit —
+     still builds it as one from w/d. OUTLINE below is the free-form plan traced
+     off the aerial, as a CLOSED polygon in normalised pool space (u = x/w,
+     v = z/d, both in −0.5…+0.5, counter-clockwise, first point NOT repeated).
+     Its AABB is exactly w × d, so the rectangle water.js draws today is the
+     outline's bounding box and nothing is misplaced in the meantime. When
+     water.js is next open, buildLoungePool() should extrude this through a
+     THREE.Shape instead of calling makeRectPool — see the report/CLAUDE.md.
+     The straight run is the v = −0.5 edge: that is the side facing the lounge's
+     folding glass, which is a coped terrace edge in the photo, not a curve. */
+  LOUNGE_POOL: { cx: -56, cz: 7, w: 20, d: 13, umbrellas: 6,      // teal umbrellas
+    OUTLINE: [
+      [-0.44, -0.50], [0.16, -0.50], [0.40, -0.47], [0.50, -0.36],
+      [0.50, -0.14], [0.44, 0.10], [0.34, 0.30], [0.20, 0.44],
+      [0.02, 0.50], [-0.14, 0.44], [-0.24, 0.30], [-0.32, 0.40],
+      [-0.42, 0.46], [-0.50, 0.34], [-0.50, 0.10], [-0.47, -0.14],
+      [-0.46, -0.34],
+    ] },
+
+  // ------------------------------------------------------- the formal garden lawn
+  // The small hedge-ringed disc on the ARRIVAL side, out by the road. It used to
+  // be the ceremony ground; it is not, and never was — see GRAND_LAWN below and
+  // reference/photos/clubhouse-lawn-to-beach.png, which shows the real one:
+  // open, unbroken, no hedge ring, no ring path. This stays as what it actually
+  // reads as, a formal garden lawn at the far end of the enclave.
   LAWN: { cx: -75, cz: -46, r: 22, hedgeR: 24, palms: 18 },
+
+  /* ═════════════════════════════════════════════════════════════════════════
+     THE GRASS GROUND — Carl, 2026-08-02
+     ═════════════════════════════════════════════════════════════════════════
+     *"correction for the ceremony, it's actually in a grass lawn area behind
+     the pool and very close to the beach … then closer to the beach you see
+     this private grass lawn area — our ceremony is actually there, with the
+     cocktail hours as well! Our dinner is actually in this two grass area right
+     outside of the pool."*
+
+     ── ORIENTATION, DERIVED (not assumed) ────────────────────────────────────
+     ENCLAVE.rotY = −π/2, so cos = 0 and sin = −1 and enclaveToWorld collapses
+     to the exact pair
+         world.x = −z + ENCLAVE.ox        world.z =  x + ENCLAVE.oz
+     Read off it directly:
+       · local +Z  →  world −X  =  WEST.  SITE.BEACH is world x −136…−160 and
+         SITE.OCEAN is everything west of that, so local +Z is the way to the
+         sea. The sand's inland edge lands at local z = 78.
+       · local +X  →  world +Z  =  SOUTH. It is ALSO the suite's LEFT hand when
+         it faces the pool (player.js: fwd = (−sin y, 0, −cos y), so facing +Z
+         puts +X on the left) — which is the frame every Carl-verified left/right
+         call on this project is stated in, and the one that decides the sides
+         below. SITE.CABANAS at +12 is on that left; SITE.LOUNGERS at −7.6 and
+         SITE.LOUNGE_POOL are on the right.
+     So "behind the pool, close to the beach" = local +Z past the pool's far
+     coping (z 21.5), and "right outside the pool" = the flank at local ±X.
+
+     ── WHERE EACH ONE LANDED ─────────────────────────────────────────────────
+     GRAND_LAWN     the big grass area: open mown grass from the pool terrace
+                    west to the palm belt. No ceremony furniture ever — it is
+                    the empty foreground the beachfront lawn is seen across.
+     BEACH_LAWN     the private lawn nearest the sand, past the palm belt.
+                    CEREMONY on its −X half, COCKTAIL HOUR on its +X half.
+     DINNER_LAWNS   the two rectangular panels flanking the presidential pool
+                    on its −X side, between it and the second pool, split by a
+                    paved walk. Four rounds of eight on each = 64 covers.
+
+     ⚠ The two dinner panels are BOTH on local −X, not one per side. That is
+     what reference/photos/lawn-dinner-strips-and-2nd-pool.png shows (they are
+     stacked between the two sheets of water, divided by paving) and it is the
+     only reading under which Carl's own follow-up — *"the second pool … there
+     should be more space for the two rectangle shape grass area"* — means
+     anything: a pool on the far side of the campus cannot be in their way. The
+     +X flank is already the cabana run, its hedge wall and SITE.PLAZA.
+
+     ⚠ Every one of these is a nature.js keep-out (exclusionZones) as well.
+     Move a rectangle here and the palms follow; add one and forget the zone and
+     a palm grows through the aisle.                                          */
+  // 49 × 25 m of open mown grass. x1 stops at 9 so the pergola (x 9.5…14.5,
+  // z 23…27) stands just off its corner rather than in it.
+  GRAND_LAWN: { x0: -40, x1: 9, z0: 25, z1: 50 },
+  // 52 × 17 m, the far side of the palm belt (z 50…58) and 3 m short of the
+  // sand at z 78. CEREMONY + COCKTAIL HOUR.
+  BEACH_LAWN: { x0: -40, x1: 12, z0: 58, z1: 75 },
+  // WEDDING DINNER. 12 × 20 m each (240 ㎡), split by a 4 m paved walk at
+  // x −27…−23. Four 1.8 m rounds of eight per panel on a 6 m grid: the 8-seat
+  // ring sits at r 1.35 with chair backs out to ~1.6, so 6 m of pitch leaves
+  // 2.8 m between chair backs — a served aisle, not a squeeze — and the 20 m
+  // length still buys a head table at one end and a dance floor at the other.
+  DINNER_LAWNS: [
+    { x0: -23, x1: -11, z0: -5, z1: 15 },     // inner: nearest the hero pool
+    { x0: -39, x1: -27, z0: -5, z1: 15 },     // outer: nearest the second pool
+  ],
+  DINNER_WALK: { x0: -27, x1: -23, z0: -5, z1: 15 },
+  // the square fire pit set into the terrace paving beside the pool —
+  // reference/photos/clubhouse-lawn-to-beach.png, centre of that photo's
+  // terrace. On the pool's −X flank at its seaward end, clear of DINNER_LAWNS.
+  FIRE_PIT: { cx: -11, cz: 20, w: 3.4, rim: 1.1 },
 
   // -------------------------------------------------------------- villa cluster
   // The REAL room mix from the hotel's deck (reference/clubhouse-pdf-brief.md):
@@ -447,9 +551,17 @@ export const SITE = {
   })(),
 
   // ---------------------------------------------------------- nature & context
-  PALM_GROVE: { x0: -120, x1: -66, z0: -110, z1: 110, count: 150 },
+  PALM_GROVE: { x0: -134, x1: -66, z0: -110, z1: 110, count: 150 },
   SCATTER_PALMS: 90,        // palms threaded through the whole campus
-  BEACH: { x0: -160, x1: -118 },       // sand
+  /* SAND. x1 went −118 → −136 on 2026-08-02 when the ceremony moved to the
+     beachfront lawn. In enclave-local terms the sand's inland edge is at
+     z = −(x1) − ENCLAVE.ox = 78, and everything between the pool's far coping
+     (z 21.5) and that line has to hold the grand lawn, a palm belt and a
+     private lawn deep enough for a 12 m aisle plus an arch. At −118 there were
+     38 m to do it in; there are now 56. The slope in siteGroundY is unchanged
+     in shape — it just runs over 24 m of sand instead of 42, which is closer to
+     the strip in reference/photos/clubhouse-lawn-to-beach.png anyway. */
+  BEACH: { x0: -160, x1: -136 },       // sand
   OCEAN: { x1: -160, size: 900, y: -0.55 },
   // main Westin crescent, far east — backdrop for fly mode
   // pushed east so its 95 m arc clears the RESORT_VILLAS field (which stops at
@@ -1252,15 +1364,26 @@ const MOMENT_PLACES_LOCAL = {
   // and the stone pier were moved to keep this walkable (suite.js GW.closedX1),
   // never the spawn — it is INTRO_PATH.land too, so the dive would miss.
   PREWEDDING: { x: 1, z: -18, yaw: Math.PI },
-  // Standing at the BACK of the aisle looking north up it to the arch.
-  // x tracks LAWN.cx (−75). z must sit behind the last row: moments.js lays
-  // the chairs at LAWN.cz + 12 … + 8 (z −34…−38) and the arch at LAWN.cz − 8
-  // (z −54), so anything in −34…−38 spawns you inside the seating.
-  CEREMONY:   { x: -75, z: -30, yaw: 0 },
-  COCKTAIL:   { x: -44, z: -4, yaw: Math.PI },  // lounge terrace, facing its pool
-  // inside the lounge just in from the glass, looking NORTH up the room across
-  // the six rounds to the head table (the tables sit at z −36…−30)
-  DINNER:     { x: -44, z: -12, yaw: 0 },      // inside the lounge, looking up the room
+  /* CEREMONY — the private beachfront lawn, at the BACK of the aisle looking
+     UP it, i.e. local +Z, which is world WEST and therefore straight out to
+     sea. yaw = π, because player.js builds fwd as (−sin y, 0, −cos y): π gives
+     (0, 0, +1). (yaw 0 would face −Z, back at the clubhouse — which is what the
+     old spawn did, on the old lawn, and is why the blurb's "an arch with the
+     sea behind it" had been a lie since the enclave rotated.)
+     z must sit BEHIND the last row: moments.js lays the five rows at z 62…66
+     and the arch at z 71, so 59 is 3 m clear of the back row and 12 m from the
+     arch — close enough for it to have real presence, far enough to read the
+     whole aisle. Anything in 62…66 spawns you inside the seating. */
+  CEREMONY:   { x: -22, z: 59, yaw: Math.PI },
+  /* COCKTAIL — the SAME lawn, 26 m east along it, so the two moments are
+     spatially distinct without either leaving the beachfront. Facing +Z at the
+     bar (z 68) with the sea past it. */
+  COCKTAIL:   { x: 4, z: 58.5, yaw: Math.PI },
+  /* DINNER — on the INNER of the two pool lawns, at its landward end looking
+     +Z up the length of it. Facing +Z puts the lit hero pool on your LEFT
+     (local +X) and the outer lawn with its own four tables on your RIGHT.
+     2 m inside the lawn's z0 (−5) and ~5.8 m off the nearest round. */
+  DINNER:     { x: -17, z: -3, yaw: Math.PI },
   AFTERPARTY: { x: 0, z: -10, yaw: Math.PI },  // suite pool deck, DJ behind you
 };
 

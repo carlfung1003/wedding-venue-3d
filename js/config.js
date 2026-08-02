@@ -71,15 +71,23 @@ export const CFG = {
     { id: 'setup', name: 'Prewedding Setup', area: 'Presidential Suite',
       spawn: MOMENT_PLACES.PREWEDDING, night: true,
       blurb: 'The night before — lanterns on the pool, the glass wall folded open, everyone spilling out of the living room.' },
-    { id: 'ceremony', name: 'Ceremony', area: 'The Circular Lawn',
+    /* Ceremony, Cocktail Hour and Wedding Dinner all MOVED on 2026-08-02 —
+       Carl has been to the venue and none of the three was where the model had
+       it. Ceremony and cocktails share the private beachfront lawn past the
+       palm belt; dinner is on the two lawns either side of the presidential
+       pool, not inside the 酒廊. See site.js's GRAND_LAWN / BEACH_LAWN /
+       DINNER_LAWNS block. The order of this table is untouched — it is the
+       timeline the chip bar draws, and momentIndex(id) is how anything finds a
+       moment in it. */
+    { id: 'ceremony', name: 'Ceremony', area: 'The Beachfront Lawn',
       spawn: MOMENT_PLACES.CEREMONY, night: false,
       blurb: 'Chairs on the grass, an aisle through the palms, and an arch with the sea behind it.' },
-    { id: 'cocktail', name: 'Cocktail Hour', area: 'Clubhouse Terrace',
+    { id: 'cocktail', name: 'Cocktail Hour', area: 'The Beachfront Lawn',
       spawn: MOMENT_PLACES.COCKTAIL, night: false,
-      blurb: 'High-tops by the terrace pool, teal umbrellas, and something cold while the lounge is flipped.' },
-    { id: 'dinner', name: 'Wedding Dinner', area: '隐逸居 Lounge',
+      blurb: 'Same lawn, other end. Teal parasols on the grass, something cold, and the tide coming in behind the bar.' },
+    { id: 'dinner', name: 'Wedding Dinner', area: 'The Pool Lawns',
       spawn: MOMENT_PLACES.DINNER, night: true,
-      blurb: 'Two hundred and eighty square metres, sixty seats, and the glass walls folded back to the pool.' },
+      blurb: 'Eight rounds of eight on the two lawns outside the pool, festoon strung overhead and the water lit alongside.' },
     { id: 'afterparty', name: 'After Party', area: 'Suite Pool Deck',
       spawn: MOMENT_PLACES.AFTERPARTY, night: true,
       blurb: 'The DJ takes the deck. Lanterns still burning on the water at 1 a.m.' },

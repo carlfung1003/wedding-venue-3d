@@ -29,6 +29,14 @@ const deckDark = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: .6
 const bulb = new THREE.MeshStandardMaterial({
   color: 0xfff0cf, emissive: 0xffcf87, emissiveIntensity: 2.2, toneMapped: false,
 });
+/* pale limed oak for the ceremony arch + the outdoor dinner rig, and the stone
+   its posts stand on — the arch is now seen against open sea and dark mahogany
+   reads as a silhouette against it */
+const limed = new THREE.MeshStandardMaterial({ color: 0xe4dccb, roughness: .78 });
+const stone = new THREE.MeshStandardMaterial({ color: 0xbfb9ad, roughness: .9 });
+const teal = new THREE.MeshStandardMaterial({
+  color: 0x1f8fa5, roughness: .85, side: THREE.DoubleSide,
+});
 
 const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
 const cyl = (r, h, m, seg = 16) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), m);
@@ -44,8 +52,12 @@ function chair() {
   return g;
 }
 
-/* round dinner table for ten, dressed */
-function roundTable() {
+/* round dinner table, dressed. `seats` was a hard 10 while the dinner was six
+   rounds inside the 60-seat lounge; the dinner is now eight rounds of EIGHT on
+   the two pool lawns (Carl, 2026-08-02), so it is a parameter. The ring radius
+   stays 1.35 m: a 1.8 m round seats eight at 1.06 m per cover, which is a real
+   banquet setting rather than eight people wedged onto a ten-top. */
+function roundTable(seats = 8) {
   const g = new THREE.Group();
   const top = cyl(.9, .06, linen, 24); top.position.y = .75; g.add(top);
   const skirt = new THREE.Mesh(new THREE.CylinderGeometry(.9, .86, .75, 24, 1, true), linen);
@@ -62,8 +74,8 @@ function roundTable() {
     const fl = new THREE.Mesh(new THREE.SphereGeometry(.035, 6, 5), bulb);
     fl.position.set(s * .34, 1.15, 0); g.add(fl);
   }
-  for (let i = 0; i < 10; i++) {
-    const a = (i / 10) * Math.PI * 2;
+  for (let i = 0; i < seats; i++) {
+    const a = (i / seats) * Math.PI * 2;
     const c = chair();
     c.position.set(Math.sin(a) * 1.35, 0, Math.cos(a) * 1.35);
     c.rotation.y = a + Math.PI;
@@ -139,7 +151,11 @@ export function initMoments(G) {
      the brunch lands 90° around the map from the roof it is set on. */
   groups.brunch.userData.worldSpace = true;
 
-  const P = SITE.POOL, D = SITE.DECK, L = SITE.LOUNGE, LW = SITE.LAWN;
+  /* SITE.LOUNGE and SITE.LAWN used to be dressed here (dinner inside the 酒廊,
+     the ceremony on the little circular lawn). Both moments moved outdoors on
+     2026-08-02 and neither footprint is read any more — the lounge still
+     stands, it is just not a venue, and the circular lawn is a garden. */
+  const D = SITE.DECK;
 
   /* ── 0 · WELCOME BRUNCH — the Westin rooftop, 18 March, two days out ───────
      campus.js already stands eight four-tops and eight parasols on the paved
@@ -324,96 +340,226 @@ export function initMoments(G) {
     cols.setup.push({ x: 7.5, z: D.z0 + 3, r: .7 });
   }
 
-  /* ── 2 · CEREMONY — the circular lawn, chairs and an arch ── */
+  /* ── 2 · CEREMONY — the private beachfront lawn, facing the sea ────────────
+     MOVED 2026-08-02 off SITE.LAWN (the little hedge-ringed disc out by the
+     road) to SITE.BEACH_LAWN, the clearing nearest the sand. Carl: *"it's
+     actually in a grass lawn area behind the pool and very close to the beach"*.
+
+     THE AISLE RUNS ALONG LOCAL +Z, which is world WEST — so the arch stands
+     between the guests and the sea and the blurb ("an arch with the sea behind
+     it") is finally describing what you see. Everything follows from that:
+     CEREMONY spawns at z 59 with yaw π (fwd = (0,0,+1)), the five rows sit at
+     z 62…66 and the arch at z 71, 12 m up the aisle from the spawn.
+
+     ⚠ THE ARCH USED TO BE BUILT EDGE-ON. It was a TorusGeometry — which lies
+     in the XY plane, so a π arc spans X — carrying `rotation.y = Math.PI / 2`,
+     which maps that span onto Z. The old aisle also ran along Z, so the arch
+     stood IN the plane of the aisle: you walked toward a 0.18 m-thick ribbon
+     seen end-on, which is most of what "the ceremony arch reads thin" in the
+     polish backlog actually was. There is no y-rotation now, and it is built as
+     a real structure — two 0.34 m posts on stone bases carrying a 4.8 m span to
+     a 5.0 m crown — rather than one 2.4 m tube. ── */
   {
     const g = groups.ceremony;
-    const cx = LW.cx, cz = LW.cz;
-    // 60 chairs: two blocks of 5 rows × 6, aisle down the middle, facing -Z
+    const AX = -22, AZ = 71;                       // aisle centre-line, arch line
+    const ROW0 = 62, ROWS = 5, PER = 6;
+    // 60 chairs: two blocks of 5 rows × 6, aisle down the middle, facing +Z
     for (const side of [-1, 1]) {
-      for (let row = 0; row < 5; row++) {
-        for (let i = 0; i < 6; i++) {
+      for (let row = 0; row < ROWS; row++) {
+        for (let i = 0; i < PER; i++) {
           const c = chair();
-          const x = cx + side * (1.6 + i * .62);
-          const z = cz + 12 - row * 1.0;
-          c.position.set(x, 0, z);
-          c.rotation.y = Math.PI;          // face the arch (north, -Z)
+          c.position.set(AX + side * (1.6 + i * .62), 0, ROW0 + row * 1.0);
+          c.rotation.y = 0;                        // chair() faces +Z unrotated
           g.add(c);
+          if (i === 0 && row % 2 === 0) {          // aisle-seat posies
+            for (let k = 0; k < 5; k++) {
+              const f = new THREE.Mesh(new THREE.SphereGeometry(.055 + rnd() * .035, 6, 5),
+                k % 2 ? blush : foliage);
+              f.position.set(AX + side * (1.34 + (rnd() - .5) * .22), .92 + rnd() * .12,
+                ROW0 + row * 1.0 - .1 + (rnd() - .5) * .2);
+              g.add(f);
+            }
+          }
         }
       }
     }
-    // aisle runner
-    const runner = box(2.8, .02, 22, linen);
-    runner.position.set(cx, .01, cz + 4); g.add(runner);
-    // the arch — a torus arc wound with foliage and blooms
-    const arch = new THREE.Mesh(new THREE.TorusGeometry(2.4, .09, 8, 28, Math.PI), timber);
-    arch.position.set(cx, 0, cz - 8);
-    arch.rotation.y = Math.PI / 2;
-    g.add(arch);
-    for (let i = 0; i < 60; i++) {
+    // aisle runner: from behind the back row through to under the arch
+    const runner = box(3.0, .02, 12.4, linen);
+    runner.position.set(AX, .01, 65.4); g.add(runner);
+
+    /* ── the arch ── posts, bases, a 2.4 m-radius crown, heavily dressed */
+    const POST_H = 2.6, R = 2.4, TOP = POST_H;
+    for (const s of [-1, 1]) {
+      const base = box(1.0, .26, 1.0, stone);
+      base.position.set(AX + s * R, .13, AZ); g.add(base);
+      const post = box(.34, POST_H, .34, limed);
+      post.position.set(AX + s * R, .26 + POST_H / 2, AZ); g.add(post);
+      cols.ceremony.push({ x: AX + s * R, z: AZ, r: .55 });
+    }
+    const crown = new THREE.Mesh(new THREE.TorusGeometry(R, .15, 10, 44, Math.PI), limed);
+    crown.position.set(AX, TOP + .26, AZ);        // NO rotation.y — spans X
+    g.add(crown);
+    // foliage + blooms wound over the crown and cascading down both haunches
+    for (let i = 0; i < 190; i++) {
       const a = rnd() * Math.PI;
-      const f = new THREE.Mesh(new THREE.SphereGeometry(.11 + rnd() * .08, 7, 6),
-        rnd() > .55 ? blush : foliage);
-      f.position.set(cx + (rnd() - .5) * .3, Math.sin(a) * 2.4, cz - 8 + Math.cos(a) * 2.4);
+      const drop = rnd() < .34 ? rnd() * 2.2 : 0;   // the cascades
+      const rr = R + (rnd() - .35) * .34;
+      const f = new THREE.Mesh(new THREE.SphereGeometry(.13 + rnd() * .13, 7, 6),
+        rnd() > .58 ? blush : foliage);
+      f.position.set(
+        AX + Math.cos(a) * rr,
+        Math.max(.3, TOP + .26 + Math.sin(a) * rr - drop),
+        AZ + (rnd() - .5) * .6,
+      );
       g.add(f);
     }
-    colLine(cols.ceremony, cx - 1.2, cz - 8, cx + 1.2, cz - 8, .5);
+    // two urns of blooms at the head of the aisle
+    for (const s of [-1, 1]) {
+      const urn = cyl(.34, .7, stone, 14);
+      urn.position.set(AX + s * 1.9, .35, AZ - 2.6); g.add(urn);
+      for (let i = 0; i < 16; i++) {
+        const f = new THREE.Mesh(new THREE.SphereGeometry(.13 + rnd() * .09, 7, 6),
+          rnd() > .5 ? blush : foliage);
+        f.position.set(AX + s * 1.9 + (rnd() - .5) * .8, .78 + rnd() * .5,
+          AZ - 2.6 + (rnd() - .5) * .8);
+        g.add(f);
+      }
+      cols.ceremony.push({ x: AX + s * 1.9, z: AZ - 2.6, r: .5 });
+    }
     // petals down the aisle
-    for (let i = 0; i < 90; i++) {
+    for (let i = 0; i < 130; i++) {
       const p = new THREE.Mesh(new THREE.CircleGeometry(.06, 5), blush);
       p.rotation.x = -Math.PI / 2;
-      p.position.set(cx + (rnd() - .5) * 2.6, .03, cz - 6 + rnd() * 18);
+      p.position.set(AX + (rnd() - .5) * 2.7, .03, 59.6 + rnd() * 11.6);
       g.add(p);
     }
   }
 
-  /* ── 3 · COCKTAIL — the lounge terrace by its pool ── */
+  /* ── 3 · COCKTAIL — the SAME beachfront lawn, 26 m along it ────────────────
+     Carl put the cocktail hour on the ceremony lawn, not at the clubhouse
+     terrace pool, so the two share a lawn and are separated within it: the
+     ceremony holds the −X half around x −22, the bar and the high-tops the +X
+     half around x +4. 14 m of clear grass between the chair block's edge and
+     the nearest high-top, which is what keeps them reading as two rooms. ── */
   {
     const g = groups.cocktail;
-    const LP = SITE.LOUNGE_POOL;
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const x = LP.cx + Math.sin(a) * (LP.w * .42) + (rnd() - .5);
-      const z = LP.cz - 6.5 + Math.cos(a) * 2.4;
+    const CX = 4, BARZ = 68;
+    // the bar, facing back down the lawn at the arriving guests
+    const bar = box(6.0, 1.1, .9, timber);
+    bar.position.set(CX, .55, BARZ); g.add(bar);
+    const barTop = box(6.3, .08, 1.1, linen);
+    barTop.position.set(CX, 1.14, BARZ); g.add(barTop);
+    const backBar = box(2.6, 1.5, .45, timber);
+    backBar.position.set(CX, .75, BARZ + 1.5); g.add(backBar);
+    colLine(cols.cocktail, CX - 3.0, BARZ, CX + 3.0, BARZ, .6);
+    colLine(cols.cocktail, CX - 1.3, BARZ + 1.5, CX + 1.3, BARZ + 1.5, .5);
+    for (let i = 0; i < 16; i++) {
+      const fl = cyl(.035, .18, glassy, 8);
+      fl.position.set(CX - 2.7 + i * .36, 1.27, BARZ - .2); g.add(fl);
+    }
+    for (let i = 0; i < 7; i++) {                  // bottles on the back bar
+      const b = cyl(.045, .3, glassy, 7);
+      b.position.set(CX - .9 + i * .3, 1.65, BARZ + 1.5); g.add(b);
+    }
+    /* Eight high-tops. Nothing sits closer than 3 m to the COCKTAIL spawn at
+       (4, 58.5) and nothing with a PARASOL closer than 6.5: a 1.7 m canopy at
+       2.7 m up, three metres away, is the entire frame on the first render. */
+    const spots = [[-2.4, 61.6], [3.0, 61.2], [7.4, 62.4], [-1.2, 64.6],
+      [4.2, 65.2], [8.4, 65.8], [-3.4, 67.0], [9.2, 68.6]];
+    for (const [dx, z] of spots) {
+      const x = CX + dx;
       const t = highTop(); t.position.set(x, 0, z); g.add(t);
       cols.cocktail.push({ x, z, r: .5 });
     }
-    // a bar counter against the lounge glass
-    const bar = box(5.2, 1.1, .8, timber);
-    bar.position.set(L.cx, .55, L.glassZ + 1.6); g.add(bar);
-    const barTop = box(5.4, .08, 1.0, linen);
-    barTop.position.set(L.cx, 1.14, L.glassZ + 1.6); g.add(barTop);
-    colLine(cols.cocktail, L.cx - 2.6, L.glassZ + 1.6, L.cx + 2.6, L.glassZ + 1.6, .55);
-    for (let i = 0; i < 14; i++) {
-      const fl = cyl(.035, .18, glassy, 8);
-      fl.position.set(L.cx - 2.3 + i * .36, 1.27, L.glassZ + 1.5); g.add(fl);
+    // three teal parasols, the clubhouse's own colour, over the far tables
+    for (const [dx, z] of [[4.2, 65.2], [8.4, 65.8], [-3.4, 67.0]]) {
+      const pole = cyl(.045, 2.5, timber, 8);
+      pole.position.set(CX + dx, 1.25, z); g.add(pole);
+      const um = new THREE.Mesh(new THREE.ConeGeometry(1.7, .55, 12), teal);
+      um.position.set(CX + dx, 2.68, z); g.add(um);
+    }
+    // a raw-bar / canapé table off to one side
+    const svc = cyl(.62, .8, linen, 18);
+    svc.position.set(CX - 5.4, .4, 64.6); g.add(svc);
+    for (let i = 0; i < 10; i++) {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(.07, 7, 6), i % 3 ? blush : foliage);
+      f.position.set(CX - 5.4 + (rnd() - .5) * .8, .86, 64.6 + (rnd() - .5) * .8);
+      g.add(f);
+    }
+    cols.cocktail.push({ x: CX - 5.4, z: 64.6, r: .8 });
+    /* Festoon on six real poles. The runs go pole-to-pole at the poles' OWN z,
+       not across the middle of the lawn — stringLights draws bulbs and no wire,
+       so a run that starts and ends in mid-air is a row of orbs floating over
+       the sea. Three rows × two poles each. */
+    for (const pz of [59.5, 64, 68.5]) {
+      for (const px of [CX - 6, CX + 10]) {
+        const p = cyl(.07, 3.6, timber, 8);
+        p.position.set(px, 1.8, pz); g.add(p);
+        cols.cocktail.push({ x: px, z: pz, r: .3 });
+      }
+      g.add(stringLights(CX - 6, pz, CX + 10, pz, 3.5, .9, 14));
     }
   }
 
-  /* ── 4 · DINNER — inside the 280 ㎡ lounge, sixty covers ── */
+  /* ── 4 · DINNER — the two lawns flanking the presidential pool ─────────────
+     MOVED 2026-08-02 out of the 酒廊. Carl: *"our dinner is actually in this
+     two grass area right outside of the pool"*. The lounge is still built and
+     still 280 ㎡; it is simply no longer where dinner happens.
+
+     Eight rounds of EIGHT = 64 covers, four per lawn on a 6 m grid, exactly
+     what Carl asked for. A head table across the head of the paved walk serves
+     both lawns; the dance floor is on the walk between them; the festoon hangs
+     off real poles because there is no longer a ceiling to hang it from. The
+     two point lights are the only lights any moment adds, and they cost nothing
+     while the moment is hidden — WebGLRenderer skips an invisible subtree
+     before it collects lights from it. ── */
   {
     const g = groups.dinner;
-    // six rounds of ten = 60 seats, the lounge's stated capacity
-    const spots = [[-6, -6], [0, -6], [6, -6], [-6, 0], [0, 0], [6, 0]];
-    for (const [dx, dz] of spots) {
-      const t = roundTable();
-      const x = L.cx + dx, z = L.cz + dz;
-      t.position.set(x, 0, z);
-      g.add(t);
-      cols.dinner.push({ x, z, r: 1.5 });
+    const [LA, LB] = SITE.DINNER_LAWNS, DW = SITE.DINNER_WALK;
+    const WX = (DW.x0 + DW.x1) / 2;
+    for (const L of [LA, LB]) {
+      const cx = (L.x0 + L.x1) / 2;
+      for (const dx of [-3, 3]) for (const z of [2, 8]) {
+        const x = cx + dx;
+        const t = roundTable(8);
+        t.position.set(x, 0, z);
+        g.add(t);
+        cols.dinner.push({ x, z, r: 1.5 });
+      }
+      /* three festoon runs on six real poles — one pair PER RUN, because
+         stringLights draws bulbs and no wire and a run whose ends are not on a
+         pole reads as a row of orbs hanging in the dark */
+      for (let i = 0; i < 3; i++) {
+        const z = L.z0 + 1.5 + i * ((L.z1 - L.z0 - 3) / 2);
+        for (const s of [-1, 1]) {
+          const p = cyl(.08, 4.0, limed, 8);
+          p.position.set(cx + s * 5.6, 2.0, z); g.add(p);
+          cols.dinner.push({ x: cx + s * 5.6, z, r: .3 });
+        }
+        g.add(stringLights(cx - 5.6, z, cx + 5.6, z, 3.9, .8, 12));
+      }
+      const lt = new THREE.PointLight(0xffc98a, 0, 26, 2);
+      lt.position.set(cx, 4.2, (L.z0 + L.z1) / 2);
+      g.add(lt);
+      G.tickers.push(() => { lt.intensity = g.visible ? 16 : 0; });
     }
-    // head table along the back wall
-    const head = box(4.4, .04, 1.0, linen);
-    head.position.set(L.cx, .76, L.cz - 5.6); g.add(head);
-    const headSkirt = box(4.4, .76, 1.0, linen);
-    headSkirt.position.set(L.cx, .38, L.cz - 5.6); g.add(headSkirt);
-    colLine(cols.dinner, L.cx - 2.2, L.cz - 5.6, L.cx + 2.2, L.cz - 5.6, .6);
-    // dance floor toward the glass
-    const floor = box(6, .04, 5, deckDark);
-    floor.position.set(L.cx, .02, L.cz + 4.4); g.add(floor);
-    // festoon runs under the ceiling
-    for (let i = 0; i < 4; i++) {
-      const z = L.cz - 5 + i * 3.2;
-      g.add(stringLights(L.cx - 8, z, L.cx + 8, z, L.h - .5, .5, 12));
+    // head table across the head of the walk, serving both lawns
+    const head = box(6.0, .04, 1.0, linen);
+    head.position.set(WX, .76, 13.2); g.add(head);
+    const headSkirt = box(6.0, .76, 1.0, linen);
+    headSkirt.position.set(WX, .38, 13.2); g.add(headSkirt);
+    for (let i = 0; i < 6; i++) {
+      const c = chair();
+      c.position.set(WX - 2.5 + i, 0, 14.5);
+      c.rotation.y = Math.PI; g.add(c);
+    }
+    colLine(cols.dinner, WX - 3.0, 13.2, WX + 3.0, 13.2, .6);
+    // dance floor on the paving between the lawns
+    const floor = box(3.0, .04, 7, deckDark);
+    floor.position.set(WX, .05, 3); g.add(floor);
+    // festoon down the length of the walk, over the dance floor
+    for (const s of [-1, 1]) {
+      g.add(stringLights(WX + s * 1.4, DW.z0 + 1, WX + s * 1.4, DW.z1 - 1, 3.9, .7, 12));
     }
   }
 
@@ -464,11 +610,17 @@ export function initMoments(G) {
     { x: -3.4, z: D.z0 + 1.2, r: 1.2, label: () => 'Read the welcome sign',
       use: () => G.ui.toast('“Carl & Rachel — welcome to Haitang Bay. Shoes optional.”', 3.4),
       enabled: when('setup') },
-    { x: LW.cx, z: LW.cz - 8, r: 2.0, label: () => 'Stand at the arch',
-      use: () => G.ui.toast('This is where the “I do” happens. 💍', 3), enabled: when('ceremony') },
-    { x: L.cx, z: L.glassZ + 1.6, r: 2.0, label: () => 'Order from the bar',
+    /* all three moved 2026-08-02 with their moments — the arch is on the
+       beachfront lawn, the bar is 26 m along the same lawn, and the dance floor
+       is on the paved walk between the two dinner lawns. These are the same
+       numbers the prop blocks above are built from; if one moves, both move. */
+    { x: -22, z: 71, r: 2.4, label: () => 'Stand at the arch',
+      use: () => G.ui.toast('This is where the “I do” happens — with the sea right behind you. 💍', 3.4),
+      enabled: when('ceremony') },
+    { x: 4, z: 68, r: 2.2, label: () => 'Order from the bar',
       use: () => G.ui.toast('🥂 One Yuzu 75, coming right up.', 3), enabled: when('cocktail') },
-    { x: L.cx, z: L.cz + 4.4, r: 2.2, label: () => 'Step onto the dance floor',
+    { x: (SITE.DINNER_WALK.x0 + SITE.DINNER_WALK.x1) / 2, z: 3, r: 2.2,
+      label: () => 'Step onto the dance floor',
       use: () => G.ui.toast('The floor is yours — everyone joins after the second song.', 3.2),
       enabled: when('dinner') },
     { x: 0, z: D.z0 + 1.4, r: 1.6, label: () => 'Request a song',

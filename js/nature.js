@@ -579,6 +579,24 @@ function exclusionZones() {
   for (const v of VILLA_ZONES) rect(local, v.cx, v.cz, v.w, v.d);
   local.discs.push({ cx: S.LAWN.cx, cz: S.LAWN.cz, r: S.LAWN.hedgeR + 1.5 });
 
+  /* ── THE GRASS GROUND (Carl, 2026-08-02) ────────────────────────────────
+     Every mown lawn is a keep-out, and this is not cosmetic: BEACH_LAWN is the
+     ceremony, and SITE.PALM_GROVE's band covers exactly the ground it stands
+     on (world x −134…−66 = local z 8…76), so without these the grove plants a
+     palm through the aisle and the arch. The lawns want a FRINGE, not a
+     scatter — placePalms() adds it explicitly, the same way it rings SITE.LAWN.
+     The margin is deliberately generous on the two event lawns (the rect is
+     grown, not the point tested) so nothing overhangs a chair block.          */
+  const lawnRect = (L, m = 0) =>
+    rect(local, (L.x0 + L.x1) / 2, (L.z0 + L.z1) / 2,
+      L.x1 - L.x0 + m * 2, L.z1 - L.z0 + m * 2);
+  lawnRect(S.GRAND_LAWN, 1.5);
+  lawnRect(S.BEACH_LAWN, 2.5);
+  for (const L of S.DINNER_LAWNS) lawnRect(L, 1.5);
+  lawnRect(S.DINNER_WALK, 0.5);
+  rect(local, S.FIRE_PIT.cx, S.FIRE_PIT.cz,
+    S.FIRE_PIT.w + S.FIRE_PIT.rim * 2 + 2, S.FIRE_PIT.w + S.FIRE_PIT.rim * 2 + 2);
+
   /* ── WORLD ── */
   rect(world, 0, S.ROAD.z, 500, 14);
   world.discs.push({ cx: S.LAGOON.cx, cz: S.LAGOON.cz, r: Math.max(S.LAGOON.rx, S.LAGOON.rz) + 4 });
@@ -987,6 +1005,56 @@ function placePalms(G, blocked, preColliders) {
     const r = L.hedgeR + 2.6 + rnd() * 2.4;
     const p = enclaveToWorld(L.cx + Math.cos(a) * r, L.cz + Math.sin(a) * r);
     push(p.x, p.z);
+  }
+
+  /* 4 — THE PALM BELT AND THE LAWN FRINGES (Carl, 2026-08-02).
+     exclusionZones() now clears GRAND_LAWN / BEACH_LAWN / DINNER_LAWNS of the
+     grove and the scatter, which is right — the reference photo
+     (clubhouse-lawn-to-beach.png) shows the big lawn as flat, unbroken and
+     completely empty. But an empty rectangle with a random scatter around it
+     reads as a bald patch, not as a lawn, so the edges are planted DELIBERATELY
+     here, exactly like SITE.LAWN's ring above: enclave-local positions mapped
+     through enclaveToWorld, staying in the global (world-space) palm buckets.
+
+     ⚠ Every palm carries a collider (buildPalms, r = NAT.TRUNK_R), so the belt
+     between the two lawns is NOT a wall: it opens at the ceremony aisle and
+     again at the spine path, and `gapAt` is what keeps those two corridors
+     clear. Close them and the ceremony spawn becomes unreachable on foot from
+     the pool deck — which no render would have shown. */
+  const GL = SITE.GRAND_LAWN, BL = SITE.BEACH_LAWN;
+  const CEREM_X = -22, COCK_X = 4;                  // moments.js's two centres
+  const lp = (x, z) => { const p = enclaveToWorld(x, z); push(p.x, p.z); };
+  const gapAt = x => Math.abs(x - CEREM_X) < 8 || Math.abs(x) < 5;
+
+  /* the belt itself: three loose rows across the 8 m band between the lawns */
+  for (let r = 0; r < 3; r++) {
+    const z = GL.z1 + 1.6 + r * 2.6;
+    for (let i = 0; i < 15; i++) {
+      const x = BL.x0 - 4 + (i + (r % 2) * .5) * ((BL.x1 - BL.x0 + 8) / 15);
+      if (gapAt(x)) continue;
+      lp(x + (rnd() - .5) * 1.8, z + (rnd() - .5) * 1.6);
+    }
+  }
+  /* the seaward fringe — sparse, and open on the aisle and in front of the bar
+     so the arch really does have nothing but sand and sea behind it */
+  for (let i = 0; i < 13; i++) {
+    const x = BL.x0 + (i + .5) * ((BL.x1 - BL.x0) / 13);
+    if (Math.abs(x - CEREM_X) < 9 || Math.abs(x - COCK_X) < 8) continue;
+    lp(x + (rnd() - .5) * 2, BL.z1 + 1.4 + rnd() * 2.4);
+  }
+  /* the two long flanks of the grass ground, both lawns at once */
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 11; i++) {
+      const t = i / 10;
+      const z = GL.z0 + 2 + t * (BL.z1 - GL.z0 - 4);
+      const edge = z < GL.z1 ? (s < 0 ? GL.x0 : GL.x1) : (s < 0 ? BL.x0 : BL.x1);
+      lp(edge + s * (2.2 + rnd() * 3.4), z + (rnd() - .5) * 3);
+    }
+  }
+  /* a light screen behind the outer dinner lawn, between it and the second pool */
+  for (let i = 0; i < 6; i++) {
+    const D = SITE.DINNER_LAWNS[1];
+    lp(D.x0 - 2.4 - rnd() * 1.6, D.z0 + 1 + (i + .5) * ((D.z1 - D.z0 - 2) / 6));
   }
   return out;
 }
