@@ -12,7 +12,8 @@
 // where it has got to. Top-level await, in source order, is deliberate — the
 // sequence IS the contract:
 //   renderer → env probe → buildWorld → player/moments → intro orbit → shader
-//   compile → first frame → card off → window.__game.
+//   compile (BOTH day and night — see the warm-up below) → first frame → card
+//   off → window.__game.
 // Nothing may be hoisted out of that order. In particular #begin is wired only
 // after the world exists (and #overlay ships `inert` until then), and
 // window.__game appears last, so it doubles as "the venue is up".
@@ -20,7 +21,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 import { CFG, momentIndex } from './config.js';
-import { buildWorld, floorY, updateWorld, toggleNight, yieldFrame } from './world.js';
+import { buildWorld, floorY, updateWorld, setNight, toggleNight, yieldFrame } from './world.js';
 import { initPlayer, updatePlayer, lock } from './player.js';
 import { initTouch } from './touch.js';
 import { initMoments } from './moments.js';
@@ -182,9 +183,45 @@ initIntroCam(G);
    call. Doing it here instead, behind the card, keeps the handoff instant and
    lets the driver compile in parallel where the extension exists. Guarded
    because it is the one call in this file three.js has not always had. */
-setProgress(.76, 'Waiting on the light');
+setProgress(.72, 'Waiting on the light');
 await yieldFrame();
 if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
+
+/* ── warm the OTHER half of the day, or pay for it mid-dive ──────────────────
+   The compile above only covers the campus AS IT IS LIT RIGHT NOW. That is
+   half the venue: three of the six moments are night, "Step inside" lands in
+   the Prewedding, and N flips at will.
+   The switch is not a repaint. `setLanterns` shows/hides the lantern group,
+   and three of the nine floating lanterns carry a real PointLight — so the
+   scene goes 26 → 29 point lights, three.js's program cache key changes for
+   EVERY material on the campus, and every one of them is recompiled from
+   scratch at the next render. Measured on the first cold load of this scene:
+   9.7 SECONDS of blocked main thread on the frame the dive lands, with the
+   camera frozen inside the great room. That is the "is it broken?" Carl hit on
+   his phone.
+   So compile the other lighting state too, here, where the card is up and
+   there is a progress bar to explain the wait. Flip → compile → flip back:
+   both variants are resident in the program cache before the title card
+   appears, and no later night change — the landing, a moment switch, the N
+   key — has anything left to compile.
+   Written against G.night rather than a literal so CFG.START_AT_NIGHT keeps
+   working: whatever we open on, this warms the opposite and restores. */
+const openNight = G.night;
+setProgress(.80, openNight ? 'Catching the golden hour' : 'Lighting the lanterns');
+await yieldFrame();
+setNight(G, !openNight, { quiet: true });
+if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
+/* …and then one real frame in that state. compileAsync only ever compiles for
+   the DEFAULT framebuffer, and the pool's Reflector draws the whole campus a
+   second time into its own render target — where three.js forces NoToneMapping
+   and linear output, and therefore asks for a different program for every
+   material it touches. Nothing but an actual render through the mirror creates
+   those, and they were the last 32 of the stall. The loading card is opaque and
+   covers the canvas, so this frame is never seen. */
+renderer.render(scene, camera);
+setNight(G, openNight, { quiet: true });
+setProgress(.94, 'Opening the doors');
+await yieldFrame();
 
 /* ── begin: fly down out of the sky, over the pool, in through the folded-open
    glass wall, and land standing in the great room ── */

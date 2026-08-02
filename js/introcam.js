@@ -43,12 +43,23 @@ function place(G, dt) {
 }
 
 /* Begin the dive. onDone fires once the camera has landed in the great room;
-   that's when player.js takes over. */
+   that's when player.js takes over.
+   ── the dive runs on WALL CLOCK, not on dt ──────────────────────────────────
+   main.js clamps dt to 0.05 s so a hitch can never run the player's physics
+   backwards or teleport them through a wall — correct there, wrong here. A
+   phone drawing this at 9 fps has a real dt of 0.11 s, so every frame the dive
+   only advanced 0.05 s of its 5.2, and CFG.INTRO.DIVE_TIME quietly became
+   8.9 s (measured, 6× CPU throttle). The slower the device, the longer the
+   guest sits through the one part of the page they cannot skip — which is
+   backwards, and it was part of the "is this thing working?" 15–20 s.
+   There is no physics on this path, only a bezier evaluated at t, so t comes
+   straight off the clock: the opening now takes DIVE_TIME everywhere and a
+   slow device simply gets fewer frames of it. */
 export function startDive(G, onDone) {
   _from.copy(G.camera.position);
   _mid.set(INTRO_PATH.waypoint.x, INTRO_PATH.waypoint.y, INTRO_PATH.waypoint.z);
   _to.set(INTRO_PATH.land.x, CFG.EYE_HEIGHT, INTRO_PATH.land.z);
-  dive = { t: 0, onDone };
+  dive = { t: 0, t0: performance.now(), onDone };
 }
 
 export function updateIntroCam(G, dt) {
@@ -56,7 +67,7 @@ export function updateIntroCam(G, dt) {
 
   if (!dive) { place(G, dt); return; }
 
-  dive.t = Math.min(1, dive.t + dt / CFG.INTRO.DIVE_TIME);
+  dive.t = Math.min(1, (performance.now() - dive.t0) / (CFG.INTRO.DIVE_TIME * 1000));
   // smootherstep — no jerk at either end
   const e = dive.t * dive.t * dive.t * (dive.t * (dive.t * 6 - 15) + 10);
 

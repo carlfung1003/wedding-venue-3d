@@ -115,8 +115,12 @@ const PHASES = [
   ['Opening up the suite', 2],               //     6 /  35
   ['Turning the clubhouse to the sea', 1],   //     3 /  16
   ['Planting the palm grove', 12],           //    68 / 357
-  ['Lighting the lanterns', 1],              //     0 /   2
+  ['Setting the hour', 1],                   //     0 /   2
 ];
+/* NB 'Lighting the lanterns' is main.js's label for the night SHADER WARM,
+   which runs after this and is the expensive half of the lighting work. This
+   phase is only the initial applyNight fan-out — property writes, no compile —
+   hence the two different names for what look like the same step. */
 
 /* Hand the main thread back long enough for one frame to reach the screen.
    rAF alone is not enough: its callback runs just BEFORE the paint, so
