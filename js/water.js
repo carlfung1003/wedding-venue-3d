@@ -963,26 +963,11 @@ function buildHeroPool(G) {
     nightBits.push(on => { L.intensity = on ? TUNE.UW_LIGHT_NIGHT : 0; });
   }
 
-  /* ── a still black-stone reflecting trough east of the pool (photo p3/p14):
-     a recessed basin, NOT a slab — a solid slab at grade would bury the water
-     plane underneath it. ── */
-  const rt = new THREE.Group();
-  ROOT.add(rt);
-  /* far enough east to leave a walkable corridor round the pool's end */
-  const rtx = ox + P.cx + 3.6, rtz = P.cz + 1.4;
-  const trW = 1.5, trD = 5.6, rim = .35;
-  slab(rt, rtx - trW / 2, rtz - trD / 2, rtx + trW / 2, rtz + trD / 2, -.22, MAT.stone, .2);  // basin floor
-  box(rt, trW + rim * 2, .3, rim, rtx, .07, rtz - trD / 2 - rim / 2, MAT.stone);              // rim, 4 bars
-  box(rt, trW + rim * 2, .3, rim, rtx, .07, rtz + trD / 2 + rim / 2, MAT.stone);
-  box(rt, rim, .3, trD, rtx - trW / 2 - rim / 2, .07, rtz, MAT.stone);
-  box(rt, rim, .3, trD, rtx + trW / 2 + rim / 2, .07, rtz, MAT.stone);
-  const rw = new THREE.Mesh(new THREE.PlaneGeometry(trW, trD),
-    waterMat(trW / 2, trD / 2, { opacity: .9, color: 0x123138, nightColor: 0x08181d, su: .004, sv: .003 }));
-  rw.rotation.x = -Math.PI / 2;
-  rw.position.set(rtx, .09, rtz);
-  rw.renderOrder = 3;
-  rt.add(rw);
-  colRect(G.colliders, rtx, rtz, trW + rim * 2, trD + rim * 2, .4);
+  /* A second still "reflecting trough" used to sit beside the pool here. It
+     came from a reading of deck photo p3/p14, but Rachel's ground-level shots
+     (reference/photos/IMG_8099.jpg) show no such basin — just lawn and the
+     pebble trough at the water's edge — and once the pool rotated it read as a
+     stray glassy slab floating in the middle of the composition. Removed. */
 
   return b;
 }
@@ -1301,7 +1286,7 @@ function buildPoolside(G) {
   for (let i = 0; i < LG.count; i++) {
     const l = loungerProto.clone();
     l.position.set(LG.x, 0, LG.z0 + i * step);
-    l.rotation.y = -Math.PI / 2;
+    l.rotation.y = Math.PI / 2;   // head toward the water, which is now EAST of the row
     g.add(l);
   }
 
@@ -1309,7 +1294,7 @@ function buildPoolside(G) {
   const umProto = makeUmbrella(MAT.teal, 1.55, 2.5, 8);
   /* set back 1.5 m from the lounger row — i.e. further EAST, away from the
      water, now that the row runs along Z */
-  const ux = LG.x + 1.5;
+  const ux = LG.x - 1.5;   // set back from the water — loungers are now on the WEST side
   for (let i = 0; i < LG.umbrellas; i++) {
     const z = LG.z0 + (i + .5) * (LG.z1 - LG.z0) / LG.umbrellas;
     const u = umProto.clone();

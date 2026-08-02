@@ -64,8 +64,11 @@ export const SITE = {
   // {x0,x1,z} to {x,z0,z1}. Loungers line the water; the pavilions stand set
   // back behind them, both on the EAST (+X) side = your LEFT looking south
   // from the suite. The west side stays open lawn + hedge, as in the photo.
+  // Carl confirmed on site: the white frame structures are on the LEFT (east,
+  // +X) — correct as built — and the CHAIRS are on the RIGHT, i.e. the WEST
+  // (−X) long side, opposite them across the water.
   CABANAS: { x: 12.0, z0: -1, z1: 20, count: 7, wMin: 2.6, wMax: 3.4, hMin: 2.5, hMax: 3.5 },
-  LOUNGERS: { x: 7.6, z0: 0, z1: 19, count: 8, umbrellas: 3 },
+  LOUNGERS: { x: -7.6, z0: 0, z1: 19, count: 8, umbrellas: 3 },
   PERGOLA: { cx: 12, cz: 25, w: 5, d: 4, h: 3.0 },   // far end, closing the view
   SIGN_PILLAR: { x: -9.5, z: -12.0 },            // dark "THE WESTIN" / "H" pillar
   EXT_STAIR: { x: -9.0, z: -16.0 },              // exterior stair to 2F balcony
