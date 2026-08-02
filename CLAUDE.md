@@ -32,7 +32,7 @@ own coordinates. Change the layout there, never in a builder.
 | `js/suite.js` | The presidential suite, inside and out — folding glass wall, great room, dining, pantry, the L-stair with its chandelier, the spa, the 2F lounge and balcony |
 | `js/introcam.js` | The opening: a drone orbit of the enclave behind the title card, then a bezier dive over the pool and in through the glass wall, handing the look state to `player.js` on landing |
 | `js/materials.js` | Shared CanvasTexture recipes + `M.*`; also exports `mulberry32` (seeded PRNG). Builders define their own local materials — only `mulberry32` is universally imported. |
-| `js/moments.js` | The five moment prop groups + per-moment colliders, the one-interactable-per-moment registry, `G.setMoment` (dress + collider swap + night flip + teleport) |
+| `js/moments.js` | The six moment prop groups + per-moment colliders, the one-interactable-per-moment registry, `G.setMoment` (dress + collider swap + night flip + teleport) |
 | `js/player.js` | Ported from lassen-camp: pointer-lock FPS look (module-level yaw/pitch), Tab cursor mode, nearest-interactable prompt, and BOTH movement modes — walk (WASD + stick, walk/run, `{x,z,r}` cylinder collision, `floorY` eye-height clamp) and fly (spectator flight along the look direction, Space/C altitude, no collisions, altitude clamp) |
 | `js/touch.js` | Ported from lassen-camp: floating joystick → `touchInput`, drag-to-look, quick-tap interact, `.tbtn` buttons (✦ interact, FLY toggle, held ▲▼ in fly mode). Pointer lock bypassed entirely in touch mode. |
 | `js/ui.js` | Overlay show/hide, moment chips + active state, toast queue, prompt — plain id-addressed divs toggled with `.hidden` |
@@ -127,16 +127,25 @@ from the placeholder:
 
 ## Moments
 
-Keys 1–5 or the chip bar switch moments: instant dress + collider swap +
+Keys 1–6 or the chip bar switch moments: instant dress + collider swap +
 teleport to the moment's spawn.
 
-| # | Moment | Space | Dressing |
-|---|--------|-------|----------|
-| 1 | Prewedding Setup | Bridal Suite | vanity, garment rack + The Dress, sofa, mirrors |
-| 2 | Ceremony | Grand Ballroom | 60 white chairs, aisle runner, golden arch at the stage |
-| 3 | Cocktail Hour | Foyer | bar + six high-top tables |
-| 4 | Wedding Dinner | Grand Ballroom | eight rounds of ten, head table on the stage, dance floor |
-| 5 | After Party | Terrace | DJ booth, speakers, mirror ball, lounges, string lights |
+| # | Moment | Space | Date | Dressing |
+|---|--------|-------|------|----------|
+| 1 | Welcome Brunch | The Westin Rooftop | 03-18 | the eight existing four-tops dressed (linen, settings, blooms, chair slips + sashes), a buffet run and a champagne service on the teak, a menu easel at the bridge |
+| 2 | Prewedding Setup | Presidential Suite | 03-19 | high-tops on the deck, festoon runs, welcome easel, champagne tower |
+| 3 | Ceremony | The Circular Lawn | 03-20 | 60 white chairs, aisle runner, foliage arch, petals |
+| 4 | Cocktail Hour | Clubhouse Terrace | 03-20 | bar against the lounge glass + eight high-tops |
+| 5 | Wedding Dinner | 隐逸居 Lounge | 03-20 | six rounds of ten, head table, dance floor, festoon |
+| 6 | After Party | Suite Pool Deck | 03-20 | DJ booth, speakers, mirror ball, lounges, string lights |
+
+**The order is CHRONOLOGICAL and the chip bar is read as a timeline** — the
+Welcome Brunch is two days before the wedding, so it is index 0 and everything
+else shifted by one on 2026-08-02. Nothing may hold a raw moment index:
+`config.js` exports `momentIndex(id)`, `main.js` resolves the title-card
+backdrop and the post-dive landing through it, and `moments.js` gates its
+interactables on ids. Insert a moment where it belongs in time; do not append
+one to protect an index.
 
 **The shared-ballroom redress is the core design.** Ceremony and Wedding
 Dinner are the *same room* wearing different prop groups — exactly what a
@@ -180,9 +189,9 @@ were building to:
 4. ~~Cabanas as solid stepped blocks~~ — DONE 2026-08-02.
 5. ~~Rooftop infinity pool~~ — DONE 2026-08-02 (geometry only; not yet stood-on-able, see notes).
 6. ~~Loading screen~~ — DONE 2026-08-02.
-7. **Rooftop stood-on-able + the 3/18 brunch as a SIXTH moment** — Carl
-   approved both 2026-08-02. **IN PROGRESS**, and now also carrying the suite
-   stair fix (see below).
+7. ~~Rooftop stood-on-able + the 3/18 brunch as a SIXTH moment~~ — DONE
+   2026-08-02, together with the suite-stair fix that turned out to be the same
+   bug. See **The rooftop is walkable** below.
 8. **The atrium is a HALLWAY and the rooms ATTACH to it** — next up, see below.
 
 ## QUEUED — the rooms attach to the atrium (Carl, 2026-08-02)
@@ -285,28 +294,50 @@ Requirements:
 ⚠️ Don't regress the opening: `initIntroCam` + the drone orbit must still be
 running behind the title card when it appears.
 
-## QUEUED — the hotel's rooftop infinity pool (Carl, 2026-08-01)
+## The rooftop is walkable — DONE 2026-08-02
 
-Reference: `reference/photos/hotel-rooftop-pool.png` (top-down of the crescent
-hotel and its grounds). Add the **top-floor infinity pool** to `SITE.HOTEL`,
-the big curved tower — it currently has terraced balconies and a green roof
-cap but no rooftop pool.
+Reference: `reference/photos/hotel-rooftop-pool.png`. The pool and terrace were
+built 2026-08-02 (`SITE.HOTEL.ROOFTOP` + `buildHotelRoof`); this pass made them
+reachable and added the **Welcome Brunch** (2027-03-18) as the sixth moment.
+Carl approved both.
 
-**Why it matters:** Carl and Rachel are hosting **brunch with the wedding
-party two days before the wedding** — i.e. **2027-03-18** — up there. So this
-is a real event venue in the story, not set dressing, and it is the one part
-of the main hotel guests will actually stand in.
+**Read `HOTEL_ROOF` in site.js before touching anything up there.** It derives
+the arc centre (`SITE.HOTEL.cx − r`, `cz`) = (190, 10), publishes `pt(θ, r)` →
+world, and owns the stair tower's numbers. Three files depend on it (site.js
+registers the surfaces, campus.js builds the geometry and colliders, moments.js
+dresses and spawns). Do not re-derive `cx − r` in a builder — same rule `SITE.*`
+has always had, one level down.
 
-The crescent is currently modelled cheaply and deliberately (it is the fly-mode
-skyline, ~285 m east). A rooftop pool people care about probably wants more
-than the backdrop treatment: a deck, loungers, an infinity edge facing the sea
-to the west, and enough parapet/plant detail to read at close range.
+Three things had to change, and all three are contracts other code now shares:
 
-**Likely follow-on, ask Carl before building it:** this is a natural **sixth
-moment** ("Welcome Brunch", 2027-03-18) alongside the existing five in
-`CFG.MOMENTS`. It would need a spawn on the roof, its own dressing (brunch
-tables, a buffet), and the moment chips/UI already scale to six. Carl asked
-only for the pool — do not add a moment unprompted.
+1. **Colliders carry an optional y-range** — see the Gotchas.
+2. **The height field grew an annular sector shape** — `annulus()` / `annRamp()`
+   in site.js, alongside `rect()` / `ramp()`. The terrace is the annulus r
+   90…103.2 over ±0.62 rad with a polar hole (`aholes`) where the pool is; the
+   pool answers as its **basin** (25.32), so walking in leaves you standing in
+   1.2 m of water rather than on it. The submerged steps at each end are
+   registered 0.38 apart, not the 0.40 they are modelled at — `fromY + stepUp`
+   is a strict comparison and an exact `CFG.STEP_UP` rounds the wrong way,
+   trapping the swimmer.
+3. **There is a real stair.** Nine switchback flights, 108 treads, grade →
+   26.60 m, in a detached tower on the crescent's INLAND face at θ = C + 0.575,
+   r 110.2…118.2, linked to the terrace by an 8 m bridge at deck level
+   (`buildRoofAccess`). Inland because a stair on the sea-facing side would have
+   run its bridge across the infinity edge, which is the one view the venue
+   exists for.
+
+**What is still awkward, on purpose:** at grade the coarse ring still walls off
+the crescent (r 81…109), so reaching the tower door on foot means walking around
+the end of the arc — about 150 m from the campus. That is why the Welcome Brunch
+**spawns on the roof** (`MOMENT_PLACES.BRUNCH`, the first world-space spawn, and
+the first with a `y`). Both routes are real; only one is quick. If someone wants
+the walk-up to be discoverable, the fix is a lobby and a lift on the concave
+side, not a hole in the ring.
+
+**The terrace is fully enclosed** — inner glass rail at 90.18, a NEW outer rail
+at 103.3 (there was a 1.35 m drop onto the green roof cap and nothing but
+2 m-apart planters guarding it), the two glazed ends, and the pool's infinity
+edge. The only opening is the bridge.
 
 ## QUEUED — walkable stairs (Carl, 2026-08-01)
 
@@ -438,10 +469,54 @@ makes the campus "look tidier" by undoing one, it is wrong:
   lays circles along each wall at a step ≤ r — widen the step and corners
   become squeezable. Collider `r` is the *geometry* radius; `CFG.PLAYER_R`
   is added at test time (unlike lassen, which bakes the player into `r`).
+
+- **Colliders may carry an optional half-open height range `[y0, y1)`** (feet
+  height, metres; contract documented in `updatePlayer`). Omit both and the
+  circle blocks at every height, which is what every collider on this campus did
+  before 2026-08-02 and what almost all of them still do. Added because
+  `G.colliders` is ONE flat list with no notion of height, so two different
+  builders were making the same mistake:
+    · the hotel crescent's coarse ring (27 circles of r 14, walling r 81…109)
+      also walled off the rooftop terrace 26.6 m above it → `y1: roofY`;
+    · the suite's L-stair mass was ringed at every height, so the walkable ramp
+      under it could never be stepped onto → the lower flight's ring deleted,
+      the landing/upper ring given `y1: 0.85`.
+  **The rule when you reach for it:** a y-range is for a solid you must be able
+  to stand ON TOP of (`y1`) or a guard that only exists UP THERE (`y0`). It is
+  not a way to make a wall optional. And the arithmetic is load-bearing — the
+  stair's 0.85 is picked so the ring stops blocking exactly where the ramp has
+  already lifted the feet past it; raise it and the landing re-seals.
+
+- **The suite's stair had a 0.5 m black "base rail" across its foot** (a solid
+  kerb spanning the whole stair zone on the only face you can approach from).
+  Removed 2026-08-02: it is taller than `CFG.STEP_UP`, it carried a collider,
+  and the raking glass balustrade already guards that edge. It is the dark mass
+  in Carl's "can't walk upstairs" screenshot. Don't reinstate it without
+  stopping it short of `ST.loX0 + 1.4`.
+
+- **A `floorY` probe is not proof that a stair works.** The height field can be
+  perfect and the walker still stuck, because the colliders are a separate
+  system consulted earlier in the same frame. The only test that counts is a
+  scripted walk that starts where a person starts and logs feet height rising.
 - **`G.setMoment` early-returns on the current index**, so the begin-button
   flow must reset `G.momentIndex = -1` before jumping to moment 0 — the
   title screen already has moment 1 dressed as its backdrop. Forgetting this
   leaves the overlay's dressing on screen with no teleport.
+- **A moment outside the enclave must opt out of the adoption pass, in three
+  places.** `world.js` adopts every group that appears after `buildWorld` into
+  the rotated enclave group, and rewrites every late collider and interactable
+  through `enclaveToWorld`. Five of the six moments want that. The Welcome
+  Brunch is on the hotel crescent and does not: `group.userData.worldSpace =
+  true`, plus `__world: true` on every collider and interactable it registers.
+  Miss one and that part of the moment lands 90° around the map from the rest
+  of it — silently, because nothing throws.
+
+- **`m.spawn.y` is the FEET height and rooftop moments need it.** `setMoment`
+  teleports before any `floorY` resolve, and `floorY` only ever answers a
+  surface within `CFG.STEP_UP` of where the feet already are — so spawning on
+  the roof with `y` omitted resolves to the ground 285 m below and drops the
+  player through the hotel. Omitted (0) for every moment at grade.
+
 - **Moment colliders are swapped, not accumulated.** `initMoments` snapshots
   `G.colliders` (the world statics) *after* `buildWorld` and before any
   dressing; `setMoment` rebuilds `G.colliders` as statics + the live

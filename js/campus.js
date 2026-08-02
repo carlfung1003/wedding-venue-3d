@@ -22,7 +22,7 @@
 // Everything repeated is an InstancedMesh (see the bucket system) — the whole
 // campus lands in well under a hundred draw calls.
 import * as THREE from 'three';
-import { SITE } from './site.js';
+import { SITE, HOTEL_ROOF } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
 
@@ -538,12 +538,26 @@ function pointLight(parent, x, y, z, dayI, nightI, dist, color = 0xffcf96) {
   return reglight(l, dayI, nightI);
 }
 
-/* ── colliders: chains of {x,z,r} circles, house pattern ── */
-function colliderLine(list, x1, z1, x2, z2, r) {
+/* ── colliders: chains of {x,z,r} circles, house pattern ──
+   `yr` is the optional {y0,y1} feet-height window from the collider contract in
+   player.js. Omitted = blocks at every height, which is every collider on this
+   campus except the crescent's and the rooftop's. */
+function colliderLine(list, x1, z1, x2, z2, r, yr) {
   const len = Math.hypot(x2 - x1, z2 - z1);
   const n = Math.max(1, Math.ceil(len / r));
   for (let i = 0; i <= n; i++) {
-    list.push({ x: x1 + (x2 - x1) * i / n, z: z1 + (z2 - z1) * i / n, r });
+    const c = { x: x1 + (x2 - x1) * i / n, z: z1 + (z2 - z1) * i / n, r };
+    list.push(yr ? Object.assign(c, yr) : c);
+  }
+}
+/** A chain of circles along an ARC about (cx,cz) — the rooftop's natural shape. */
+function colliderArc(list, cx, cz, rad, t0, t1, r, yr, step) {
+  const st = step || r * 0.9;
+  const n = Math.max(1, Math.ceil(Math.abs(t1 - t0) * rad / st));
+  for (let i = 0; i <= n; i++) {
+    const th = t0 + (t1 - t0) * i / n;
+    const c = { x: cx + Math.sin(th) * rad, z: cz + Math.cos(th) * rad, r };
+    list.push(yr ? Object.assign(c, yr) : c);
   }
 }
 /** a rotated rectangle's four sides, in world space */
@@ -1236,10 +1250,19 @@ function buildHotel(G, root) {
   /* the rooftop brunch terrace — the one part of the crescent people stand in */
   buildHotelRoof(G, g, acx, acz);
 
-  /* coarse collider ring so a walker can't stroll into the crescent */
+  /* ── coarse collider ring so a walker can't stroll into the crescent ───────
+     27 circles of r 14 on the arc: together they wall off r ∈ [81, 109] across
+     the whole 1.5 rad sweep. That is the right answer at grade and was the WRONG
+     answer everywhere else — being y-agnostic it also walled off the rooftop
+     terrace 26.6 m above it, which is why the roof could never be stood on.
+     `y1` is the fix: the ring stops existing for a walker whose feet are at or
+     above the green roof cap, which is the only place there is anything to
+     stand on up there. See the collider contract in player.js.
+     H.floors * H.floorH is the cap (25.2); the terrace deck is 1.4 m over it. */
+  const RING_TOP = H.ROOFTOP.roofY;
   for (let i = 0; i <= 26; i++) {
     const th = Math.PI / 2 - tl / 2 + (i / 26) * tl;
-    G.colliders.push({ x: acx + dirX(th) * H.r, z: acz + dirZ(th) * H.r, r: 14 });
+    G.colliders.push({ x: acx + dirX(th) * H.r, z: acz + dirZ(th) * H.r, r: 14, y1: RING_TOP });
   }
   return g;
 }
@@ -1363,6 +1386,18 @@ function buildHotelRoof(G, g, acx, acz) {
   shell(89.86, .18, DY - .40, MAT.rtCove, p0, p1);
   shell(89.86, .18, DY - .40, MAT.rtCoveWarm, a0, p0, 32);
   shell(89.86, .18, DY - .40, MAT.rtCoveWarm, p1, a1, 32);
+
+  /* ── the OUTER terrace rail, added 2026-08-02 with walkability ─────────────
+     rOut is a 1.35 m drop onto the green roof cap, and the cap is not walkable,
+     so before the terrace could be stood on that edge needed a guard — the
+     planter run at 102.5 leaves 2 m gaps between pots. Frameless glass to match
+     the inner run, broken only where the link bridge arrives (TB). Its collider
+     is the thing that stops a brunch guest walking off the back of the roof. */
+  const TB = HOTEL_ROOF.tower.th, TBH = HOTEL_ROOF.tower.bridgeTh + .006;
+  for (const [s, e] of [[a0, TB - TBH], [TB + TBH, a1]]) {
+    shell(103.3, R.parapetH, DY + R.parapetH / 2, MAT.rtGlass, s, e, 64);
+    shell(103.3, .11, DY + R.parapetH, MAT.copper, s, e, 64);
+  }
 
   /* fin posts every ~3 m — the rhythm is what actually makes a frameless glass
      rail visible at distance; the glass alone is just a haze */
@@ -1509,6 +1544,7 @@ function buildHotelRoof(G, g, acx, acz) {
     const d = Math.abs(th - C);
     if (d < R.barArcHalf + .028) continue;                     // clear of the bar
     if (Math.abs(d - R.coreArcHalf) < .034) continue;          // clear of the cores
+    if (Math.abs(th - TB) < .030) continue;                    // clear of the bridge
     const x = WX(th, 102.5), z = WZ(th, 102.5);
     inst('stoneI', UNIT_BOX, MAT.stone, mat4(x, DY + .38, z, 2.9, .76, 1.2, th));
     inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(x, DY + 1.02, z, 2.5, 1.0, 1.05));
@@ -1523,9 +1559,209 @@ function buildHotelRoof(G, g, acx, acz) {
       mat4(WX(th, 104.4), RY + .55, WZ(th, 104.4), 3.0, 1.1, 1.7));
   }
 
+  /* the way up, and the colliders that make all of the above stand-on-able */
+  buildRoofAccess(G, g, acx, acz);
+  roofColliders(G, acx, acz);
+
   /* one cool point light over the water so the terrace has depth after dark */
   pointLight(g, Math.sin(C) * 93.6, DY + 2.2, Math.cos(C) * 93.6, 0, 30, 34, 0x7fe3ff);
   return g;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   8c · THE WAY UP — a detached stair tower on the crescent's inland face,
+   linked to the terrace by a bridge at deck level.
+
+   The rooftop had geometry since 2026-08-02 and no way to reach it. This is the
+   honest version of "a way up": nine switchback flights, 108 real treads, grade
+   → 26.60 m, registered in site.js's height field as nine annular ramps and ten
+   annular landings (HOTEL_ROOF.tower — read the numbers there, do not re-derive
+   them here).
+
+   WHY INLAND, on the ugly side. The concave face is the sea-facing one; a stair
+   and a link bridge there would have crossed the infinity edge, in front of the
+   one view this venue is for. So the tower stands 4 m off the BACK of the
+   crescent, clear of the coarse collider ring (r 81…109), and the bridge lands
+   on the garden band at the back of the terrace, beside the east head-house —
+   you arrive behind the cabanas and the sea opens up as you walk through. That
+   is also how the real building would do it.
+
+   The cost is honest too: at grade the ring still walls off the crescent, so
+   reaching the tower door means walking around the end of the arc. The Welcome
+   Brunch therefore spawns on the roof. Both routes work; only one is quick.
+   ════════════════════════════════════════════════════════════════════════ */
+function buildRoofAccess(G, g, acx, acz) {
+  const R = SITE.HOTEL.ROOFTOP, T = HOTEL_ROOF.tower;
+  const DY = R.deckY;
+  const TH = T.th, RM = (T.r0 + T.r1) / 2, DEEP = T.r1 - T.r0;
+  const TOP = DY + 1.0;                       // parapet over the tower roof
+
+  /* g-local point at (radius, tangential offset). g sits on the arc centre, so
+     these are the same polar numbers HOTEL_ROOF.pt() answers in world space. */
+  const S = Math.sin(TH), Cq = Math.cos(TH);
+  const gx = (r, v = 0) => S * r + Cq * v;
+  const gz = (r, v = 0) => Cq * r - S * v;
+
+  /* ── the shaft: two side walls, a back wall with the door punched out of it,
+        an inner wall that stops below the bridge, and a roof ── */
+  for (const s of [-1, 1]) {
+    box(g, .30, TOP, DEEP, gx(RM, s * (T.half + .15)), TOP / 2, gz(RM, s * (T.half + .15)),
+      MAT.stuccoWall, TH);
+  }
+  box(g, T.half * 2 + .6, 25.6, .30, gx(T.r0 - .15), 12.8, gz(T.r0 - .15), MAT.stuccoWall, TH);
+  // outer face: solid above the 2.4 m door, glazed slot the rest of the way up
+  box(g, T.half * 2 + .6, TOP - 2.4, .30, gx(T.r1 + .15), 2.4 + (TOP - 2.4) / 2,
+    gz(T.r1 + .15), MAT.stuccoWall, TH);
+  box(g, 3.0, 23.0, .10, gx(T.r1 + .02), 3.0 + 11.5, gz(T.r1 + .02), MAT.glass, TH);
+  box(g, T.half * 2 + 1.0, .34, DEEP + .7, gx(RM), TOP + .17, gz(RM), MAT.copper, TH);
+  box(g, T.half * 2 + .9, .18, DEEP + .6, gx(RM), .09, gz(RM), MAT.stone, TH);
+
+  /* ── the flights. 12 treads each, 9 flights, alternating sides of a spine ── */
+  const nT = 12, run = T.hr - T.lr;
+  const going = run / nT, rise = T.rise / nT;
+  for (let k = 1; k <= T.flights; k++) {
+    const A = k % 2 === 1;                    // odd flights descend in radius
+    const v = A ? -1.15 : 1.15;
+    const yBase = (k - 1) * T.rise;
+    for (let i = 0; i < nT; i++) {
+      // tread i spans going [i, i+1] from the flight's LOW end
+      const rLo = A ? T.hr - i * going : T.lr + i * going;
+      const rC = A ? rLo - going / 2 : rLo + going / 2;
+      const y = yBase + (i + 1) * rise;
+      inst('rtTreadI', UNIT_BOX, MAT.marble,
+        mat4(acx + gx(rC, v), y - .07, acz + gz(rC, v), 1.7, .14, going + .02, TH));
+      inst('rtTreadI', UNIT_BOX, MAT.rtSlat,
+        mat4(acx + gx(A ? rLo : rLo + going, v), y - rise / 2 - .07,
+          acz + gz(A ? rLo : rLo + going, v), 1.7, rise, .05, TH));
+    }
+    // the raking soffit, so the flight reads as a solid from underneath
+    const len = Math.hypot(run, T.rise);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1.9, .20, len), MAT.stuccoWall);
+    m.position.set(gx((T.lr + T.hr) / 2, v), yBase + T.rise / 2 - .28, gz((T.lr + T.hr) / 2, v));
+    m.rotation.y = TH;
+    m.rotateX(A ? Math.atan2(T.rise, run) : -Math.atan2(T.rise, run));
+    g.add(m);
+  }
+  /* the central spine, floor to roof, and the ten landings */
+  box(g, .28, TOP, run, gx((T.lr + T.hr) / 2), TOP / 2, gz((T.lr + T.hr) / 2), MAT.stuccoWall, TH);
+  for (let k = 0; k <= T.flights; k++) {
+    const lo = k % 2 === 1;                   // odd landing index = inner (low r)
+    const y = k * T.rise;
+    const r0 = lo ? T.r0 : T.hr, r1 = lo ? T.lr : T.r1;
+    inst('rtTreadI', UNIT_BOX, MAT.marble,
+      mat4(acx + gx((r0 + r1) / 2), y - .10, acz + gz((r0 + r1) / 2),
+        T.half * 2, .20, r1 - r0, TH));
+  }
+  /* a warm glow at every third landing so the shaft reads as occupied at night */
+  for (let k = 2; k <= T.flights; k += 3) {
+    const lo = k % 2 === 1;
+    const r = lo ? (T.r0 + T.lr) / 2 : (T.hr + T.r1) / 2;
+    inst('glowI', UNIT_BOX, MAT.glowLamp,
+      mat4(acx + gx(r), k * T.rise + 2.3, acz + gz(r), 1.6, .10, .3, TH));
+  }
+
+  /* ── the link bridge ── */
+  const bR0 = T.bridgeR0, bR1 = T.bridgeR1, bRM = (bR0 + bR1) / 2, bLEN = bR1 - bR0;
+  box(g, 3.0, .26, bLEN, gx(bRM), DY - .13, gz(bRM), MAT.rtCoping, TH);
+  box(g, 3.4, .22, bLEN - .6, gx(bRM), DY - .40, gz(bRM), MAT.rtSlat, TH);
+  for (const s of [-1, 1]) {
+    box(g, .05, R.parapetH, bLEN, gx(bRM, s * 1.5), DY + R.parapetH / 2, gz(bRM, s * 1.5),
+      MAT.rtGlass, TH);
+    box(g, .11, .11, bLEN, gx(bRM, s * 1.5), DY + R.parapetH, gz(bRM, s * 1.5), MAT.copper, TH);
+  }
+  /* two slim props off the green roof cap — an 8 m span needs to look carried */
+  for (const r of [bR0 + 2.2, bR1 - 2.2]) {
+    box(g, .26, DY - R.roofY - .4, .26, gx(r), (R.roofY + DY - .4) / 2, gz(r), MAT.stone, TH);
+  }
+  pointLight(g, gx(bRM), DY + 2.0, gz(bRM), 0, 14, 16);
+  return g;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   8d · ROOFTOP COLLIDERS — every one of them y-ranged.
+   Nothing up here existed as a collider before, because nothing up here could
+   be reached. Now that it can, the terrace needs the same treatment as any
+   room: guarded edges, solid furniture, and a pool you can get out of.
+
+   `ROOF` = active only for feet at or above 26.0, i.e. only for someone
+   standing on the terrace. Push any of these without a y-range and you plant an
+   invisible wall in the middle of the resort at grade, 285 m east of the
+   campus, where the fly-in path runs.
+   ════════════════════════════════════════════════════════════════════════ */
+function roofColliders(G, acx, acz) {
+  const R = SITE.HOTEL.ROOFTOP, T = HOTEL_ROOF.tower, L = G.colliders;
+  const C = Math.PI / 2, DY = R.deckY;
+  const a0 = C - R.arcHalf, a1 = C + R.arcHalf;
+  const p0 = C - R.poolArcHalf, p1 = C + R.poolArcHalf;
+  const ROOF = { y0: DY - .6 };                 // only for people on the terrace
+  const SWIM = { y1: DY - .2 };                 // only for people IN the water
+  const WX = (th, r) => acx + Math.sin(th) * r;
+  const WZ = (th, r) => acz + Math.cos(th) * r;
+  const arc = (rad, t0, t1, r, yr) => colliderArc(L, acx, acz, rad, t0, t1, r, yr);
+  const radial = (th, r0, r1, r, yr) =>
+    colliderLine(L, WX(th, r0), WZ(th, r0), WX(th, r1), WZ(th, r1), r, yr);
+
+  /* ── the edges. Circles sit BEHIND each rail so the player can walk up to the
+        glass instead of being held a metre back by their own radius. ── */
+  arc(89.2, a0, a1, .70, ROOF);                          // inner rail (the sea)
+  arc(104.0, a0, T.th - T.bridgeTh - .01, .70, ROOF);    // outer rail, west run
+  arc(104.0, T.th + T.bridgeTh + .01, a1, .70, ROOF);    // outer rail, east run
+  radial(a0 - .004, R.rIn, R.rOut, .55, ROOF);           // the two glazed ends
+  radial(a1 + .004, R.rIn, R.rOut, .55, ROOF);
+
+  /* ── the pool. The INFINITY EDGE blocks at every height: from the deck side
+        it is a 0.55 m ledge you must not be nudged over, and from the water it
+        is a 26 m drop. The back wall and the two ends block only for a SWIMMER,
+        so a guest on the deck can still step into the water — and a swimmer
+        leaves the way they would in life, up the submerged steps at either end
+        (registered in site.js, and the only break in this ring). ── */
+  arc(91.35, p0, p1, .25);                               // the infinity edge
+  arc(96.75, p0, p1, .28, SWIM);                         // the back wall
+  radial(p0 - .006, R.poolIn, R.poolOut, .28, SWIM);
+  radial(p1 + .006, R.poolIn, R.poolOut, .28, SWIM);
+
+  /* ── the furniture, all ROOF-only ── */
+  arc(100.7, C - R.barArcHalf * .95, C + R.barArcHalf * .95, .55, ROOF);   // bar counter
+  for (const s of [-1, 1]) for (const off of [.185, .265, .345]) {         // 6 cabanas
+    const th = C + s * off;
+    for (const d of [-1.2, 0, 1.2]) {
+      const tt = th + d / R.gardenR;
+      L.push({ x: WX(tt, R.gardenR), z: WZ(tt, R.gardenR), r: 1.35, ...ROOF });
+    }
+  }
+  for (const s of [-1, 1]) {                                                // head-houses
+    const th = C + s * R.coreArcHalf;
+    for (const d of [-1.6, 0, 1.6]) {
+      const tt = th + d / 101.2;
+      L.push({ x: WX(tt, 101.2), z: WZ(tt, 101.2), r: 1.9, ...ROOF });
+    }
+  }
+  for (let i = 0; i < 26; i++) {                                            // planters
+    const th = a0 + (a1 - a0) * ((i + .5) / 26), d = Math.abs(th - C);
+    if (d < R.barArcHalf + .028) continue;
+    if (Math.abs(d - R.coreArcHalf) < .034) continue;
+    if (Math.abs(th - T.th) < .030) continue;
+    L.push({ x: WX(th, 102.5), z: WZ(th, 102.5), r: 1.3, ...ROOF });
+  }
+  for (let i = 0; i < 16; i++) {                                            // loungers
+    const th = C - .335 + (i / 15) * .67;
+    L.push({ x: WX(th, R.loungeR), z: WZ(th, R.loungeR), r: .85, ...ROOF });
+  }
+
+  /* ── the stair tower. Side walls at every height; the inner wall only BELOW
+        the bridge, the outer wall only ABOVE the ground-floor door. ── */
+  const tv = v => v / ((T.r0 + T.r1) / 2);
+  for (const s of [-1, 1]) {
+    colliderLine(L, WX(T.th + s * tv(T.half + .1), T.r0), WZ(T.th + s * tv(T.half + .1), T.r0),
+      WX(T.th + s * tv(T.half + .1), T.r1), WZ(T.th + s * tv(T.half + .1), T.r1), .30);
+  }
+  const tang = (rad, r, yr) => colliderLine(L,
+    WX(T.th - tv(T.half + .3), rad), WZ(T.th - tv(T.half + .3), rad),
+    WX(T.th + tv(T.half + .3), rad), WZ(T.th + tv(T.half + .3), rad), r, yr);
+  tang(T.r0 - .16, .28, { y1: DY - .6 });   // inner wall — open only at the bridge
+  tang(T.r1 + .16, .28, { y0: 2.4 });       // outer wall — open only at the door
+  // the spine between the two flights — falling across it is a two-storey drop
+  colliderLine(L, WX(T.th, T.lr), WZ(T.th, T.lr), WX(T.th, T.hr), WZ(T.th, T.hr), .16);
 }
 
 /* ════════════════════════════════════════════════════════════════════════

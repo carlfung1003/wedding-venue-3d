@@ -19,7 +19,7 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-import { CFG } from './config.js';
+import { CFG, momentIndex } from './config.js';
 import { buildWorld, floorY, updateWorld, toggleNight, yieldFrame } from './world.js';
 import { initPlayer, updatePlayer, lock } from './player.js';
 import { initTouch } from './touch.js';
@@ -173,7 +173,8 @@ G.ui.setMode(G.mode);
    Carl photographed. The ceremony dressing is on the lawn below it. */
 setProgress(.68, 'Sending up the drone');
 await yieldFrame();
-G.setMoment(1, { quiet: true });
+/* index resolved by id — the Welcome Brunch took index 0 on 2026-08-02 */
+G.setMoment(momentIndex('ceremony'), { quiet: true });
 initIntroCam(G);
 
 /* The single biggest stall on this page is not the geometry — it is compiling
@@ -196,8 +197,8 @@ document.getElementById('begin').addEventListener('click', e => {
     G.ui.showHUD();
     if (G.touchMode) G.showTouchUI();
     else lock(G);   // Esc naturally drops the lock; clicking the view re-locks
-    G.momentIndex = -1;   // force the switch even though 1 is dressed
-    G.setMoment(0);       // the day starts the night before, in the suite
+    G.momentIndex = -1;   // force the switch even though the ceremony is dressed
+    G.setMoment(momentIndex('setup'));   // the dive lands in the great room
   });
 });
 
@@ -251,7 +252,7 @@ window.__game = {
     G.ui.hideOverlay();
     G.ui.showHUD();
     G.momentIndex = -1;
-    G.setMoment(0);
+    G.setMoment(momentIndex('setup'));
   },
   fastForward(seconds) {
     /* stub — there is no sim clock yet; when the day gets a timeline

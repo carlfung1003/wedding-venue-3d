@@ -1,5 +1,6 @@
-// moments.js — the five moments of the wedding day, each dressing a REAL place
-// on the 隐逸居 campus (see site.js MOMENT_PLACES + the reference briefs).
+// moments.js — the six moments, each dressing a REAL place: five on the 隐逸居
+// campus and, since 2026-08-02, the Welcome Brunch on the Westin's rooftop
+// terrace 285 m east (see site.js MOMENT_PLACES / HOTEL_ROOF + the briefs).
 //
 // House pattern: every moment's props are built ONCE here and toggled with
 // .visible; nothing is rebuilt on switch. Colliders are swapped (statics + the
@@ -7,7 +8,7 @@
 // flag — switching moments moves the sun.
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { SITE } from './site.js';
+import { SITE, HOTEL_ROOF } from './site.js';
 import { setFacing, syncCamera } from './player.js';
 import { setNight } from './world.js';
 import { mulberry32 } from './materials.js';
@@ -107,6 +108,18 @@ function colLine(list, x1, z1, x2, z2, r) {
     list.push({ x: x1 + (x2 - x1) * i / n, z: z1 + (z2 - z1) * i / n, r });
   }
 }
+/* The same, between two WORLD points, with a floor height under which the
+   collider does not exist — and pre-flagged __world so world.js's
+   worldifyLateRecords leaves it where it was put. The rooftop moment is the
+   only caller; every enclave-local moment keeps using colLine above. */
+function colLineY(list, a, b, r, y0) {
+  const d = Math.hypot(b.x - a.x, b.z - a.z), n = Math.max(1, Math.ceil(d / r));
+  for (let i = 0; i <= n; i++) {
+    list.push({
+      x: a.x + (b.x - a.x) * i / n, z: a.z + (b.z - a.z) * i / n, r, y0, __world: true,
+    });
+  }
+}
 
 export function initMoments(G) {
   const groups = {};
@@ -117,8 +130,163 @@ export function initMoments(G) {
     G.scene.add(groups[m.id]);
     cols[m.id] = [];
   }
+  /* Five of the six moments dress the ENCLAVE and are authored in enclave-local
+     coordinates — world.js adopts their groups into the rotated enclave group
+     and rewrites their colliders and interactables on the first frame. The
+     Welcome Brunch is 285 m east on the hotel crescent, which is NOT part of
+     the enclave, so it opts out of all three: `worldSpace` on the group,
+     `__world` on every collider and interactable it registers. Forget one and
+     the brunch lands 90° around the map from the roof it is set on. */
+  groups.brunch.userData.worldSpace = true;
 
   const P = SITE.POOL, D = SITE.DECK, L = SITE.LOUNGE, LW = SITE.LAWN;
+
+  /* ── 0 · WELCOME BRUNCH — the Westin rooftop, 18 March, two days out ───────
+     campus.js already stands eight four-tops and eight parasols on the paved
+     aprons at either end of the water; those are the ROOM. This moment is the
+     COVER: linen over the marble, settings, low blooms, a champagne service and
+     a buffet on the teak, and a menu easel where the bridge arrives. Nothing
+     here duplicates a table that is already up there — dress it, don't rebuild
+     it. Everything is WORLD space, in HOTEL_ROOF's polar frame. */
+  {
+    const g = groups.brunch;
+    const RF = SITE.HOTEL.ROOFTOP, DY = RF.deckY, C = Math.PI / 2;
+    const pt = (th, r) => HOTEL_ROOF.pt(th, r);
+    /* a box laid flat on the terrace, turned to face the arc centre */
+    const rbox = (w, h, d, th, r, y, m) => {
+      const p = pt(th, r);
+      const b = box(w, h, d, m);
+      b.position.set(p.x, y, p.z);
+      b.rotation.y = th;
+      g.add(b);
+      return b;
+    };
+    const rcyl = (rad, h, th, r, y, m, seg = 14) => {
+      const p = pt(th, r);
+      const c = cyl(rad, h, m, seg);
+      c.position.set(p.x, y, p.z);
+      g.add(c);
+      return c;
+    };
+
+    /* ── the eight existing four-tops, dressed ── */
+    for (const s of [-1, 1]) for (let k = 0; k < 4; k++) {
+      const th = C + s * (RF.poolArcHalf + .035 + k * .055);
+      const r = 93.4 + (k % 2) * 1.6;
+      const p = pt(th, r);
+      /* ⚠ campus.js sizes these tables through mat4() SCALE on a unit cylinder
+         of radius 0.5, so `1.35` there is a 1.35 m DIAMETER — a 0.675 m top,
+         with the four chairs at 1.05 m. moments.js's cyl() takes a real radius.
+         Dress to 0.70 or the cloth swallows the chairs and the table reads as a
+         drum. (It did, first try.) */
+      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(.68, .72, .74, 20, 1, true), linen);
+      skirt.position.set(p.x, DY + .38, p.z); g.add(skirt);
+      rcyl(.72, .05, th, r, DY + .78, linen, 20);
+      // a low bowl of blooms in the centre
+      rcyl(.19, .11, th, r, DY + .86, gold);
+      for (let i = 0; i < 7; i++) {
+        const f = new THREE.Mesh(new THREE.SphereGeometry(.065, 8, 6), i % 3 ? blush : foliage);
+        f.position.set(p.x + (rnd() - .5) * .28, DY + .94 + rnd() * .07, p.z + (rnd() - .5) * .28);
+        g.add(f);
+      }
+      // four covers: charger, napkin, flute — laid toward the chairs
+      for (let c = 0; c < 4; c++) {
+        const ca = c * Math.PI / 2 + .4;
+        const px = p.x + Math.cos(ca) * .46, pz = p.z - Math.sin(ca) * .46;
+        const plate = new THREE.Mesh(new THREE.CylinderGeometry(.14, .14, .022, 16), linen);
+        plate.position.set(px, DY + .82, pz); g.add(plate);
+        const nap = box(.10, .03, .14, blush);
+        nap.position.set(px, DY + .85, pz); nap.rotation.y = ca; g.add(nap);
+        const fl = cyl(.030, .16, glassy, 8);
+        fl.position.set(p.x + Math.cos(ca + .5) * .52, DY + .89, p.z - Math.sin(ca + .5) * .52);
+        g.add(fl);
+        /* campus.js's chairs are bare white blocks — right for pool furniture,
+           thin for a table you now stand two metres from. A linen slip over the
+           back and a blush sash is what turns them into event chairs. */
+        const bx = p.x + Math.cos(ca) * 1.28, bz = p.z - Math.sin(ca) * 1.28;
+        const slip = box(.54, .56, .10, linen);
+        slip.position.set(bx, DY + .64, bz); slip.rotation.y = ca; g.add(slip);
+        const sash = box(.56, .09, .13, blush);
+        sash.position.set(bx, DY + .50, bz); sash.rotation.y = ca; g.add(sash);
+      }
+      cols.brunch.push({ x: p.x, z: p.z, r: 1.35, y0: DY - .6, __world: true });
+    }
+
+    /* ── the buffet: a 7 m draped run on the teak, east of the water ── */
+    const BTH = C + .455, BR = 98.4;
+    for (let i = 0; i < 5; i++) {
+      const th = BTH - .028 + i * .014;
+      rbox(1.55, .74, 1.02, th, BR, DY + .37, linen);      // drape
+      rbox(1.60, .06, 1.12, th, BR, DY + .77, timber);     // the counter itself
+      rbox(1.56, .04, 1.08, th, BR, DY + .81, linen);      // runner over it
+    }
+    // chafing domes, fruit stands and a bread board along it
+    for (let i = 0; i < 4; i++) {
+      const th = BTH - .022 + i * .0147;
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(.24, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), gold);
+      const p = pt(th, BR - .1); dome.position.set(p.x, DY + .83, p.z); g.add(dome);
+    }
+    for (let i = 0; i < 3; i++) {
+      const th = BTH - .018 + i * .018;
+      rcyl(.06, .34, th, BR + .34, DY + .99, gold, 10);
+      rcyl(.30, .05, th, BR + .34, DY + 1.18, linen, 16);
+      for (let j = 0; j < 6; j++) {
+        const f = new THREE.Mesh(new THREE.SphereGeometry(.065, 7, 6), j % 2 ? blush : foliage);
+        const p = pt(th, BR + .34);
+        f.position.set(p.x + (rnd() - .5) * .34, DY + 1.25, p.z + (rnd() - .5) * .34);
+        g.add(f);
+      }
+    }
+    colLineY(cols.brunch, pt(BTH - .032, BR), pt(BTH + .032, BR), .62, DY - .6);
+
+    /* ── champagne service, on the pool side of the buffet ── */
+    const CTH = C + .383, CR = 97.9;
+    rcyl(.54, .80, CTH, CR, DY + .40, linen, 18);
+    rcyl(.58, .05, CTH, CR, DY + .82, linen, 18);
+    {
+      const p = pt(CTH, CR);
+      for (let row = 0; row < 3; row++) {
+        const n = 4 - row;
+        for (let i = 0; i < n; i++) {
+          const c = cyl(.052, .15, glassy, 8);
+          c.position.set(p.x - (n - 1) * .075 + i * .15, DY + .92 + row * .16, p.z);
+          g.add(c);
+        }
+      }
+      // an ice bucket, and a second one on the deck
+      const bkt = cyl(.19, .26, gold, 14);
+      bkt.position.set(p.x + .55, DY + .95, p.z + .2); g.add(bkt);
+      cols.brunch.push({ x: p.x, z: p.z, r: .95, y0: DY - .6, __world: true });
+    }
+
+    /* ── a linen runner + a hedge of blooms along the pool coping, so the water
+          reads as part of the table setting rather than a lap pool ── */
+    for (let i = 0; i < 22; i++) {
+      const th = C - .33 + (i / 21) * .66;
+      const p = pt(th, 96.9);
+      const f = new THREE.Mesh(new THREE.SphereGeometry(.13 + rnd() * .07, 7, 6),
+        rnd() > .5 ? blush : foliage);
+      f.position.set(p.x, DY + .16, p.z); g.add(f);
+    }
+
+    /* ── the menu easel, where the bridge lands ── */
+    {
+      const T = HOTEL_ROOF.tower;
+      const eth = T.th - .012;
+      rbox(.92, 1.24, .05, eth, 102.2, DY + 1.02, linen);
+      rbox(.07, 1.02, .07, eth, 102.3, DY + .51, timber);
+      cols.brunch.push({ ...pt(eth, 102.2), r: .6, y0: DY - .6, __world: true });
+    }
+
+    /* ── parasols get a second row over the four-top aprons ── */
+    for (const s of [-1, 1]) for (let k = 0; k < 2; k++) {
+      const th = C + s * (RF.poolArcHalf + .062 + k * .11);
+      rcyl(.05, 2.7, th, 91.9, DY + 1.35, timber, 8);
+      const p = pt(th, 91.9);
+      const um = new THREE.Mesh(new THREE.ConeGeometry(1.55, .62, 12), linen);
+      um.position.set(p.x, DY + 2.86, p.z); g.add(um);
+    }
+  }
 
   /* ── 1 · PREWEDDING — the suite deck at night, lanterns on the water ── */
   {
@@ -281,22 +449,31 @@ export function initMoments(G) {
     }
   }
 
-  /* ── interactables: one per moment ── */
-  const when = i => () => G.momentIndex === i;
+  /* ── interactables: one per moment ──
+     `when(id)` resolves by MOMENT id, not by index: inserting the Welcome Brunch
+     at 0 shifted all five of the originals, and a hard-coded index here fails
+     silently (the prompt simply stops appearing on the right moment). */
+  const idx = Object.fromEntries(CFG.MOMENTS.map((m, i) => [m.id, i]));
+  const when = id => () => G.momentIndex === idx[id];
+  const champ = HOTEL_ROOF.pt(Math.PI / 2 + .383, 97.9);
   G.interactables.push(
+    { x: champ.x, z: champ.z, r: 1.4, __world: true,
+      label: () => 'Pour a glass',
+      use: () => G.ui.toast('🥂 To the two of you — and to whoever booked the roof.', 3.4),
+      enabled: when('brunch') },
     { x: -3.4, z: D.z0 + 1.2, r: 1.2, label: () => 'Read the welcome sign',
       use: () => G.ui.toast('“Carl & Rachel — welcome to Haitang Bay. Shoes optional.”', 3.4),
-      enabled: when(0) },
+      enabled: when('setup') },
     { x: LW.cx, z: LW.cz - 8, r: 2.0, label: () => 'Stand at the arch',
-      use: () => G.ui.toast('This is where the “I do” happens. 💍', 3), enabled: when(1) },
+      use: () => G.ui.toast('This is where the “I do” happens. 💍', 3), enabled: when('ceremony') },
     { x: L.cx, z: L.glassZ + 1.6, r: 2.0, label: () => 'Order from the bar',
-      use: () => G.ui.toast('🥂 One Yuzu 75, coming right up.', 3), enabled: when(2) },
+      use: () => G.ui.toast('🥂 One Yuzu 75, coming right up.', 3), enabled: when('cocktail') },
     { x: L.cx, z: L.cz + 4.4, r: 2.2, label: () => 'Step onto the dance floor',
       use: () => G.ui.toast('The floor is yours — everyone joins after the second song.', 3.2),
-      enabled: when(3) },
+      enabled: when('dinner') },
     { x: 0, z: D.z0 + 1.4, r: 1.6, label: () => 'Request a song',
       use: () => G.ui.toast('🎧 The DJ nods. It was always going to be this song.', 3),
-      enabled: when(4) },
+      enabled: when('afterparty') },
   );
 
   /* statics are everything the builders registered BEFORE any dressing */
@@ -316,7 +493,12 @@ export function initMoments(G) {
     setNight(G, !!m.night, { quiet: true });
 
     if (G.setMode) G.setMode('walk', { quiet: true });
-    G.player.pos.set(m.spawn.x, CFG.EYE_HEIGHT, m.spawn.z);
+    /* spawn.y is the FEET height, and it has to be set explicitly: floorY only
+       ever answers the surface within CFG.STEP_UP of where the feet already
+       are, so teleporting to the rooftop with y = 0 would resolve to the ground
+       285 m below it and drop the player through the hotel. Omitted for every
+       moment at grade, which is all five of the enclave ones. */
+    G.player.pos.set(m.spawn.x, (m.spawn.y || 0) + CFG.EYE_HEIGHT, m.spawn.z);
     setFacing(m.spawn.yaw);
     syncCamera(G);
 

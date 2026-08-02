@@ -216,20 +216,23 @@ function wallRun(parent, mat, axis, fixed, t, a0, a1, y0, y1, holes = []) {
    still ENCLAVE-LOCAL at this point — world.js rewrites the slice buildSuite
    pushed through enclaveToWorld() once the enclave group is placed. */
 let COL = null;
-function col(x, z, r) { COL.push({ x: mx(x), z, r }); }
-function colLine(x1, z1, x2, z2, r, step) {
+/* `yr` is the optional {y0,y1} feet-height range from the collider contract in
+   player.js — omit it and the circle blocks at every height, as all of these
+   did before 2026-08-02. Only the stair mass uses it. */
+function col(x, z, r, yr) { COL.push(yr ? { x: mx(x), z, r, ...yr } : { x: mx(x), z, r }); }
+function colLine(x1, z1, x2, z2, r, step, yr) {
   const st = step || r * 0.9;
   const dx = x2 - x1, dz = z2 - z1;
   const len = Math.hypot(dx, dz);
   const n = Math.max(1, Math.ceil(len / st));
-  for (let i = 0; i <= n; i++) col(x1 + dx * i / n, z1 + dz * i / n, r);
+  for (let i = 0; i <= n; i++) col(x1 + dx * i / n, z1 + dz * i / n, r, yr);
 }
 /** Ring of circles around an axis-aligned rectangle (furniture, masses). */
-function colRect(x0, z0, x1, z1, r) {
-  colLine(x0, z0, x1, z0, r);
-  colLine(x1, z0, x1, z1, r);
-  colLine(x1, z1, x0, z1, r);
-  colLine(x0, z1, x0, z0, r);
+function colRect(x0, z0, x1, z1, r, yr) {
+  colLine(x0, z0, x1, z0, r, 0, yr);
+  colLine(x1, z0, x1, z1, r, 0, yr);
+  colLine(x1, z1, x0, z1, r, 0, yr);
+  colLine(x0, z1, x0, z0, r, 0, yr);
 }
 
 /* ── day / night registry ──────────────────────────────────────────────
@@ -1071,7 +1074,15 @@ function buildStair(root, G) {
      void — and the chandelier in it — reads from the great room. */
   slab(g, MT.blackTall, ST.x0, ST.x0 + .3, 0, Y2C, ST.zN, -21.0);
   slab(g, MT.blackTall, ST.x0, X1, 0, Y2C, ST.zN - .22, ST.zN);
-  slab(g, MT.black, ST.x0, ST.lx0, 0, .5, ST.lzS, ST.lzS + .16);     // low base rail
+  /* REMOVED 2026-08-02 — the "low base rail": a 0.5 m solid black kerb that ran
+     the FULL width of the stair zone (x0 → lx0) along the lower flight's south
+     face. That face is the only approach to the stair from the great room, so
+     the kerb walled the staircase off: 0.5 m is taller than CFG.STEP_UP (0.40),
+     and it carried a collider besides. It is the dark mass across the foot of
+     the flight in Carl's screenshot. The raking glass balustrade below
+     (rakeRail 'x') already guards that edge, which is what a base rail is for —
+     so this was redundant as well as wrong. Do not reinstate it without
+     stopping it short of ST.loX0 + 1.4. */
 
   /* ── backlit frosted louver glazing, outer side (bronze mullion grid) ── */
   const fz0 = ST.zN + .3, fz1 = -21.0;
@@ -1407,12 +1418,29 @@ function buildColliders() {
   colLine(X0, nz + .62, -5.2, nz + .62, .34);        // back counter
   colRect(-5.2, -24.05, -4.35, -23.2, .32);          // grey stone column
 
-  /* ── the stair mass ── */
-  colRect(ST.loX0, ST.lzN, ST.lx0, ST.lzS, .3);      // lower flight
-  colRect(ST.lx0, ST.lzN, ST.lx1, ST.zS, .3);        // landing + upper flight
+  /* ── the stair mass ─────────────────────────────────────────────────────────
+     REWORKED 2026-08-02. site.js registers this staircase as three walkable
+     regions (suite-stair-lower / -landing / -upper) and floorY climbs them
+     correctly — but the walker never reached them, because the mass carried two
+     y-agnostic collider rings around exactly the footprint the ramps occupy.
+     The height field said "climb"; the collider said "no". That is Carl's
+     "can't walk upstairs".
+
+       · the lower flight's own ring is GONE. Its footprint IS the ramp; the
+         approach from the great room (walking north into the bay, south of the
+         spine wall's z = −21.0 end) now lands you on a tread and the ramp lifts
+         you. The raking glass balustrade still reads as the edge.
+       · the landing + upper flight keeps its ring but only BELOW 0.85 m of feet
+         height, so it still stops a ground-level walker strolling into the
+         under-stair volume, and stops existing once you are actually on the
+         stair. 0.85 is chosen against the arithmetic: the ring's west edge
+         (r 0.3 + PLAYER_R 0.35) starts pushing at x = lx0 − 0.65, where the
+         lower ramp has already lifted the feet to ≈ 0.95 m. Raise it and you
+         re-seal the landing.
+       · the base rail's collider went with the base rail (see buildStair). */
+  colRect(ST.lx0, ST.lzN, ST.lx1, ST.zS, .3, { y1: 0.85 });   // landing + upper flight
   colLine(ST.x0 + .15, ST.zN, ST.x0 + .15, -21.0, .22);  // black spine wall
   colLine(ST.x0, ST.zN - .11, X1, ST.zN - .11, .22);     // black north return
-  colLine(ST.x0, ST.lzS + .08, ST.lx0, ST.lzS + .08, .2); // base rail
 
   /* ── great-room furniture ── */
   colRect(LIVING_X - 3, -23.2, LIVING_X + 3, -19.2, .4);       // sofa island (sz ± 2)

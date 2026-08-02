@@ -57,9 +57,17 @@ export const CFG = {
   },
   START_AT_NIGHT: false,    // open on the golden-hour aerial; N toggles
 
-  // --- the five moments of the day ---
-  // Real locations now (see js/site.js MOMENT_PLACES + the reference briefs).
+  // --- the six moments ---
+  // Real locations (see js/site.js MOMENT_PLACES + the reference briefs).
+  // ORDER IS CHRONOLOGICAL and the chip bar is read as a timeline, so the
+  // Welcome Brunch — 18 March, two days out — goes FIRST. Nothing indexes this
+  // array by number: main.js resolves the intro backdrop and the landing moment
+  // through momentIndex() below, and the 1…9 keys are bounds-checked by
+  // setMoment. Insert in the right place; do not append to protect an index.
   MOMENTS: [
+    { id: 'brunch', name: 'Welcome Brunch', area: 'The Westin Rooftop',
+      spawn: MOMENT_PLACES.BRUNCH, night: false,
+      blurb: 'Two days out, twenty-six floors up — the wedding party, long tables in the sun, and nothing past the pool but the sea.' },
     { id: 'setup', name: 'Prewedding Setup', area: 'Presidential Suite',
       spawn: MOMENT_PLACES.PREWEDDING, night: true,
       blurb: 'The night before — lanterns on the pool, the glass wall folded open, everyone spilling out of the living room.' },
@@ -77,3 +85,9 @@ export const CFG = {
       blurb: 'The DJ takes the deck. Lanterns still burning on the water at 1 a.m.' },
   ],
 };
+
+/** Index of a moment by id. Use this instead of a literal anywhere outside the
+ *  MOMENTS table — inserting the Welcome Brunch at 0 shifted every other moment
+ *  by one, and three call sites in main.js were holding raw indices. Returns −1
+ *  for an unknown id, which setMoment treats as "no such moment". */
+export const momentIndex = id => CFG.MOMENTS.findIndex(m => m.id === id);

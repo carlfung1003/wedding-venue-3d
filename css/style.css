@@ -261,11 +261,22 @@ body.touch .touchOnly{display:grid}
   .controls{grid-template-columns:1fr;gap:7px}
   #momentName{font-size:20px}
   #momentName i{font-size:14px}
+  /* Six moments since 2026-08-02 — ~740 px of chips against a 390 px phone, so
+     the bar scrolls (it already did at five). scroll-snap keeps a chip whole in
+     the viewport, and ui.setMoment scrolls the active one into view so a switch
+     from the 1–6 keys or the begin flow is never invisible. Wrapping instead of
+     scrolling was tried and rejected: three rows of chips reach the touch stick
+     at bottom:96px. */
   #moments{
     max-width:94vw;overflow-x:auto;
     -webkit-overflow-scrolling:touch;scrollbar-width:none;
+    scroll-snap-type:x proximity;scroll-padding:0 8px;
+    gap:6px;
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);
+    mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);
   }
   #moments::-webkit-scrollbar{display:none}
-  .chip{padding:7px 10px;font-size:11px}
+  .chip{padding:7px 9px;font-size:11px;scroll-snap-align:center;flex:0 0 auto}
+  .chip span{margin-right:5px;width:15px;height:15px;line-height:14px}
   #prompt{bottom:96px;font-size:13px}
 }

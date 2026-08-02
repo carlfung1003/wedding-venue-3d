@@ -26,6 +26,14 @@ export function initUI(G) {
     setMoment(m, idx) {
       nameEl.innerHTML = `${m.name} <i>· ${m.area}</i>`;
       chips.forEach((c, i) => c.classList.toggle('active', i === idx));
+      /* With six moments the bar scrolls on a phone (css/style.css, ≤560px), so
+         a switch driven by a number key — or by the begin flow — can otherwise
+         land on a chip that is off screen and leave the bar looking unchanged.
+         Guarded: scrollIntoView with options is not in every old WebView. */
+      const act = chips[idx];
+      if (act && bar.scrollWidth > bar.clientWidth + 1) {
+        act.scrollIntoView?.({ block: 'nearest', inline: 'center' });
+      }
     },
 
     setMode(mode) {

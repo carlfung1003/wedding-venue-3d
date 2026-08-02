@@ -642,6 +642,57 @@ function ramp(id, x0, z0, x1, z1, axis, a0, y0, a1, y1, o = {}) {
   return r;
 }
 
+/* ── a THIRD shape: the annular sector ───────────────────────────────────────
+   Added 2026-08-02 for the Westin crescent's rooftop terrace, which is a curved
+   annulus with a pool-shaped hole in it. Approximating that with one rect would
+   have put walkable floor 12 m out over the edge of the building at both ends,
+   which on a 26.6 m roof is not a rounding error.
+
+   Everything polar is measured from an ARC CENTRE (cx, cz) in the same frame
+   campus.js's buildHotel works in, and bearings follow the house convention
+   three.js's CylinderGeometry sets: dir(θ) = (sin θ, cos θ), so
+
+     x = cx + sin θ · r,  z = cz + cos θ · r,  θ = atan2(x − cx, z − cz)
+
+   `tc` is the sector's CENTRE bearing and `th` its half-width in radians — a
+   centre/half-width pair rather than start/end because the wrap test is then one
+   subtraction, and the whole thing is queried every frame.
+
+     annulus(id, cx, cz, r0, r1, tc, th, y, opts)
+     annRamp (id, cx, cz, r0, r1, tc, th, ry0, ry1, opts)   ramps ALONG RADIUS
+
+   annRamp is what makes the stair tower possible: a flight whose treads march
+   radially is just a linear height in r, and its landings are flat annuli, so
+   the whole nine-flight switchback is eleven of these and nothing else.
+
+   `aholes: [{r0, r1, tc, th}]` punches polar holes — the pool out of the deck.
+   All annuli are WORLD-space (the crescent is not part of the enclave). */
+function annulus(id, cx, cz, r0, r1, tc, th, y, o = {}) {
+  return {
+    id, y, axis: null, ann: true,
+    cx, cz, r0, r1, tc, th,
+    x0: cx - r1, x1: cx + r1, z0: cz - r1, z1: cz + r1,   // cheap bbox reject
+    ceil: o.ceil === undefined ? Infinity : o.ceil,
+    t: o.t === undefined ? SLAB_T : o.t,
+    holes: null, aholes: o.aholes || null,
+    world: true,
+  };
+}
+
+function annRamp(id, cx, cz, r0, r1, tc, th, ry0, ry1, o = {}) {
+  const r = annulus(id, cx, cz, r0, r1, tc, th, ry0, o);
+  r.axis = 'r'; r.a0 = r0; r.a1 = r1; r.ry0 = ry0; r.ry1 = ry1;
+  return r;
+}
+
+/** Signed, wrapped angular offset of a bearing from a sector centre. */
+function dTh(th, tc) {
+  let d = th - tc;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
+
 /* ── the suite, in SITE (mirror-corrected) coordinates ── */
 const _SU = SITE.SUITE, _ST = _SU.stair;
 const _SX0 = _SU.cx - _SU.w / 2, _SX1 = _SU.cx + _SU.w / 2;   //  -8 …  8
@@ -678,6 +729,83 @@ const _XSLX = _ES.x - Math.sign(_ES.x) * _ES.landingBack;  //   8.6  landing cen
 /* ── the pool ── */
 const _P = SITE.POOL;
 const _PPX = _P.w / 2 + _P.coping, _PPZ = _P.d / 2 + _P.coping;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE WESTIN ROOFTOP — the derived frame everything up there shares
+   ═══════════════════════════════════════════════════════════════════════════
+   SITE.HOTEL.ROOFTOP publishes the section (deckY, waterY, basinY, radii, arc
+   half-widths). What it does NOT publish is the arc centre those radii are
+   measured from, the bearing convention, or where the stair is — and three
+   files now need all three (site.js registers the walkable surfaces, campus.js
+   builds the geometry and the colliders, moments.js dresses the brunch and
+   spawns on it). So it is derived ONCE, here, and exported.
+
+   Read HOTEL_ROOF; do not re-derive `cx − r` in a builder. That is the same
+   rule SITE.* has always had, one level down.
+
+   The stair: a nine-flight switchback in a detached tower on the crescent's
+   INLAND face, linked to the terrace by a bridge at deck level. Inland because
+   the alternative — the concave, sea-facing side — would have run a bridge
+   straight across the infinity edge, which is the one view the venue exists
+   for. It costs the walker a lap around the end of the crescent to reach the
+   door (the tower stands clear of the coarse collider ring, which spans r
+   81…109); the Welcome Brunch therefore spawns on the roof rather than making
+   anyone do that. Both routes are real — see CLAUDE.md. */
+const _H = SITE.HOTEL, _R = _H.ROOFTOP;
+const _RC = Math.PI / 2;                       // the crescent's centre bearing
+
+const _TW_TH = _RC + 0.575;                    // stair tower bearing: clear of the
+                                               // head-house at ±0.50 and of the
+                                               // terrace end at ±arcHalf
+const _TW_R0 = 110.2, _TW_R1 = 118.2;          // tower footprint, radially
+const _TW_LR = _TW_R0 + 1.2;                   // inner (low-r) landing ends here
+const _TW_HR = _TW_R1 - 1.2;                   // outer (high-r) landing starts here
+const _TW_HALF = 2.2;                          // interior half-width, metres
+const _TW_FL = 9;                              // flights, ground → deckY
+const _TW_RISE = _R.deckY / _TW_FL;            // 2.9556 m per flight
+
+/* metres of tangential offset → radians, at the tower's mid radius */
+const _tw = v => v / ((_TW_R0 + _TW_R1) / 2);
+
+export const HOTEL_ROOF = {
+  cx: _H.cx - _H.r, cz: _H.cz,                 // ARC CENTRE — (190, 10)
+  C: _RC,
+  /** polar → world, the one conversion every rooftop coordinate goes through */
+  pt(th, r) { return { x: this.cx + Math.sin(th) * r, z: this.cz + Math.cos(th) * r }; },
+  /** the yaw that faces the arc centre — i.e. the infinity edge and the sea */
+  inward(th) { return th; },
+  tower: {
+    th: _TW_TH, r0: _TW_R0, r1: _TW_R1, lr: _TW_LR, hr: _TW_HR,
+    half: _TW_HALF, halfRad: _tw(_TW_HALF), flights: _TW_FL, rise: _TW_RISE,
+    /* the two flights sit either side of a central spine; A descends in r
+       (odd flights), B climbs in r (even) */
+    aTc: _TW_TH - _tw(1.15), aTh: _tw(0.85),
+    bTc: _TW_TH + _tw(1.15), bTh: _tw(0.85),
+    bridgeTh: _tw(1.5),                        // link bridge half-width
+    bridgeR0: _R.rOut - 0.6, bridgeR1: _TW_R0 + 0.4,
+  },
+};
+
+/* the nine flights + ten landings, generated rather than typed out */
+function _towerRegions() {
+  const T = HOTEL_ROOF.tower, cx = HOTEL_ROOF.cx, cz = HOTEL_ROOF.cz, out = [];
+  for (let k = 1; k <= T.flights; k++) {
+    const yLo = (k - 1) * T.rise, yHi = k * T.rise;
+    const A = k % 2 === 1;                     // odd flights descend in radius
+    out.push(annRamp(`hotel-stair-${k}`, cx, cz, T.lr, T.hr,
+      A ? T.aTc : T.bTc, A ? T.aTh : T.bTh,
+      A ? yHi : yLo, A ? yLo : yHi));          // ry0 is at r0 (= lr), ry1 at r1
+  }
+  for (let k = 0; k < T.flights; k++) {
+    const y = (k + 1) * T.rise;
+    // odd flight k+1 ENDS on the inner landing; even flights end on the outer
+    if (k % 2 === 0) out.push(annulus(`hotel-stair-landing-lo${k}`, cx, cz, T.r0, T.lr, T.th, T.halfRad, y));
+    else out.push(annulus(`hotel-stair-landing-hi${k}`, cx, cz, T.hr, T.r1, T.th, T.halfRad, y));
+  }
+  // the ground floor, at the outer end: this is the door
+  out.push(annulus('hotel-stair-ground', cx, cz, T.hr, T.r1, T.th, T.halfRad, 0));
+  return out;
+}
 
 export const WALK_REGIONS = [
   /* ══ the presidential suite ═══════════════════════════════════════════════
@@ -739,6 +867,39 @@ export const WALK_REGIONS = [
     { ceil: _LO.plinth + _LO.h }),
   rect('lounge-step', _LO.cx - (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z0,
     _LO.cx + (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z1, _LO.step2Y),
+
+  /* ══ THE WESTIN ROOFTOP TERRACE — WELCOME BRUNCH ═══════════════════════════
+     WORLD space, and the first curved surfaces in the registry. The deck is the
+     whole annulus with the pool punched out of it; the pool answers as its own
+     BASIN, so walking in leaves you standing in 1.2 m of water with your head
+     above it, not skating across the surface.
+
+     Getting back out is the submerged steps campus.js already builds at each
+     end of the water. Two deliberate 2 cm lies about them, both under water and
+     both load-bearing:
+       · the treads are modelled 0.40 apart, which is CFG.STEP_UP to the last
+         bit — and `_h[i] > fromY + stepUp` is a strict comparison, so an exact
+         0.40 rounds the wrong way and the swimmer is trapped. Registered at
+         0.38 the climb is unambiguous.
+       · the top tread's outer radius is stretched to poolOut so it meets the
+         deck; without it you climb all three and fall straight back in. */
+  annulus('hotel-roof-deck', HOTEL_ROOF.cx, HOTEL_ROOF.cz, _R.rIn, _R.rOut,
+    _RC, _R.arcHalf, _R.deckY,
+    { aholes: [{ r0: _R.poolIn, r1: _R.poolOut, tc: _RC, th: _R.poolArcHalf }] }),
+  annulus('hotel-roof-pool', HOTEL_ROOF.cx, HOTEL_ROOF.cz, _R.poolIn, _R.poolOut,
+    _RC, _R.poolArcHalf, _R.basinY),
+  ...[-1, 1].flatMap(s => [0, 1, 2].map(k => annulus(
+    `hotel-pool-step-${s > 0 ? 'e' : 'w'}${k}`, HOTEL_ROOF.cx, HOTEL_ROOF.cz,
+    _R.poolOut - 1.925 + k * 0.55, k === 2 ? _R.poolOut : _R.poolOut - 1.375 + k * 0.55,
+    _RC + s * (_R.poolArcHalf - 0.022), 1.3 / 95,
+    _R.basinY + (k + 1) * 0.38))),
+
+  /* the link bridge, then the stair tower: nine flights and ten landings from
+     grade to deckY, generated by _towerRegions() */
+  annulus('hotel-roof-bridge', HOTEL_ROOF.cx, HOTEL_ROOF.cz,
+    HOTEL_ROOF.tower.bridgeR0, HOTEL_ROOF.tower.bridgeR1,
+    HOTEL_ROOF.tower.th, HOTEL_ROOF.tower.bridgeTh, _R.deckY),
+  ..._towerRegions(),
 ];
 
 /* Terrain only — the flat campus with sand sloping into the sea. This is what
@@ -754,14 +915,30 @@ export function siteGroundY(x, z) {
 
 /** Surface height of one region at a point, or null if the point misses it. */
 function regionY(r, x, z) {
-  if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) return null;
-  if (r.holes) {
-    for (const h of r.holes) {
-      if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return null;
+  if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) return null;   // bbox, both shapes
+  let a;                                     // the ramp parameter, if it is one
+  if (r.ann) {
+    const dx = x - r.cx, dz = z - r.cz;
+    const rr = Math.sqrt(dx * dx + dz * dz);
+    if (rr < r.r0 || rr > r.r1) return null;
+    const th = Math.atan2(dx, dz);
+    if (Math.abs(dTh(th, r.tc)) > r.th) return null;
+    if (r.aholes) {
+      for (const h of r.aholes) {
+        if (rr > h.r0 && rr < h.r1 && Math.abs(dTh(th, h.tc)) < h.th) return null;
+      }
     }
+    if (!r.axis) return r.y;
+    a = rr;                                  // annular ramps run along RADIUS
+  } else {
+    if (r.holes) {
+      for (const h of r.holes) {
+        if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return null;
+      }
+    }
+    if (!r.axis) return r.y;
+    a = r.axis === 'x' ? x : z;
   }
-  if (!r.axis) return r.y;
-  const a = r.axis === 'x' ? x : z;
   let t = (a - r.a0) / (r.a1 - r.a0);
   t = t < 0 ? 0 : t > 1 ? 1 : t;
   return r.ry0 + (r.ry1 - r.ry0) * t;
@@ -845,12 +1022,32 @@ const MOMENT_PLACES_LOCAL = {
   AFTERPARTY: { x: 0, z: -10, yaw: Math.PI },  // suite pool deck, DJ behind you
 };
 
-export const MOMENT_PLACES = Object.fromEntries(
-  Object.entries(MOMENT_PLACES_LOCAL).map(([k, p]) => {
-    const w = enclaveToWorld(p.x, p.z);
-    return [k, { x: w.x, z: w.z, yaw: enclaveYaw(p.yaw) }];
-  }),
-);
+/* WORLD-space spawns, for moments that are NOT on the enclave. These skip the
+   transform entirely — put an enclave place in here and it lands 90° out.
+   A spawn may now carry `y`: the FEET height it starts at. Omit it and you
+   spawn on the ground, which is what all five enclave moments do; the Welcome
+   Brunch needs 26.6 because moments.js teleports before any floorY resolve and
+   CFG.STEP_UP would never let a walker climb 26 m in one frame. */
+const _BRUNCH_TH = _RC + 0.34;                // just past the last lounger, east
+const _BRUNCH_PT = HOTEL_ROOF.pt(_BRUNCH_TH, 99.2);   // on the teak, behind the coping
+const MOMENT_PLACES_WORLD = {
+  // Standing at the east end of the lounger deck looking due WEST: the pool
+  // runs away to the left, the brunch tables sit to the right, and dead ahead
+  // is the infinity edge, the balustrade and 26 m of nothing before the sea.
+  // Due west rather than dead-inward (which would be yaw = θ) so the water and
+  // the tables both stay in frame instead of one filling it.
+  BRUNCH: { x: _BRUNCH_PT.x, z: _BRUNCH_PT.z, y: SITE.HOTEL.ROOFTOP.deckY, yaw: Math.PI / 2 },
+};
+
+export const MOMENT_PLACES = {
+  ...Object.fromEntries(
+    Object.entries(MOMENT_PLACES_LOCAL).map(([k, p]) => {
+      const w = enclaveToWorld(p.x, p.z);
+      return [k, { x: w.x, z: w.z, yaw: enclaveYaw(p.yaw) }];
+    }),
+  ),
+  ...MOMENT_PLACES_WORLD,
+};
 
 // Where the opening drone orbit looks, and where the "STEP INSIDE" dive ends.
 // Also enclave-local, also mapped. (CFG.INTRO's orbit CENTRE is a separate

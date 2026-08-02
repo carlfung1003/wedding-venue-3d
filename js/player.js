@@ -48,7 +48,9 @@ export function initPlayer(G) {
     if (e.code === 'Tab') { e.preventDefault(); G.toggleCursorMode(); return; }
     if (e.code === 'KeyF') G.toggleMode();   // walk ↔ fly
     if (e.code === 'KeyE' && G.player.nearest) G.player.nearest.use();
-    if (/^Digit[1-5]$/.test(e.code)) G.setMoment(+e.code.slice(5) - 1);
+    // 1…9 — setMoment early-returns on an index CFG.MOMENTS does not have,
+    // so the range never has to be re-tuned when a moment is added
+    if (/^Digit[1-9]$/.test(e.code)) G.setMoment(+e.code.slice(5) - 1);
   });
   document.addEventListener('keyup', e => keys[e.code] = false);
 
@@ -143,10 +145,35 @@ export function updatePlayer(G, dt) {
   if (moving) move.normalize().multiplyScalar((wantRun ? CFG.RUN_SPEED : CFG.WALK_SPEED) * dt);
   player.pos.add(move);
 
-  /* ── safety clamp, then cylinder colliders (r + player radius) ── */
+  /* ── safety clamp, then cylinder colliders (r + player radius) ─────────────
+     THE COLLIDER CONTRACT, extended 2026-08-02: a collider is `{x, z, r}` plus
+     an OPTIONAL half-open height range `[y0, y1)` in metres of FEET height.
+     Omit both and the collider is what it always was — infinitely tall, which
+     is right for a wall and is why every existing entry is untouched.
+
+       { x, z, r }                 blocks at every height (the default)
+       { x, z, r, y1: 25.2 }       blocks only below 25.2 — a building mass you
+                                   must be able to stand ON TOP of
+       { x, z, r, y0: 26.6 }       blocks only at or above 26.6 — a rooftop
+                                   balustrade that must not exist at grade
+
+     Why it had to happen: G.colliders is ONE flat world-space list every
+     builder pushes into, and updatePlayer had no notion of height at all. The
+     hotel crescent's coarse ring (27 circles of r 14 at r 95) exists to stop a
+     ground-level walker strolling through the tower — and was therefore also
+     blocking the whole rooftop terrace 26.6 m above it. Same bug, smaller, at
+     the foot of the suite's L-stair: the stair mass was walled off at every
+     height, so the walkable ramp under it could never be reached.
+
+     Tested against the walker's CURRENT feet (before this frame's floor
+     resolve), which is the same quantity floorY's third argument takes — so
+     "which colliders apply" and "which surface am I on" always agree. */
   player.pos.x = Math.max(-CFG.WORLD_BOUND, Math.min(CFG.WORLD_BOUND, player.pos.x));
   player.pos.z = Math.max(-CFG.WORLD_BOUND, Math.min(CFG.WORLD_BOUND, player.pos.z));
+  const feetNow = player.pos.y - CFG.EYE_HEIGHT;
   for (const c of G.colliders) {
+    if (c.y0 !== undefined && feetNow < c.y0) continue;
+    if (c.y1 !== undefined && feetNow >= c.y1) continue;
     const dx = player.pos.x - c.x, dz = player.pos.z - c.z;
     const r = c.r + CFG.PLAYER_R;
     const d = Math.hypot(dx, dz);
