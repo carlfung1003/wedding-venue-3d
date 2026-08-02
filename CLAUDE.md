@@ -172,6 +172,29 @@ were building to:
 - **IMG_8093** — pool from the stair. **IMG_8095** — pool from the stair view.
   **IMG_8102** — another atrium angle.
 
+## QUEUED — pool + room-type placement (Carl, 2026-08-01, not yet done)
+
+From his side-by-side of the enclave aerial against the build. Read his words
+with the photo before implementing:
+
+- **The presidential pool must be the ONLY pool visible from the suite.**
+  There is currently a second pool and a cluster of buildings off to the LEFT
+  (local +X) that do not belong there.
+- **That second pool belongs on the RIGHT** (local −X) of the main pool, and
+  it serves the **3-bedroom suites**, which sit to the RIGHT of the
+  presidential suite. So `SITE.LOUNGE_POOL` (or whatever is rendering there)
+  and the two `type: 2` villas move together to −X.
+- **The three 2-bedroom pool suites (`type: 1`) sit BEHIND THE ATRIUM** — in
+  the reference aerial they read as three walled courtyards with plunge pools
+  on the far side of the courtyard from the suite.
+- The big water far away on the right of his photo is the **public beach pool
+  for all hotel guests** (that's the resort lagoon / circular pool, already
+  modelled as backdrop — do not confuse it with an enclave pool).
+
+Note "left/right" here is from the suite **facing the pool** = local +Z, so
+LEFT = +X and RIGHT = −X (`player.js` builds `fwd` as
+`(-sin yaw, 0, -cos yaw)`). Getting this sign wrong just mirrors the problem.
+
 ## Layout corrections from Carl (2026-08-01) — do not regress these
 
 He checked the render against the site map and the hotel's own photos and
