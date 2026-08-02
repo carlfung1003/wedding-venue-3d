@@ -800,11 +800,20 @@ function makeRectPool(G, o) {
   caust.renderOrder = 1;
   g.add(caust);
 
-  /* the surface — a planar mirror for the hero, a cheap sheet for the rest */
-  let water;
+  /* the surface — a planar mirror for the hero, a cheap sheet for the rest.
+     The Reflector is guarded: a blown shader compile or a missing addon must
+     cost us a nice pool, never the whole page. */
+  let water = null;
   if (mirror && TUNE.MIRROR) {
-    water = makeMirrorWater(w - .04, d - .04);
-  } else {
+    try {
+      water = makeMirrorWater(w - .04, d - .04);
+    } catch (err) {
+      console.warn('[water] Reflector unavailable — falling back to the flat sheet:', err);
+      water = null;
+      mirrorU = null;
+    }
+  }
+  if (!water) {
     water = new THREE.Mesh(
       new THREE.PlaneGeometry(w - .04, d - .04, 8, 4),
       waterMat(w / ripple, d / ripple, { opacity, color, nightColor, su, sv }));
@@ -933,11 +942,16 @@ function buildHeroPool(G) {
       hl.rotation.y = side < 0 ? 0 : Math.PI;
       hl.renderOrder = 2;
       g.add(hl);
-      /* the fitting's light spreading through the water, seen from above */
+      /* The fitting's light spreading through the water volume. renderOrder 4
+         puts it AFTER the surface (3) on purpose: from the suite the view is so
+         grazing that Fresnel makes the mirror ~90% opaque, and anything drawn
+         under it disappears — which is exactly how the pool went missing at
+         night. A real lit pool glows from every angle, so this one adds ON TOP.
+         Still depth-tested against the basin, so it stays inside the water. */
       const uw = new THREE.Mesh(uwGlowGeo, uwGlowMat);
       uw.rotation.x = -Math.PI / 2;
       uw.position.set(x, P.waterY - .72, side * (hd - 2.4));   // stays inside the basin
-      uw.renderOrder = 2;                    // BELOW the water surface (3)
+      uw.renderOrder = 4;
       g.add(uw);
     }
   }
@@ -1026,7 +1040,11 @@ function buildDeckAndTurf(G) {
   const D = SITE.DECK, TU = SITE.TURF, P = SITE.POOL;
   const ox = P.w / 2 + .55, oz = P.d / 2 + .55;
   const px0 = P.cx - ox, px1 = P.cx + ox, pz0 = P.cz - oz, pz1 = P.cz + oz;
-  const APRON = 15.6, SOUTH = 12.7;      // paving reaches past the boardwalk
+  const APRON = 15.6;
+  /* paving must reach PAST the pavilion boardwalk, which ends at CABANAS.z+2.4.
+     Derived, not hardcoded: SITE.CABANAS.z moved 8.5 → 11.0 and the old literal
+     12.7 left the boardwalk hanging over bare ground with the hedge on top. */
+  const SOUTH = Math.max(12.7, SITE.CABANAS.z + 3.4);
   const PY = -.004;                        // pavers a hair below datum, turf at 0
 
   const pv = (x0, z0, x1, z1) => {

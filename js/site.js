@@ -96,7 +96,8 @@ export const SITE = {
 
   // ---------------------------------------------------------- circular lawn
   // Large hedge-ringed event lawn NW of the buildings. CEREMONY.
-  LAWN: { cx: -62, cz: -46, r: 22, hedgeR: 24, palms: 18 },
+  // between the complex and the beach — the seaside lawn in the aerial
+  LAWN: { cx: -75, cz: -46, r: 22, hedgeR: 24, palms: 18 },
 
   // -------------------------------------------------------------- villa cluster
   // The REAL room mix from the hotel's deck (reference/clubhouse-pdf-brief.md):
@@ -108,14 +109,25 @@ export const SITE = {
   //            private courtyard with an L-shaped plunge pool and a black stone
   //            water wall with THREE waterfall spouts
   //   type 2 — 花园三卧套房 Garden 3-BR, 168 ㎡, TWO storeys with an upper balcony
-  // [x, z, rotationY, type] — TWO TIGHT ROWS immediately south of the pool.
-  // The enclave is only 3,500 ㎡ in total, so these must read as one compact
-  // compound, not a subdivision: Carl flagged the sprawl against the site map.
+  // [x, z, rotationY, type] — THE ROOMS RING THE ATRIUM.
+  //
+  // Carl's correction (2026-08-01, second pass): these are not detached villas
+  // on a lawn, they are the clubhouse's other room types, and **every one of
+  // them is entered from the atrium courtyard**. So they wrap it on three arms
+  // — west, north and east — making one dense interlocking complex exactly as
+  // the enclave aerial shows. The ocean side (west/south-west) stays CLEAR of
+  // buildings: standing at the clubhouse facing the sea there is nothing on
+  // your left but lawn, pool and palms.
+  //
+  // Nothing may be placed at +Z beyond the pool deck again — that ground is
+  // the view.
   VILLAS: [
-    [-34, 26, 0.10, 1], [-12, 26, -0.05, 0], [10, 26, 0.08, 2],
-    [32, 26, -0.12, 0], [54, 26, 0.06, 1],
-    [-34, 48, 0.14, 0], [-12, 48, -0.07, 2], [10, 48, 0.11, 0],
-    [32, 48, -0.10, 1], [54, 48, 0.05, 0],
+    // west arm — along the arrival drive, looking out over the lawn to the sea
+    [-30, -14, 0.06, 0], [-30, -32, -0.05, 1], [-30, -50, 0.08, 0],
+    // north arm — the back of the complex, off the atrium's north gallery
+    [-16, -70, 0.10, 0], [4, -70, -0.07, 2], [24, -70, 0.05, 0], [44, -70, -0.10, 1],
+    // east arm — beyond the 酒廊 lounge
+    [52, -52, 0.09, 2], [66, -14, -0.06, 0], [66, -32, 0.11, 1],
   ],
   VILLA: {
     w: 13, d: 11, h: 3.6,          // type 0 footprint
