@@ -144,6 +144,34 @@ hotel does between 4 pm and 6 pm on a real wedding day. Every moment's props
 are built once in `initMoments` and toggled with `.visible`; nothing is
 rebuilt on switch.
 
+## Rachel's photos (2026-08-01) — the best references we have
+
+`reference/photos/IMG_80*.jpg` + `reference/video/IMG_81*.MOV`, converted from
+HEIC (they import sideways — `sips` keeps the EXIF rotation, so rotate 90° in
+your head when reading them). The clubhouse's actual name is **The Serene
+Retreat**. Two of these settle open questions, and one contradicts a spec we
+were building to:
+
+- **IMG_8099 — the pool and its cabanas, ground level.** The cabanas are
+  **solid white stepped blocks with small punched rectangular window slots**,
+  each carrying a `THE WESTIN` mark — they are NOT the open post-and-beam
+  portal frames the hotel's p14 close-up suggested, and which `water.js`
+  currently builds. The near long side is lawn with a **black pebble trough**
+  at the water's edge; loungers sit at the far end near the building. Fixing
+  `buildPavilions` to solid stepped blocks is the next real job.
+- **IMG_8096 — the pool seen from inside the 1F great room.** ⚠️ **Unresolved:**
+  in this frame the pool appears to run roughly PARALLEL to the glass wall
+  (lawn strip → water → the WESTIN cabana blocks → palms), which is the wide
+  view. Carl's explicit instruction was the opposite — narrow view, pool
+  running away from the suite — and `SITE.POOL` is now built that way
+  (`w:10, d:25`). Carl has been there and the photo is rotated and oblique, so
+  his instruction wins until he says otherwise, but **ask before spending
+  effort here**: if the pool really is parallel, `SITE.POOL` reverts to
+  `w:25, d:10` and the CABANAS/LOUNGERS runs go back to `{x0,x1,z}`.
+  (Ignore the sofa arrangement in that photo — Carl says it is not current.)
+- **IMG_8093** — pool from the stair. **IMG_8095** — pool from the stair view.
+  **IMG_8102** — another atrium angle.
+
 ## Layout corrections from Carl (2026-08-01) — do not regress these
 
 He checked the render against the site map and the hotel's own photos and

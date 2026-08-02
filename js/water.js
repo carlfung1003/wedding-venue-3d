@@ -1041,10 +1041,10 @@ function buildDeckAndTurf(G) {
   const ox = P.w / 2 + .55, oz = P.d / 2 + .55;
   const px0 = P.cx - ox, px1 = P.cx + ox, pz0 = P.cz - oz, pz1 = P.cz + oz;
   const APRON = 15.6;
-  /* paving must reach PAST the pavilion boardwalk, which ends at CABANAS.z+2.4.
-     Derived, not hardcoded: SITE.CABANAS.z moved 8.5 → 11.0 and the old literal
-     12.7 left the boardwalk hanging over bare ground with the hedge on top. */
-  const SOUTH = Math.max(12.7, SITE.CABANAS.z + 3.4);
+  /* The deck apron now has to reach past the SOUTH END of a pool that runs
+     away from the suite (CABANAS became a Z-run, so CABANAS.z no longer
+     exists — reading it here produced NaN and corrupted the whole deck). */
+  const SOUTH = SITE.POOL.cz + SITE.POOL.d / 2 + 3.4;
   const PY = -.004;                        // pavers a hair below datum, turf at 0
 
   const pv = (x0, z0, x1, z1) => {
@@ -1107,8 +1107,8 @@ function buildDeckAndTurf(G) {
     g.add(u);
   }
 
-  /* clipped hedge wall + bougainvillea behind the pavilion boardwalk, which
-     ends at CABANAS.z + 2.4 = 10.9 (palms behind it are nature.js's) */
+  /* hedge closing the far (south) end of the pool — the pavilion run has its
+     own hedge along the east side, added in buildPavilions */
   box(g, APRON * 2, .95, 1.1, 0, .475, SOUTH - .55, MAT.hedge);
   return g;
 }
@@ -1130,7 +1130,15 @@ function buildPavilions(G) {
   ROOT.add(g);
   const CB = SITE.CABANAS;
   const rnd = mulberry32(SEED + 211);
-  const pitch = (CB.x1 - CB.x0) / (CB.count - 1);
+  /* The pool now runs north–south, so this run lines its EAST long side and
+     faces west across the water. Rather than rewrite every box() below into
+     Z-major coordinates, the whole run is still authored in a LOCAL frame —
+     marching along local +X, facing local −Z — and the group is then rotated
+     +90° about Y (local −Z → world −X) and dropped at SITE.CABANAS.x.
+     Local X is centred on 0, so `run` is the length along the pool. */
+  const run = CB.z1 - CB.z0;
+  const pitch = run / (CB.count - 1);
+  const HALF = run / 2;
   const nPiers = CB.count + 1;
 
   /* niche + hanging-lantern night materials */
@@ -1148,12 +1156,12 @@ function buildPavilions(G) {
 
   const piers = [];
   for (let i = 0; i < nPiers; i++) {
-    const x = CB.x0 - pitch / 2 + i * pitch;
+    const x = -HALF - pitch / 2 + i * pitch;
     const thick = (i % 2 === 0);
     const w = thick ? .95 + rnd() * .38 : .38 + rnd() * .18;
     const h = CB.hMin + rnd() * (CB.hMax - CB.hMin);
     const dep = .62 + rnd() * .34;
-    const zFront = CB.z - dep / 2 - (rnd() - .5) * .55;     // staggered setbacks
+    const zFront = -dep / 2 - (rnd() - .5) * .55;           // staggered setbacks
     piers.push({ x, w, h, dep, z: zFront, thick });
   }
 
@@ -1204,23 +1212,36 @@ function buildPavilions(G) {
     g.add(halo);
   }
 
-  /* colliders on the piers only — the portal openings stay walkable */
-  for (const p of piers) {
-    G.colliders.push({ x: p.x, z: p.z, r: Math.max(p.w, p.dep) * .5 });
-  }
-
-  /* timber boardwalk over lawn strips, linking the run */
+  /* timber boardwalk over lawn strips, linking the run (still local) */
   const bwX0 = piers[0].x - .9, bwX1 = piers[piers.length - 1].x + .9;
-  const bwZ0 = SITE.CABANAS.z - .1, bwZ1 = SITE.CABANAS.z + 2.4;
+  const bwZ0 = -.1, bwZ1 = 2.4;
   slab(g, bwX0, bwZ0, bwX1, bwZ1, .3, new THREE.MeshStandardMaterial({
     map: timber((bwX1 - bwX0) / 2.4, (bwZ1 - bwZ0) / 2.4), roughness: .68,
   }), .16);
   slab(g, bwX0, bwZ0, bwX1, bwZ1, .1, MAT.greenery, .2);     // lawn strip beneath
 
-  /* two stone steps from the boardwalk down to the pool deck */
-  const sz = SITE.POOL.cz + SITE.POOL.d / 2 + .55;
-  slab(g, bwX0 + 1.2, sz + .5, bwX0 + 4.2, sz + 1.15, .2, MAT.coping, .22);
-  slab(g, bwX0 + 1.2, sz + 1.15, bwX0 + 4.2, sz + 1.8, .1, MAT.coping, .22);
+  /* two stone steps down to the pool deck, at the suite end of the run */
+  slab(g, bwX0 + 1.2, -1.9, bwX0 + 4.2, -1.25, .2, MAT.coping, .22);
+  slab(g, bwX0 + 1.2, -2.55, bwX0 + 4.2, -1.9, .1, MAT.coping, .22);
+
+  /* clipped hedge behind the run, screening it from the villa gardens */
+  box(g, run + 4, .95, 1.1, 0, .475, 3.3, MAT.hedge);
+
+  /* ── local → world: face west across the pool, sit on the east long side ── */
+  g.rotation.y = Math.PI / 2;                 // local −Z → world −X
+  g.position.set(CB.x, 0, (CB.z0 + CB.z1) / 2);
+
+  /* Colliders are WORLD-space, so they must be transformed by hand — the
+     rotation above does not touch G.colliders. local (x,z) → world
+     (cx − z, cz − x) for a +90° Y rotation. */
+  const cz0 = (CB.z0 + CB.z1) / 2;
+  for (const p of piers) {
+    G.colliders.push({
+      x: CB.x - p.z,
+      z: cz0 - p.x,
+      r: Math.max(p.w, p.dep) * .5,
+    });
+  }
 
   return g;
 }
@@ -1272,24 +1293,30 @@ function buildPoolside(G) {
      coping; a collider there would meet the plinth ring and seal the entire
      south apron (verified by flood fill), and knee-high furniture is the wrong
      thing to wall a walkway with. Umbrella poles collide, but only as poles. */
+  /* The row now runs along Z down the pool's east long side, each lounger
+     turned to face west across the water (makeLounger points its head at
+     local −Z, so −90° about Y aims it at −X). */
   const loungerProto = makeLounger();
-  const step = (LG.x1 - LG.x0) / (LG.count - 1);
+  const step = (LG.z1 - LG.z0) / (LG.count - 1);
   for (let i = 0; i < LG.count; i++) {
     const l = loungerProto.clone();
-    l.position.set(LG.x0 + i * step, 0, LG.z);
-    l.rotation.y = Math.PI;                     // head end toward the pool (-Z)
+    l.position.set(LG.x, 0, LG.z0 + i * step);
+    l.rotation.y = -Math.PI / 2;
     g.add(l);
   }
 
   /* teal umbrellas — clubhouse deck calls the enclave's umbrellas teal */
   const umProto = makeUmbrella(MAT.teal, 1.55, 2.5, 8);
+  /* set back 1.5 m from the lounger row — i.e. further EAST, away from the
+     water, now that the row runs along Z */
+  const ux = LG.x + 1.5;
   for (let i = 0; i < LG.umbrellas; i++) {
-    const x = LG.x0 + (i + .5) * (LG.x1 - LG.x0) / LG.umbrellas;
+    const z = LG.z0 + (i + .5) * (LG.z1 - LG.z0) / LG.umbrellas;
     const u = umProto.clone();
-    u.position.set(x, 0, LG.z + 1.5);
+    u.position.set(ux, 0, z);
     u.rotation.y = i * .3;
     g.add(u);
-    G.colliders.push({ x, z: LG.z + 1.5, r: .2 });
+    G.colliders.push({ x: ux, z, r: .2 });
   }
 
   /* two white ring stools by the villa door (suite brief §6) */
@@ -1368,11 +1395,15 @@ function buildLanterns(G) {
   const hy = R * 1.10;                          // shell centre above the waterline
   const halfY = R * .86;                        // shell vertical half-extent
 
-  /* two loose rows so the spread reads across the whole 25 m sheet */
-  const rowA = [-9.4, -4.7, 0, 4.7, 9.4], rowB = [-7.1, -2.4, 2.4, 7.1];
+  /* The pool's long axis is Z, so the lanterns must string DOWN its length,
+     receding from the suite — two loose files 2.4 m either side of the
+     centreline. (They used to sit in rows across a 25 m-wide sheet; after the
+     rotation that put them in a line abreast on a 10 m-wide pool, with the
+     outer ones on the grass.) Seats are pool-local; `home` adds P.cx/P.cz. */
+  const fileA = [-10.4, -5.2, 0, 5.2, 10.4], fileB = [-7.8, -2.6, 2.6, 7.8];
   const seats = [];
-  for (const x of rowA) seats.push([x, P.cz - 1.5]);
-  for (const x of rowB) seats.push([x, P.cz + 2.5]);
+  for (const z of fileA) seats.push([-2.4, z]);
+  for (const z of fileB) seats.push([2.4, z]);
 
   const lightIdx = new Set([0, 4, 7]);          // 3 real PointLights (budget ≤ 4)
 
@@ -1380,7 +1411,7 @@ function buildLanterns(G) {
     const [bx, bz] = seats[i % seats.length];
     const home = {
       x: P.cx + bx + (rnd() - .5) * .8,
-      z: bz + (rnd() - .5) * 1.0,
+      z: P.cz + bz + (rnd() - .5) * 1.0,
     };
     const lot = new THREE.Group();
     lot.position.set(home.x, P.waterY, home.z);

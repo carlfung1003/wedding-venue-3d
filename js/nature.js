@@ -502,8 +502,12 @@ function exclusionZones() {
   rect(S.DECK.cx, (S.DECK.z0 + S.DECK.z1) * .5, S.DECK.w, S.DECK.z1 - S.DECK.z0);
   rect(S.DECK.cx, (S.TURF.z0 + S.TURF.z1) * .5, S.DECK.w, S.TURF.z1 - S.TURF.z0);
   rect(S.POOL.cx, S.POOL.cz, S.POOL.w + 3, S.POOL.d + 3);
-  rect((S.CABANAS.x0 + S.CABANAS.x1) * .5, S.CABANAS.z, S.CABANAS.x1 - S.CABANAS.x0 + 2, 6);
-  rect((S.LOUNGERS.x0 + S.LOUNGERS.x1) * .5, S.LOUNGERS.z, S.LOUNGERS.x1 - S.LOUNGERS.x0 + 2, 6);
+  /* the pavilion + lounger runs now go along Z on the pool's east long side
+     ({x, z0, z1}, not {x0, x1, z}) — reading the old keys here yielded NaN
+     rects, which silently disable the keep-out and let palms grow through the
+     furniture */
+  rect(S.CABANAS.x, (S.CABANAS.z0 + S.CABANAS.z1) * .5, 6, S.CABANAS.z1 - S.CABANAS.z0 + 2);
+  rect(S.LOUNGERS.x, (S.LOUNGERS.z0 + S.LOUNGERS.z1) * .5, 6, S.LOUNGERS.z1 - S.LOUNGERS.z0 + 2);
   rect(S.PERGOLA.cx, S.PERGOLA.cz, S.PERGOLA.w + 1, S.PERGOLA.d + 1);
   rect((S.PLAZA.x0 + S.PLAZA.x1) * .5, (S.PLAZA.z0 + S.PLAZA.z1) * .5,
        S.PLAZA.x1 - S.PLAZA.x0, S.PLAZA.z1 - S.PLAZA.z0);

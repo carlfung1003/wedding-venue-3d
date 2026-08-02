@@ -39,9 +39,15 @@ export const SITE = {
   // ------------------------------------------------------------- deck & pool
   DECK: { z0: -13.5, z1: -6.5, w: 16, cx: 0 },   // basalt pavers, 7 m deep
   TURF: { z0: -6.5, z1: -4.0 },                  // turf band, WESTIN letters
+  // THE POOL RUNS AWAY FROM THE SUITE, NOT ACROSS IT.
+  // Carl's correction (2026-08-01, third pass): standing in the great room you
+  // see the pool END-ON — its narrow 10 m width — with the water receding 25 m
+  // toward the sea. The balcony photo (deck p5) shows exactly this. It was
+  // built 25 wide × 10 deep, i.e. rotated 90°, which read as a wide lap pool
+  // pressed against the facade. Long axis = Z. Do not swap these back.
   POOL: {
-    cx: 0, cz: 1.0,          // centre
-    w: 25, d: 10,            // 25 × 10 m
+    cx: 0, cz: 9.0,          // centre — starts just past the turf band
+    w: 10, d: 25,
     plinth: 0.45,            // raised on black stone
     waterY: 0.40,            // water surface (just under coping)
     depth: 1.5,
@@ -53,16 +59,20 @@ export const SITE = {
   // are BOTH on your LEFT, i.e. the EAST (+X) half. Right/west is open lawn.
   // (player.js builds fwd as (-sin yaw, 0, -cos yaw), so facing +Z puts +X on
   // your left — flipping these ranges flips the whole view.)
-  // Loungers line the pool edge; the pavilions stand SET BACK behind them on
-  // the same side. The west/right half stays open lawn + hedge, as in the photo.
-  CABANAS: { x0: 0.5, x1: 12.5, z: 11.0, count: 7, wMin: 2.6, wMax: 3.4, hMin: 2.5, hMax: 3.5 },
-  LOUNGERS: { x0: 0.5, x1: 12, z: 7.6, count: 8, umbrellas: 3 },
-  PERGOLA: { cx: 15, cz: 5, w: 5, d: 4, h: 3.0 },
+  // Now that the pool runs north–south, its LONG SIDES are the east and west
+  // edges. Both runs go along Z at a fixed X — note the shape change from
+  // {x0,x1,z} to {x,z0,z1}. Loungers line the water; the pavilions stand set
+  // back behind them, both on the EAST (+X) side = your LEFT looking south
+  // from the suite. The west side stays open lawn + hedge, as in the photo.
+  CABANAS: { x: 12.0, z0: -1, z1: 20, count: 7, wMin: 2.6, wMax: 3.4, hMin: 2.5, hMax: 3.5 },
+  LOUNGERS: { x: 7.6, z0: 0, z1: 19, count: 8, umbrellas: 3 },
+  PERGOLA: { cx: 12, cz: 25, w: 5, d: 4, h: 3.0 },   // far end, closing the view
   SIGN_PILLAR: { x: -9.5, z: -12.0 },            // dark "THE WESTIN" / "H" pillar
   EXT_STAIR: { x: -9.0, z: -16.0 },              // exterior stair to 2F balcony
 
-  // event plaza east of the deck — paver bands + turf strips
-  PLAZA: { x0: 10, x1: 30, z0: -14, z1: -2 },
+  // event plaza — moved WEST of the deck: the east side is now the pavilion
+  // and lounger run down the pool's long edge
+  PLAZA: { x0: -32, x1: -12, z0: -14, z1: -2 },
 
   // ------------------------------------------------------------- the atrium
   // The clubhouse's central open-air courtyard — the arrival heart of 隐逸居.
@@ -92,7 +102,9 @@ export const SITE = {
   // cx sits east of the atrium (which reaches x = 30) — these two used to
   // interpenetrate by 4 × 9 m, so keep a real gap if either one is resized.
   LOUNGE: { cx: 46, cz: -30, w: 20, d: 14, h: 4.2, glassZ: -23 },
-  LOUNGE_POOL: { cx: 46, cz: -12, w: 18, d: 9, umbrellas: 6 },   // teal umbrellas
+  // same principle as the hero pool — it runs AWAY from the lounge's glass
+  // wall, so from inside you look down its length, not across it
+  LOUNGE_POOL: { cx: 46, cz: -8, w: 9, d: 18, umbrellas: 6 },     // teal umbrellas
 
   // ---------------------------------------------------------- circular lawn
   // Large hedge-ringed event lawn NW of the buildings. CEREMONY.
