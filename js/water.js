@@ -2674,8 +2674,20 @@ export function setWaterNight(on) {
  */
 export function setLanterns(on) {
   lanternsVisible = !!on;
-  if (lanternGroup) lanternGroup.visible = lanternsVisible;
+  /* ⚠ THE GROUP STAYS VISIBLE FOREVER. Three of these nine lanterns carry real
+     PointLights, and three.js bakes the scene's VISIBLE light count into every
+     material's shader program. Hiding the group hid those three lights too, so
+     toggling the lanterns took the campus 26 ⇄ 29 lights and silently
+     invalidated the shader of every surface in the venue — they all recompiled
+     in one frame, which is the 15–20 s stall Carl hit on the dive.
+     So: hide the VISUALS, and leave the lights resident at zero intensity. The
+     light count never changes, and nothing recompiles. */
+  if (lanternGroup) lanternGroup.visible = true;
   for (const f of floaters) {
+    for (const c of f.lot.children) if (!c.isLight) c.visible = lanternsVisible;
+    if (f.disc) f.disc.visible = lanternsVisible;
+    if (f.streak) f.streak.visible = lanternsVisible;
+    if (f.halo) f.halo.visible = lanternsVisible;
     if (f.light) {
       f.light.intensity = lanternsVisible ? (night ? TUNE.LANTERN_LIGHT_NIGHT : 1.2) : 0;
     }
