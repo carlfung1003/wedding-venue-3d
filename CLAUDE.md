@@ -172,6 +172,64 @@ were building to:
 - **IMG_8093** — pool from the stair. **IMG_8095** — pool from the stair view.
   **IMG_8102** — another atrium angle.
 
+## Work queue (Carl's order, 2026-08-01)
+
+1. Pool + room-type placement — spec below. **IN PROGRESS.**
+2. **Walkable stairs** — see the section below.
+3. **The river** — see the section below.
+4. Cabanas as solid stepped blocks (Rachel's `IMG_8099.jpg`): they are white
+   stepped volumes with punched rectangular window slots and a `THE WESTIN`
+   mark, NOT the open post-and-beam portal frames `water.js` builds today.
+
+## QUEUED — walkable stairs (Carl, 2026-08-01)
+
+Carl: *"walk mode should allow me to walk upstairs as well instead of just
+getting stuck at the stair."*
+
+**Cause:** `siteFloorY(x, z)` returns 0 everywhere except the beach slope, and
+`player.js` pins `pos.y = floorY(...) + EYE_HEIGHT` every frame. The ground is
+one flat plane across the whole resort; every stair, deck and plinth is
+*visual geometry only*. You are not blocked by the stairs, you are sliding
+along a flat plane with a staircase drawn on it.
+
+**Do NOT add a jump.** It doesn't solve stairs (you'd hop tread by tread), and
+it is tonally wrong for a walkthrough of your own wedding venue.
+
+**Do this instead — it is what the project already promised.** This file has
+said since day one that `floorY` is the single source of ground truth and that
+*stage steps, terrace decks and ramps must be expressed there*. Cash that in:
+turn `floorY` into a real height field with registered walkable regions —
+sloped for the suite stair, the atrium stair and the exterior stair; flat
+platforms for the pool plinth, the deck, the 2F floor and the atrium gallery.
+Then walking up happens naturally with no new controls. Pair it with a small
+automatic step-up (~0.3–0.4 m) so thresholds and single steps stop catching.
+
+⚠️ **This needs a ceiling concept too**, or you walk up the stair and straight
+through the second floor. That is what makes it a real feature rather than a
+patch — budget for it.
+
+## QUEUED — the river (Carl, 2026-08-01)
+
+Build the resort's serpentine river/pool system to match the aerial.
+Reference: `reference/photos/river-lazy-river-detail.png` (Carl's crop) and
+`reference/photos/westin-site-map.jpeg`.
+
+What the reference actually shows, west → east:
+- A **large circular free-form pool** with a sand-coloured deck and a round
+  island/bar structure at the west end, ringed by palms.
+- A **narrow winding lazy river** snaking east from it, widening and
+  narrowing, crossed by little bridges and paths, threaded through dense
+  planting — this is the dominant feature and it is LONG.
+- It opens into **larger lagoon basins** further east with organic islands,
+  then a **circular pool with a central round feature** near the hotel.
+- Everything is embedded in heavy palm canopy with pale paths winding through.
+
+`SITE.LAGOON` is currently a single free-form blob (`cx 122, cz 18, rx 30,
+rz 17`) — nothing like this. It wants replacing with a proper polyline-driven
+river: author a centreline through the resort, give it a varying width, and
+build banks/deck/water from that. This is backdrop (guests see it from fly
+mode), so favour a convincing silhouette from the air over close-up detail.
+
 ## QUEUED — pool + room-type placement (Carl, 2026-08-01, not yet done)
 
 From his side-by-side of the enclave aerial against the build. Read his words
