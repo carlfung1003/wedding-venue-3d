@@ -181,7 +181,49 @@ were building to:
 5. ~~Rooftop infinity pool~~ — DONE 2026-08-02 (geometry only; not yet stood-on-able, see notes).
 6. ~~Loading screen~~ — DONE 2026-08-02.
 7. **Rooftop stood-on-able + the 3/18 brunch as a SIXTH moment** — Carl
-   approved both 2026-08-02. **IN PROGRESS.**
+   approved both 2026-08-02. **IN PROGRESS**, and now also carrying the suite
+   stair fix (see below).
+8. **The atrium is a HALLWAY and the rooms ATTACH to it** — next up, see below.
+
+## QUEUED — the rooms attach to the atrium (Carl, 2026-08-02)
+
+Carl, verbatim: *"they should be flipped, the pool is outside, and the room
+should be connected to the entrance from the atrium. atrium is kinda like a
+hotel hallway where it connects all of the rooms, atrium has door to go into
+each of the room, so the 'villa' is attached, not detached like currently."*
+
+**This is an architectural correction, not a placement nudge.** The ten guest
+keys are currently free-standing villas sitting on lawn at a distance from
+`SITE.ATRIUM`, each with its own garden. That is wrong. The enclave is one
+building: the atrium is its **corridor**, its galleries are lined with **doors
+into each room**, and the rooms are **attached to it** — sharing its wall,
+entered from it. It reads like a (very luxurious) hotel hallway, which is
+exactly what `reference/photos/clubhouse-atrium.jpeg` shows: two storeys of
+gallery under timber soffits, doors along it.
+
+Required:
+- **Rooms abut the atrium envelope** (x −14…30, z −54…−28) rather than standing
+  off it. The upper gallery implies the two-storey 3-BR types are entered from
+  the first-floor gallery.
+- **Flip each room so its private pool / courtyard faces OUTWARD**, away from
+  the atrium — the atrium side is the front door, the far side is private.
+  This is the flip Carl means.
+- **Put a real door per room** on the gallery wall, aligned with that room's
+  entrance, with the little lit number plaque `atrium.js` already builds.
+- The **presidential suite** already sits south of the atrium and is entered
+  from it (`SITE.SUITE`'s north double doors — that's documented). Keep that
+  relationship and make the other ten match it.
+- Consequences to check: `SITE.VILLAS` placement, `campus.js`'s
+  `buildVillas()` (which orients each type and puts type 1's walled courtyard
+  and plunge pool somewhere), `atrium.js`'s gallery doors, nature.js's
+  planting keep-outs, and every collider — a shared wall must not seal the
+  gallery. Circulation test: atrium → through a door → inside a room.
+
+⚠️ Do NOT regress: the enclave transform, the un-mirrored suite, the pool
+being the only pool visible from the suite, or the 3-BR/2-BR placement Carl
+corrected on 2026-08-01 (3-BR to the RIGHT of the suite, 2-BR courtyards
+behind the atrium) — those are about WHICH side each type sits on, and remain
+true; this changes how they MEET the atrium.
 
 ## Polish backlog (small, known, none blocking)
 
