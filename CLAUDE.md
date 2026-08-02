@@ -179,7 +179,36 @@ were building to:
 3. ~~The river~~ — DONE 2026-08-02, see `SITE.RIVER` / `buildRiver` in water.js.
 4. ~~Cabanas as solid stepped blocks~~ — DONE 2026-08-02.
 5. ~~Rooftop infinity pool~~ — DONE 2026-08-02 (geometry only; not yet stood-on-able, see notes).
-6. ~~Loading screen~~ — DONE 2026-08-02. Whole queue complete.
+6. ~~Loading screen~~ — DONE 2026-08-02.
+7. **Rooftop stood-on-able + the 3/18 brunch as a SIXTH moment** — Carl
+   approved both 2026-08-02. **IN PROGRESS.**
+
+## Polish backlog (small, known, none blocking)
+
+None of these are guesses — each was found and left by a verified pass:
+
+- **`assets/og.jpg` does not exist.** `index.html` points every OG/Twitter tag
+  at it, so the link currently unfurls with a broken image everywhere it's
+  shared — and this link WILL be shared with guests. Render one from the
+  drone orbit or the night pool and drop it in.
+- **The cabana boardwalk region is a lodger in `world.js`.** `floorY` patches
+  it on top of `siteFloorY`. Paste this into site.js's registry when that file
+  is next open and delete the patch:
+  `rect('cabana-boardwalk', 11.9, -2.4, 14.4, 21.4, 0.30)`.
+- **The ceremony arch reads thin** from the back of the aisle — a 2.4 m torus
+  seen from ~24 m. It's the focal point of that moment; it wants scale or
+  mass.
+- **The ceremony blurb promises "an arch with the sea behind it"**, but after
+  the enclave rotation the lawn faces the hotel. Either re-aim the lawn or fix
+  the copy — currently the words and the view disagree.
+- **`MOMENT_PLACES.COCKTAIL` lands ~0.29 m inside a terrace collider**, so the
+  player is nudged on the first frame. Pre-existing, cosmetic.
+- **The arrival drive spur is orphaned** — `campus.js`'s `buildRoad()` runs a
+  spur to a drop-off circle that used to serve the clubhouse; since the
+  enclave moved it ends on empty grass.
+- **`world.js` still carries `enclaveKeepOut()` + `cullUnderstoryInsideEnclave()`**,
+  added to compensate for a nature.js frame bug that has since been fixed
+  properly. Harmless but stale, and their comments now lie.
 
 ## QUEUED — loading screen (Carl, 2026-08-02)
 
