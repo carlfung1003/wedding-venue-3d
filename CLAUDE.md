@@ -206,6 +206,27 @@ commit**, and never trust a "done" report without its evidence attached.
 project URL rather than the domain — **always curl `venue.carlfung.dev` and
 confirm it serves the new build.**
 
+## QUEUED — hotel facade + beach pool placement (Carl, 2026-08-02)
+
+1. **The Westin's facade is wrong.** Reference: `reference/video/westin-day-drone.mp4`
+   (only 2.5 s — 5 frames already extracted to `reference/video/drone-frames/`).
+   **More footage of the same building is in `~/Desktop/Wedding App/`** and is
+   NOT yet imported: `Westin Dawn + bar video.mp4` (82 MB), `Screen Recording
+   2026-04-27 at 6.08.08 PM.mov` (87 MB), `Trim 1.mp4`, `trim 2.mp4`,
+   `Trim 3.mp4`, `Trim 3A.mp4`, `Trim 3B.mp4`, `Westin Pool Cool.mov`. Mine
+   those with ffmpeg for clear elevations before modelling.
+   What is built today is a white lattice exoskeleton over an emissive window
+   grid, with terraced balconies — inferred from a low-res aerial, never from
+   an elevation. Carl says it does not match.
+2. **The beach pool must sit VERY CLOSE to the beach.** References:
+   `reference/photos/beach-pool-near-beach-aerial.png` (top-down: the pool sits
+   just inland of the sand with only a palm belt between, and the clubhouse is
+   visible below-right for relative distance) and
+   `reference/photos/beach-pool-circular.png`. It was moved to `SITE.RIVER.WEST`
+   cx 48 which is still well inland — push it seaward until only the palm belt
+   separates it from the sand, and keep its distance from the enclave matching
+   the aerial.
+
 ## The resort's water features — DONE 2026-08-02
 
 Built. Reference:
