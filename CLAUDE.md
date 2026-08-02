@@ -181,6 +181,43 @@ were building to:
 - **IMG_8093** — pool from the stair. **IMG_8095** — pool from the stair view.
   **IMG_8102** — another atrium angle.
 
+## QUEUED — the resort's water features (Carl, 2026-08-02)
+
+Comes AFTER the ceremony/cocktail/dinner grounds. Reference:
+`reference/photos/resort-water-features.jpeg` — a close aerial of the whole
+resort water system. Carl: *"let's also fix all the water feature of the
+hotel."*
+
+Three specific asks, plus a general pass:
+
+1. **A beach pool structure very close to the clubhouse.** In the aerial this
+   is the large circular free-form pool at the west end, with a **round
+   deck/bar structure** set into its south edge and a sand-coloured surround,
+   ringed by a paved path and palms. `buildRiver` already puts a west basin
+   roughly there — it needs to become that pool properly, and to sit close to
+   the enclave, since it is the water guests see from the clubhouse.
+2. **The rooftop pool must run to the EDGE of the building.** Carl: *"the hotel
+   top pool should be an infinity pool to the edge of the building, we have
+   some tables toward the edge of the building now."* Today the section is
+   balustrade → catch trough → infinity edge (r 90.9) → water → deck →
+   brunch tables, so the tables occupy the edge. Invert it: the pool goes hard
+   to the parapet with its infinity edge ON the facade line looking west at
+   the sea, and the tables/deck move BACK, inland of the water. This is the
+   Welcome Brunch venue, so the view over the edge is the whole point.
+3. **Everything else in the aerial** — the lagoon basins, the circular pools by
+   the hotel, the hotel's own terraced pools along its inner face, and the
+   pools threaded between the villa rows. Compare what is built against the
+   photo and close the gaps.
+
+Files: `js/water.js` owns the river and basins; `js/campus.js` owns the hotel
+and its rooftop (`SITE.HOTEL.ROOFTOP`, `HOTEL_ROOF`); `js/site.js` holds the
+constants. The rooftop is now WALKABLE and registered in the height field
+(`annulus`/`annRamp`), so moving the water means re-registering the walkable
+annulus and its polar hole, and moving the y-ranged colliders with it.
+
+⚠️ The hotel is OUTSIDE the enclave transform — plain world coordinates, never
+routed through `enclaveToWorld`.
+
 ## QUEUED — the real ceremony / cocktail / dinner grounds (Carl, 2026-08-02)
 
 **This moves three of the six moments.** Carl, on the aerials:
