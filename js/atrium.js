@@ -15,7 +15,7 @@
 // is local to this module (house rule: builders own their own finishes).
 
 import * as THREE from 'three';
-import { SITE } from './site.js';
+import { SITE, ROOM_DOORS } from './site.js';
 import { mulberry32 } from './materials.js';
 
 /* ────────────────────────────────────────────────────────────── footprint ── */
@@ -48,6 +48,34 @@ const PATH_EW = { x0: CX0, x1: CX1, z0: -35.7, z1: -33.5 };    // south run
 const PORTAL = { x0: -5, x1: 5 };
 // and a side door east toward the 隐逸居 lounge (SITE.LOUNGE)
 const LOUNGE_DOOR = { z0: -33.2, z1: -30.0 };
+
+/* ── THE GALLERY IS A CORRIDOR AND IT HAS DOORS IN IT (Carl, 2026-08-02) ──────
+   The ten guest keys now stand against these four walls, and each one is
+   entered through a real hole cut in the wall it shares with this gallery.
+   site.js owns which key is on which face and where along it — the only thing
+   that lives here is the conversion into each wall's own local axis.
+
+   `walls` below is indexed [south, north, west, east] and buildFacade lays its
+   modules along a local `lx` centred on the wall. Read the mapping straight off
+   that table rather than re-deriving it:
+     south  x = A.cx + lx   → lx = x − A.cx
+     north  x = A.cx − lx   → lx = A.cx − x       (the wall faces the other way)
+     west   z = A.cz + lx   → lx = z − A.cz
+     east   z = A.cz − lx   → lx = A.cz − z                                   */
+const FACE_WALL = { south: 0, north: 1, west: 2, east: 3 };
+const wallLocal = (w, along) =>
+  w === 0 ? along - A.cx : w === 1 ? A.cx - along
+    : w === 2 ? along - A.cz : A.cz - along;
+/* A door gap is requested as a POINT, not a span: buildFacade drops any module
+   whose span overlaps the gap, so a ±0.05 request drops exactly the one module
+   the door falls in, and the hole it reports back is that module's real width.
+   Ask for a wide gap instead and two modules go, which is a portal, not a door. */
+const DOOR_EPS = 0.05;
+/* Clear opening between the door piers. Wider than a real hotel door because
+   the wall collider is a chain of circles, not a plane: see the collider block
+   at the end of buildAtrium for the arithmetic that keeps the passable band
+   narrower than the visible one, never the other way round. */
+const DOOR_CLEAR = SITE.VILLA.doorClear;
 
 // open-riser stair — SITE.ATRIUM.stair is its centre; it rises NORTH (-Z) from
 // the court floor onto the 2F west gallery, clear of pond A's north edge.
@@ -768,22 +796,39 @@ export function buildAtrium(G) {
     [X0, A.cz, 0, 1, -1, 0, A.d, -Math.PI / 2],// west
     [X1, A.cz, 0, -1, 1, 0, A.d, Math.PI / 2], // east
   ];
-  const wallGaps = [
-    // south: the way through to the presidential suite (local x = world x - cx)
-    [[PORTAL.x0 - A.cx, PORTAL.x1 - A.cx]],
-    [],
-    [],
-    // east: the side door toward the 隐逸居 lounge (local x = -(z - cz))
-    [[-(LOUNGE_DOOR.z1 - A.cz), -(LOUNGE_DOOR.z0 - A.cz)]],
-  ];
+  /* Every opening in the perimeter, per wall per floor, tagged so the hole the
+     facade reports back can be handed to the right builder. Ground floor keeps
+     its two originals — the portal to the presidential suite and the side door
+     to the 酒廊 — and gains one per guest key on that face. The 2F only ever
+     carries the two-storey keys' upper doors. */
+  const gapSpec = [[[], []], [[], []], [[], []], [[], []]];   // [wall][floor]
+  gapSpec[0][0].push({ tag: 'portal', span: [PORTAL.x0 - A.cx, PORTAL.x1 - A.cx] });
+  gapSpec[3][0].push({ tag: 'lounge', span: [-(LOUNGE_DOOR.z1 - A.cz), -(LOUNGE_DOOR.z0 - A.cz)] });
+  for (const d of ROOM_DOORS) {
+    const w = FACE_WALL[d.face], lx = wallLocal(w, d.along);
+    for (let f = 0; f < Math.min(d.floors, A.floors); f++) {
+      gapSpec[w][f].push({ tag: 'room', no: d.no, span: [lx - DOOR_EPS, lx + DOOR_EPS] });
+    }
+  }
+
   const holes = { south: null, east: null };
+  /* the along-wall spans the collider chain must NOT seal, in WORLD terms
+     (x for the south/north walls, z for the west/east ones) */
+  const wallSkips = [[], [], [], []];
+  const SKIP_PAD = 0.35;
   for (let w = 0; w < walls.length; w++) {
     for (let f = 0; f < A.floors; f++) {
-      const h = buildFacade(root, M, E, plaqueMats, plaques, walls[w],
-        f === 0 ? wallGaps[w] : [], f * H1, H1, rnd, f);
-      if (f === 0 && h.length) {
-        if (w === 0) holes.south = h[0];
-        if (w === 3) holes.east = h[0];
+      const spec = gapSpec[w][f];
+      const cut = buildFacade(root, M, E, plaqueMats, plaques, walls[w],
+        spec.map(s => s.span), f * H1, H1, rnd, f);
+      for (let k = 0; k < spec.length; k++) {
+        const hole = cut[k];
+        if (!hole) continue;
+        const along = w < 2 ? [hole.x0, hole.x1] : [hole.z0, hole.z1];
+        wallSkips[w].push({ lo: along[0] - SKIP_PAD, hi: along[1] + SKIP_PAD });
+        if (spec[k].tag === 'portal') holes.south = hole;
+        else if (spec[k].tag === 'lounge') holes.east = hole;
+        else buildRoomDoor(root, M, E, plaqueMats, plaques, hole, spec[k].no, f * H1);
       }
     }
   }
@@ -850,15 +895,35 @@ export function buildAtrium(G) {
   const C = (G.colliders ||= []);
   const before = C.length;
 
-  // perimeter walls. The two walking gaps use the hole the facade ACTUALLY cut
-  // (module skipping rounds outward) so the collider never seals a visible hole.
-  const sGap = holes.south || { x0: PORTAL.x0, x1: PORTAL.x1 };
-  const eGap = holes.east || { z0: LOUNGE_DOOR.z0, z1: LOUNGE_DOOR.z1 };
-  colLine(C, X0, Z0, X1, Z0, .95);                                   // north
-  colLine(C, X0, Z1, X1, Z1, .95, x => x > sGap.x0 - .1 && x < sGap.x1 + .1);
-  colLine(C, X0, Z0, X0, Z1, .95);                                   // west
-  colLine(C, X1, Z0, X1, Z1, .95,
-    (x, z) => z > eGap.z0 - .1 && z < eGap.z1 + .1);                 // east
+  /* ── perimeter walls ───────────────────────────────────────────────────────
+     Every gap comes from `wallSkips`, which was filled from the holes the
+     facade ACTUALLY cut — never from the request. Module skipping rounds a
+     request outward, so a collider built to the requested span seals part of a
+     visible opening, and a shared wall that seals is exactly the failure this
+     whole pass is about.
+
+     r dropped 0.95 → 0.55 when the guest keys were attached. The reason is
+     arithmetic, not taste: player.js adds CFG.PLAYER_R (0.35) at test time, so
+     a chain of r = 0.95 blocks 1.3 m either side of the wall line, and a
+     one-module door (2.89 m) would have left a 0.29 m slot — narrower than the
+     player. At 0.55 the same door passes 1.79 m of clear walking, still
+     narrower than the 2.0 m the piers show, which is the right way round: the
+     collider must never be looser than the geometry. */
+  const CR = .55;
+  const skipper = w => {
+    const spans = wallSkips[w];
+    if (!spans.length) return undefined;
+    const pick = w < 2 ? (x) => x : (x, z) => z;
+    return (x, z) => {
+      const v = pick(x, z);
+      for (const s of spans) if (v > s.lo && v < s.hi) return true;
+      return false;
+    };
+  };
+  colLine(C, X0, Z0, X1, Z0, CR, skipper(1));                        // north
+  colLine(C, X0, Z1, X1, Z1, CR, skipper(0));                        // south
+  colLine(C, X0, Z0, X0, Z1, CR, skipper(2));                        // west
+  colLine(C, X1, Z0, X1, Z1, CR, skipper(3));                        // east
   // columns
   for (const [x, z] of colPts) C.push({ x, z, r: A.colR + .18 });
   // raised pond edging — a modest r keeps the gravel walk BETWEEN the two
@@ -1054,7 +1119,10 @@ function buildPebbles(parent, mat, rnd) {
    frames (the villa entries), stacked slate panels, dark timber screens. */
 function buildFacade(parent, M, E, plaqueMats, plaques, wall, gaps, y0, h, rnd, floor) {
   const [ox, oz, dx, dz, nx, nz, len, ry] = wall;
-  const n = Math.max(4, Math.round(len / 2.95));
+  /* the bay pitch is SITE.ATRIUM.module and not a literal, because site.js
+     snaps every guest-key door onto this same grid (snapDoor) — the two
+     divisions have to be the same division */
+  const n = Math.max(4, Math.round(len / A.module));
   const mw = len / n;
 
   // wall-local (lx, ly, lz) → world; lz grows OUTWARD from the court
@@ -1130,12 +1198,15 @@ function buildFacade(parent, M, E, plaqueMats, plaques, wall, gaps, y0, h, rnd, 
     }
   }
 
-  /* world-space extent of each hole actually cut, for the framing pieces */
-  return cut.filter(c => c.b > c.a).map(c => ({
+  /* World-space extent of each hole actually cut, for the framing pieces.
+     ALIGNED WITH `gaps`, null where nothing was cut — the caller tags its gaps
+     and hands each hole to a different builder, so a filtered array would
+     silently hand the 酒廊 door to a guest room. */
+  return cut.map(c => (c.b > c.a ? {
     x0: Math.min(wx(c.a, 0), wx(c.b, 0)), x1: Math.max(wx(c.a, 0), wx(c.b, 0)),
     z0: Math.min(wz(c.a, 0), wz(c.b, 0)), z1: Math.max(wz(c.a, 0), wz(c.b, 0)),
     ry,
-  }));
+  } : null));
 }
 
 /* all villa-number plaques as a handful of InstancedMeshes (one per number) */
@@ -1190,6 +1261,60 @@ function buildPortal(parent, M, E, hole) {
   pl.position.set(cx, hh - 1.35, z - .32);
   pl.rotation.y = Math.PI;
   parent.add(pl);
+}
+
+/* ── A REAL DOOR INTO A GUEST KEY ────────────────────────────────────────────
+   One per key, on the gallery wall that key shares with this corridor: black
+   stone piers narrowing the module the facade dropped down to DOOR_CLEAR, a
+   dark header with the copper reveal the rest of the courtyard is trimmed in,
+   the two glass leaves standing FOLDED BACK into the room (an open door reads
+   as a way through; a closed one reads as decoration, and the gallery is
+   already lined with decorative ones), a stone threshold, and the lit bronze
+   number plaque beside it.
+
+   `hole` is the module the facade actually cut, in world space, with the
+   wall's own rotation. Working in a group at its centre gives the same frame
+   buildFacade used: local +X runs ALONG the wall, local +Z runs OUTWARD into
+   the room. `y0` is the storey — the two-storey 3-BR keys get one of these on
+   each level, at the same place on the wall, which is why one collider gap
+   serves both.                                                               */
+function buildRoomDoor(parent, M, E, plaqueMats, plaques, hole, no, y0) {
+  const cx = (hole.x0 + hole.x1) / 2, cz = (hole.z0 + hole.z1) / 2;
+  const along = Math.max(hole.x1 - hole.x0, hole.z1 - hole.z0);
+  const clear = Math.min(DOOR_CLEAR, along - .7);
+  const g = new THREE.Group();
+  g.position.set(cx, y0, cz);
+  g.rotation.y = hole.ry;
+  parent.add(g);
+
+  const dh = H1 - .95;                       // door head, under the soffit
+  const pier = (along - clear) / 2;
+  for (const s of [-1, 1]) {
+    mkBox(g, pier, H1, WALL_T + .30, M.column, s * (along - pier) / 2, H1 / 2, WALL_T / 2);
+  }
+  mkBox(g, along + .24, H1 - dh, WALL_T + .30, M.darkWall, 0, (H1 + dh) / 2, WALL_T / 2);
+  mkBox(g, along + .32, .08, WALL_T + .40, M.copper, 0, dh - .04, WALL_T / 2);
+  mkBox(g, clear + .3, .06, WALL_T + .26, M.column, 0, .03, WALL_T / 2);   // threshold
+
+  /* the two leaves, folded flat against the piers on the room side */
+  const lw = clear / 2 - .08;
+  for (const s of [-1, 1]) {
+    const lx = s * (clear / 2 - .05), lz = WALL_T + .06 + lw / 2;
+    mkBox(g, .06, dh - .16, lw, M.glass, lx, (dh - .1) / 2, lz);
+    mkBox(g, .08, .08, lw, M.bronze, lx, dh - .14, lz);
+    mkBox(g, .08, dh - .16, .08, M.bronze, lx, (dh - .1) / 2, WALL_T + .10);
+  }
+  /* warm spill out of the room — the line that makes the corridor read at night */
+  mkBox(g, clear - .06, .05, .05, E.portalStrip, 0, dh - .20, -.03);
+
+  /* the lit number plaque, gallery side, on the pier */
+  const cs = Math.cos(hole.ry), sn = Math.sin(hole.ry);
+  const plx = along / 2 - pier / 2, plz = -.05;
+  plaques.push({
+    x: cx + plx * cs + plz * sn, y: y0 + 1.55, z: cz - plx * sn + plz * cs,
+    ry: hole.ry, v: (no - 1) % plaqueMats.length,
+  });
+  return g;
 }
 
 /* the side door east toward the 隐逸居 lounge — a plain bronze reveal */

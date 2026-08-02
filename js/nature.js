@@ -38,7 +38,7 @@
 //           setNatureNight(on)  — instant day/night material swap
 
 import * as THREE from 'three';
-import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave } from './site.js';
+import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave, VILLA_ZONES } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
 
@@ -569,7 +569,14 @@ function exclusionZones() {
   rect(local, S.ATRIUM.cx, S.ATRIUM.cz, S.ATRIUM.w + 2, S.ATRIUM.d + 2);
   rect(local, S.LOUNGE.cx, S.LOUNGE.cz, S.LOUNGE.w + 2, S.LOUNGE.d + 2);
   rect(local, S.LOUNGE_POOL.cx, S.LOUNGE_POOL.cz, S.LOUNGE_POOL.w + 3, S.LOUNGE_POOL.d + 3);
-  for (const [vx, vz] of S.VILLAS) rect(local, vx, vz, S.VILLA.w + 7, S.VILLA.d + 8);
+  /* The ten guest keys. These used to be `villa centre ± (VILLA.w + 7)` — a
+     symmetric box around a point, which was already loose and became simply
+     wrong when the keys attached to the atrium on 2026-08-02: a key's private
+     side now reaches 18 m out on ONE side (courtyard, plunge pool, water wall)
+     and nothing at all on the other, where the corridor is. site.js publishes
+     the real asymmetric envelopes; read them rather than guessing a margin,
+     which is the whole reason VILLA_ZONES exists. */
+  for (const v of VILLA_ZONES) rect(local, v.cx, v.cz, v.w, v.d);
   local.discs.push({ cx: S.LAWN.cx, cz: S.LAWN.cz, r: S.LAWN.hedgeR + 1.5 });
 
   /* ── WORLD ── */

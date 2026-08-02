@@ -159,6 +159,12 @@ export const SITE = {
     courtW: 30, courtD: 15,  // the open-to-sky void in the middle
     galleryW: 6,             // covered walkway depth on each side
     floorH: 3.6, floors: 2,
+    // Target width of one perimeter-facade module. atrium.js divides each wall
+    // into round(len / module) equal bays and a door gap drops a WHOLE bay, so
+    // this number decides where every opening in the building actually lands.
+    // It lives here because site.js has to snap the guest-key doors to the same
+    // grid — see snapDoor() below.
+    module: 2.95,
     colR: 0.28,              // black square stone columns
     // still reflecting pools in the courtyard floor: [cx, cz, w, d]
     PONDS: [
@@ -221,49 +227,61 @@ export const SITE = {
   // -------------------------------------------------------------- villa cluster
   // The REAL room mix from the hotel's deck (reference/clubhouse-pdf-brief.md):
   // 11 keys total = 1 presidential suite + 5 Garden Rooms + 3 Garden Pool 2-BR
-  // + 2 Garden 3-BR. The ten below are those ten guest keys.
+  // + 2 Garden 3-BR. Ten of those eleven are guest keys ATTACHED TO THE ATRIUM;
+  // the eleventh is the presidential suite, which already is.
   //   type 0 — 花园客房 Garden Room, 98 ㎡, SINGLE storey, internal soaking-tub
   //            light well (the small courtyards visible in the aerials)
   //   type 1 — 花园泳池双卧套房 Garden Pool 2-BR, 208 ㎡, single storey, walled
   //            private courtyard with an L-shaped plunge pool and a black stone
   //            water wall with THREE waterfall spouts
   //   type 2 — 花园三卧套房 Garden 3-BR, 168 ㎡, TWO storeys with an upper balcony
-  // [x, z, rotationY, type] — THE ROOMS RING THE ATRIUM.
   //
-  // Carl's correction (2026-08-01, second pass): these are not detached villas
-  // on a lawn, they are the clubhouse's other room types, and **every one of
-  // them is entered from the atrium courtyard**. So they wrap it on three arms
-  // — west, north and east — making one dense interlocking complex exactly as
-  // the enclave aerial shows. The ocean side (west/south-west) stays CLEAR of
-  // buildings: standing at the clubhouse facing the sea there is nothing on
-  // your left but lawn, pool and palms.
-  //
-  // Nothing may be placed at +Z beyond the pool deck again — that ground is
-  // the view.
-  // Carl's placement correction (2026-08-01, second half). Facing the pool is
-  // local +Z, so RIGHT = −X and LEFT = +X (derived from player.js: at yaw = π,
-  // right = (cos π, 0, −sin π) = (−1, 0, 0)).
-  //   · the two 3-BEDROOM suites (type 2) sit to the RIGHT of the presidential
-  //     suite, sharing LOUNGE_POOL which moved to −X with them
-  //   · the three 2-BEDROOM POOL suites (type 1) sit BEHIND THE ATRIUM — in
-  //     the aerial they read as walled courtyards with plunge pools on the far
-  //     side of the courtyard from the suite
-  //   · the five Garden Rooms (type 0) take what's left
-  // Nothing may sit to the LEFT of the main pool: that view is the hero shot.
-  VILLAS: [
-    // 3-BR suites — right of the presidential suite, by their pool
-    [-24, -14, 0.06, 2], [-26, -36, -0.05, 2],
-    // 2-BR pool suites — the walled courtyards behind the atrium
-    [-16, -70, 0.10, 1], [4, -70, -0.07, 1], [24, -70, 0.05, 1],
-    // Garden Rooms
-    [-26, -56, 0.08, 0], [44, -70, -0.10, 0], [52, -52, 0.09, 0],
-    [66, -14, -0.06, 0], [66, -32, 0.11, 0],
-  ],
+  // ⚠ SITE.VILLAS IS NO LONGER A HAND-TYPED TABLE. It is derived, below the SITE
+  // literal, from ROOM_SPEC — see "THE TEN GUEST KEYS ATTACH TO THE ATRIUM".
+  // Assigning positions by hand is what let the rooms drift off the building.
+  VILLAS: [],          // ← filled in below from ROOM_SPEC. Do not edit here.
   VILLA: {
-    w: 13, d: 11, h: 3.6,          // type 0 footprint
-    w2: 17, d2: 14, h2: 7.2,       // type 2, two storeys + balcony
+    /* ⚠ `d` IS THE PLUNGE-POOL OFFSET DATUM, not a footprint. water.js's
+       buildVillaPools() — which is not ours to edit — places every type-0 and
+       type-1 pool at `V.d / 2 + k` from the key's CENTRE, so the terrace
+       between a room's folding glass and its own water is
+           (V.d − d_type)/2  +  k  −  poolDepth/2  −  (colliderR + PLAYER_R)
+       and at V.d = 11 against a 13 m deep 2-BR that came out NEGATIVE: the
+       pool's coping collider stood 0.6 m INSIDE the glass, so you could walk
+       from the corridor across the room and then not get out of it. Raised to
+       14 on 2026-08-02, which buys ~0.95 m of terrace on the 2-BR and 2.8 m on
+       a Garden Room. It is not a footprint — the backdrop villas have their own
+       (wR/dR) and the ten keys have theirs (w0…d2). */
+    w: 13, d: 14, h: 3.6,
+    wR: 13, dR: 11,                // ≈50 backdrop RESORT_VILLAS boxes
+    /* per-type footprints for the ten attached keys. [w] runs ALONG the atrium
+       wall, [d] runs outward from it — the room's private side. Sized to the
+       hotel's own areas for the first time: the Garden Room was modelled at
+       13 × 11 = 143 ㎡ against a published 98 ㎡, and five rooms 30% too wide is
+       exactly why they could not be got onto the gallery. */
+    w0: 9.9, d0: 9.9,              // type 0 — 98 ㎡
+    w1: 14.6, d1: 13,              // type 1 — 190 ㎡ + a 14.6 × 9 courtyard
+    w2: 17, d2: 14, h2: 7.2,       // type 2 — two storeys, entered on BOTH
     poolW: 7, poolD: 3.2,          // type 1 courtyard plunge pool
-    courtW: 15, courtD: 9,         // type 1 walled courtyard
+    courtW: 14.6, courtD: 9,       // type 1 walled courtyard (= w1, so the
+                                   // courtyards of neighbouring keys share a wall
+                                   // instead of interpenetrating)
+    wallT: 0.30,                   // room wall thickness (= atrium.js WALL_T)
+    floorY: 0.22,                  // finished floor over the atrium's datum —
+                                   // one threshold step, inside CFG.STEP_UP
+    floorH2: 3.6,                  // type 2 floor-to-floor. MUST equal
+                                   // ATRIUM.floorH: the 2F is entered off the
+                                   // atrium's upper gallery and a mismatch is a
+                                   // step you cannot take.
+    doorClear: 2.0,                // clear width of a gallery door between piers
+    /* Where the folding glass wall STANDS OPEN, as an offset along the room's
+       width. Centred for the single-storey types; pushed off-centre for the
+       two suite types, whose plunge pools are 6.4 m and 7 m wide and sit dead
+       in front of the room: walking out of the middle of either one lands you
+       in the water, which the through-route walk test found by wedging the
+       player between its own glass and its own coping. Only the Garden Room
+       has enough terrace to be entered and left down the centre-line. */
+    openAt: { 0: 0, 1: 5.6, 2: 5.4 },
   },
 
   // ------------------------------------------------------- THE RESORT RIVER
@@ -470,6 +488,208 @@ export const SITE = {
   // Soft world bounds for the walker (fly mode is clamped by CFG.FLY_MAX_ALT).
   BOUNDS: { x0: -150, x1: 250, z0: -130, z1: 120 },
 };
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE TEN GUEST KEYS ATTACH TO THE ATRIUM  (Carl, 2026-08-02)
+   ═══════════════════════════════════════════════════════════════════════════
+   Carl, verbatim: "they should be flipped, the pool is outside, and the room
+   should be connected to the entrance from the atrium. atrium is kinda like a
+   hotel hallway where it connects all of the rooms, atrium has door to go into
+   each of the room, so the 'villa' is attached, not detached like currently."
+
+   So the enclave is ONE BUILDING. The atrium is its corridor; the ten keys hang
+   off its four outer faces, each entered through a real door in the gallery
+   wall, each with its pool/courtyard on the FAR side, away from the corridor.
+   The presidential suite already worked this way (its north double doors open
+   onto the south gallery through ATRIUM's portal) — the other ten now match.
+
+   ── the frame ───────────────────────────────────────────────────────────────
+   A room is authored as (face, along, type), where `along` is the coordinate of
+   its centre-line ON that face — x for the north/south faces, z for east/west.
+   Everything else is derived, because every number that was typed by hand here
+   before is a number that drifted:
+
+     · the room's back face sits on the atrium's OUTER wall face. atrium.js's
+       perimeter facade is WALL_T thick and grows OUTWARD from the envelope, so
+       the shared plane is envelope ± WALL_T — not the envelope itself. Landing
+       on the envelope buries the room 0.3 m inside the corridor wall.
+     · the villa yaw follows from the face. campus.js authors every key with
+       local +Z as the FRONT (glazing, deck, plunge pool) and local −Z as the
+       ENTRY, and water.js offsets each pool to local +Z off the same yaw. So
+       pointing local −Z at the atrium is the whole of Carl's "flip": the front
+       door lands on the gallery and the pool swings to the outside, in one
+       number, in both files at once.
+
+   ── which type sits where (Carl, 2026-08-01 — DO NOT REGRESS) ───────────────
+   Facing the pool from the suite is local +Z, so LEFT is +X and RIGHT is −X.
+     · the two 3-BR (type 2) are to the RIGHT of the suite  → the WEST face
+     · the three 2-BR pool suites (type 1) are BEHIND the atrium → the NORTH face
+     · the five Garden Rooms (type 0) take what is left — the EAST face and the
+       stretch of the SOUTH face east of the suite, which is the only run of
+       south wall the suite does not already occupy.
+   Nothing sits on the ocean side, and nothing is placed at +Z beyond the pool
+   deck: that ground is the hero view.
+
+   ── the door positions ──────────────────────────────────────────────────────
+   `doorAlong` is where the door is cut in the gallery wall. It is normally the
+   room's centre-line, but it may be anywhere the room actually TOUCHES the
+   wall — which is what lets the arms turn the corners: A2 runs 8 m south past
+   the atrium's south-west corner and is entered near its north end, exactly as
+   a real corridor serves a wing.                                              */
+
+const _V = SITE.VILLA;
+const _AWT = _V.wallT;
+/* the atrium's OUTER wall faces — the plane each arm is built off */
+const _AF = {
+  west: SITE.ATRIUM.cx - SITE.ATRIUM.w / 2 - _AWT,    // -14.3
+  east: SITE.ATRIUM.cx + SITE.ATRIUM.w / 2 + _AWT,    //  30.3
+  north: SITE.ATRIUM.cz - SITE.ATRIUM.d / 2 - _AWT,   // -54.3
+  south: SITE.ATRIUM.cz + SITE.ATRIUM.d / 2 + _AWT,   // -27.7
+};
+
+/* [face, along, doorAlong, type, id, no] */
+const ROOM_SPEC = [
+  // ── WEST face: the two 花园三卧套房 3-BR, RIGHT of the presidential suite.
+  //    17 m wide each = 34 m against 26 m of wall, so the arm turns the
+  //    south-west corner and A2 is entered near its north end.
+  ['west', -48, -48, 2, 'A1', 1],
+  ['west', -31, -33, 2, 'A2', 2],
+  // ── NORTH face: the three 花园泳池双卧套房 2-BR pool suites, BEHIND the
+  //    atrium. Their walled courtyards face north, away from everything.
+  ['north', -6.6, -6.6, 1, 'B1', 3],
+  ['north', 8.0, 8.0, 1, 'B2', 4],
+  ['north', 22.6, 22.6, 1, 'B3', 5],
+  // ── EAST face: three 花园客房 Garden Rooms; the arm turns the south-east
+  //    corner so C3 is entered near its north end.
+  ['east', -49.25, -49.25, 0, 'C1', 6],
+  ['east', -39.35, -39.35, 0, 'C2', 7],
+  ['east', -29.45, -29.45, 0, 'C3', 8],
+  // ── SOUTH face, east of the presidential suite: the last two Garden Rooms.
+  //    x ≥ 10.2 clears SITE.EXT_STAIR (x 8.2…9.8); x ≤ 30 meets the east arm.
+  ['south', 15.15, 15.15, 0, 'D1', 9],
+  ['south', 25.05, 25.05, 0, 'D2', 10],
+];
+
+/* ── the facade module grid, and why the door position is SNAPPED to it ──────
+   atrium.js divides each perimeter wall into equal bays and a door gap drops a
+   WHOLE bay, so the hole that ends up in the wall is centred on that bay — not
+   on the coordinate the door was requested at, which can be half a bay (≈1.45 m)
+   away. campus.js frames the room's own opening from the same number, so if the
+   two disagree you get a doorway that is open in the corridor wall and blind in
+   the room wall behind it. It does not fail loudly either: the collider gap
+   still opens, so a walk test walks straight through a wall you cannot see out
+   of. Snap once, here, and let both builders read the result.
+
+   The three helpers below mirror atrium.js's `walls` table exactly:
+     south  x = A.cx + lx      north  x = A.cx − lx
+     west   z = A.cz + lx      east   z = A.cz − lx                          */
+const _AT_ = SITE.ATRIUM;
+const faceLen = f => (f === 'west' || f === 'east') ? _AT_.d : _AT_.w;
+const faceLocal = (f, v) =>
+  f === 'south' ? v - _AT_.cx : f === 'north' ? _AT_.cx - v
+    : f === 'west' ? v - _AT_.cz : _AT_.cz - v;
+const faceWorld = (f, lx) =>
+  f === 'south' ? _AT_.cx + lx : f === 'north' ? _AT_.cx - lx
+    : f === 'west' ? _AT_.cz + lx : _AT_.cz - lx;
+
+/** Snap a requested door position to the centre of the facade bay it lands in.
+ *  Returns the snapped coordinate on that face and the bay's width — which is
+ *  the real width of the hole, and therefore how wide the room's reveal has to
+ *  be before its own piers narrow it back down. */
+export function snapDoor(face, along) {
+  const len = faceLen(face);
+  const n = Math.max(4, Math.round(len / _AT_.module));
+  const mw = len / n;
+  const lx = faceLocal(face, along);
+  const i = Math.max(0, Math.min(n - 1, Math.floor((lx + len / 2) / mw)));
+  return { along: faceWorld(face, -len / 2 + (i + .5) * mw), width: mw };
+}
+
+/** outward unit normal of each face, in enclave-local space */
+const FACE_OUT = { west: [-1, 0], east: [1, 0], north: [0, -1], south: [0, 1] };
+/** villa yaw that points local −Z (the entry) AT the atrium.
+ *  campus.js maps local (lx,lz) → (vx + lx·cos + lz·sin, vz − lx·sin + lz·cos);
+ *  local (0,−1) therefore lands on (−sin ry, −cos ry), which must equal the
+ *  INWARD normal. Solve per face — do not guess these, the sign has bitten
+ *  this project twice. */
+const FACE_YAW = { west: -Math.PI / 2, east: Math.PI / 2, north: Math.PI, south: 0 };
+
+export const ROOMS = ROOM_SPEC.map(([face, along, doorReq, type, id, no]) => {
+  const w = type === 2 ? _V.w2 : type === 1 ? _V.w1 : _V.w0;   // along the wall
+  const d = type === 2 ? _V.d2 : type === 1 ? _V.d1 : _V.d0;   // outward
+  const h = type === 2 ? _V.h2 : _V.h;
+  const door = snapDoor(face, doorReq);
+  const doorAlong = door.along;
+  const [ox, oz] = FACE_OUT[face];
+  const back = _AF[face];
+  const horiz = face === 'west' || face === 'east';
+  /* centre = back face pushed d/2 outward */
+  const x = horiz ? back + ox * d / 2 : along;
+  const z = horiz ? along : back + oz * d / 2;
+  /* axis-aligned footprint. The walkable rect reaches WALL_T back past the
+     shared plane to the atrium's inner face, so the height field has no seam
+     under the threshold — a 0.3 m hole at 3.6 m is a fall, not a doorstep. */
+  const hw = w / 2, hd = d / 2;
+  const box = horiz
+    ? { x0: Math.min(back, back + ox * d), x1: Math.max(back, back + ox * d),
+      z0: along - hw, z1: along + hw }
+    : { x0: along - hw, x1: along + hw,
+      z0: Math.min(back, back + oz * d), z1: Math.max(back, back + oz * d) };
+  const walk = horiz
+    ? { ...box, x0: Math.min(box.x0, back - ox * _AWT), x1: Math.max(box.x1, back - ox * _AWT) }
+    : { ...box, z0: Math.min(box.z0, back - oz * _AWT), z1: Math.max(box.z1, back - oz * _AWT) };
+  return {
+    id, no, type, face, along, doorAlong, doorWidth: door.width,
+    x, z, ry: FACE_YAW[face], w, d, h,
+    out: [ox, oz], back, box, walk,
+    floors: type === 2 ? 2 : 1,
+  };
+});
+
+/* The snap must not push a door off its own room. It cannot with the current
+   table, but the table is meant to be edited, and a door that lands on the
+   neighbour's wall is silent — so say so out loud in the console rather than
+   shipping a room nobody can get into. */
+for (const r of ROOMS) {
+  const lo = r.doorAlong - r.doorWidth / 2, hi = r.doorAlong + r.doorWidth / 2;
+  const span = (r.face === 'west' || r.face === 'east')
+    ? [r.box.z0, r.box.z1] : [r.box.x0, r.box.x1];
+  if (lo < span[0] - 1e-6 || hi > span[1] + 1e-6) {
+    console.warn(`[site] room ${r.id}: its gallery door (${lo.toFixed(2)}…${hi.toFixed(2)}) `
+      + `runs off its own frontage (${span[0].toFixed(2)}…${span[1].toFixed(2)})`);
+  }
+}
+
+/* the contract campus.js and water.js still consume: [x, z, rotationY, type] */
+SITE.VILLAS = ROOMS.map(r => [r.x, r.z, r.ry, r.type]);
+
+/** What atrium.js needs: one door per key, on a named face, at a coordinate
+ *  along that face (x for north/south, z for east/west), on `floors` levels. */
+export const ROOM_DOORS = ROOMS.map(r => ({
+  id: r.id, no: r.no, face: r.face, along: r.doorAlong, floors: r.floors,
+}));
+
+/** Planting keep-outs. nature.js's exclusionZones() used to derive these from a
+ *  villa centre ± (VILLA.w + 7), which was already loose and is now simply
+ *  wrong: a 2-BR's courtyard reaches 18 m out on ONE side only. These are the
+ *  real asymmetric envelopes — room, deck, courtyard and plunge pool — in
+ *  enclave-local space, which is the frame nature tests candidates in. */
+const _REACH = { 0: 12.5, 1: 18.5, 2: 15.5 };     // metres outward from centre
+export const VILLA_ZONES = ROOMS.map(r => {
+  const reach = _REACH[r.type], lat = r.w / 2 + 1.5;
+  const horiz = r.face === 'west' || r.face === 'east';
+  const fx = horiz ? r.x + r.out[0] * reach : r.x;
+  const fz = horiz ? r.z : r.z + r.out[1] * reach;
+  return {
+    x0: horiz ? Math.min(r.back, fx) : r.x - lat,
+    x1: horiz ? Math.max(r.back, fx) : r.x + lat,
+    z0: horiz ? r.z - lat : Math.min(r.back, fz),
+    z1: horiz ? r.z + lat : Math.max(r.back, fz),
+  };
+}).map(b => ({
+  cx: (b.x0 + b.x1) / 2, cz: (b.z0 + b.z1) / 2,
+  w: b.x1 - b.x0, d: b.z1 - b.z0,
+}));
 
 /* ═══════════════════════════════════════════════════════════════════════════
    ENCLAVE PLACEMENT — the 隐逸居 clubhouse as a rigid body
@@ -858,6 +1078,28 @@ export const WALK_REGIONS = [
   // the open-riser flight, rising north out of the court onto that gallery
   ramp('atrium-stair', _AS.x - _AS.w / 2, _ASTZ1, _AS.x + _AS.w / 2, _ASTZ0, 'z',
     _ASTZ0, 0, _ASTZ1, _AH1),
+
+  /* ══ the ten guest keys ═══════════════════════════════════════════════════
+     Their finished floor is VILLA.floorY over the gallery datum — one threshold
+     step, deliberately under CFG.STEP_UP so walking in from the corridor needs
+     no ramp. Each rect reaches WALL_T back through the shared wall so there is
+     no unfloored seam under the doorway; the wall's own collider is what stops
+     you standing in it.
+     The two 3-BR keys get a SECOND storey at ATRIUM.floorH, level with the
+     upper gallery, because that is the floor their 2F door opens off. Its
+     `ceil` gates the 1F: without it the head-room test would happily let you
+     climb from the ground floor onto the slab above your head. */
+  ...ROOMS.flatMap(r => {
+    const oneFloor = r.floors === 1;
+    const ceil1 = (oneFloor ? r.h : _V.floorH2) - 0.3;
+    const out = [rect(`room-${r.id}`, r.walk.x0, r.walk.z0, r.walk.x1, r.walk.z1,
+      _V.floorY, { ceil: ceil1 })];
+    if (!oneFloor) {
+      out.push(rect(`room-${r.id}-2f`, r.walk.x0, r.walk.z0, r.walk.x1, r.walk.z1,
+        _V.floorH2, { ceil: r.h - 0.3, t: 0.3 }));
+    }
+    return out;
+  }),
 
   /* ══ the 隐逸居 lounge — WEDDING DINNER ═══════════════════════════════════
      The room sits on a 0.34 m plinth and the DINNER spawn is inside it, so

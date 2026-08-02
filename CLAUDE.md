@@ -20,15 +20,15 @@ own coordinates. Change the layout there, never in a builder.
 
 | File | Owns |
 |------|------|
-| `js/site.js` | **The master site plan.** `SITE.*` footprints for the suite, deck, pool, cabanas, atrium, lounge, villas (with the real 11-key room mix), lawn, lagoon, palm grove, beach, ocean, hotel crescent. Plus `siteFloorY(x,z)`, `MOMENT_PLACES` (spawns) and `INTRO_PATH` (the opening dive). |
+| `js/site.js` | **The master site plan.** `SITE.*` footprints for the suite, deck, pool, cabanas, atrium, lounge, lawn, lagoon, palm grove, beach, ocean, hotel crescent. The ten guest keys are DERIVED here from `ROOM_SPEC` → `ROOMS` / `SITE.VILLAS` / `ROOM_DOORS` / `VILLA_ZONES`, with `snapDoor()` putting every gallery door on the atrium's facade grid. Plus `siteFloorY(x,z)`, `MOMENT_PLACES` (spawns) and `INTRO_PATH` (the opening dive). |
 | `js/config.js` | ALL tuning — walk + fly feel, camera, the intro orbit/dive, day-vs-night lighting levels, the `MOMENTS` table. No magic numbers elsewhere, and **no coordinates** (those are site.js). |
 | `js/main.js` | Renderer bootstrap (PMREM RoomEnvironment, sRGB, ACES), the `G` context object, `G.setMode`/`G.toggleMode` (walk ↔ fly), the begin→dive flow, N-key night toggle, resize, clock loop, `window.__game` debug hook |
 | `js/world.js` | **The integrator.** Builds nothing itself: calls each builder in order, owns `floorY(x,z)` (delegates to `siteFloorY`), owns the day↔night fan-out (`setNight`/`toggleNight`), and runs `G.tickers` each frame. |
 | `js/sky.js` | Sky dome (day + night gradients), sun/moon, stars, fog, and the whole global lighting rig |
 | `js/nature.js` | Ground, beach, animated ocean, the palm population, hedges, topiary, bougainvillea |
 | `js/water.js` | The hero pool (raised plinth, infinity edge, caustics), **the floating lanterns**, the deck + turf + "THE WESTIN" letters, cabana pavilions, loungers, lounge pool, lagoon, villa plunge pools |
-| `js/campus.js` | The 隐逸居 lounge, the ten guest villas (3 real types), circular lawn edging, event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
-| `js/atrium.js` | The clubhouse's central courtyard — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, villa entry doors |
+| `js/campus.js` | The 隐逸居 lounge, the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), circular lawn edging, event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
+| `js/atrium.js` | The clubhouse's central courtyard AND its corridor — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, and the **ten real guest-room doors** (`buildRoomDoor`) with their lit number plaques |
 | `js/suite.js` | The presidential suite, inside and out — folding glass wall, great room, dining, pantry, the L-stair with its chandelier, the spa, the 2F lounge and balcony |
 | `js/introcam.js` | The opening: a drone orbit of the enclave behind the title card, then a bezier dive over the pool and in through the glass wall, handing the look state to `player.js` on landing |
 | `js/materials.js` | Shared CanvasTexture recipes + `M.*`; also exports `mulberry32` (seeded PRNG). Builders define their own local materials — only `mulberry32` is universally imported. |
@@ -192,47 +192,67 @@ were building to:
 7. ~~Rooftop stood-on-able + the 3/18 brunch as a SIXTH moment~~ — DONE
    2026-08-02, together with the suite-stair fix that turned out to be the same
    bug. See **The rooftop is walkable** below.
-8. **The atrium is a HALLWAY and the rooms ATTACH to it** — next up, see below.
+8. ~~The atrium is a HALLWAY and the rooms ATTACH to it~~ — DONE 2026-08-02,
+   see below.
 
-## QUEUED — the rooms attach to the atrium (Carl, 2026-08-02)
+## The rooms attach to the atrium — DONE 2026-08-02
 
 Carl, verbatim: *"they should be flipped, the pool is outside, and the room
 should be connected to the entrance from the atrium. atrium is kinda like a
 hotel hallway where it connects all of the rooms, atrium has door to go into
 each of the room, so the 'villa' is attached, not detached like currently."*
 
-**This is an architectural correction, not a placement nudge.** The ten guest
-keys are currently free-standing villas sitting on lawn at a distance from
-`SITE.ATRIUM`, each with its own garden. That is wrong. The enclave is one
-building: the atrium is its **corridor**, its galleries are lined with **doors
-into each room**, and the rooms are **attached to it** — sharing its wall,
-entered from it. It reads like a (very luxurious) hotel hallway, which is
-exactly what `reference/photos/clubhouse-atrium.jpeg` shows: two storeys of
-gallery under timber soffits, doors along it.
+**This was an architectural correction, not a placement nudge**, and it is done.
+The enclave is one building. The atrium is its corridor; the ten guest keys hang
+off its four outer faces; each is entered through a real hole in the wall it
+shares with that corridor; every private pool and courtyard is on the far side,
+away from it — which is Carl's "flip". The presidential suite already worked
+this way through the south portal; the other ten now match it.
 
-Required:
-- **Rooms abut the atrium envelope** (x −14…30, z −54…−28) rather than standing
-  off it. The upper gallery implies the two-storey 3-BR types are entered from
-  the first-floor gallery.
-- **Flip each room so its private pool / courtyard faces OUTWARD**, away from
-  the atrium — the atrium side is the front door, the far side is private.
-  This is the flip Carl means.
-- **Put a real door per room** on the gallery wall, aligned with that room's
-  entrance, with the little lit number plaque `atrium.js` already builds.
-- The **presidential suite** already sits south of the atrium and is entered
-  from it (`SITE.SUITE`'s north double doors — that's documented). Keep that
-  relationship and make the other ten match it.
-- Consequences to check: `SITE.VILLAS` placement, `campus.js`'s
-  `buildVillas()` (which orients each type and puts type 1's walled courtyard
-  and plunge pool somewhere), `atrium.js`'s gallery doors, nature.js's
-  planting keep-outs, and every collider — a shared wall must not seal the
-  gallery. Circulation test: atrium → through a door → inside a room.
+**How they meet the gallery.** A key's back face sits on the atrium's OUTER wall
+face (envelope ± `WALL_T`, **not** the envelope — land on the envelope and the
+room is buried 0.3 m inside the corridor wall). It builds no back wall of its
+own: `atrium.js`'s perimeter facade *is* the party wall, one wall seen from both
+sides with one hole in it. Its yaw points villa-local −Z at the corridor, which
+in one number puts the front door on the gallery and swings the glazing, the
+deck and the plunge pool to the outside — because `campus.js` and `water.js`
+both author the private side as local +Z.
 
-⚠️ Do NOT regress: the enclave transform, the un-mirrored suite, the pool
-being the only pool visible from the suite, or the 3-BR/2-BR placement Carl
-corrected on 2026-08-01 (3-BR to the RIGHT of the suite, 2-BR courtyards
-behind the atrium) — those are about WHICH side each type sits on, and remain
-true; this changes how they MEET the atrium.
+**Where each type sits — unchanged, and still Carl's 2026-08-01 call.**
+
+| face | keys | why |
+|------|------|-----|
+| WEST (x −14.3) | 2 × 3-BR (type 2) | RIGHT of the presidential suite (local −X). The arm turns the south-west corner: 2 × 17 m against 26 m of wall. |
+| NORTH (z −54.3) | 3 × 2-BR pool suites (type 1) | BEHIND the atrium; their walled courtyards face away from everything. |
+| EAST (x 30.3) | 3 × Garden Rooms | what's left; turns the south-east corner. |
+| SOUTH (z −27.7), east of the suite | 2 × Garden Rooms | the only run of south wall the suite does not already occupy (x 10.2…30, clear of `EXT_STAIR` at x 8.2…9.8). |
+
+**`SITE.VILLAS` is no longer hand-typed.** It is derived from `ROOM_SPEC` in
+site.js — `(face, along, type)` in, `[x, z, rotationY, type]` out — alongside
+`ROOMS` (full records), `ROOM_DOORS` (what atrium.js cuts) and `VILLA_ZONES`
+(what nature.js keeps clear). Every number that used to be typed here is a
+number that drifted. Edit `ROOM_SPEC`; nothing else.
+
+**The keys are hollow.** They were solid stucco boxes ringed by a
+`rectCollider` — geometry to look at from a distance. Each is now four walls, a
+floor at `VILLA.floorY` (0.22, one threshold step, deliberately inside
+`CFG.STEP_UP`), a timber soffit, a fit-out, and a folding glass wall standing
+open at the front. The two 3-BR keys are entered TWICE: once off the ground
+gallery and once off the atrium's upper one, which is why `VILLA.floorH2` must
+equal `ATRIUM.floorH` — the same door position serves both, so one collider gap
+serves both too. The size jitter is gone: a key whose width is multiplied by a
+random 0.93…1.09 cannot share a wall with anything.
+
+**Verified** (headless Playwright, zero page/console errors): all ten
+corridor → door → room walks; both 3-BR upper-gallery walks; the full
+corridor → door → room → folding glass → private terrace route for one key of
+each type; the suite-spawn → glass → turf regression; all six moments switching,
+spawning, dressing and night-flipping; zero planting inside any key; 39.7 fps
+against a 40.2 fps baseline, +4 draw calls, no new lights.
+
+⚠️ Not regressed, and still true: the enclave transform, the un-mirrored suite,
+the presidential pool as the ONLY pool visible from the suite (checked from the
+great room), and the type placement above.
 
 ## Polish backlog (small, known, none blocking)
 
@@ -418,9 +438,13 @@ caught three things. All are now encoded in `site.js`; if a future change
 makes the campus "look tidier" by undoing one, it is wrong:
 
 1. **The enclave is SMALL and sits in the resort's south-west, by the beach.**
-   隐逸居 is only 3,500 ㎡. Carl's ten guest villas are two tight rows just
-   south of the pool — not a subdivision spread over the map. The compactness
-   is the point.
+   隐逸居 is only 3,500 ㎡. Carl's ten guest keys are not a subdivision spread
+   over the map — the compactness is the point. (2026-08-02: they are now
+   tighter still, wrapped onto the atrium's four faces as one building rather
+   than standing in rows. The Garden Rooms were also cut from a modelled
+   13 × 11 = 143 ㎡ to 9.9 × 9.9 = 98 ㎡, which is the hotel's own published
+   area — five rooms 30 % too wide is exactly why they could not be fitted onto
+   the gallery in the first place.)
 2. **`SITE.RESORT_VILLAS` are NOT part of the package.** ~50 other villas fill
    the ground between the enclave and the main hotel. They exist so the
    enclave reads as small and private, which is how the site map reads. They
@@ -439,6 +463,46 @@ makes the campus "look tidier" by undoing one, it is wrong:
   written in parallel against it; the moment any of them hard-codes a position,
   the campus silently drifts apart. If you need a new landmark, add it to `SITE`
   first, then build against it.
+
+- **A door position must be SNAPPED to the facade module grid, in site.js.**
+  `atrium.js` divides each perimeter wall into `round(len / ATRIUM.module)` equal
+  bays and a door gap drops a WHOLE bay, so the hole that ends up in the wall is
+  centred on that bay — up to half a bay (≈1.45 m) from where the door was asked
+  for. `campus.js` frames the room's own opening from the same number, so the two
+  must be the same number: `snapDoor(face, along)` does it once and both builders
+  read the result. **This failure is silent.** The collider gap still opens where
+  it was asked for, so the walk test walks straight through — into a room whose
+  own wall is blank behind the corridor's doorway. It was caught by raycasting
+  out of a room, not by walking into one.
+
+- **`SITE.VILLA.d` is the plunge-pool offset datum, not a footprint.**
+  `water.js`'s `buildVillaPools()` — not ours to edit — puts every type-0/type-1
+  pool at `V.d / 2 + k` from the key's CENTRE, so the terrace between a room's
+  folding glass and its own water is
+  `(V.d − d_type)/2 + k − poolDepth/2 − (colliderR + PLAYER_R)`. At `V.d = 11`
+  against a 13 m deep 2-BR that is NEGATIVE: the pool's coping collider stood
+  0.6 m *inside* the glass and you could walk from the corridor across the room
+  and then not get out of it. `V.d` is 14 now; the backdrop villas have their own
+  `wR/dR` and the ten keys their own `w0…d2`. If you deepen a key, re-check this
+  arithmetic — or the walk test will, by wedging the player between its own glass
+  and its own coping.
+
+- **`VILLA.openAt` decides where the folding wall stands open**, per type, and
+  it is not decoration. The 2-BR and 3-BR plunge pools (7 m and 6.4 m wide) sit
+  dead in front of their rooms, so a centred opening walks you into the water;
+  both are pushed to one end. Only the Garden Room has enough terrace to be
+  entered and left down its centre-line. Same rule inside: a partition on the
+  centre-line of a room whose door is also on the centre-line is a wall across
+  the inside of the front door. The 2-BR ate this twice before becoming two side
+  partitions with the living space running door-to-glass between them.
+
+- **The atrium's perimeter collider is r = 0.55, and the number is arithmetic.**
+  `player.js` adds `CFG.PLAYER_R` (0.35) at test time, so the old r = 0.95 chain
+  blocked 1.3 m either side of the wall line and a one-bay door (≈2.89 m) would
+  have left a 0.29 m slot — narrower than the player. At 0.55 the same door
+  passes 1.79 m of clear walking, still narrower than the 2.0 m the piers show.
+  Keep it that way round: the collider may be stricter than the geometry, never
+  looser, or people clip through their own door frames.
 - **Builders own their own materials.** Only `mulberry32` is imported from
   `materials.js`. This is deliberate — it let six agents write 6,000 lines
   concurrently without fighting over a shared material table. Don't "tidy" it

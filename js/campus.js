@@ -22,7 +22,7 @@
 // Everything repeated is an InstancedMesh (see the bucket system) — the whole
 // campus lands in well under a hundred draw calls.
 import * as THREE from 'three';
-import { SITE, HOTEL_ROOF } from './site.js';
+import { SITE, HOTEL_ROOF, ROOMS } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
 
@@ -370,6 +370,25 @@ function makeMaterials() {
     white: tint(new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: .72 }), 0x8f96a6),
     umbrella: tint(new THREE.MeshStandardMaterial({ color: 0x1f8fa5, roughness: .85, side: THREE.DoubleSide }), 0x76839a),
     blackstone: tint(new THREE.MeshStandardMaterial({ color: 0x16181a, roughness: .3, metalness: .18 }), 0x99a1b2),
+
+    /* ── the guest keys' interiors ────────────────────────────────────────
+       The keys became rooms you can walk into on 2026-08-02, and a room you
+       walk into at night with no light in it is a black box — which is what
+       the first pass shipped. There are already 29 point lights on this
+       campus, so ten more (one per key) is not free: every MeshStandardMaterial
+       in the scene pays for each of them. These two are the cheap answer — a
+       warm emissive on the FLOOR and the CEILING only, which are the two
+       surfaces you cannot see from outside the building, so the volumes still
+       read as white stucco from the air while the doorways and the folding
+       glass glow from within. */
+    roomFloor: glow(new THREE.MeshStandardMaterial({
+      map: retile(marble, 3, 3), roughness: .28, metalness: .04,
+      emissive: 0xffb877, emissiveIntensity: 0,
+    }), 0, .30),
+    roomCeil: glow(new THREE.MeshStandardMaterial({
+      map: retile(slat, 3, 3), color: 0x9c7550, roughness: .74,
+      emissive: 0xffc38a, emissiveIntensity: 0,
+    }), 0, .5),
     /* backdrop-only water for the far resort villas' plunge pools — water.js
        owns every pool you can actually reach; these are just turquoise dots
        seen from the air, and must never cost a reflection pass */
@@ -724,44 +743,99 @@ function buildLounge(G, root) {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   2 · the ten guest villas — 5 Garden Rooms, 3 Garden Pool 2-BR,
-   2 two-storey Garden 3-BR. Every part goes through the instance buckets,
-   so the whole cluster costs a handful of draw calls.
+   2 · THE TEN GUEST KEYS, ATTACHED TO THE ATRIUM
+   ────────────────────────────────────────────────────────────────────────
+   5 Garden Rooms, 3 Garden Pool 2-BR, 2 two-storey Garden 3-BR. Every part
+   goes through the instance buckets, so the whole wing costs a handful of
+   draw calls.
+
+   Rewritten 2026-08-02 for Carl's "the villa is attached, not detached".
+   Three things changed and all three are load-bearing:
+
+   1 · POSITION AND YAW COME FROM site.js's ROOMS, not from a literal here.
+       Each key's BACK now lands on the atrium's outer wall face, and its yaw
+       points local −Z at the corridor. Local +Z is the front in this builder
+       and in water.js's buildVillaPools(), so that one number swings the
+       glazing, the deck and the plunge pool to the outside — which is the
+       whole of the flip.
+
+   2 · THE KEYS ARE HOLLOW. They were solid stucco boxes ringed by a
+       rectCollider: geometry you could look at from a distance. A door you
+       cannot walk through is not a door, so each key is now four walls, a
+       floor, a ceiling and a fit-out, with a DOORWAY in the back wall lined up
+       on the gallery door atrium.js cuts, and the folding glass wall standing
+       open at the front onto its own pool.
+
+   3 · NO BACK WALL, NO BACK COLLIDER. The atrium's perimeter facade IS the
+       shared wall — one wall, from both sides, with one hole in it. Building a
+       second wall behind it (or a collider chain along it) is exactly how a
+       shared wall ends up sealing the corridor.
+
+   The size jitter is gone with them: a key whose width is multiplied by a
+   random 0.93…1.09 cannot share a wall with anything. Roof tint, wall tint and
+   ridge height still vary, which is where the variety actually reads from.
    ════════════════════════════════════════════════════════════════════════ */
 function buildVillas(G, root, rnd) {
   const V = SITE.VILLA;
+  const T = V.wallT;                 // wall thickness — matches atrium.js
+  const FY = V.floorY;               // finished floor over the gallery datum
 
-  for (const [vx, vz, ry, type] of SITE.VILLAS) {
+  for (const R of ROOMS) {
+    const { x: vx, z: vz, ry, w: W, d: D, h: H, type } = R;
     const c = Math.cos(ry), s = Math.sin(ry);
-    /* local (+z = front / deck side) → world */
+    /* local (+z = front / private side, −z = the gallery) → world */
     const W2 = (lx, lz) => [vx + lx * c + lz * s, vz - lx * s + lz * c];
     /** queue an instanced part in villa-local coordinates */
     const put = (key, geo, mat, lx, y, lz, sx, sy, sz, lry = 0, color = null, rx = 0) => {
       const p = W2(lx, lz);
       inst(key, geo, mat, mat4(p[0], y, p[1], sx, sy, sz, ry + lry, rx), color);
     };
-    const collideRect = (lx, lz, w, d, r = .42) => {
-      const p = W2(lx, lz);
-      rectCollider(G.colliders, p[0], p[1], w, d, ry, r);
-    };
+    /** a wall-line collider in villa-local coordinates */
+    const colL = (ax, az, bx, bz, r = .32, yr) =>
+      colliderLine(G.colliders, ...W2(ax, az), ...W2(bx, bz), r, yr);
 
-    /* seeded variation — nothing in the cluster is a copy-paste of anything */
-    const sc = .93 + rnd() * .16;
+    /* seeded variation — tints and ridge height only. NOT the footprint. */
     const roofTint = new THREE.Color().setHSL(.075 + rnd() * .05, .04 + rnd() * .07, .40 + rnd() * .20);
     const wallTint = new THREE.Color().setHSL(.10, .05 * rnd(), .87 + rnd() * .10);
-    const OH = 1.45 + rnd() * .5;
-    const jitter = (rnd() - .5) * .35;
+    const jitter = (rnd() - .5) * .30;
+    const OH = 1.5 + rnd() * .4;               // FRONT eave only — see roofBand
+    const HH = H + jitter;                     // ridge height, varied
+    const hw = W / 2, hd = D / 2;
 
-    const W = (type === 2 ? V.w2 : type === 1 ? V.w + 1.5 : V.w) * sc;
-    const D = (type === 2 ? V.d2 : type === 1 ? V.d + 1 : V.d) * sc;
-    const H = (type === 2 ? V.h2 : V.h) + jitter;
+    /* the door: `doorAlong` is a coordinate on the atrium face, so convert it
+       to an offset along this room's own width. For the north/south arms the
+       face runs in world X and local +X maps to −X of the face (ry = π) or +X
+       (ry = 0); for the east/west arms it runs in Z. Rather than case-split,
+       project the world offset onto the room's local +X axis — one line, and it
+       cannot get the sign wrong. */
+    const horiz = R.face === 'west' || R.face === 'east';
+    const dWorld = horiz ? [0, R.doorAlong - vz] : [R.doorAlong - vx, 0];
+    const doorX = dWorld[0] * c - dWorld[1] * s;      // local +X axis is (c, −s)
+    const doorHalf = V.doorClear / 2;
 
     /* ── shared bits ──────────────────────────────────────────────── */
-    const roofSlab = (lx, lz, w, d, y) => {
+    /* the roof. FLUSH at the back and the sides — the keys in an arm stand
+       shoulder to shoulder and an eave over the neighbour is an eave through
+       the neighbour, while an eave over the atrium fights its 2F gallery slab
+       at exactly the same height. The deep eave lives on the private front,
+       where it is the shadow line in the aerial. */
+    const roofBand = (y, lx, lz, w, d) => {
       put('roof', UNIT_BOX, MAT.roof, lx, y + .17, lz, w, .3, d, 0, roofTint);
-      put('copper', UNIT_BOX, MAT.copper, lx, y - .04, lz, w + .12, .21, d + .12);
-      put('darkI', UNIT_BOX, MAT.dark, lx, y - .19, lz, w - .45, .16, d - .45);
+      put('copper', UNIT_BOX, MAT.copper, lx, y - .04, lz, w + .06, .21, d + .06);
+      put('darkI', UNIT_BOX, MAT.dark, lx, y - .19, lz, w - .3, .16, d - .3);
     };
+    /* Four bands filling the rect `o` minus the rect `h` — the shape of a slab
+       with a hole in it, which is what a roof or a ceiling over a light court
+       is. Zero-width bands are dropped so a hole flush with an edge degrades to
+       three bands rather than to a box of negative depth. */
+    const ringBands = (o, h) => [
+      [(o.x0 + h.x0) / 2, (o.z0 + o.z1) / 2, h.x0 - o.x0, o.z1 - o.z0],
+      [(h.x1 + o.x1) / 2, (o.z0 + o.z1) / 2, o.x1 - h.x1, o.z1 - o.z0],
+      [(h.x0 + h.x1) / 2, (o.z0 + h.z0) / 2, h.x1 - h.x0, h.z0 - o.z0],
+      [(h.x0 + h.x1) / 2, (h.z1 + o.z1) / 2, h.x1 - h.x0, o.z1 - h.z1],
+    ].filter(b => b[2] > .02 && b[3] > .02);
+    const wall = (lx, lz, w, d, h, y = 0) =>
+      put('stucco', UNIT_BOX, MAT.stucco, lx, y + h / 2, lz, w, h, d, 0, wallTint);
     const glassBay = (lx, y, lz, w, h, d = .1) =>
       put('glass', UNIT_BOX, MAT.glass, lx, y, lz, w, h, d);
     const mullions = (lx, y, lz, w, h, n) => {
@@ -781,162 +855,215 @@ function buildVillas(G, root, rnd) {
     const stepLight = (lx, lz) =>
       put('glowI', UNIT_BOX, MAT.glowLamp, lx, .16, lz, .18, .12, .18);
 
-    /* plinth under everything */
-    put('stoneI', UNIT_BOX, MAT.stone, 0, .11, 0, W + 1.4, .22, D + 1.4);
+    /* ── the shell ────────────────────────────────────────────────────────
+       Floor first: a marble plate at FY, the one step up from the gallery.
+       Then the two side walls and whatever the front and back need. The back
+       wall is the atrium's; all we build is the reveal either side of its hole
+       so the room reads as lined rather than as a hole in a box. */
+    put('roomFloorI', UNIT_BOX, MAT.roomFloor, 0, FY - .09, 0, W, .18, D);
+    /* skirting/reveal at the gallery wall, flanking the doorway */
+    for (const sgn of [-1, 1]) {
+      const inner = doorX + sgn * doorHalf, outer = sgn * hw;
+      const wSeg = Math.abs(outer - inner);
+      if (wSeg > .05) wall((inner + outer) / 2, -hd + T / 2, wSeg, T, HH);
+    }
+    /* the door head over the opening, so the shared wall reads as a door */
+    wall(doorX, -hd + T / 2, V.doorClear + .5, T, HH - 2.45, 2.45);
+    put('copper', UNIT_BOX, MAT.copper, doorX, 2.40, -hd + T / 2, V.doorClear + .6, .1, T + .06);
+    /* side walls, inset so neighbouring keys touch instead of overlapping */
+    for (const sgn of [-1, 1]) wall(sgn * (hw - T / 2), 0, T, D, HH);
+    colL(-hw + T / 2, -hd, -hw + T / 2, hd, .34);
+    colL(hw - T / 2, -hd, hw - T / 2, hd, .34);
 
-    if (type === 0) {
-      /* ── 花园客房 Garden Room, 98 ㎡, single storey with a soaking-tub
-            light well cut clean through the roof plan ────────────────── */
-      const lwx = -W * .24, lwz = -D * .16, lhx = 1.75, lhz = 1.55;   // the void
-      const RX = W / 2 + OH, RZ = D / 2 + OH;
-      /* mass, split around the void */
-      const mass = (cx, cz, w, d) =>
-        put('stucco', UNIT_BOX, MAT.stucco, cx, H / 2, cz, w, H, d, 0, wallTint);
-      mass((-W / 2 + lwx - lhx) / 2, 0, lwx - lhx + W / 2, D);
-      mass((lwx + lhx + W / 2) / 2, 0, W / 2 - lwx - lhx, D);
-      mass(lwx, (-D / 2 + lwz - lhz) / 2, lhx * 2, lwz - lhz + D / 2);
-      mass(lwx, (lwz + lhz + D / 2) / 2, lhx * 2, D / 2 - lwz - lhz);
-      /* roof ring around the same void */
-      roofSlab((-RX + lwx - lhx) / 2, 0, lwx - lhx + RX, D + OH * 2, H);
-      roofSlab((lwx + lhx + RX) / 2, 0, RX - lwx - lhx, D + OH * 2, H);
-      roofSlab(lwx, (-RZ + lwz - lhz) / 2, lhx * 2, lwz - lhz + RZ, H);
-      roofSlab(lwx, (lwz + lhz + RZ) / 2, lhx * 2, RZ - lwz - lhz, H);
-      /* the light well itself: travertine floor, sunken tub, folding doors */
-      put('stonePlaneI', UNIT_PLANE, MAT.stone, lwx, .24, lwz, lhx * 2 - .1, 1, lhz * 2 - .1);
-      put('stoneI', UNIT_BOX, MAT.stone, lwx - .5, .5, lwz, 1.7, .55, 1.05);
-      put('blackI', UNIT_BOX, MAT.blackstone, lwx - .5, .62, lwz, 1.45, .34, .8);
-      glassBay(lwx + lhx - .06, 1.35, lwz, .1, 2.3, lhz * 1.6);
-      stepLight(lwx + .55, lwz + 1.1);
-
-      /* front glazing + deck */
-      const gw = W * .68, gh = H - .5;
-      glassBay(W * .06, gh / 2 + .26, D / 2 + .05, gw, gh);
-      mullions(W * .06, gh / 2 + .26, D / 2 + .12, gw, gh, 4);
-      glassBay(-W * .3, 1.9, -D / 2 - .05, 2.2, 1.4);
-      put('slatI', UNIT_BOX, MAT.slat, W * .3, 1.2, -D / 2 - .07, 1.2, 2.4, .14);   // entry door
-      put('slatI', UNIT_BOX, MAT.slat, W / 2 + .1, H * .45, D * .08, .16, H * .78, D * .5);
-      put('deckI', UNIT_BOX, MAT.deck, 0, .1, D / 2 + 2.5, W * .9, .2, 4.8);
-      collideRect(0, 0, W, D);
-
-      /* low white garden wall around the deck, with a gap on the axis */
-      const gx = W * .45 + .3, z0 = D / 2 + .2, z1 = D / 2 + 5.0;
-      for (const sgn of [-1, 1]) {
-        put('stucco', UNIT_BOX, MAT.stucco, sgn * gx, .48, (z0 + z1) / 2, .24, .95, z1 - z0, 0, wallTint);
-        put('stucco', UNIT_BOX, MAT.stucco, sgn * (gx / 2 + .55), .48, z1, gx - 1.1, .95, .24, 0, wallTint);
-        colliderLine(G.colliders, ...W2(sgn * gx, z0), ...W2(sgn * gx, z1), .35);
+    /* ceiling — a timber soffit just under the roof so the room is a room.
+       type 0 gets a hole in it: see the light court below. */
+    const ceilOuter = { x0: -hw + T, x1: hw - T, z0: -hd + T / 2, z1: hd - T / 2 };
+    const WELL = type === 0
+      ? { x0: hw - 3.6, x1: hw - 1.4, z0: -hd + 2.6, z1: -hd + 4.8 } : null;
+    if (WELL) {
+      for (const [bx, bz, bw, bd] of ringBands(ceilOuter, WELL)) {
+        put('roomCeilI', UNIT_BOX, MAT.roomCeil, bx, HH - .34, bz, bw, .1, bd);
       }
-      parasol(-W * .2, D / 2 + 2.7);
-      lounger(-W * .2 - 1.5, D / 2 + 2.6, 1);
-      lounger(-W * .2 + 1.5, D / 2 + 2.6, 1);
-      stepLight(gx - .5, z0 + .4); stepLight(-gx + .5, z0 + .4);
+    } else {
+      put('roomCeilI', UNIT_BOX, MAT.roomCeil, 0, HH - .34, 0,
+        ceilOuter.x1 - ceilOuter.x0, .1, ceilOuter.z1 - ceilOuter.z0);
+    }
+
+    /* a warm interior glow, the thing that makes the gallery read at night */
+    put('glowI', UNIT_BOX, MAT.glowLamp, doorX, 2.15, -hd + T + .08, V.doorClear - .3, .06, .06);
+
+    /* ── the private front: a folding glass wall standing OPEN ───────────── */
+    const fz = hd - T / 2;
+    const gh = Math.min(HH, 3.4) - .5;
+    const openHalf = 1.2;                       // the folded-back leaf span
+    const openAt = V.openAt[type] || 0;         // and where it stands open
+    for (const sgn of [-1, 1]) {
+      const inner = openAt + sgn * openHalf, outer = sgn * (hw - T);
+      const wSeg = Math.abs(outer - inner);
+      if (wSeg <= .05) continue;
+      const cxs = (inner + outer) / 2;
+      glassBay(cxs, gh / 2 + FY, fz, wSeg, gh);
+      mullions(cxs, gh / 2 + FY, fz + .07, wSeg, gh, Math.max(2, Math.round(wSeg / 1.6)));
+      colL(inner, fz, outer, fz, .3);
+    }
+    /* head beam + the two folded leaves stacked against the jambs */
+    wall(0, fz, W - T * 2, T, HH - gh - FY, gh + FY);
+    for (const sgn of [-1, 1]) {
+      put('darkI', UNIT_BOX, MAT.dark, openAt + sgn * (openHalf - .12), gh / 2 + FY, fz - .55, .12, gh, 1.0);
+    }
+
+    /* the roof, and a plinth lip that steps down to the deck outside */
+    const roofOuter = { x0: -hw - .02, x1: hw + .02, z0: -hd, z1: hd + OH };
+    if (WELL) {
+      for (const [bx, bz, bw, bd] of ringBands(roofOuter, WELL)) roofBand(HH, bx, bz, bw, bd);
+    } else {
+      roofBand(HH, 0, (roofOuter.z0 + roofOuter.z1) / 2,
+        roofOuter.x1 - roofOuter.x0, roofOuter.z1 - roofOuter.z0);
+    }
+    put('stoneI', UNIT_BOX, MAT.stone, 0, .1, hd + .45, W, .2, .9);
+
+    /* ── type-specific fit-out + the private outdoor room ─────────────── */
+    if (type === 0) {
+      /* ── 花园客房 Garden Room, 98 ㎡ ─────────────────────────────────────
+            The 阳光泡浴空间 — the sunlit soaking court — is a VOID cut clean
+            through the ceiling and the roof (see WELL above): travertine, a
+            sunken black-stone tub, a low kerb, open to the sky. Those voids
+            are the small bright squares scattered through the roofscape in the
+            enclave aerial, and this is the first version of them you can stand
+            next to. The previous one was a 2.5 m glazed BOX standing inside
+            the room, which in a 9.9 m room read as a wall of green glass
+            across your own front door — the well is now a hole in the roof,
+            not an object on the floor, and it is set off the door axis and a
+            clear 2.6 m in from the gallery wall so nothing stands in the way
+            of walking in. */
+      const wcx = (WELL.x0 + WELL.x1) / 2, wcz = (WELL.z0 + WELL.z1) / 2;
+      const wW = WELL.x1 - WELL.x0, wD = WELL.z1 - WELL.z0;
+      put('stonePlaneI', UNIT_PLANE, MAT.stone, wcx, FY + .015, wcz, wW, 1, wD);
+      put('blackI', UNIT_BOX, MAT.blackstone, wcx, FY + .06, wcz, wW - .9, .12, wD - .9);
+      /* the kerb — three sides, low enough to sit on and to step over */
+      for (const [kx, kz, kw, kd] of [
+        [wcx, WELL.z0 - .14, wW + .28, .28], [WELL.x0 - .14, wcz, .28, wD],
+        [WELL.x1 + .14, wcz, .28, wD]]) {
+        put('stoneI', UNIT_BOX, MAT.stone, kx, FY + .17, kz, kw, .34, kd);
+        colL(kx - kw / 2, kz, kx + kw / 2, kz, .26);
+      }
+      stepLight(WELL.x0 - .5, WELL.z1 + .5);
+      /* bed platform + headboard, facing the court */
+      put('deckI', UNIT_BOX, MAT.deck, -hw * .42, FY + .16, hd * .1, 2.3, .32, 2.1);
+      put('whiteI', UNIT_BOX, MAT.white, -hw * .42, FY + .46, hd * .1, 2.1, .28, 1.9);
+      put('slatI', UNIT_BOX, MAT.slat, -hw + T + .1, FY + .9, hd * .1, .12, 1.5, 2.5);
+
+      /* the private court: timber deck, low white walls, a parasol */
+      put('deckI', UNIT_BOX, MAT.deck, 0, .1, hd + 2.6, W * .92, .2, 3.4);
+      const gx = hw + .25, z0 = hd + .2, z1 = hd + 5.2;
+      for (const sgn of [-1, 1]) {
+        wall(sgn * gx, (z0 + z1) / 2, .24, z1 - z0, .95);
+        colL(sgn * gx, z0, sgn * gx, z1, .3);
+      }
+      parasol(-hw * .35, hd + 2.5);
+      lounger(-hw * .35 - 1.4, hd + 2.4, 1);
+      stepLight(gx - .4, z0 + .4); stepLight(-gx + .4, z0 + .4);
       put('bougain', UNIT_BLOB, MAT.bougain, gx - .6, 1.0, z1 - 1.4, 1.0, 1.0, .9);
 
     } else if (type === 1) {
-      /* ── 花园泳池双卧套房 Garden Pool 2-BR, 208 ㎡ — single storey opening
-            through a full-width folding door-wall onto a WALLED courtyard
-            with an L-shaped plunge basin and a 3-spout black water wall.
-            (water.js fills the basin; the masonry is ours) ─────────────── */
-      put('stucco', UNIT_BOX, MAT.stucco, 0, H / 2, 0, W, H, D, 0, wallTint);
-      roofSlab(0, 0, W + OH * 2, D + OH * 2, H);
-      collideRect(0, 0, W, D);
+      /* ── 花园泳池双卧套房 Garden Pool 2-BR — two beds, and a WALLED
+            courtyard on the private side with the plunge pool and the black
+            water wall. water.js owns the water, the spouts and the coping;
+            this file used to build a SECOND basin four metres away from it, in
+            masonry, which is why the courtyards read as two pools. Gone. */
+      /* PLAN: entry hall → living space → folding glass → courtyard, straight
+         down the middle, with a bedroom behind a partition on each side.
+         NOT a spine wall down the centre-line, which is what the first two
+         passes built: the 2-BR doors sit on their rooms' centre-lines, so a
+         central partition is a wall across the inside of the front door and
+         then a wall across the way out to your own pool. The walk test caught
+         it twice — first wedged against it in the doorway, then wedged against
+         it in the middle of the room. Both partitions stop short of the
+         gallery wall (the hall) and of the glass (the living space), so the
+         route in from the corridor and out to the water is clear the whole
+         way. */
+      const partX = hw * .49, partZ0 = -hd + 3.2, partZ1 = hd - 2.4;
+      for (const sgn of [-1, 1]) {
+        wall(sgn * partX, (partZ0 + partZ1) / 2, .24, partZ1 - partZ0, HH);
+        colL(sgn * partX, partZ0, sgn * partX, partZ1, .3);
+        put('deckI', UNIT_BOX, MAT.deck, sgn * (hw - 1.9), FY + .16, hd * .1, 2.3, .32, 2.1);
+        put('whiteI', UNIT_BOX, MAT.white, sgn * (hw - 1.9), FY + .46, hd * .1, 2.1, .28, 1.9);
+        put('slatI', UNIT_BOX, MAT.slat, sgn * (hw - T - .06), FY + .9, hd * .1, .12, 1.5, 2.5);
+      }
 
-      const gw = W * .82, gh = H - .5;
-      glassBay(0, gh / 2 + .26, D / 2 + .05, gw, gh);
-      mullions(0, gh / 2 + .26, D / 2 + .12, gw, gh, 6);
-      glassBay(-W * .28, 1.9, -D / 2 - .05, 2.4, 1.4);
-      put('slatI', UNIT_BOX, MAT.slat, W * .28, 1.2, -D / 2 - .07, 1.2, 2.4, .14);
-      put('slatI', UNIT_BOX, MAT.slat, -W / 2 - .1, H * .45, D * .05, .16, H * .78, D * .5);
-
-      /* courtyard: travertine paving, 2.4 m walls on three sides */
       const CW = V.courtW, CD = V.courtD;
-      const cz = D / 2 + CD / 2 + .2;
+      const cz = hd + CD / 2 + .2;
       put('stonePlaneI', UNIT_PLANE, MAT.stone, 0, .12, cz, CW, 1, CD);
       const wallH = 2.45;
-      put('stucco', UNIT_BOX, MAT.stucco, 0, wallH / 2, cz + CD / 2, CW + .5, wallH, .28, 0, wallTint);
+      wall(0, cz + CD / 2, CW + .5, .28, wallH);
       for (const sgn of [-1, 1]) {
-        put('stucco', UNIT_BOX, MAT.stucco, sgn * CW / 2, wallH / 2, cz, .28, wallH, CD, 0, wallTint);
-        colliderLine(G.colliders, ...W2(sgn * CW / 2, cz - CD / 2), ...W2(sgn * CW / 2, cz + CD / 2), .4);
+        wall(sgn * CW / 2, cz, .28, CD, wallH);
+        colL(sgn * CW / 2, cz - CD / 2, sgn * CW / 2, cz + CD / 2, .34);
       }
-      colliderLine(G.colliders, ...W2(-CW / 2, cz + CD / 2), ...W2(CW / 2, cz + CD / 2), .4);
-
-      /* the black stone water wall + three copper spouts (the p11 hero shot) */
-      const wwz = cz + CD / 2 - .35;
-      put('blackI', UNIT_BOX, MAT.blackstone, -CW * .12, 1.25, wwz, 5.0, 2.5, .35);
-      for (let k = -1; k <= 1; k++) {
-        put('copper', UNIT_BOX, MAT.copper, -CW * .12 + k * 1.5, 1.92, wwz - .32, .5, .1, .42);
-        put('glowI', UNIT_BOX, MAT.glowLamp, -CW * .12 + k * 1.5, 1.72, wwz - .3, .34, .06, .2);
-      }
-
-      /* L-shaped plunge basin — stone curb + dark basin floor standing just
-         proud of the travertine, so water.js can lay its surface at ~0.22.
-         The long leg runs up to the water wall so the spouts pour into it. */
-      const pw = V.poolW, pd = V.poolD, px = -CW * .1;
-      const basin = (lx, lz, w, d) => {
-        put('stoneI', UNIT_BOX, MAT.stone, lx, .12, lz, w + .8, .3, d + .8);   // curb, top .27
-        put('blackI', UNIT_BOX, MAT.blackstone, lx, .02, lz, w, .56, d);       // basin, top .30
-      };
-      const legZ = cz + CD / 2 - pd / 2 - .4;
-      basin(px, legZ, pw, pd);                                          // leg along the wall
-      basin(px - pw / 2 + pd / 2, legZ - pd / 2 - 1.7, pd, 3.4);        // the L arm
-      /* shallow spa ledge in the corner of the L */
-      put('stoneI', UNIT_BOX, MAT.stone, px + pw / 2 - 1.3, .26, legZ, 2.2, .12, pd - .8);
-
-      parasol(CW * .3, cz - CD * .18);
-      lounger(CW * .3 - 1.4, cz - CD * .2, 1);
-      lounger(CW * .3 + 1.4, cz - CD * .2, 1);
+      colL(-CW / 2, cz + CD / 2, CW / 2, cz + CD / 2, .34);
+      parasol(CW * .32, cz - CD * .2);
+      lounger(CW * .32 - 1.4, cz - CD * .22, 1);
+      lounger(CW * .32 + 1.4, cz - CD * .22, 1);
       for (let k = -1; k <= 1; k += 2) stepLight(k * (CW / 2 - .6), cz - CD / 2 + .8);
       put('bougain', UNIT_BLOB, MAT.bougain, -CW / 2 + 1.1, 1.2, cz + CD / 2 - 1.5, 1.1, 1.2, 1.0);
       put('hedgeI', UNIT_BLOB, MAT.hedge, CW / 2 - 1.2, .9, cz + CD / 2 - 1.4, 1.8, 1.5, 1.6);
 
     } else {
-      /* ── 花园三卧套房 Garden 3-BR, 168 ㎡ — TWO storeys, glass-balustrade
-            balcony on red-brown timber, double-height living bay ───────── */
-      const H1 = 3.8, H2 = H - H1;
-      const W1 = W, D1 = D, W3 = W * .84, D3 = D * .78;
-      put('stucco', UNIT_BOX, MAT.stucco, 0, H1 / 2, 0, W1, H1, D1, 0, wallTint);
-      put('stucco', UNIT_BOX, MAT.stucco, -W * .04, H1 + H2 / 2, -D * .09, W3, H2, D3, 0, wallTint);
-      roofSlab(-W * .04, -D * .09, W3 + OH * 2, D3 + OH * 2, H);
-
-      /* double-height living bay + ground glazing */
-      const gh = H1 - .5;
-      glassBay(-W * .22, gh / 2 + .26, D1 / 2 + .05, W * .42, gh);
-      mullions(-W * .22, gh / 2 + .26, D1 / 2 + .12, W * .42, gh, 3);
-      const bayH = H1 + 1.7, bayW = W * .3;
-      glassBay(W * .28, bayH / 2, D1 / 2 + .05, bayW, bayH);               // the tall bay
-      mullions(W * .28, bayH / 2, D1 / 2 + .12, bayW, bayH, 2);
-      for (const sgn of [-1, 1]) {                                          // bay side fins
-        put('stucco', UNIT_BOX, MAT.stucco, W * .28 + sgn * bayW / 2, H1 + .95, D1 / 2 - .3,
-          .26, 1.9, .8, 0, wallTint);
-      }
-      put('roof', UNIT_BOX, MAT.roof, W * .28, bayH + .16, D1 / 2 - .35, bayW + 1.1, .26, 1.6, 0, roofTint);
-      put('copper', UNIT_BOX, MAT.copper, W * .28, bayH - .02, D1 / 2 - .35, bayW + 1.2, .2, 1.7);
-      /* corner-glazed master upstairs */
-      glassBay(-W * .04, H1 + H2 / 2, -D * .09 + D3 / 2 + .05, W3 * .62, H2 - .7);
-      glassBay(-W * .04 - W3 / 2 - .05, H1 + H2 / 2, -D * .09, .1, H2 - .7, D3 * .5);
-      put('slatI', UNIT_BOX, MAT.slat, W * .3, 1.2, -D1 / 2 - .07, 1.2, 2.4, .14);
-
-      /* balcony on red-brown timber decking, glass balustrade + copper rail */
-      const bz0 = D * .31, bz1 = D * .495;
-      const bzc = (bz0 + bz1) / 2, bzd = bz1 - bz0;
-      put('deckI', UNIT_BOX, MAT.deck, -W * .12, H1 + .09, bzc, W * .62, .18, bzd);
-      for (let k = -1; k <= 1; k++) {
-        put('clearI', UNIT_BOX, MAT.clear, -W * .12 + k * W * .2, H1 + .68, bz1, W * .19, .95, .06);
-      }
-      put('copper', UNIT_BOX, MAT.copper, -W * .12, H1 + 1.19, bz1, W * .62, .07, .12);
+      /* ── 花园三卧套房 Garden 3-BR — TWO storeys, and the only key entered
+            twice: once off the ground gallery and once off the atrium's upper
+            one. That is why VILLA.floorH2 must equal ATRIUM.floorH — the slab
+            below is the floor you step onto from the gallery. */
+      const F2 = V.floorH2;
+      /* the 2F slab, its soffit, and the upper walls (back wall still the
+         atrium's — the same shared wall, one storey up) */
+      put('roomFloorI', UNIT_BOX, MAT.roomFloor, 0, F2 - .09, 0, W - T * 2, .18, D - T);
+      put('darkI', UNIT_BOX, MAT.dark, 0, F2 - .26, 0, W - T * 2, .16, D - T);
+      for (const sgn of [-1, 1]) wall(sgn * (hw - T / 2), 0, T, D, HH - F2, F2);
       for (const sgn of [-1, 1]) {
-        put('clearI', UNIT_BOX, MAT.clear, -W * .12 + sgn * W * .31, H1 + .68, bzc, .06, .95, bzd);
+        const inner = doorX + sgn * doorHalf, outer = sgn * hw;
+        const wSeg = Math.abs(outer - inner);
+        if (wSeg > .05) wall((inner + outer) / 2, -hd + T / 2, wSeg, T, HH - F2, F2);
       }
+      wall(doorX, -hd + T / 2, V.doorClear + .5, T, HH - F2 - 2.35, F2 + 2.35);
+      put('copper', UNIT_BOX, MAT.copper, doorX, F2 + 2.30, -hd + T / 2, V.doorClear + .6, .1, T + .06);
+      put('glowI', UNIT_BOX, MAT.glowLamp, doorX, F2 + 2.05, -hd + T + .08, V.doorClear - .3, .06, .06);
+      put('roomCeilI', UNIT_BOX, MAT.roomCeil, 0, HH - .34, 0, W - T * 2, .1, D - T);
 
-      collideRect(0, 0, W1, D1);
-      put('deckI', UNIT_BOX, MAT.deck, 0, .1, D1 / 2 + 2.6, W * .86, .2, 5.0);
-      const gx = W * .43 + .3, z0 = D1 / 2 + .2, z1 = D1 / 2 + 5.2;
-      for (const sgn of [-1, 1]) {
-        put('stucco', UNIT_BOX, MAT.stucco, sgn * gx, .48, (z0 + z1) / 2, .24, .95, z1 - z0, 0, wallTint);
-        colliderLine(G.colliders, ...W2(sgn * gx, z0), ...W2(sgn * gx, z1), .35);
+      /* the 2F opens onto a balcony over the pool, glass balustrade + copper
+         rail. The balustrade is a collider that only exists UP THERE — the
+         ground floor's folding wall stands open in the same plane. */
+      const bz1 = hd + 1.7;
+      glassBay(0, F2 + 1.35, fz, W - T * 2, 2.0);
+      mullions(0, F2 + 1.35, fz + .07, W - T * 2, 2.0, 5);
+      put('deckI', UNIT_BOX, MAT.deck, 0, F2 + .06, (fz + bz1) / 2, W - T * 2, .16, bz1 - fz);
+      for (let k = -2; k <= 2; k++) {
+        put('clearI', UNIT_BOX, MAT.clear, k * (W - 1.4) / 5, F2 + .66, bz1, (W - 1.6) / 5, .95, .06);
       }
-      parasol(W * .22, D1 / 2 + 2.8);
-      lounger(W * .22 - 1.5, D1 / 2 + 2.7, 1);
-      lounger(W * .22 + 1.5, D1 / 2 + 2.7, 1);
+      put('copper', UNIT_BOX, MAT.copper, 0, F2 + 1.17, bz1, W - T * 2, .07, .12);
+      for (const sgn of [-1, 1]) {
+        put('clearI', UNIT_BOX, MAT.clear, sgn * (hw - T), F2 + .66, (fz + bz1) / 2, .06, .95, bz1 - fz);
+      }
+      colL(-hw, bz1, hw, bz1, .3, { y0: F2 - .4 });
+      colL(-hw, fz, openAt - openHalf, fz, .3, { y0: F2 - .4 });
+      colL(openAt + openHalf, fz, hw, fz, .3, { y0: F2 - .4 });
+
+      /* fit-out: a bed on each floor and the double-height living bay */
+      put('deckI', UNIT_BOX, MAT.deck, hw * .5, F2 + .16, -hd * .1, 2.3, .32, 2.1);
+      put('whiteI', UNIT_BOX, MAT.white, hw * .5, F2 + .46, -hd * .1, 2.1, .28, 1.9);
+      put('slatI', UNIT_BOX, MAT.slat, hw * .5, F2 + .75, -hd * .1 - 1.15, 2.5, 1.5, .12);
+      put('deckI', UNIT_BOX, MAT.deck, -hw * .5, FY + .18, hd * .1, 2.6, .36, 2.2);
+      put('whiteI', UNIT_BOX, MAT.white, -hw * .5, FY + .5, hd * .1, 2.4, .3, 2.0);
+
+      /* the private front: deck, garden walls, parasol (the pool is water.js) */
+      put('deckI', UNIT_BOX, MAT.deck, 0, .1, hd + 2.9, W * .9, .2, 3.6);
+      const gx = hw + .3, z0 = hd + .2, z1 = hd + 5.6;
+      for (const sgn of [-1, 1]) {
+        wall(sgn * gx, (z0 + z1) / 2, .24, z1 - z0, .95);
+        colL(sgn * gx, z0, sgn * gx, z1, .3);
+      }
+      parasol(hw * .5, hd + 2.9);
+      lounger(hw * .5 - 1.5, hd + 2.8, 1);
+      lounger(hw * .5 + 1.5, hd + 2.8, 1);
       stepLight(-gx + .5, z0 + .5); stepLight(gx - .5, z0 + .5);
       put('bougain', UNIT_BLOB, MAT.bougain, -gx + .8, 1.1, z1 - 1.2, 1.0, 1.1, .9);
       put('hedgeI', UNIT_BLOB, MAT.hedge, gx - .8, .85, z0 + 1.6, 1.6, 1.4, 1.6);
@@ -961,7 +1088,10 @@ function buildResortVillas(G, rnd) {
   const V = SITE.VILLA;
   for (const [vx, vz, ry] of SITE.RESORT_VILLAS) {
     const sc = .88 + rnd() * .3;
-    const W = V.w * sc, D = V.d * sc, H = V.h + (rnd() - .5) * .5;
+    /* wR/dR, not w/d: `d` became the plunge-pool offset datum when the ten
+       guest keys attached to the atrium (see the banner in site.js) and is no
+       longer anybody's footprint. */
+    const W = V.wR * sc, D = V.dR * sc, H = V.h + (rnd() - .5) * .5;
     const OH = 1.3 + rnd() * .5;
     const roofTint = new THREE.Color().setHSL(.075 + rnd() * .05, .04 + rnd() * .07, .40 + rnd() * .20);
     const wallTint = new THREE.Color().setHSL(.10, .05 * rnd(), .86 + rnd() * .11);
