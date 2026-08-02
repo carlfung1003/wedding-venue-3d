@@ -676,7 +676,16 @@ export const SITE = {
       arcHalf: 0.62,     // terrace half-angle (crescent itself is arc/2 = 0.75)
       rIn: 90.0,         // terrace inner edge = top of the leaning inner facade
       rOut: 103.2,       // terrace outer edge; the green roof cap runs on to 106
-      poolArcHalf: 0.36, // ~68 m of water along the curve
+      /* The water runs the FULL length of the building edge (Carl, 2026-08-02:
+         "extend the pool to the edge of the building all the way"). At 0.36 it
+         covered ~58% of the terrace and the rest of the edge was bare paving.
+         0.575 leaves ~0.045 rad — about 4 m — of paving at each end so the
+         terrace still closes rather than the water running off the corner.
+         ⚠ The brunch tables no longer sit past the water's angular ends (there
+         is no "past" any more) — they spread ALONG the arc at r 99.2, inland
+         of the pool's 96.4 back wall. Both loops that place them (campus.js
+         buildHotelRoof and moments.js) must agree. */
+      poolArcHalf: 0.575, // ~108 m of water along the curve
       poolIn: 90.10,     // THE INFINITY EDGE — on the facade line, spilling west
       lipW: 0.20,        // the white coping hairline seaward of the water
       troughR: 89.42,    // catch basin, cantilevered off the facade under the lip

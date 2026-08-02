@@ -187,7 +187,8 @@ export function initMoments(G) {
 
     /* ── the eight existing four-tops, dressed ── */
     for (const s of [-1, 1]) for (let k = 0; k < 4; k++) {
-      const th = C + s * (RF.poolArcHalf + .035 + k * .055);
+      /* must match campus.js buildHotelRoof — spread along the arc */
+      const th = C + s * (.075 + k * .145);
       const r = 99.2 + (k % 2) * 1.6;   // must match campus.js buildHotelRoof — these dress ITS tables
       const p = pt(th, r);
       /* ⚠ campus.js sizes these tables through mat4() SCALE on a unit cylinder

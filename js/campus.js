@@ -2089,7 +2089,9 @@ function buildHotelRoof(G, g, acx, acz) {
         where the wedding party eats on 2027-03-18: four tops, parasols, and
         nothing between them and the sea but the glass. ── */
   for (const s of [-1, 1]) for (let k = 0; k < 4; k++) {
-    const th = C + s * (R.poolArcHalf + .035 + k * .055);
+    /* spread ALONG the arc behind the water, not past its ends — the pool
+       now runs the full edge, so there is no apron past it any more */
+    const th = C + s * (.075 + k * .145);
     const r = 99.2 + (k % 2) * 1.6;   // inland of the water — Carl: the pool takes the edge, not the tables
     const x = WX(th, r), z = WZ(th, r);
     inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .36, z, .14, .72, .14));
