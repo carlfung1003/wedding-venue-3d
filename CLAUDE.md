@@ -181,6 +181,50 @@ were building to:
 - **IMG_8093** — pool from the stair. **IMG_8095** — pool from the stair view.
   **IMG_8102** — another atrium angle.
 
+## QUEUED — the real ceremony / cocktail / dinner grounds (Carl, 2026-08-02)
+
+**This moves three of the six moments.** Carl, on the aerials:
+
+> *"correction for the ceremony, it's actually in a grass lawn area behind the
+> pool and very close to the beach … focus on this area for the clubhouse and
+> the big grass area … then closer to the beach you see this private grass lawn
+> area — our ceremony is actually there, with the cocktail hours as well! Our
+> dinner is actually in this two grass area right outside of the pool."*
+
+References (all in `reference/photos/`): `lawn-big-grass-area.png` (the
+clubhouse with the large open lawn running west to the beach),
+`lawn-private-beachfront.png` (the private lawn nearest the sand — CEREMONY +
+COCKTAIL), `lawn-two-strips-by-pool.png` (the two grass areas flanking the
+pool — DINNER), plus `westin-site-map.jpeg` for the whole context.
+
+To build:
+1. **The big grass area** between the clubhouse and the beach — an open lawn,
+   not the small hedge-ringed disc `SITE.LAWN` models today. In the aerial it
+   is the dominant green space of the enclave.
+2. **CEREMONY moves** off `SITE.LAWN` to the **private beachfront lawn** at the
+   far west end, closest to the sand. `MOMENT_PLACES.CEREMONY` and the arch /
+   chair / aisle dressing in `moments.js` go with it. The blurb finally becomes
+   true: the arch really does have the sea behind it (that copy has been wrong
+   since the enclave rotated — see the polish backlog).
+3. **COCKTAIL HOUR moves to the same beachfront lawn** — it is no longer at the
+   clubhouse terrace pool. Keep the two spatially distinct within that lawn so
+   the moments still read differently.
+4. **WEDDING DINNER moves to the two grass strips flanking the presidential
+   pool** — right outside it, not inside the 酒廊 lounge. The lounge stays
+   built; it is simply no longer the dinner venue.
+
+⚠️ Orientation: after the enclave rotation, **enclave-local +Z is world WEST,
+toward the sea** — the suite's glass wall and the 25 m pool look that way. So
+"behind the pool, close to the beach" is local +Z beyond the pool's far end
+(local z ≳ 22), and "the two grass areas right outside the pool" are the
+strips at local ±X flanking it. Derive, don't assume — a sign error here has
+cost us three separate passes already.
+
+⚠️ Do NOT regress: the six-moment chronological order and `momentIndex(id)`
+(nothing holds a raw index), the rooms attached to the atrium, the un-mirrored
+suite, the hero pool being the only pool visible from the suite, or the
+walkable height field. Every moved spawn needs a walk test, not just a render.
+
 ## Work queue (Carl's order, 2026-08-01)
 
 1. ~~Pool + room-type placement~~ — DONE 2026-08-01.
