@@ -177,9 +177,7 @@ were building to:
 1. ~~Pool + room-type placement~~ — DONE 2026-08-01.
 2. ~~Walkable stairs~~ — DONE 2026-08-02, floorY is now a height field.
 3. ~~The river~~ — DONE 2026-08-02, see `SITE.RIVER` / `buildRiver` in water.js.
-4. Cabanas as solid stepped blocks (Rachel's `IMG_8099.jpg`): they are white
-   stepped volumes with punched rectangular window slots and a `THE WESTIN`
-   mark, NOT the open post-and-beam portal frames `water.js` builds today.
+4. ~~Cabanas as solid stepped blocks~~ — DONE 2026-08-02.
 5. ~~Rooftop infinity pool~~ — DONE 2026-08-02 (geometry only; not yet stood-on-able, see notes).
 6. **Loading screen** — see below.
 

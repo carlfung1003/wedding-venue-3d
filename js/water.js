@@ -1,22 +1,24 @@
 // water.js — every body of water on the 隐逸居 campus, plus the hardscape that
 // frames it: the hero infinity pool at the presidential suite, its basalt deck
-// and turf apron with the 3D "THE WESTIN" letters, the white portal-frame
-// cabana pavilions and lounger row that make the far-side silhouette, the
+// and turf apron with the 3D "THE WESTIN" letters, the solid stepped white
+// cabana blocks and lounger row that make the far-side silhouette, the
 // lounge terrace pool, the free-form lagoon, and ten villa plunge pools.
 //
 // Every footprint comes from SITE (js/site.js) — nothing here invents a
 // coordinate. All materials are defined locally so this module owns no shared
 // state beyond the G context.
 //
-// Reference: reference/photos/Yinyiju main pool.webp (the hero composition),
-// "Yinyiju pool view.webp" (portal frames, niches, hanging slatted lanterns),
-// "Yinyiju view pool.webp" (pool from the 2F balcony), reference/
-// suite-interior-brief.md §7, reference/clubhouse-pdf-brief.md (p5, p14).
+// Reference: reference/photos/IMG_8099.jpg (Rachel's ground-level shot — the
+// spec for the cabana blocks), "Yinyiju main pool.webp" (the hero composition
+// and the block detail), "Yinyiju view pool.webp" (pool from the 2F balcony),
+// reference/suite-interior-brief.md §7, reference/clubhouse-pdf-brief.md p5.
+// NOT the deck's p14 close-up — that was read as open portal frames and is
+// wrong; see the note over buildPavilions.
 //
 // Contract:  buildWater(G) -> THREE.Group ,  setWaterNight(on) ,  setLanterns(on)
 //   G.scene       the scene to add to
 //   G.camera      used for billboarding the lantern glows
-//   G.colliders   {x,z,r} cylinder chains pushed for plinths + pavilion piers
+//   G.colliders   {x,z,r} cylinder chains pushed for plinths + the cabana run
 //   G.tickers     per-frame callbacks (dt, t)
 
 import * as THREE from 'three';
@@ -503,7 +505,7 @@ function waterMat(rx, ry, o = {}) {
 
 /* ═══════════════════ THE HERO POOL'S PLANAR MIRROR SURFACE ════════════════
    A real THREE.Reflector — one extra scene render, on ONE pool. Carl's photos
-   are a mirror: the white portal blocks, the pergola, the palms and (at night)
+   are a mirror: the white cabana blocks, the pergola, the palms and (at night)
    the lanterns and the lit suite all land on the water. No amount of animated
    colour texture fakes that, which is why the old caustic sheet had to go.
 
@@ -832,8 +834,8 @@ function makeRectPool(G, o) {
 /* ═══════════════════════════════ HERO POOL ═════════════════════════════════
    SITE.POOL — 25 × 10 m, raised 0.45 m on black stone, overflow edges into a
    pebble trough at grade, tiled turquoise, underwater lights for the night.
-   This is the money shot: a mirror-flat turquoise sheet with the white portal
-   pavilions and palms reflected across it.
+   This is the money shot: a mirror-flat turquoise sheet with the white stepped
+   cabana blocks and the palms reflected across it.
    ═══════════════════════════════════════════════════════════════════════════ */
 function buildHeroPool(G) {
   const P = SITE.POOL;
@@ -1099,135 +1101,329 @@ function buildDeckAndTurf(G) {
   return g;
 }
 
-/* ════════════════ WHITE PORTAL-FRAME CABANA PAVILIONS ════════════════════
-   The enclave's signature architecture (clubhouse-pdf-brief p14): minimalist
-   white post-and-beam gates you can see THROUGH, a rectangular niche grid set
-   into the thick pier, a dark-slatted lantern hanging inside each opening, all
-   linked by a timber boardwalk over lawn strips with stone steps down to the
-   pool deck.
+/* ═══════════════ SOLID STEPPED "THE WESTIN" CABANA BLOCKS ═════════════════
+   Rebuilt 2026-08-02 from Rachel's ground-level shot of the presidential pool
+   (reference/photos/IMG_8099.jpg, corroborated by the hotel's own
+   "Yinyiju main pool" frame). The previous build read the clubhouse deck's
+   p14 close-up as OPEN post-and-beam portals with a slatted lantern hung in
+   each gap. It is not that. The run is a line of SOLID white stucco masses
+   standing right at the water's edge, and the whole design is in the STEP:
 
-   SITE.CABANAS gives 7 pavilions between x0 and x1 — pitch 2.08 m. The frames
-   are therefore built as 8 piers / 7 openings so the run is continuous (a
-   2.6–3.4 m free-standing frame per pavilion would overlap its neighbour);
-   pier widths and heights vary across the run so the rhythm reads as designed.
+     · a heavy L-shaped FRAME — a cap band across the top plus one full-height
+       pier at one end — proud of everything else,
+     · a SCREEN PANEL recessed 0.35 m inside that L, slightly cooler in tone,
+     · small punched RECTANGULAR SLOTS through the panel at staggered heights,
+       each a real hole 0.2 m deep with a dark niche behind it,
+     · a LOW WING at the pier's foot, projecting a little further toward the
+       pool — the third plateau, and the thing that makes the bottom of the run
+       step as well as the top,
+     · a small `THE WESTIN` wordmark low on each panel.
+
+   Cap height, panel top and wing top give every block three plateaus; the
+   seven blocks then carry authored (not random) heights that fall away from
+   the suite in a zig-zag, so the silhouette across the water reads as designed
+   rather than noisy. Blocks are OPAQUE: you no longer see through the run.
+
+   Budget: every white box in the run is one InstancedMesh (frame + wing), the
+   recessed panels a second, the niches a third, the stone bases a fourth — four
+   draw calls for what used to be ~145 separate meshes plus seven hanging
+   lanterns.
+
+   FRAME OF REFERENCE. The run still lines the pool's EAST (+X) long side and
+   faces WEST across the water (Carl confirmed that on site), and it is still
+   authored in a LOCAL frame — marching along local +X, pool at local −Z — with
+   the group rotated +90° about Y and dropped at SITE.CABANAS.x. For a +90° Y
+   rotation local (x,z) ↦ world (cx + z, cz − x); the old collider transform
+   used cx − z and put every pier ~0.8 m east of its own wall. Fixed here.
    ═════════════════════════════════════════════════════════════════════════ */
+
+/* warm off-white render, the enclave's stucco */
+function stuccoCanvas() {
+  return paint(256, 256, (g, w, h) => {
+    g.fillStyle = '#f7f5ee'; g.fillRect(0, 0, w, h);
+    const rnd = mulberry32(SEED + 519);
+    for (let i = 0; i < 1500; i++) {
+      const v = 228 + rnd() * 24 | 0;
+      g.fillStyle = `rgba(${v},${v - 3},${v - 13},${.04 + rnd() * .13})`;
+      g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 5, 1 + rnd() * 5);
+    }
+  });
+}
+const stucco = (rx, ry) => sharedTex('stucco', canv('stucco', stuccoCanvas), rx, ry, true);
+
+/* the wordmark itself — letter-spaced caps on transparent, alpha-tested onto
+   the panel. One 512 × 96 canvas serves all seven blocks; drawing it with
+   buildLetters() instead would cost 28 boxes × 7 = 196 extra draw calls. */
+function westinCanvas() {
+  return paint(512, 96, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = '#4a463d';
+    g.textBaseline = 'middle';
+    g.font = '400 42px Georgia, "Times New Roman", Times, serif';
+    const txt = 'THE WESTIN', track = 12;
+    let total = -track;
+    for (const ch of txt) total += g.measureText(ch).width + track;
+    let x = (w - total) / 2;
+    for (const ch of txt) { g.fillText(ch, x, h * .54); x += g.measureText(ch).width + track; }
+  });
+}
+const westinTex = () => sharedTex('westin', canv('westin', westinCanvas), 1, 1, true);
+
+/* one InstancedMesh over a unit box — every block part is an axis-aligned box,
+   so a single geometry + per-instance scale covers the whole run */
+function emitBoxes(parent, list, mat, name) {
+  const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat, list.length);
+  const m = new THREE.Matrix4();
+  for (let i = 0; i < list.length; i++) {
+    const b = list[i];
+    m.makeScale(b.w, b.h, b.d);
+    m.setPosition(b.x, b.y, b.z);
+    im.setMatrixAt(i, m);
+  }
+  im.instanceMatrix.needsUpdate = true;
+  im.computeBoundingSphere();
+  im.name = name;
+  parent.add(im);
+  return im;
+}
+
+/* the same, for camera-facing quads (the wordmark, the night halos) — planes
+   look down local +Z, the blocks face local −Z, hence the half-turn */
+function emitPlanes(parent, list, mat, name) {
+  const im = new THREE.InstancedMesh(new THREE.PlaneGeometry(1, 1), mat, list.length);
+  const m = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const e = new THREE.Euler(0, Math.PI, 0);
+  const p = new THREE.Vector3(), s = new THREE.Vector3();
+  for (let i = 0; i < list.length; i++) {
+    const b = list[i];
+    q.setFromEuler(e);
+    p.set(b.x, b.y, b.z);
+    s.set(b.w, b.h, 1);
+    m.compose(p, q, s);
+    im.setMatrixAt(i, m);
+  }
+  im.instanceMatrix.needsUpdate = true;
+  im.computeBoundingSphere();
+  im.name = name;
+  parent.add(im);
+  return im;
+}
+
 function buildPavilions(G) {
   const g = new THREE.Group();
+  g.name = 'cabanas';
   ROOT.add(g);
   const CB = SITE.CABANAS;
   const rnd = mulberry32(SEED + 211);
-  /* The pool now runs north–south, so this run lines its EAST long side and
-     faces west across the water. Rather than rewrite every box() below into
-     Z-major coordinates, the whole run is still authored in a LOCAL frame —
-     marching along local +X, facing local −Z — and the group is then rotated
-     +90° about Y (local −Z → world −X) and dropped at SITE.CABANAS.x.
-     Local X is centred on 0, so `run` is the length along the pool. */
-  const run = CB.z1 - CB.z0;
-  const pitch = run / (CB.count - 1);
+
+  const run = CB.z1 - CB.z0;              // 21 m of pool edge
+  const pitch = run / (CB.count - 1);     // 3.5 m centres
   const HALF = run / 2;
-  const nPiers = CB.count + 1;
 
-  /* niche + hanging-lantern night materials */
-  const nicheMat = new THREE.MeshStandardMaterial({
-    color: 0x2b2a26, roughness: .9, emissive: 0xffca7a, emissiveIntensity: 0,
-  });
-  nightBits.push(on => { nicheMat.emissiveIntensity = on ? .7 : 0; });
+  /* ── the section, in local Z (local −Z is the pool) ──────────────────────
+     FRONT sits the masses hard against the pool's pebble trough (local z
+     −5.30 ⇒ enclave x 6.70; the trough's outer lip is x 6.39), which is what
+     the photo shows — no promenade between the water and the walls. The whole
+     walkway is BEHIND the run instead: enclave x ≈ 8.1 → 14, the old paver
+     apron plus the timber boardwalk, and it is open at both ends of the run. */
+  const FRONT = -5.30;                    // pool-facing face of the frame
+  const FRAME_D = 0.95;                   // depth of the L-frame mass
+  const RECESS = 0.35;                    // how far the screen panel sits back
+  const PANEL_D = FRAME_D - RECESS;       // panel is flush with the frame's BACK
+  const PANEL_Z = FRONT + RECESS;         // panel front face
+  const SLOT_DEEP = 0.20;                 // reveal depth of a punched slot
 
-  const slatMat = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: .7 });
-  const lampCoreMat = new THREE.MeshStandardMaterial({
-    color: 0x3a2c14, emissive: 0xffb257, emissiveIntensity: .25, roughness: .9,
-  });
-  nightBits.push(on => { lampCoreMat.emissiveIntensity = on ? 3.2 : .25; });
-  const lampHaloMat = addMat(glowTex(), .05, .05, .8);
+  /* ── the rhythm. Index 0 is the FAR (+Z world, seaward) end, index 6 the
+     suite end: local x = −HALF + i·pitch and local x ↦ world z = cz0 − x.
+     Heights are authored, not rolled — the run has to fall away from the suite
+     in steps, with two deliberate reversals so it never reads as a staircase. */
+  const HT = [0.06, 0.40, 0.14, 0.58, 0.30, 0.78, 1.00];   // t into [hMin,hMax]
+  const SIDE = [1, -1, 1, 1, -1, 1, -1];                   // which end holds the pier
+  const NSLOT = [2, 3, 2, 3, 2, 3, 3];
 
-  const piers = [];
-  for (let i = 0; i < nPiers; i++) {
-    const x = -HALF - pitch / 2 + i * pitch;
-    const thick = (i % 2 === 0);
-    const w = thick ? .95 + rnd() * .38 : .38 + rnd() * .18;
-    const h = CB.hMin + rnd() * (CB.hMax - CB.hMin);
-    const dep = .62 + rnd() * .34;
-    const zFront = -dep / 2 - (rnd() - .5) * .55;           // staggered setbacks
-    piers.push({ x, w, h, dep, z: zFront, thick });
-  }
+  const frame = [];      // bright stucco: cap, pier, low wing
+  const panels = [];     // recessed screen, a shade cooler
+  const niches = [];     // dark blind backs behind the punched slots
+  const bases = [];      // black stone plinth under each block
+  const marks = [];      // THE WESTIN wordmark quads
+  const halos = [];      // night glow in each slot mouth
 
-  for (const p of piers) {
-    box(g, p.w, p.h, p.dep, p.x, p.h / 2, p.z, MAT.whiteFrame);
-    /* dark stone base the pier stands on */
-    box(g, p.w + .16, .18, p.dep + .16, p.x, .09, p.z, MAT.stone);
-    if (!p.thick) continue;
-    /* rectangular niches punched into the pool-facing (-Z) face */
-    const cols = p.w > 1.15 ? 2 : 1, rows = 2;
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const nw = .17, nh = .42;
-      const nx = p.x + (cols === 1 ? 0 : (c - .5) * (p.w * .44));
-      const ny = p.h * (.46 + r * .21);
-      box(g, nw, nh, .1, nx, ny, p.z - p.dep / 2 + .03, nicheMat);
-    }
-  }
-
-  /* lintels spanning each opening, at the lower of the two adjacent piers */
   for (let i = 0; i < CB.count; i++) {
-    const a = piers[i], b = piers[i + 1];
-    const x0 = a.x + a.w / 2, x1 = b.x - b.w / 2;
-    const openW = x1 - x0;
-    if (openW <= .1) continue;
-    const h = Math.min(a.h, b.h);
-    const beam = .34 + rnd() * .12;
-    const dep = Math.min(a.dep, b.dep);
-    const z = (a.z + b.z) / 2;
-    box(g, openW + .04, beam, dep, (x0 + x1) / 2, h - beam / 2, z, MAT.whiteFrame);
+    const gx = -HALF + i * pitch;
+    const gap = 0.50 + rnd() * 0.34;
+    const w = Math.min(CB.wMax, Math.max(CB.wMin, pitch - gap));
+    const h = CB.hMin + HT[i] * (CB.hMax - CB.hMin);
+    const capH = 0.40 + rnd() * 0.15;
+    const pierW = 0.58 + rnd() * 0.24;
+    const side = SIDE[i];
+    const panelTop = h - capH;
+    const panelW = w - pierW;
+    const panelCx = gx - side * pierW / 2;
+    const panelX0 = panelCx - panelW / 2, panelX1 = panelCx + panelW / 2;
 
-    /* dark-slatted lantern hanging inside the opening */
-    const lx = (x0 + x1) / 2, ly = h - beam - .34;
-    const cord = new THREE.Mesh(new THREE.CylinderGeometry(.012, .012, .38, 6), MAT.darkWood);
-    cord.position.set(lx, h - beam - .19, z);
-    g.add(cord);
-    const core = box(g, .25, .40, .25, lx, ly - .06, z, lampCoreMat);
-    core.renderOrder = 0;
-    for (let k = 0; k < 5; k++) {                 // real slats with gaps between
-      box(g, .33, .036, .33, lx, ly - .24 + k * .095, z, slatMat);
+    /* cap band across the whole width, and the full-height pier at one end */
+    frame.push({ x: gx, y: h - capH / 2, z: FRONT + FRAME_D / 2, w, h: capH, d: FRAME_D });
+    frame.push({
+      x: gx + side * (w / 2 - pierW / 2), y: h / 2, z: FRONT + FRAME_D / 2,
+      w: pierW, h, d: FRAME_D,
+    });
+
+    /* the low wing at the pier's foot — steps down, and projects 0.18 m
+       further toward the water than the frame does */
+    const wingW = 0.95 + rnd() * 0.55;
+    const wingH = 0.72 + rnd() * 0.40;
+    const wingD = FRAME_D + 0.30;
+    frame.push({
+      x: gx + side * (w / 2 + wingW / 2 - 0.42), y: wingH / 2,
+      z: FRONT - 0.18 + wingD / 2, w: wingW, h: wingH, d: wingD,
+    });
+
+    /* the block's BACK. Without it the walkway behind the run stares at 21 m of
+       unbroken dark timber; with it the same stepped white rhythm reads from
+       both sides and the bay's timber only shows in the gaps — which is where
+       the photo shows it too. */
+    frame.push({
+      x: gx, y: h / 2, z: FRONT + FRAME_D + 0.18, w, h, d: 0.36,
+    });
+
+    /* black stone base the whole block stands on */
+    bases.push({
+      x: gx, y: 0.08, z: FRONT - 0.24 + (FRAME_D + 0.48) / 2,
+      w: w + 0.14, h: 0.16, d: FRAME_D + 0.48,
+    });
+
+    /* ── punched slots. Laid out one per cell so they never overlap in x,
+       which is what lets the panel below be cut into strips and fills and
+       still be a real hole rather than a dark rectangle painted on. ── */
+    const n = NSLOT[i];
+    const margin = 0.26;
+    const cell = (panelW - margin * 2) / n;
+    const slots = [];
+    for (let k = 0; k < n; k++) {
+      const sw = Math.min(0.30 + rnd() * 0.07, cell - 0.18);
+      const sx = panelX0 + margin + (k + 0.5) * cell + (rnd() - 0.5) * (cell - sw - 0.08);
+      const room = panelTop - 0.22 - 1.15;
+      const sh = Math.max(0.42, Math.min(0.55 + rnd() * 0.28, room - 0.04));
+      const sy = 1.15 + rnd() * Math.max(0.02, room - sh);
+      slots.push({ x0: sx - sw / 2, x1: sx + sw / 2, y0: sy, y1: sy + sh });
+      niches.push({
+        x: sx, y: sy + sh / 2, z: PANEL_Z + SLOT_DEEP + (PANEL_D - SLOT_DEEP) / 2,
+        w: sw + 0.02, h: sh + 0.02, d: PANEL_D - SLOT_DEEP,
+      });
+      halos.push({ x: sx, y: sy + sh / 2, z: PANEL_Z - 0.05, w: sw * 4.2, h: sh * 2.6 });
     }
-    for (const [ox2, oz2] of [[-.15, -.15], [.15, -.15], [.15, .15], [-.15, .15]]) {
-      box(g, .032, .46, .032, lx + ox2, ly - .06, z + oz2, slatMat);
+    slots.sort((a, b) => a.x0 - b.x0);
+
+    /* the panel, cut around those holes: full-height strips between the slots,
+       then a fill below and above each slot column */
+    const pz = PANEL_Z + PANEL_D / 2;
+    const strip = (x0, x1, y0, y1) => {
+      if (x1 - x0 < 0.005 || y1 - y0 < 0.005) return;
+      panels.push({ x: (x0 + x1) / 2, y: (y0 + y1) / 2, z: pz, w: x1 - x0, h: y1 - y0, d: PANEL_D });
+    };
+    let cur = panelX0;
+    for (const s of slots) {
+      strip(cur, s.x0, 0, panelTop);            // full-height strip before the slot
+      strip(s.x0, s.x1, 0, s.y0);               // under the slot
+      strip(s.x0, s.x1, s.y1, panelTop);        // over the slot
+      cur = s.x1;
     }
-    box(g, .30, .04, .30, lx, ly + .19, z, slatMat);    // little cap
-    const halo = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5), lampHaloMat);
-    halo.position.set(lx, ly - .06, z - .3);
-    halo.renderOrder = 6;
-    g.add(halo);
+    strip(cur, panelX1, 0, panelTop);           // and the strip after the last
+
+    /* THE WESTIN, low on the panel, clear of every slot (slots start at 1.15) */
+    marks.push({ x: panelCx, y: 0.98, z: PANEL_Z - 0.007, w: Math.min(1.45, panelW - 0.4), h: 0.19 });
   }
 
-  /* timber boardwalk over lawn strips, linking the run (still local) */
-  const bwX0 = piers[0].x - .9, bwX1 = piers[piers.length - 1].x + .9;
+  /* ── materials. Frame vs panel differ by a few percent of value on purpose:
+     it guarantees the recess reads even when the sun is behind the run. ── */
+  const stucT = stucco(1.6, 1.6);
+  const frameMat = new THREE.MeshStandardMaterial({ map: stucT, color: 0xfdfcf7, roughness: .88 });
+  const panelMat = new THREE.MeshStandardMaterial({ map: stucT, color: 0xe6e3d9, roughness: .9 });
+  /* The blind back of each punched slot, and the thing that makes the run read
+     after dark. NOT black: in the photo the niche is white plaster in shadow,
+     so a mid warm grey with the reveal's own cast shadow doing the darkening is
+     what reads as "punched" rather than "hole cut in a cardboard model". */
+  const nicheMat = new THREE.MeshStandardMaterial({
+    color: 0x5e5951, roughness: .95, emissive: 0xffc27a, emissiveIntensity: 0,
+  });
+  nightBits.push(on => { nicheMat.emissiveIntensity = on ? 2.4 : 0; });
+  const markMat = new THREE.MeshStandardMaterial({
+    map: westinTex(), transparent: false, alphaTest: .5, roughness: .8,
+    emissive: 0xffe6bd, emissiveIntensity: 0, side: THREE.FrontSide,
+  });
+  nightBits.push(on => { markMat.emissiveIntensity = on ? .45 : 0; });
+  const haloMat = addMat(glowTex(), 0, 0, .60);
+  haloMat.color = new THREE.Color(0xffc98a);
+
+  emitBoxes(g, frame, frameMat, 'cabana:frame');
+  emitBoxes(g, panels, panelMat, 'cabana:panel');
+  emitBoxes(g, niches, nicheMat, 'cabana:niche');
+  emitBoxes(g, bases, MAT.stone, 'cabana:base');
+  emitPlanes(g, marks, markMat, 'cabana:westin');
+  const haloI = emitPlanes(g, halos, haloMat, 'cabana:halo');
+  haloI.renderOrder = 6;
+
+  /* two real wall lamps' worth of light, night only (budget: the pool already
+     carries two underwater PointLights and the floating lanterns three) */
+  for (const lx of [-HALF * 0.55, HALF * 0.55]) {
+    const L = new THREE.PointLight(0xffc489, 0, 13, 2);
+    L.position.set(lx, 2.3, FRONT + 0.35);
+    g.add(L);
+    nightBits.push(on => { L.intensity = on ? 1.6 : 0; });
+  }
+
+  /* ── the shaded bay behind the run ───────────────────────────────────────
+     What you actually see through the 0.5–0.9 m gaps in Rachel's photo is not
+     the garden — it is the cabana's own dark recess: near-black timber, a low
+     soffit edge, dark stone underfoot. Without this the gaps show hedge and
+     bougainvillea and the run reads as a fence with holes in it. One wall, one
+     soffit lip and one floor band, sized to stay UNDER the shortest block's cap
+     (2.56 m) so it never breaks the silhouette. ── */
+  const bayX = HALF + 1.4;
+  const bayMat = new THREE.MeshStandardMaterial({
+    map: timber(bayX * 2 / 2.2, 2.30 / 2.2), color: 0x6a5949, roughness: .74,
+  });
+  box(g, bayX * 2, 2.30, .25, 0, 1.15, FRONT + FRAME_D + .18, bayMat);
+  box(g, bayX * 2, .16, .55, 0, 2.30, FRONT + FRAME_D - .12, MAT.darkWood);
+  slab(g, -bayX, FRONT - .30, bayX, FRONT + FRAME_D + .30, .03, MAT.stone, .06);
+
+  /* ── kept from the previous build: the timber boardwalk over its lawn strip,
+     the two stone steps down to the pool deck, and the clipped hedge screening
+     the run from the villa gardens. They sit BEHIND the blocks now, and the
+     paved band between the two is the walkway. ── */
+  const bwX0 = -HALF - 1.4, bwX1 = HALF + 1.4;
   const bwZ0 = -.1, bwZ1 = 2.4;
   slab(g, bwX0, bwZ0, bwX1, bwZ1, .3, new THREE.MeshStandardMaterial({
     map: timber((bwX1 - bwX0) / 2.4, (bwZ1 - bwZ0) / 2.4), roughness: .68,
   }), .16);
   slab(g, bwX0, bwZ0, bwX1, bwZ1, .1, MAT.greenery, .2);     // lawn strip beneath
 
-  /* two stone steps down to the pool deck, at the suite end of the run */
-  slab(g, bwX0 + 1.2, -1.9, bwX0 + 4.2, -1.25, .2, MAT.coping, .22);
-  slab(g, bwX0 + 1.2, -2.55, bwX0 + 4.2, -1.9, .1, MAT.coping, .22);
+  /* stone steps down off the boardwalk, at the SUITE end of the run where the
+     deck actually delivers people */
+  slab(g, bwX1 - 3.2, -1.1, bwX1 - 0.2, -.45, .2, MAT.coping, .22);
+  slab(g, bwX1 - 3.2, -1.75, bwX1 - 0.2, -1.1, .1, MAT.coping, .22);
 
-  /* clipped hedge behind the run, screening it from the villa gardens */
+  /* clipped hedge behind the run */
   box(g, run + 4, .95, 1.1, 0, .475, 3.3, MAT.hedge);
 
   /* ── local → world: face west across the pool, sit on the east long side ── */
   g.rotation.y = Math.PI / 2;                 // local −Z → world −X
   g.position.set(CB.x, 0, (CB.z0 + CB.z1) / 2);
 
-  /* Colliders are WORLD-space, so they must be transformed by hand — the
-     rotation above does not touch G.colliders. local (x,z) → world
-     (cx − z, cz − x) for a +90° Y rotation. */
+  /* Colliders are enclave-space (world.js rotates this slice afterwards) and do
+     NOT follow the group transform, so they are written by hand. For rotation.y
+     = +π/2, local (x,z) ↦ (CB.x + z, cz0 − x) — the old code used CB.x − z and
+     stood every pier's collider ~0.8 m east of its own wall.
+     ONE capsule chain down the run: with the shaded bay wall closing the backs,
+     blocks + bay are a single solid mass 1.33 m deep, so r 0.67 on the centre
+     line is the honest shape. The gaps between blocks are NOT passable any
+     more — that is what "solid" means. Circulation goes round the ENDS of the
+     run, into the 5.8 m paved walkway behind it (flood-fill verified). */
   const cz0 = (CB.z0 + CB.z1) / 2;
-  for (const p of piers) {
-    G.colliders.push({
-      x: CB.x - p.z,
-      z: cz0 - p.x,
-      r: Math.max(p.w, p.dep) * .5,
-    });
-  }
+  const colZ = (FRONT - .18 + FRONT + FRAME_D + .30) / 2;   // wing front → bay back
+  const colX = CB.x + colZ;
+  colLine(G.colliders, colX, cz0 - bayX, colX, cz0 + bayX, .67);
 
   return g;
 }
