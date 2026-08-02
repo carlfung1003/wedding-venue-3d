@@ -7,11 +7,38 @@
 // offshore with three white breaker lines, clipped hedges and magenta
 // bougainvillea packed against every white wall.
 //
+// ── TWO FRAMES LIVE IN THIS FILE ────────────────────────────────────────────
+// world.js turns the 隐逸居 enclave 90° clockwise and slides it south-west, as
+// a rigid body under one group carrying SITE.ENCLAVE. Every SITE.* footprint
+// that belongs to the enclave (SUITE, DECK, TURF, POOL, CABANAS, LOUNGERS,
+// PERGOLA, PLAZA, ATRIUM, LOUNGE, LOUNGE_POOL, LAWN, VILLAS) is therefore
+// ENCLAVE-LOCAL and means nothing in world space until it is mapped. Everything
+// else here — GROUND, BEACH, OCEAN, PALM_GROVE, ROAD, LAGOON, HOTEL, BOUNDS —
+// is already world space and must never move. So:
+//
+//   GLOBAL, built at scene root, untransformed
+//     · ground / apron / lawn plane · beach · shoreline sheen · ocean + surf
+//     · the whole palm population (one world-space InstancedMesh set whose
+//       matrices the sway ticker rewrites every frame)
+//     · scattered shrub clumps, dune scrub, ground-cover beds
+//
+//   ENCLAVE-LOCAL, built into `nature:enclave` under G.groups.enclave so it
+//   inherits the same transform the buildings do
+//     · the ceremony lawn's hedge ring · the hedge behind the cabana run
+//     · the plaza hedge runs · the lounge terrace screen
+//     · every bougainvillea (all four anchors are building walls)
+//
+//   Two things a group transform does NOT reach, fixed up by hand:
+//     · G.colliders is a flat world-space {x,z,r} list — hedge colliders are
+//       pushed through enclaveToWorld() at the point of creation.
+//     · the keep-out rects (exclusionZones) are tested against world-space
+//       candidate points, so the point is mapped BACK with worldToEnclave().
+//
 // Exports:  buildNature(G)      — builds everything, pushes colliders + a ticker
 //           setNatureNight(on)  — instant day/night material swap
 
 import * as THREE from 'three';
-import { SITE, siteFloorY } from './site.js';
+import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
 
@@ -99,8 +126,9 @@ function grassTex() {
     /* Broad tonal patches — irregular and non-directional. Keep these FAINT:
        any feature big enough to recognise becomes the thing your eye tracks
        from tile to tile, and the lawn turns into a chequerboard from the air.
-       The macro plane in buildGround() supplies large-scale variation instead,
-       at 1× across the whole lawn, so it cannot repeat. */
+       The macro mottle folded into this material in buildGround() supplies the
+       large-scale variation instead, at 1× across the whole lawn in world XZ,
+       so it cannot repeat. */
     for (let i = 0; i < 54; i++) {
       const t = rnd();
       g.fillStyle = t < .45
@@ -441,8 +469,16 @@ function bougTex() {
    ═══════════════════════════════════════════════════════════════════════ */
 let built = false;
 let night = false;
-let root = null;              // THREE.Group holding everything nature owns
+let root = null;              // THREE.Group holding everything GLOBAL nature owns
+let encRoot = null;           // THREE.Group under G.groups.enclave — enclave planting
 const MAT = {};               // named materials, for the night swap
+/* live uniform objects for the grass macro-mottle (see buildGround) — shared by
+   reference with the compiled program, so setNatureNight can retune them
+   without touching the material or forcing a recompile */
+const macroU = {
+  macroAmt: { value: .5 },
+  macroTint: { value: new THREE.Color(0xffffff) },
+};
 const anim = {                // per-frame handles
   ocean: null, surf: [], palms: [], palmMeshes: [], water: null,
 };
@@ -452,6 +488,8 @@ const anim = {                // per-frame handles
 const NIGHT_TABLE = {
   apron:   { day: { c: 0x4e6238, r: 1 },   night: { c: 0x1b2430, r: 1 } },
   grass:   { day: { c: 0xffffff, r: .95 }, night: { c: 0x4a6076, r: .98 } },
+  /* not a material any more — read straight by setNatureNight into the
+     macroAmt / macroTint uniforms folded into MAT.grass */
   macro:   { day: { c: 0xffffff, o: .5 },  night: { c: 0x54687e, o: .34 } },
   sand:    { day: { c: 0xffffff, r: .96 }, night: { c: 0x6d7c92, r: .97 } },
   wet:     { day: { c: 0xffffff, o: .55 }, night: { c: 0x8fa3bd, o: .4 } },
@@ -490,48 +528,85 @@ function shorelineX() {
   return (lo + hi) * .5;
 }
 
-/* everything a plant must not grow through. Rects are axis-aligned (villa
-   rotations are all < 0.15 rad, so the bounding rect is close enough). */
-function exclusionZones() {
-  const S = SITE, rects = [], discs = [];
-  const rect = (cx, cz, w, d) => rects.push({ cx, cz, hw: w * .5, hd: d * .5 });
+/* Everything a plant must not grow through, SPLIT BY FRAME. Rects are
+   axis-aligned in the frame they are authored in (villa rotations are all
+   < 0.15 rad, so the bounding rect is close enough).
 
-  rect(S.SUITE.cx, S.SUITE.cz, S.SUITE.w + S.SUITE.roofOverhang * 2, S.SUITE.d + S.SUITE.roofOverhang * 2);
-  rect(S.SUITE.pantry.cx, S.SUITE.pantry.cz, S.SUITE.pantry.w, S.SUITE.pantry.d);
-  rect(S.SUITE.spa.cx, S.SUITE.spa.cz, S.SUITE.spa.w, S.SUITE.spa.d);
-  rect(S.DECK.cx, (S.DECK.z0 + S.DECK.z1) * .5, S.DECK.w, S.DECK.z1 - S.DECK.z0);
-  rect(S.DECK.cx, (S.TURF.z0 + S.TURF.z1) * .5, S.DECK.w, S.TURF.z1 - S.TURF.z0);
-  rect(S.POOL.cx, S.POOL.cz, S.POOL.w + 3, S.POOL.d + 3);
+   `local` — the 隐逸居 enclave's own footprints, exactly as site.js writes
+     them: the frame the six builder modules were written against. world.js
+     turns that whole body 90° clockwise and slides it south-west, so these
+     rects address ground the enclave has LEFT until they are mapped.
+   `world` — the arrival road, the lagoon and the hotel crescent. Backdrop,
+     already world space, must never be transformed (see the ENCLAVE block in
+     site.js for the full list of what is and isn't rigid-body).
+
+   Which side of the split a footprint lands on is decided ONLY by whether
+   world.js re-parents its builder under the enclave group — not by where it
+   happens to sit on the map. */
+function exclusionZones() {
+  const S = SITE;
+  const local = { rects: [], discs: [] }, world = { rects: [], discs: [] };
+  const rect = (t, cx, cz, w, d) => t.rects.push({ cx, cz, hw: w * .5, hd: d * .5 });
+
+  /* ── ENCLAVE-LOCAL ── */
+  rect(local, S.SUITE.cx, S.SUITE.cz, S.SUITE.w + S.SUITE.roofOverhang * 2, S.SUITE.d + S.SUITE.roofOverhang * 2);
+  rect(local, S.SUITE.pantry.cx, S.SUITE.pantry.cz, S.SUITE.pantry.w, S.SUITE.pantry.d);
+  rect(local, S.SUITE.spa.cx, S.SUITE.spa.cz, S.SUITE.spa.w, S.SUITE.spa.d);
+  rect(local, S.DECK.cx, (S.DECK.z0 + S.DECK.z1) * .5, S.DECK.w, S.DECK.z1 - S.DECK.z0);
+  rect(local, S.DECK.cx, (S.TURF.z0 + S.TURF.z1) * .5, S.DECK.w, S.TURF.z1 - S.TURF.z0);
+  rect(local, S.POOL.cx, S.POOL.cz, S.POOL.w + 3, S.POOL.d + 3);
   /* the pavilion + lounger runs now go along Z on the pool's east long side
      ({x, z0, z1}, not {x0, x1, z}) — reading the old keys here yielded NaN
      rects, which silently disable the keep-out and let palms grow through the
      furniture */
-  rect(S.CABANAS.x, (S.CABANAS.z0 + S.CABANAS.z1) * .5, 6, S.CABANAS.z1 - S.CABANAS.z0 + 2);
-  rect(S.LOUNGERS.x, (S.LOUNGERS.z0 + S.LOUNGERS.z1) * .5, 6, S.LOUNGERS.z1 - S.LOUNGERS.z0 + 2);
-  rect(S.PERGOLA.cx, S.PERGOLA.cz, S.PERGOLA.w + 1, S.PERGOLA.d + 1);
-  rect((S.PLAZA.x0 + S.PLAZA.x1) * .5, (S.PLAZA.z0 + S.PLAZA.z1) * .5,
+  rect(local, S.CABANAS.x, (S.CABANAS.z0 + S.CABANAS.z1) * .5, 6, S.CABANAS.z1 - S.CABANAS.z0 + 2);
+  rect(local, S.LOUNGERS.x, (S.LOUNGERS.z0 + S.LOUNGERS.z1) * .5, 6, S.LOUNGERS.z1 - S.LOUNGERS.z0 + 2);
+  rect(local, S.PERGOLA.cx, S.PERGOLA.cz, S.PERGOLA.w + 1, S.PERGOLA.d + 1);
+  rect(local, (S.PLAZA.x0 + S.PLAZA.x1) * .5, (S.PLAZA.z0 + S.PLAZA.z1) * .5,
        S.PLAZA.x1 - S.PLAZA.x0, S.PLAZA.z1 - S.PLAZA.z0);
-  rect(S.LOUNGE.cx, S.LOUNGE.cz, S.LOUNGE.w + 2, S.LOUNGE.d + 2);
-  rect(S.LOUNGE_POOL.cx, S.LOUNGE_POOL.cz, S.LOUNGE_POOL.w + 3, S.LOUNGE_POOL.d + 3);
-  rect(0, SITE.ROAD.z, 500, 14);
-  for (const [vx, vz] of S.VILLAS) rect(vx, vz, S.VILLA.w + 7, S.VILLA.d + 8);
+  /* the atrium is a two-storey courtyard building and was never in this list —
+     the palms had no business standing in it even before the move */
+  rect(local, S.ATRIUM.cx, S.ATRIUM.cz, S.ATRIUM.w + 2, S.ATRIUM.d + 2);
+  rect(local, S.LOUNGE.cx, S.LOUNGE.cz, S.LOUNGE.w + 2, S.LOUNGE.d + 2);
+  rect(local, S.LOUNGE_POOL.cx, S.LOUNGE_POOL.cz, S.LOUNGE_POOL.w + 3, S.LOUNGE_POOL.d + 3);
+  for (const [vx, vz] of S.VILLAS) rect(local, vx, vz, S.VILLA.w + 7, S.VILLA.d + 8);
+  local.discs.push({ cx: S.LAWN.cx, cz: S.LAWN.cz, r: S.LAWN.hedgeR + 1.5 });
 
-  discs.push({ cx: S.LAWN.cx, cz: S.LAWN.cz, r: S.LAWN.hedgeR + 1.5 });
-  discs.push({ cx: S.LAGOON.cx, cz: S.LAGOON.cz, r: Math.max(S.LAGOON.rx, S.LAGOON.rz) + 4 });
-  discs.push({ cx: S.HOTEL.cx, cz: S.HOTEL.cz, r: S.HOTEL.r + 8 });
-  return { rects, discs };
+  /* ── WORLD ── */
+  rect(world, 0, S.ROAD.z, 500, 14);
+  world.discs.push({ cx: S.LAGOON.cx, cz: S.LAGOON.cz, r: Math.max(S.LAGOON.rx, S.LAGOON.rz) + 4 });
+  world.discs.push({ cx: S.HOTEL.cx, cz: S.HOTEL.cz, r: S.HOTEL.r + 8 });
+
+  return { local, world };
 }
 
+function hitsZone(set, x, z, m) {
+  for (const r of set.rects) {
+    if (Math.abs(x - r.cx) < r.hw + m && Math.abs(z - r.cz) < r.hd + m) return true;
+  }
+  for (const d of set.discs) {
+    const dx = x - d.cx, dz = z - d.cz;
+    if (dx * dx + dz * dz < (d.r + m) * (d.r + m)) return true;
+  }
+  return false;
+}
+
+/* (x, z) are always WORLD coordinates — every caller scatters over world space
+   (the grove band, SITE.BOUNDS, the beach).
+
+   The enclave rects are tested by pushing the CANDIDATE POINT back into
+   enclave-local space rather than by transforming the rects. A rotated rect is
+   no longer axis-aligned, so transforming it means either swapping w/d (exact,
+   but only for a rotation that is a multiple of 90°) or growing it to an AABB
+   (safe but sloppy). Mapping the point is exact for ANY rotation and cannot
+   silently degrade if ENCLAVE.rotY is ever changed to something that is not a
+   right angle. The margin `m` needs no adjustment: enclaveToWorld is a rigid
+   motion — rotation plus translation, no scale — so distances are preserved. */
 function makeBlocked(zones) {
   return (x, z, m = 0) => {
-    for (const r of zones.rects) {
-      if (Math.abs(x - r.cx) < r.hw + m && Math.abs(z - r.cz) < r.hd + m) return true;
-    }
-    for (const d of zones.discs) {
-      const dx = x - d.cx, dz = z - d.cz;
-      if (dx * dx + dz * dz < (d.r + m) * (d.r + m)) return true;
-    }
-    return false;
+    if (hitsZone(zones.world, x, z, m)) return true;
+    const l = worldToEnclave(x, z);
+    return hitsZone(zones.local, l.x, l.z, m);
   };
 }
 
@@ -551,28 +626,78 @@ function buildGround() {
   root.add(apron);
 
   /* lawn — starts where the sand stops (siteFloorY is flat 0 from here east) */
+  const gcx = SITE.BEACH.x1 + N / 2;
   const gt = grassTex();
   gt.repeat.set(N / NAT.GRASS_TILE, N / NAT.GRASS_TILE);
-  MAT.grass = new THREE.MeshStandardMaterial({ map: gt, roughness: .95, metalness: 0 });
+  MAT.grass = new THREE.MeshStandardMaterial({
+    map: gt, roughness: .95, metalness: 0,
+    /* The lawn is one 700 m sheet that runs UNDER every building on the campus,
+       and several of those floors sit exactly on the datum: the suite's marble
+       slab tops out at y = 0, the "THE WESTIN" turf band is at y = 0. Coplanar
+       geometry z-fights, and a horizontal plane z-fights worst at exactly the
+       grazing angles you get standing on it — which is the other half of why
+       the great-room floor read green at night. A positive polygonOffset pushes
+       the lawn AWAY from the camera in depth, so anything sharing its plane
+       wins cleanly. (MAT.sand does the same thing at the beach seam.) */
+    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  });
+
+  /* ── the macro mottle ──────────────────────────────────────────────────
+     One low-frequency overlay at 1× across the whole 700 m ground, so the ~17
+     grass repeats never read as a chequerboard from the air.
+
+     It used to be a SECOND 700 × 700 plane at y = .012 with
+     `transparent: true, opacity: .5, depthWrite: false` and polygonOffset −2.
+     Three problems, all the same problem: a transparent object is queued in the
+     transparent pass, which runs after ALL opaque geometry no matter what its
+     renderOrder says; it sat ABOVE the datum while the suite's marble floor
+     tops out at y = 0 and the pool's basalt pavers at y = −.004; and the
+     negative polygonOffset pulled it toward the camera so it won the depth test
+     even at grazing angles. Net effect: a half-opacity dark-green wash painted
+     over the marble and the deck, which at night read as green floor.
+
+     So the mottle is folded INTO the grass material instead. No second plane,
+     no transparency, no depth fight — it is now literally part of the lawn
+     surface and cannot cover anything standing on it. Sampled by world XZ
+     (not by uv) so it stays independent of the mesh's own uv transform, and
+     mixed into diffuseColor exactly as the alpha blend used to: the texture's
+     alpha is the blend factor, `macroAmt` is the old material opacity and
+     `macroTint` the old material colour, both still driven by NIGHT_TABLE. */
+  const mt = macroTex();
+  mt.wrapS = mt.wrapT = THREE.RepeatWrapping;
+  MAT.grass.userData.macro = mt;
+  const macroFrame = {
+    macroMap: { value: mt },
+    macroOrigin: { value: new THREE.Vector2(gcx - N / 2, -N / 2) },
+    macroScale: { value: 1 / N },
+    ...macroU,
+  };
+  MAT.grass.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, macroFrame);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vMacroPos;')
+      .replace('#include <begin_vertex>',
+        '#include <begin_vertex>\n\tvMacroPos = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>',
+        '#include <common>\nvarying vec3 vMacroPos;\nuniform sampler2D macroMap;'
+        + '\nuniform vec2 macroOrigin;\nuniform float macroScale;'
+        + '\nuniform float macroAmt;\nuniform vec3 macroTint;')
+      .replace('#include <map_fragment>',
+        '#include <map_fragment>\n\t{\n'
+        + '\t\tvec4 macroTexel = texture2D( macroMap, ( vMacroPos.xz - macroOrigin ) * macroScale );\n'
+        + '\t\tdiffuseColor.rgb = mix( diffuseColor.rgb, macroTexel.rgb * macroTint, macroTexel.a * macroAmt );\n'
+        + '\t}');
+  };
+  /* appended to the real program key — keeps this one variant out of the cache
+     slot every other MeshStandardMaterial in the campus shares */
+  MAT.grass.customProgramCacheKey = () => 'grassmacro1';
+
   const lawn = new THREE.Mesh(new THREE.PlaneGeometry(N, N), MAT.grass);
   lawn.rotation.x = -Math.PI / 2;
-  lawn.position.set(SITE.BEACH.x1 + N / 2, 0, 0);
+  lawn.position.set(gcx, 0, 0);
   lawn.receiveShadow = true;
   root.add(lawn);
-
-  /* macro mottle over the campus so the tiling never reads from the air */
-  MAT.macro = new THREE.MeshStandardMaterial({
-    map: macroTex(), transparent: true, opacity: .5, depthWrite: false,
-    roughness: 1, metalness: 0,
-    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-  });
-  /* sized to cover the whole lawn, not just the enclave — the tiling shows
-     wherever this doesn't reach */
-  const macro = new THREE.Mesh(new THREE.PlaneGeometry(N, N), MAT.macro);
-  macro.rotation.x = -Math.PI / 2;
-  macro.position.set(SITE.BEACH.x1 + N / 2, .012, 0);
-  macro.renderOrder = -1;
-  root.add(macro);
 
   /* beach — its own sloped sheet, heights read straight off siteFloorY */
   const bx0 = SITE.BEACH.x0 - 22, bx1 = SITE.BEACH.x1 + .4;
@@ -593,7 +718,11 @@ function buildGround() {
   st.repeat.set(bw / NAT.SAND_TILE, bl / NAT.SAND_TILE);
   MAT.sand = new THREE.MeshStandardMaterial({
     map: st, roughness: .96, metalness: 0,
-    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+    /* pushed back FURTHER than the lawn (which is now on 1/1 — see MAT.grass),
+       so the 0.4 m strip where the two sheets overlap still resolves to grass.
+       These two numbers are a pair: raise the lawn's and this one follows, or
+       the seam starts flickering. */
+    polygonOffset: true, polygonOffsetFactor: 2, polygonOffsetUnits: 2,
   });
   const beach = new THREE.Mesh(bgeo, MAT.sand);
   beach.rotation.x = -Math.PI / 2;
@@ -839,12 +968,18 @@ function placePalms(G, blocked, preColliders) {
     push(x, z); i++;
   }
 
-  /* 3 — the ring that frames the ceremony lawn (SITE.LAWN.palms) */
+  /* 3 — the ring that frames the ceremony lawn (SITE.LAWN.palms).
+     The palm population is GLOBAL — one world-space InstancedMesh set whose
+     matrices the sway ticker rewrites every frame, so it cannot be parented
+     under the enclave. But SITE.LAWN is enclave-local, so this ring's positions
+     are mapped through enclaveToWorld() and the palms land around the lawn
+     WHERE IT NOW IS while staying in the global buckets. */
   const L = SITE.LAWN;
   for (let i = 0; i < L.palms; i++) {
     const a = (i / L.palms) * Math.PI * 2 + rnd() * .12;
     const r = L.hedgeR + 2.6 + rnd() * 2.4;
-    push(L.cx + Math.cos(a) * r, L.cz + Math.sin(a) * r);
+    const p = enclaveToWorld(L.cx + Math.cos(a) * r, L.cz + Math.sin(a) * r);
+    push(p.x, p.z);
   }
   return out;
 }
@@ -922,8 +1057,14 @@ function blobGeo(rnd, detail, rough) {
   return g;
 }
 
-/* lay a hedge run and its collider chain. pts = [[x,z],…] polyline. */
-function hedgeRun(G, pts, h, t, segs, colliders) {
+/* Lay a hedge run and its collider chain. pts = [[x,z],…] polyline, in whatever
+   frame the run is authored in. `toWorld` maps a point from that frame into
+   world space for the COLLIDERS only — G.colliders is a flat world-space list
+   that no group transform reaches, while the geometry itself inherits the
+   transform from its parent group. Every hedge in this file is enclave-local,
+   so every call passes enclaveToWorld; the parameter exists so a future global
+   hedge can be added without anyone having to notice the difference. */
+function hedgeRun(G, pts, h, t, segs, colliders, toWorld) {
   const H = NAT.HEDGE;
   for (let i = 0; i < pts.length - 1; i++) {
     const [x0, z0] = pts[i], [x1, z1] = pts[i + 1];
@@ -943,18 +1084,50 @@ function hedgeRun(G, pts, h, t, segs, colliders) {
       const steps = Math.max(1, Math.ceil(len / H.colStep));
       for (let s = 0; s < steps; s++) {
         const a = s / steps;
-        G.colliders.push({ x: x0 + dx * a, z: z0 + dz * a, r: H.colR });
+        const px = x0 + dx * a, pz = z0 + dz * a;
+        const p = toWorld ? toWorld(px, pz) : { x: px, z: pz };
+        G.colliders.push({ x: p.x, z: p.z, r: H.colR });
       }
     }
   }
 }
 
-function buildUnderstory(G, blocked) {
+/* The x-span a plaza-edge hedge may occupy at depth z, or null if nothing
+   worth building is left. Both ends are clamped and BOTH clamps matter:
+     · EAST — stop short of the hero pool's WEST coping. A hedge in the water
+       is a collider in the middle of the signature shot.
+     · WEST — stop short of the west-arm villas, whose footprints reach into
+       the plaza. A hedge inside a building is just as wrong.
+   Derived, never hard-coded: SITE.PLAZA moved from east of the deck (x 10…30)
+   to west of it (x −32…−12) when the pool was rotated, and the old clamp —
+   which pinned the runs' START to the pool's EAST coping at x = +7.5 — then
+   sat east of the plaza's own east edge. Both runs were laid backwards from
+   there: one across the pool's north end, one clean through the suite's great
+   room at waist height, colliders and all. */
+function plazaHedgeSpan(z) {
+  const P = SITE.PLAZA, V = SITE.VILLA;
+  const clearW = Math.max(V.w, V.w2, V.courtW) / 2 + 1.5;
+  const clearD = Math.max(V.d, V.d2, V.courtD) / 2 + 1.5;
+  let x0 = P.x0 + 1;
+  for (const [vx, vz] of SITE.VILLAS) {
+    if (vx > P.x1) continue;                     // that arm is east of the plaza
+    if (Math.abs(vz - z) < clearD) x0 = Math.max(x0, vx + clearW);
+  }
+  const x1 = Math.min(P.x1, SITE.POOL.cx - SITE.POOL.w / 2 - 2.5);
+  return x1 - x0 > 2.5 ? [x0, x1] : null;
+}
+
+function buildUnderstory(G, blocked, enc) {
   const rnd = mulberry32(CFG.SEED ^ NAT.SEEDS.plant);
   const dummy = new THREE.Object3D();
   const H = NAT.HEDGE;
 
-  /* ── hedges ───────────────────────────────────────────────────────── */
+  /* ── hedges — ALL FOUR RUNS ARE ENCLAVE-LOCAL ──────────────────────────
+     Every clipped hedge in the campus belongs to the clubhouse: the ceremony
+     lawn's ring, the wall behind the cabana run, the two plaza runs and the
+     lounge terrace screen. So the whole InstancedMesh goes into `enc` and
+     inherits the enclave transform exactly like the buildings do; only the
+     collider chains are mapped by hand (hedgeRun's last argument). */
   const segs = [];
 
   /* the ceremony lawn's hedge ring, with a 7 m entrance facing the campus */
@@ -968,25 +1141,33 @@ function buildUnderstory(G, blocked) {
     hedgeRun(G, [
       [L.cx + Math.cos(a0) * L.hedgeR, L.cz + Math.sin(a0) * L.hedgeR],
       [L.cx + Math.cos(a1) * L.hedgeR, L.cz + Math.sin(a1) * L.hedgeR],
-    ], H.h * (.94 + rnd() * .14), H.t, segs, true);
+    ], H.h * (.94 + rnd() * .14), H.t, segs, true, enclaveToWorld);
   }
 
-  /* hedge wall behind the pool cabanas (SITE.CABANAS has no depth — 3 m assumed) */
-  const C = SITE.CABANAS, cabZ = C.z + 3.0;
-  hedgeRun(G, [[C.x0 - 1.6, cabZ], [C.x1 + 1.6, cabZ]], 1.85, 1.2, segs, true);
+  /* Hedge wall behind the pool cabanas. The run marches along Z at a fixed X,
+     like SITE.CABANAS itself ({x, z0, z1}) — this read the pre-rotation
+     {x0, x1, z} keys, so every coordinate in it was undefined: `C.z + 3` is
+     NaN, hedgeRun's length test is `NaN < .01` = false, and both of its loops
+     then run `s < NaN` zero times. The wall silently did not exist, and the
+     bougainvillea anchored to it (below) placed four instances at NaN.
+     "Behind" = east (+X), away from the pool — the cabanas are on the pool's
+     east long side and the hedge screens them from the villa arm beyond. */
+  const C = SITE.CABANAS, cabX = C.x + 3.0;
+  hedgeRun(G, [[cabX, C.z0 - 1.6], [cabX, C.z1 + 1.6]], 1.85, 1.2, segs, true, enclaveToWorld);
 
-  /* clipped runs framing the event plaza. SITE.PLAZA's west end overlaps the
-     pool's x range, so both runs start clear of the pool coping — a hedge
-     inside the water would be a collider in the middle of the hero shot. */
+  /* clipped runs framing the event plaza, north and south. plazaHedgeSpan()
+     clips each run to ground that is actually plaza — see its comment; these
+     two runs used to reach across the pool and through the great room. */
   const P = SITE.PLAZA;
-  const px0 = Math.max(P.x0 + 1, SITE.POOL.cx + SITE.POOL.w / 2 + 2.5);
-  hedgeRun(G, [[px0, P.z0 - 1.4], [P.x1, P.z0 - 1.4]], 1.05, .9, segs, true);
-  hedgeRun(G, [[px0, P.z1 + 1.4], [P.x1, P.z1 + 1.4]], 1.05, .9, segs, true);
+  for (const pz of [P.z0 - 1.4, P.z1 + 1.4]) {
+    const span = plazaHedgeSpan(pz);
+    if (span) hedgeRun(G, [[span[0], pz], [span[1], pz]], 1.05, .9, segs, true, enclaveToWorld);
+  }
 
   /* lounge terrace screen */
   const LG = SITE.LOUNGE;
   hedgeRun(G, [[LG.cx - LG.w / 2 - 2, LG.cz + LG.d / 2 + 2.4],
-               [LG.cx + LG.w / 2 + 2, LG.cz + LG.d / 2 + 2.4]], 1.25, 1.0, segs, true);
+               [LG.cx + LG.w / 2 + 2, LG.cz + LG.d / 2 + 2.4]], 1.25, 1.0, segs, true, enclaveToWorld);
 
   MAT.hedge = new THREE.MeshStandardMaterial({ map: hedgeTex(), roughness: .92, metalness: 0 });
   const hgeo = new THREE.BoxGeometry(1, 1, 1, 2, 2, 2);
@@ -1010,9 +1191,12 @@ function buildUnderstory(G, blocked) {
   hedge.instanceMatrix.needsUpdate = true;
   if (hedge.instanceColor) hedge.instanceColor.needsUpdate = true;
   hedge.computeBoundingSphere();
-  root.add(hedge);
+  enc.add(hedge);                    // enclave-local — rides the group transform
 
-  /* ── shrub masses ─────────────────────────────────────────────────── */
+  /* ── shrub masses — GLOBAL ────────────────────────────────────────────
+     Dart-thrown over the whole campus in WORLD coordinates and kept out of the
+     buildings by blocked(), which now tests the enclave rects in the enclave's
+     own frame. They stay on the nature root at scene origin. */
   const shrubs = [];
   const B = SITE.BOUNDS;
   for (let i = 0, tries = 0; i < 210 && tries < 9000; tries++) {
@@ -1022,7 +1206,12 @@ function buildUnderstory(G, blocked) {
     const n = 2 + (rnd() * 4 | 0);                 // clumps, never lone bushes
     for (let k = 0; k < n; k++) {
       const a = rnd() * Math.PI * 2, r = rnd() * 2.4;
-      shrubs.push({ x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, s: .7 + rnd() * 1.3 });
+      const sx = x + Math.cos(a) * r, sz = z + Math.sin(a) * r, ss = .7 + rnd() * 1.3;
+      /* the clump CENTRE cleared the buildings by 1.4 m but a member can sit
+         2.4 m out, so test the member too — the three rnd() calls above stay
+         unconditional, so skipping one never shifts the seeded sequence */
+      if (blocked(sx, sz, .6)) continue;
+      shrubs.push({ x: sx, z: sz, s: ss });
     }
     i++;
   }
@@ -1058,9 +1247,15 @@ function buildUnderstory(G, blocked) {
      This used to place 128 mounds at up to 1.9× scale and the aerial read as
      a magenta rash (Carl's note). In the references it is a handful of small
      pink patches tucked against white walls — a few percent of the greenery.
-     campus.js ALSO dresses each villa's walls, so nothing is placed there. */
+     campus.js ALSO dresses each villa's walls, so nothing is placed there.
+
+     ENCLAVE-LOCAL, all of it: every anchor is a building wall (the cabana run,
+     the suite's west and east flanks, the lounge terrace) plus a few along the
+     lawn's hedge ring. The mesh joins `enc` with the hedges. Anchor 1 tracks
+     the cabana hedge above and picks up the same {x, z0, z1} fix — it was
+     placing four instances at NaN. */
   const anchors = [
-    { x0: C.x0 + 1, x1: C.x1 - 1, z0: cabZ - 2.2, z1: cabZ - 1.4, n: 4 },
+    { x0: cabX - 2.2, x1: cabX - 1.4, z0: C.z0 + 1, z1: C.z1 - 1, n: 4 },
     { x0: SITE.SUITE.cx - 12.5, x1: SITE.SUITE.cx - 10, z0: SITE.SUITE.cz - 6, z1: SITE.SUITE.cz + 3, n: 3 },
     { x0: SITE.SUITE.cx + 15, x1: SITE.SUITE.cx + 17.5, z0: SITE.SUITE.cz - 4, z1: SITE.SUITE.cz + 4, n: 3 },
     { x0: LG.cx - 9, x1: LG.cx + 9, z0: LG.cz + LG.d / 2 + 3, z1: LG.cz + LG.d / 2 + 4.2, n: 4 },
@@ -1086,7 +1281,11 @@ function buildUnderstory(G, blocked) {
   const boug = new THREE.InstancedMesh(bgeo, MAT.boug, bougs.length);
   boug.castShadow = boug.receiveShadow = true;
   bougs.forEach((b, i) => {
-    const y = siteFloorY(b.x, b.z);
+    /* ground height is a WORLD function — sample it at the mapped position,
+       then use it as a local y (the enclave group has no tilt and no y offset,
+       so local y and world y are the same number) */
+    const bw = enclaveToWorld(b.x, b.z);
+    const y = siteFloorY(bw.x, bw.z);
     dummy.position.set(b.x, y + b.s * .55, b.z);
     dummy.rotation.set(0, rnd() * 6.28, 0);
     dummy.scale.set(b.s * (1 + rnd() * .5), b.s * (.75 + rnd() * .45), b.s * (1 + rnd() * .5));
@@ -1098,9 +1297,9 @@ function buildUnderstory(G, blocked) {
   boug.instanceMatrix.needsUpdate = true;
   if (boug.instanceColor) boug.instanceColor.needsUpdate = true;
   boug.computeBoundingSphere();
-  root.add(boug);
+  enc.add(boug);                     // enclave-local — rides the group transform
 
-  /* ── low ground-cover beds ────────────────────────────────────────── */
+  /* ── low ground-cover beds — GLOBAL, same rules as the shrubs ─────── */
   const cover = [];
   for (let i = 0, tries = 0; i < 34 && tries < 3000; tries++) {
     const x = SITE.BEACH.x1 + 4 + rnd() * (114 - SITE.BEACH.x1);
@@ -1109,7 +1308,9 @@ function buildUnderstory(G, blocked) {
     const n = 7 + (rnd() * 8 | 0);
     for (let k = 0; k < n; k++) {
       const a = rnd() * Math.PI * 2, r = rnd() * 3.4;
-      cover.push({ x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, s: .8 + rnd() * 1.5 });
+      const cx2 = x + Math.cos(a) * r, cz2 = z + Math.sin(a) * r, cs = .8 + rnd() * 1.5;
+      if (blocked(cx2, cz2, .4)) continue;          // beds spread 3.4 m — see shrubs
+      cover.push({ x: cx2, z: cz2, s: cs });
     }
     i++;
   }
@@ -1148,6 +1349,27 @@ export function buildNature(G) {
   G.scene.add(root);
   G.colliders ||= [];
 
+  /* The enclave's own planting. world.js publishes G.enclave = { group, rotY,
+     matrix, toWorld } before it calls any builder, so joining the rigid body is
+     just a parent change — the hedges and bougainvillea then turn and slide
+     with the suite, the pool and the villas, and nothing here has to know the
+     numbers. The fallback rebuilds the same transform locally so this module
+     still renders correctly if it is ever built without world.js (a standalone
+     harness, a future scene). Deliberately NOT a child of `root`: world.js's
+     cullUnderstoryInsideEnclave() sweeps nature's root children for instances
+     standing inside the relocated footprints, and this content is supposed to
+     stand there. */
+  encRoot = new THREE.Group();
+  encRoot.name = 'nature:enclave';
+  const host = (G.enclave && G.enclave.group) || (G.groups && G.groups.enclave);
+  if (host) {
+    host.add(encRoot);
+  } else {
+    encRoot.rotation.y = ENCLAVE.rotY;
+    encRoot.position.set(ENCLAVE.ox, 0, ENCLAVE.oz);
+    root.add(encRoot);
+  }
+
   const zones = exclusionZones();
   const blocked = makeBlocked(zones);
   /* snapshot the world's own colliders BEFORE planting, so palms only test
@@ -1157,7 +1379,7 @@ export function buildNature(G) {
   const shoreX = buildGround();
   buildOcean(shoreX);
   const palmCount = buildPalms(G, blocked, preColliders);
-  const under = buildUnderstory(G, blocked);
+  const under = buildUnderstory(G, blocked, encRoot);
 
   /* ── one ticker for the whole of nature ── */
   const w = [0, 0, 0];
@@ -1235,11 +1457,17 @@ export function setNatureNight(on) {
   night = !!on;
   if (!built) return;                        // buildNature() re-applies on build
 
-  for (const k of ['apron', 'grass', 'macro', 'sand', 'wet', 'bark', 'frond',
+  for (const k of ['apron', 'grass', 'sand', 'wet', 'bark', 'frond',
                    'hedge', 'shrub', 'boug', 'cover']) {
     applyNightTo(k, MAT[k], night);
   }
   if (MAT.foam) for (const m of MAT.foam) applyNightTo('foam', m, night);
+
+  /* the macro mottle is no longer a material of its own — it is a pair of
+     uniforms inside MAT.grass (see buildGround). Same numbers, same table. */
+  const mv = night ? NIGHT_TABLE.macro.night : NIGHT_TABLE.macro.day;
+  macroU.macroAmt.value = mv.o;
+  macroU.macroTint.value.setHex(mv.c);
 
   /* the sea gets a whole new colour ramp, not just a tint */
   if (MAT.water) {

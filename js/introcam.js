@@ -6,7 +6,11 @@
 // hands it back to player.js and never touches it again.
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { SITE, INTRO_PATH } from './site.js';
+import { SITE, INTRO_PATH, enclaveToWorld } from './site.js';
+
+/* SITE.POOL.cx/cz are ENCLAVE-LOCAL — water.js builds the pool from them, so
+   they must stay that way. The orbit runs in world space, so map them once. */
+const ORBIT = enclaveToWorld(SITE.POOL.cx, SITE.POOL.cz);
 import { setFacing } from './player.js';
 
 const _look = new THREE.Vector3();
@@ -30,9 +34,9 @@ function place(G, dt) {
   angle += CFG.INTRO.SPEED * dt;
   const { RADIUS, HEIGHT } = CFG.INTRO;
   G.camera.position.set(
-    SITE.POOL.cx + Math.sin(angle) * RADIUS,
+    ORBIT.x + Math.sin(angle) * RADIUS,
     HEIGHT + Math.sin(angle * 0.7) * 6,
-    SITE.POOL.cz + Math.cos(angle) * RADIUS,
+    ORBIT.z + Math.cos(angle) * RADIUS,
   );
   _look.set(INTRO_PATH.lookAt.x, INTRO_PATH.lookAt.y, INTRO_PATH.lookAt.z);
   G.camera.lookAt(_look);

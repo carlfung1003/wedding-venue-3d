@@ -162,13 +162,20 @@ export const SITE = {
   // whole ground between the 隐逸居 enclave and the main hotel, and the enclave
   // reads as small precisely because these surround it. Backdrop only: no
   // interiors, no interactables, cheap geometry.
+  // NOTE: these positions are WORLD coordinates — RESORT_VILLAS is backdrop and
+  // is NOT part of the rotated enclave (see ENCLAVE below), so the keep-out
+  // envelope here is the enclave's WORLD footprint after the transform, not the
+  // enclave-local one. Post-rotation the enclave lives at roughly
+  // x −90…30, z −70…118, which the grid (x ≥ 88) and the northern band
+  // (z ≤ −128) already clear — the test is kept so a future move of ox/oz or a
+  // wider field can't quietly drop villas on top of the clubhouse.
   RESORT_VILLAS: (() => {
     const out = [];
     const skip = (x, z) =>
       // keep clear of the lagoon basin and its deck
       (x > 84 && x < 160 && z > -6 && z < 42) ||
-      // ...and of Carl's own enclave envelope
-      (x < 78 && z > -105 && z < 66);
+      // ...and of Carl's own enclave envelope, in WORLD coords (padded)
+      (x < 40 && z > -80 && z < 128);
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 5; c++) {     // capped so the field stops short of HOTEL
         const x = 88 + c * 20 + (r % 2) * 9;
@@ -202,6 +209,93 @@ export const SITE = {
   BOUNDS: { x0: -150, x1: 250, z0: -130, z1: 120 },
 };
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ENCLAVE PLACEMENT — the 隐逸居 clubhouse as a rigid body
+   ═══════════════════════════════════════════════════════════════════════════
+   EVERYTHING above in SITE.* that belongs to the enclave (suite, deck, pool,
+   cabanas, loungers, pergola, plaza, atrium, lounge, lounge pool, ceremony
+   lawn, the ten guest villas) is authored in ENCLAVE-LOCAL coordinates, in the
+   frame the six builder modules were written against: "the suite's glass wall
+   faces south (+Z)", "the pool's long axis is Z", "the pavilion run marches
+   along Z". None of that is rewritten. Instead world.js parents the enclave
+   builders under ONE group carrying the transform below, so the whole clubhouse
+   turns and moves as a unit.
+
+   Everything else in SITE.* — LAGOON, RESORT_VILLAS, HOTEL, ROAD, BEACH,
+   OCEAN, PALM_GROVE, GROUND, BOUNDS — is already WORLD space and does not move.
+
+   Carl (2026-08-01, fourth pass): "rotate the enclave 90° clockwise and push it
+   toward the bottom-left of the map." Clockwise, viewed top-down with +X drawn
+   east/right and +Z drawn south/down, is a three.js Y-rotation of −π/2:
+
+     x' = x·cosθ + z·sinθ  →  −z
+     z' = −x·sinθ + z·cosθ →   x        (θ = −π/2 ⇒ cos 0, sin −1)
+
+   Sanity check, don't take it on trust: EAST (1,0) ↦ (0,1) = SOUTH, and NORTH
+   (0,−1) ↦ (1,0) = EAST. On the map that reads right→down and up→right, i.e.
+   CLOCKWISE. ✔
+
+   What it buys us: the suite's glass wall used to face SOUTH (+Z) at nothing.
+   Facing +Z maps to (−1,0) = WEST — so after the turn the great room, its
+   folding glass wall and the 25 m pool all look out over the palm grove to the
+   beach and the open sea, exactly as the resort site map has it.
+
+   ox/oz then slide the turned enclave into the map's SOUTH-WEST: −X toward the
+   beach, +Z toward the bottom of the map. Chosen against three hard neighbours,
+   none of which may move:
+     · SITE.LAGOON     x 92…152, z 1…35   → enclave stops at x ≈ 30, 62 m clear
+     · SITE.RESORT_VILLAS grid x ≥ 88, northern band z ≤ −128 → clear on both
+     · SITE.ROAD       z ≈ −109…−88       → enclave starts at z ≈ −67, 21 m clear
+   and two soft ones: SITE.BEACH.x1 = −118 (sand) — the enclave's west edge
+   lands at x ≈ −85, so ~33 m of PALM_GROVE screens the pool from the sand, and
+   SITE.BOUNDS.z1 = 120 — the southern villa arm stops at z ≈ 112.
+
+   The resulting hero geometry: suite centre (−38, 34), pool centre (−67, 34)
+   due west of it, atrium east at (−17, 42), 酒廊 lounge south at (−28, 80),
+   ceremony lawn north at (−12, −41).
+   ═══════════════════════════════════════════════════════════════════════════ */
+export const ENCLAVE = {
+  rotY: -Math.PI / 2,       // 90° CLOCKWISE seen from above
+  ox: -58,                  // …then west toward the beach
+  oz: 34,                   // …and south toward the bottom of the map
+};
+
+const _EC = Math.cos(ENCLAVE.rotY), _ES = Math.sin(ENCLAVE.rotY);
+
+/** Enclave-local (x,z) → world (x,z). Same transform world.js gives the group,
+ *  so anything that needs world coordinates (spawns, the intro path, colliders)
+ *  agrees with the geometry to the last decimal. */
+export function enclaveToWorld(x, z) {
+  return {
+    x: x * _EC + z * _ES + ENCLAVE.ox,
+    z: -x * _ES + z * _EC + ENCLAVE.oz,
+  };
+}
+
+/** The inverse — world (x,z) → enclave-local. */
+export function worldToEnclave(x, z) {
+  const dx = x - ENCLAVE.ox, dz = z - ENCLAVE.oz;
+  return { x: dx * _EC - dz * _ES, z: dx * _ES + dz * _EC };
+}
+
+/** A heading authored in enclave space → the same heading in world space.
+ *  player.js builds fwd as (−sin yaw, 0, −cos yaw); rotating that by θ gives
+ *  (−sin(yaw+θ), 0, −cos(yaw+θ)), so the rotation is simply ADDED. */
+export function enclaveYaw(yaw) { return yaw + ENCLAVE.rotY; }
+
+/** Is this WORLD point inside the enclave's (pre-transform) envelope? Used by
+ *  world.js to split colliders and campus.js's shared instance buckets, which
+ *  mix enclave and backdrop content. Tested in ENCLAVE-LOCAL coordinates.
+ *   · x ≥ 84  → the RESORT_VILLAS field (grid starts at x = 88) and the hotel
+ *   · z ≤ −80 → the arrival road, its lamp posts, the northern villa band
+ *   · the last clause carves out the parking apron's cars (z ≈ −78, x 40…80);
+ *     no enclave part reaches below z = −77 at that x. */
+export function isEnclaveLocal(x, z) {
+  if (x >= 84 || z <= -80) return false;
+  if (x > 36 && z < -77.4) return false;
+  return true;
+}
+
 // Height of the ground at any point. Flat campus, sand slopes into the sea.
 export function siteFloorY(x, z) {
   if (x < SITE.BEACH.x1) {
@@ -213,11 +307,18 @@ export function siteFloorY(x, z) {
 
 // Spawn convention: yaw = 0 faces NORTH (-Z), yaw = π faces SOUTH (+Z).
 // (player.js builds fwd as (-sin yaw, 0, -cos yaw) — verified, don't guess.)
-export const MOMENT_PLACES = {
+//
+// AUTHORED IN ENCLAVE-LOCAL SPACE, exactly like every SITE.* footprint above,
+// then pushed through the enclave transform below. Keep editing the _LOCAL
+// table — the exported MOMENT_PLACES is derived and must never be hand-tuned,
+// or the spawns will silently disagree with the geometry.
+const MOMENT_PLACES_LOCAL = {
   // inside the great room, looking out through the folded-open glass wall at
   // the lantern-lit pool — the shot the whole project exists for
   PREWEDDING: { x: 1, z: -18, yaw: Math.PI },
-  CEREMONY:   { x: -48, z: -36, yaw: 0 },      // back of the aisle, facing the arch
+  // back of the aisle facing the arch. x tracks LAWN.cx — this spawn was left
+  // 27 m off-axis when the lawn moved, which put the ceremony in open grass.
+  CEREMONY:   { x: -75, z: -36, yaw: 0 },
   COCKTAIL:   { x: 46, z: -18, yaw: Math.PI }, // lounge terrace, facing the pool
   // inside the lounge just in from the glass, looking NORTH up the room across
   // the six rounds to the head table (the tables sit at z −36…−30)
@@ -225,9 +326,30 @@ export const MOMENT_PLACES = {
   AFTERPARTY: { x: 0, z: -10, yaw: Math.PI },  // suite pool deck, DJ behind you
 };
 
+export const MOMENT_PLACES = Object.fromEntries(
+  Object.entries(MOMENT_PLACES_LOCAL).map(([k, p]) => {
+    const w = enclaveToWorld(p.x, p.z);
+    return [k, { x: w.x, z: w.z, yaw: enclaveYaw(p.yaw) }];
+  }),
+);
+
 // Where the opening drone orbit looks, and where the "STEP INSIDE" dive ends.
-export const INTRO_PATH = {
+// Also enclave-local, also mapped. (CFG.INTRO's orbit CENTRE is a separate
+// thing — introcam.js reads SITE.POOL.cx/cz straight, and that pair has to stay
+// enclave-local because water.js builds the pool from it. See world.js.)
+const INTRO_PATH_LOCAL = {
   lookAt: { x: 0, y: 3, z: -12 },              // the suite across its pool
   waypoint: { x: 0, y: 7.5, z: 4 },            // low over the water, aimed at the glass
   land: { x: 1, z: -18, yaw: Math.PI },        // the great room (= PREWEDDING)
 };
+
+export const INTRO_PATH = (() => {
+  const look = enclaveToWorld(INTRO_PATH_LOCAL.lookAt.x, INTRO_PATH_LOCAL.lookAt.z);
+  const way = enclaveToWorld(INTRO_PATH_LOCAL.waypoint.x, INTRO_PATH_LOCAL.waypoint.z);
+  const land = enclaveToWorld(INTRO_PATH_LOCAL.land.x, INTRO_PATH_LOCAL.land.z);
+  return {
+    lookAt: { x: look.x, y: INTRO_PATH_LOCAL.lookAt.y, z: look.z },
+    waypoint: { x: way.x, y: INTRO_PATH_LOCAL.waypoint.y, z: way.z },
+    land: { x: land.x, z: land.z, yaw: enclaveYaw(INTRO_PATH_LOCAL.land.yaw) },
+  };
+})();

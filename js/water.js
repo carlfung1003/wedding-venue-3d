@@ -1488,6 +1488,7 @@ function buildLanterns(G) {
   }
   return lanternGroup;
 }
+const _camLocal = new THREE.Vector3();   // camera in pool-local space (see below)
 
 function tickLanterns(dt) {
   const P = SITE.POOL;
@@ -1511,7 +1512,13 @@ function tickLanterns(dt) {
     if (cam) {
       /* yaw-only billboard: the plane's +Z face turns to the camera, so the
          column always reads as a reflection running toward the viewer */
-      f.streak.rotation.y = Math.atan2(cam.position.x - x, cam.position.z - z);
+      /* x/z here are POOL-LOCAL but cam.position is world, and the whole pool
+         now hangs under the rotated enclave group — so the camera has to be
+         brought into the same frame or the reflection streaks billboard to a
+         bearing 90° off. Object3D.lookAt (used by the halo) handles this
+         itself; a hand-rolled atan2 does not. */
+      f.streak.parent.worldToLocal(_camLocal.copy(cam.position));
+      f.streak.rotation.y = Math.atan2(_camLocal.x - x, _camLocal.z - z);
       f.halo.lookAt(cam.position);        // lookAt handles the rotated parent
     }
   }

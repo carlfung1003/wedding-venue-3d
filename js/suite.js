@@ -616,7 +616,11 @@ function buildShell(root) {
   slab(root, MT.ceiling, ST.x0, X1, H1, YF2, ST.zS, ZS);
 
   /* ── 1F ceiling: matte white with two stepped coffers + cove LED ── */
-  coffer(root, -1.9, 4.1, -19.6, -14.0, H1);          // over the living area
+  /* the living coffer + its downlight grid deliberately stay over the SOUTH
+     half — the open floor between the seating island and the folding wall.
+     That is where people stand at the prewedding party and where the hero
+     shot is framed from; it must not go dark just because the sofa moved. */
+  coffer(root, -1.9, 4.1, -19.6, -14.0, H1);          // over the living/party floor
   coffer(root, -7.6, -2.6, -21.6, -16.4, H1);         // over the dining area
   downlights(root, -1.4, 3.6, -19.0, -14.6, H1 - .02, 4, 4);
   downlights(root, -7.2, -3.0, -21.2, -16.8, H1 - .02, 3, 3);
@@ -776,8 +780,14 @@ function buildGreatRoom(root) {
 
   /* ── the sofa island: 6 × 4 m on an espresso plinth ────────────────
      two back-to-back chaise platforms, ivory cushions, ~12 teal pillows,
-     and the big ribbed coffee table on the pool side (f012/f016). */
-  const sx = LIVING_X, sz = -16.6;
+     and the big ribbed coffee table on the pool side (f012/f016).
+     sz sits the island in the NORTH half of the room, facing the TV wall,
+     because the south half is circulation: the folding wall's open span
+     (x −1.3 … 6.15) has to stay walkable end to end. At sz = −16.6 the
+     plinth's south edge landed 1.1 m from the glass, which — with its
+     collider rect — walled the great room off from the deck except for a
+     0.7 m slot at the east end, and swallowed the PREWEDDING spawn whole. */
+  const sx = LIVING_X, sz = -21.2;
   slab(g, MT.espresso, sx - 3, sx + 3, 0, .32, sz - 2, sz + 2);
   slab(g, MT.espressoPlain, sx - 3.02, sx + 3.02, .3, .34, sz - 2.02, sz + 2.02);
   /* shared central backrest */
@@ -1334,7 +1344,7 @@ function buildColliders() {
   colLine(ST.x0, ST.lzS + .08, ST.lx0, ST.lzS + .08, .2); // base rail
 
   /* ── great-room furniture ── */
-  colRect(LIVING_X - 3, -18.6, LIVING_X + 3, -14.6, .4);       // sofa island
+  colRect(LIVING_X - 3, -23.2, LIVING_X + 3, -19.2, .4);       // sofa island (sz ± 2)
   colRect(DINING_X - 1.5, -20.1, DINING_X + 1.5, -18.9, .36);  // dining table
   colLine(-.6, ZN + .62, 4.6, ZN + .62, .32);                  // credenzas
   colLine(wx + .6, -20.7, wx + .6, -18.3, .3);                 // sideboard
