@@ -188,7 +188,7 @@ export function initMoments(G) {
     /* ── the eight existing four-tops, dressed ── */
     for (const s of [-1, 1]) for (let k = 0; k < 4; k++) {
       const th = C + s * (RF.poolArcHalf + .035 + k * .055);
-      const r = 93.4 + (k % 2) * 1.6;
+      const r = 99.2 + (k % 2) * 1.6;   // must match campus.js buildHotelRoof — these dress ITS tables
       const p = pt(th, r);
       /* ⚠ campus.js sizes these tables through mat4() SCALE on a unit cylinder
          of radius 0.5, so `1.35` there is a 1.35 m DIAMETER — a 0.675 m top,

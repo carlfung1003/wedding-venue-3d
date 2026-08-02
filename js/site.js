@@ -445,52 +445,95 @@ export const SITE = {
                           // purpose: in the reference the lazy river is cut
                           // straight through planting, not through a beach
 
-    // ── the west end: a big free-form circular pool with a round island bar
-    WEST: { cx: 65, cz: 22, r: 12.0, deck: 4.2, umbrellas: 9 },
-    BAR:  { cx: 56.5, cz: 32.5, r: 5.0, h: 3.4 },
+    /* ── THE BEACH POOL (Carl, 2026-08-02) ─────────────────────────────────
+       reference/photos/beach-pool-circular.png. Not "the west end of the
+       river" any more — it is the resort's big circular beach pool, and Carl
+       asked for it CLOSE TO THE CLUBHOUSE, because it is the water guests see
+       when they walk out of the enclave.
 
-    // ── THE LAZY RIVER. ~128 m of centreline over 57 m of ground: five full
-    // reversals, three of them proper hairpins, exactly the scribble the
-    // aerial shows. The width breathes with it — 1.5 m half-width in the tight
-    // turns (a real lazy river is 3–4 m across), 5.2 m as it spills into the
-    // lagoon. Keep it NARROW: the first pass ran 2.2–2.6 and the loops read
-    // as a chain of ponds rather than one long river.
+       Moved cx 65 → 48 and grown r 12 → 15.2, so its sand deck now starts at
+       x ≈ 24.5 instead of x ≈ 50. The enclave's WORLD footprint stops at
+       x ≈ 16 (the 2-BR courtyards on the atrium's north face are the
+       east-most thing in it: local z −74 → world x = 74 − 58), so that is ~8 m
+       of planting between the deck and the enclave rather than 34.
+
+       It also gets what the photograph shows and the old basin did not: the
+       CONCENTRIC-RING medallions on its floor, white umbrellas rather than the
+       resort's blue ones, and the big shade tree on its north rim. The round
+       bar sits on the south-west rim, jutting into the water, exactly as it
+       does in the reference — and away from the river's outfall, which is now
+       on the east rim (see SPINE below). */
+    WEST: { cx: 48, cz: 20, r: 15.2, deck: 5.6, umbrellas: 12,
+      RINGS: [                      // [dx, dz, r] as a fraction of the pool's r
+        [-.30, -.26, .30], [.16, -.34, .22], [.34, .10, .27],
+        [-.06, .30, .34], [-.42, .16, .18], [.02, -.02, .46],
+      ],
+      TREE: { dx: -.72, dz: -1.02, r: 8.4, h: 9.0 },  // the big shade tree
+    },
+    BAR:  { cx: 36.5, cz: 33.5, r: 5.6, h: 3.4 },
+
+    /* ── THE LAZY RIVER. ~148 m of centreline over 70 m of ground: five full
+       reversals, three of them proper hairpins, exactly the scribble the
+       aerial shows.
+
+       ⚠ NARROWED 2026-08-02, Carl's third ask. The reference is
+       reference/photos/lazy-river-closeup.png — a drone frame straight down on
+       a woman on a paddleboard. The board is roughly as long as the channel is
+       WIDE, palm crowns close over it from both banks, and the timber and grass
+       edges are within arm's reach. The previous half-widths (1.5…2.6, i.e.
+       3–5.2 m of water) read as a canal from the air; these run 1.15…1.55 in
+       the body of the river, so the channel is 2.3–3.1 m across — one
+       paddleboard, no passing. It only opens up where it has a reason to: the
+       outfall from the beach pool and the mouth into the lagoon.
+
+       The head also moved west with the beach pool (SITE.RIVER.WEST, cx 65 →
+       48): the outfall is now at x 62 on that pool's EAST rim, and the first
+       three control points carry the channel back out to where the old scribble
+       started. Nothing east of x 88 changed. */
     SPINE: [
-      [ 74.0, 25.0, 3.2],   // outfall, inside the west pool's south-east rim
-      [ 78.5, 30.0, 2.6],
-      [ 84.0, 32.5, 2.1],
-      [ 89.0, 30.0, 1.8],
-      [ 90.5, 24.0, 1.9],
-      [ 87.5, 18.5, 1.7],   // hairpin 1 — the river turns back on itself
-      [ 90.5, 13.5, 1.5],
-      [ 96.0, 11.5, 1.6],   // the northern extreme
-      [100.5, 14.0, 1.8],
-      [102.0, 20.0, 2.0],
-      [100.0, 26.0, 1.8],   // hairpin 2
-      [101.5, 31.5, 1.9],
-      [107.0, 34.5, 2.1],   // the southern extreme
-      [111.5, 33.0, 2.0],
-      [115.0, 26.5, 2.2],   // …through the MID basin
-      [113.0, 20.5, 1.9],   // hairpin 3
-      [115.5, 15.0, 1.8],
-      [120.0, 14.5, 2.1],
-      [124.5, 19.0, 2.5],
-      [126.5, 24.0, 3.2],
-      [128.0, 30.0, 4.2],
-      [131.0, 33.5, 5.2],   // …and it is inside LAGOON by here
+      [ 62.0, 24.0, 1.95],  // outfall, inside the beach pool's east rim
+      [ 68.5, 28.5, 1.55],
+      [ 75.5, 32.0, 1.35],
+      [ 82.0, 33.2, 1.30],
+      [ 88.0, 30.5, 1.25],
+      [ 90.5, 24.0, 1.30],
+      [ 87.5, 18.5, 1.20],  // hairpin 1 — the river turns back on itself
+      [ 90.5, 13.5, 1.15],
+      [ 96.0, 11.5, 1.20],  // the northern extreme
+      [100.5, 14.0, 1.30],
+      [102.0, 20.0, 1.40],
+      [100.0, 26.0, 1.25],  // hairpin 2
+      [101.5, 31.5, 1.30],
+      [107.0, 34.5, 1.45],  // the southern extreme
+      [111.5, 33.0, 1.40],
+      [115.0, 26.5, 1.55],  // …through the MID basin
+      [113.0, 20.5, 1.30],  // hairpin 3
+      [115.5, 15.0, 1.25],
+      [120.0, 14.5, 1.45],
+      [124.5, 19.0, 1.75],
+      [126.5, 24.0, 2.30],
+      [128.0, 30.0, 3.10],
+      [131.0, 33.5, 4.10],  // …and it is inside LAGOON by here
     ],
     MID: { cx: 115.0, cz: 26.0, r: 4.4, deck: 2.0 },
 
     // ── the hairpin back out of the lagoon's north rim to the east pool
     SPUR: [
-      [134.0, 25.0, 3.6],
-      [133.5, 18.5, 2.4],
-      [136.0, 12.0, 2.1],
-      [141.0,  9.0, 2.2],
-      [145.5, 11.5, 2.8],   // …into the east pool
+      [136.0, 24.0, 2.40],
+      [135.0, 18.0, 1.55],
+      [137.0, 12.0, 1.35],
+      [141.0,  9.0, 1.45],
+      [145.5, 11.5, 2.00],  // …into the east pool
     ],
 
     EAST: { cx: 147, cz: 13, r: 7.8, deck: 3.2, islandR: 3.1, umbrellas: 7 },
+
+    /* ── the second, smaller circular pool by the hotel (the general pass,
+       2026-08-02). In resort-water-features.jpeg there are TWO round pools at
+       the east end, not one: the big drum-centred circle EAST already builds,
+       and a smaller one north-east of it with a dark round island in the
+       middle. This is that one. */
+    EAST2: { cx: 160.5, cz: 26.5, r: 5.4, deck: 2.6, islandR: 1.9, umbrellas: 4 },
 
     // the lagoon's planted island, as a fraction of LAGOON.rx / .rz
     ISLAND: { dx: .24, dz: .18, r: 3.4 },
@@ -498,12 +541,17 @@ export const SITE = {
     // footbridges, as [which centreline, t along it 0…1]
     BRIDGES: [['spine', .13], ['spine', .37], ['spine', .61], ['spine', .85], ['spur', .50]],
 
-    // pale walking paths — control points only, water.js smooths them
+    /* pale walking paths — control points only, water.js smooths them.
+       PATHS[0] now starts at x 26, out by the enclave: with the beach pool
+       moved west there is a real walk from the clubhouse to the water, and the
+       path lanterns (LAMPS, laid along this line) are what draws it at night.
+       PATHS[1] was pushed 3–5 m south of the lagoon's new rim — at PATH_Y .060
+       it would otherwise have drawn OVER the basin water at .045. */
     PATHS: [
-      [[62, 6], [76, 4], [90, 5.5], [104, 3.5], [118, 5.5], [130, 3.0],
-       [142, 2.0], [152, 5.0], [157, 12], [154, 20]],
-      [[55, 40], [68, 44], [82, 41], [96, 44], [110, 41], [122, 44],
-       [134, 46], [145, 42], [151, 33], [150, 24]],
+      [[26, 4], [44, 2], [62, 5.5], [78, 4], [92, 5.5], [104, 3.5], [118, 5.5],
+       [130, 3.0], [142, 2.0], [152, 5.0], [157, 12], [154, 20]],
+      [[40, 42], [55, 45], [68, 47], [82, 44], [96, 46], [110, 43], [122, 47],
+       [134, 49], [145, 45], [152, 35], [151, 26]],
     ],
     PATH_W: 1.3,          // half-width of a path
     LAMPS: 22,            // path lanterns — the night silhouette
@@ -514,7 +562,33 @@ export const SITE = {
   // one footprint in the system big enough that the bank colliders alone
   // wouldn't stop a palm landing mid-water. Everything else in the river is
   // kept palm-free by the collider chains water.js lays down its centrelines.
-  LAGOON: { cx: 134, cz: 33, rx: 12, rz: 9.5, deck: 2.8, umbrellas: 8 },
+  // Grown 12 × 9.5 → 16.5 × 12.5 on 2026-08-02: in resort-water-features.jpeg
+  // the eastern lagoon is the LARGEST sheet of water in the resort — bigger
+  // than the beach pool — with a planted island in it and lobes running off in
+  // three directions. At 12 × 9.5 it read as another bulge in the river.
+  LAGOON: { cx: 134, cz: 33, rx: 16.5, rz: 12.5, deck: 3.2, umbrellas: 11 },
+
+  /* ── the hotel's own pools, in the crook of the crescent ───────────────────
+     The gap the general pass was asked to close. resort-water-features.jpeg
+     shows a long free-form pool complex hard against the crescent's CONCAVE
+     (campus-facing) face — three lobes with planted islands between them,
+     ringed by the hotel's own terraces. Nothing was built there at all.
+
+     Authored in the crescent's polar frame, because that is the only frame in
+     which "hugs the building" is one number: the arc centre is
+     (HOTEL.cx − HOTEL.r, HOTEL.cz) = (190, 10) and the building's podium face
+     is at r = HOTEL.r − 22/2 − 4 = 80 (campus.js's `rIn - 4`). These sit at
+     r ≈ 69, i.e. ~11 m off the podium, and inside the coarse collider ring
+     (r 81…109) is the BUILDING, not these — a walker reaches them from the
+     campus side without meeting the ring at all. */
+  HOTEL_POOLS: (() => {
+    const acx = 285 - 95, acz = 10, C = Math.PI / 2;
+    return [[-0.345, 69, 10.5, 3.4], [0, 71, 12.5, 3.8], [0.345, 69, 10.5, 3.4]]
+      .map(([d, r, rad, deck]) => ({
+        cx: acx + Math.sin(C + d) * r, cz: acz + Math.cos(C + d) * r,
+        r: rad, deck, umbrellas: 6,
+      }));
+  })(),
 
   // --------------------------------------------------- the REST of the resort
   // Villas that are NOT part of Carl's package. On the site map they fill the
@@ -573,6 +647,26 @@ export const SITE = {
     // radians about the crescent's centre bearing (θ = π/2, i.e. due east of the
     // arc centre). Smaller radius = WEST = the concave, sea-facing side, so the
     // infinity edge is the pool's INNER radius and spills toward the horizon.
+    /* ⚠ 2026-08-02 — THE WATER NOW RUNS TO THE EDGE OF THE BUILDING.
+       Carl: "the hotel top pool should be an infinity pool to the edge of the
+       building, we have some tables toward the edge of the building now."
+       Reference: reference/photos/hotel-rooftop-pool-day-night.png. In that
+       photograph there is NOTHING between the water and the sea — no deck, no
+       balustrade, just a hairline white lip and then the horizon — and the whole
+       inland long side is timber decking with white four-poster cabana daybeds
+       backed by a perforated lattice screen wall.
+
+       So `poolIn` moved 90.90 → 90.10, which is `rIn` + a coping's thickness:
+       the infinity edge is now ON the facade line. `poolOut` did NOT move, and
+       that is deliberate — moments.js (not ours to edit) dresses the Welcome
+       Brunch at hard-coded radii 96.9 / 97.9 / 98.4, so anything inland of the
+       water has to stay exactly where it was or the linen floats in mid-air.
+       The pool therefore grew seaward, from 5.5 m to 6.3 m across.
+
+       The inner glass balustrade and its collider are now BROKEN over the pool's
+       angular span (campus.js) — a rail there would stand in the water. The
+       pool's own edge collider blocks at every height and is what stops both a
+       walker and a swimmer going over a 26 m drop. */
     ROOFTOP: {
       roofY: 25.2,       // floors × floorH — top of the crescent / green roof cap
       deckY: 26.6,       // WALKABLE terrace surface (a 1.4 m plinth over the cap)
@@ -583,10 +677,17 @@ export const SITE = {
       rIn: 90.0,         // terrace inner edge = top of the leaning inner facade
       rOut: 103.2,       // terrace outer edge; the green roof cap runs on to 106
       poolArcHalf: 0.36, // ~68 m of water along the curve
-      poolIn: 90.9,      // THE INFINITY EDGE — spills west, toward the sea
-      poolOut: 96.4,     // pool back wall → 5.5 m across
+      poolIn: 90.10,     // THE INFINITY EDGE — on the facade line, spilling west
+      lipW: 0.20,        // the white coping hairline seaward of the water
+      troughR: 89.42,    // catch basin, cantilevered off the facade under the lip
+      troughDrop: 0.78,  // …this far below the water surface
+      poolOut: 96.4,     // pool back wall → 6.3 m across
       loungeR: 98.2,     // the lounger row, facing the drop
-      gardenR: 101.5,    // cabanas · planters · the bar pavilion
+      gardenR: 100.9,    // the four-poster daybed row, on the timber deck
+      teakOut: 102.3,    // the timber deck runs from the coping to here
+      screenR: 102.9,    // THE PERFORATED LATTICE SCREEN WALL
+      screenH: 5.1,      // …and how far it stands over the deck
+      screenW: 3.00,     // one blade, along the arc
       barArcHalf: 0.075, // rooftop bar, on the crescent's centreline
       barH: 3.2,         // bar pavilion clear height above deckY
       coreArcHalf: 0.50, // the two stair/lift head-houses
@@ -1236,11 +1337,19 @@ export const WALK_REGIONS = [
          0.40 rounds the wrong way and the swimmer is trapped. Registered at
          0.38 the climb is unambiguous.
        · the top tread's outer radius is stretched to poolOut so it meets the
-         deck; without it you climb all three and fall straight back in. */
+         deck; without it you climb all three and fall straight back in.
+
+     ⚠ 2026-08-02, when the water moved to the parapet: the hole and the basin
+     both start at `rIn − 0.3`, NOT at `poolIn`. `poolIn` is 0.10 m outside the
+     terrace's own inner edge now, so keying either off it left a 0.10 m ring of
+     annulus that was punched out of the deck and not covered by the basin —
+     i.e. a slot around the whole infinity edge where floorY fell through to the
+     ground 26 m below. Nothing walkable exists at r < rIn, so over-covering
+     inward is free; under-covering is a hole in the roof. */
   annulus('hotel-roof-deck', HOTEL_ROOF.cx, HOTEL_ROOF.cz, _R.rIn, _R.rOut,
     _RC, _R.arcHalf, _R.deckY,
-    { aholes: [{ r0: _R.poolIn, r1: _R.poolOut, tc: _RC, th: _R.poolArcHalf }] }),
-  annulus('hotel-roof-pool', HOTEL_ROOF.cx, HOTEL_ROOF.cz, _R.poolIn, _R.poolOut,
+    { aholes: [{ r0: _R.rIn - .3, r1: _R.poolOut, tc: _RC, th: _R.poolArcHalf }] }),
+  annulus('hotel-roof-pool', HOTEL_ROOF.cx, HOTEL_ROOF.cz, _R.rIn - .3, _R.poolOut,
     _RC, _R.poolArcHalf, _R.basinY),
   ...[-1, 1].flatMap(s => [0, 1, 2].map(k => annulus(
     `hotel-pool-step-${s > 0 ? 'e' : 'w'}${k}`, HOTEL_ROOF.cx, HOTEL_ROOF.cz,

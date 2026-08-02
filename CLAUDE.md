@@ -206,9 +206,9 @@ commit**, and never trust a "done" report without its evidence attached.
 project URL rather than the domain — **always curl `venue.carlfung.dev` and
 confirm it serves the new build.**
 
-## QUEUED — the resort's water features (Carl, 2026-08-02)
+## The resort's water features — DONE 2026-08-02
 
-Comes AFTER the ceremony/cocktail/dinner grounds. Reference:
+Built. Reference:
 `reference/photos/resort-water-features.jpeg` — a close aerial of the whole
 resort water system. Carl: *"let's also fix all the water feature of the
 hotel."*

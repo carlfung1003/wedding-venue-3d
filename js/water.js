@@ -1722,6 +1722,69 @@ function tickLanterns(dt) {
 }
 
 /* ═════════════════════ LOUNGE TERRACE POOL (cocktail hour) ════════════════ */
+/* ── a closed polygon's signed area, and the two shape helpers the free-form
+      pool needs. Kept here rather than in the river's toolbox because the
+      river never triangulates — it fans. ── */
+function polyArea(p) {
+  let a = 0;
+  for (let i = 0, n = p.length; i < n; i++) {
+    const q = p[(i + 1) % n];
+    a += p[i][0] * q[1] - q[0] * p[i][1];
+  }
+  return a / 2;
+}
+/** a horizontal THREE.Shape from world-XZ points (+ optional hole), at y. */
+function flatShape(outer, hole) {
+  const to2 = p => new THREE.Vector2(p[0], -p[1]);       // rotateX(-π/2) flips z
+  const o = polyArea(outer) > 0 ? outer : [...outer].reverse();
+  const sh = new THREE.Shape(o.map(to2));
+  if (hole) {
+    /* three's ShapeUtils wants the contour CCW and every hole CW */
+    const h = polyArea(hole) < 0 ? hole : [...hole].reverse();
+    sh.holes.push(new THREE.Path(h.map(to2)));
+  }
+  const geo = new THREE.ShapeGeometry(sh);
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+}
+/** outward miter offset of a star-shaped polygon about (cx, cz) */
+function offsetPoly(pts, cx, cz, d) {
+  const n = pts.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const p = pts[(i - 1 + n) % n], v = pts[i], q = pts[(i + 1) % n];
+    const l1 = Math.hypot(v[0] - p[0], v[1] - p[1]) || 1;
+    const l2 = Math.hypot(q[0] - v[0], q[1] - v[1]) || 1;
+    const e1x = (v[0] - p[0]) / l1, e1z = (v[1] - p[1]) / l1;
+    const e2x = (q[0] - v[0]) / l2, e2z = (q[1] - v[1]) / l2;
+    let nx = -e1z - e2z, nz = e1x + e2x;
+    const L = Math.hypot(nx, nz) || 1; nx /= L; nz /= L;
+    if ((v[0] - cx) * nx + (v[1] - cz) * nz < 0) { nx = -nx; nz = -nz; }
+    /* miter length, clamped: a 30° notch would otherwise throw a spike */
+    const m = Math.min(1.9, 1 / Math.max(.42, Math.sqrt((1 + (e1x * e2x + e1z * e2z)) / 2)));
+    out.push([v[0] + nx * d * m, v[1] + nz * d * m]);
+  }
+  return out;
+}
+
+/* ═══════════════════════════ THE SECOND POOL ═══════════════════════════════
+   SITE.LOUNGE_POOL — the 3-BR suites' pool, on the presidential pool's local
+   −X flank. FREE-FORM as of 2026-08-02: it was a rectangle standing in for the
+   plan that `SITE.LOUNGE_POOL.OUTLINE` had already published (traced off
+   reference/photos/lawn-dinner-strips-and-2nd-pool.png), which is the last
+   item the ceremony/dinner pass left in the polish backlog.
+
+   The outline is normalised (u = x/w, v = z/d, both −0.5…+0.5, first point not
+   repeated) and its AABB is exactly w × d, so NOTHING MOVES — today's rectangle
+   was its bounding box, and the terrace slab, the umbrellas, the loungers and
+   the two dinner lawns beside it are all still where they were.
+
+   Two constraints from that backlog entry, both honoured:
+     · the straight `v = −0.5` run is the edge facing the lounge's folding
+       glass, and it stays straight — it is the first two outline points and
+       nothing here rounds it;
+     · this pool must NOT add a mirror pass. The hero pool owns water.js's one
+       Reflector; this is the same flat sheet makeRectPool() gave it.
+   ═══════════════════════════════════════════════════════════════════════════ */
 function buildLoungePool(G) {
   const LP = SITE.LOUNGE_POOL;
   const g = new THREE.Group();
@@ -1734,11 +1797,96 @@ function buildLoungePool(G) {
     map: paver((x1 - x0) / 3.2, (z1 - z0) / 3.2), roughness: .82, metalness: .04,
   }), .12);
 
-  makeRectPool(G, {
-    cx: LP.cx, cz: LP.cz, w: LP.w, d: LP.d,
-    plinth: .3, waterY: .26, depth: 1.25, coping: .45,
-    tile: .6, ripple: 2.2, colliderR: .55, opacity: .8,
-  });
+  {
+    const PLINTH = .30, WY = .26, DEPTH = 1.25, COPE = .45, TILE = .6;
+    const FY = WY - DEPTH;
+    /* the published outline, scaled into world metres about (cx, cz) */
+    const edge = LP.OUTLINE.map(([u, v]) => [LP.cx + u * LP.w, LP.cz + v * LP.d]);
+    const lip = offsetPoly(edge, LP.cx, LP.cz, COPE);
+
+    /* ── the black-stone plinth: an outward skirt on the lip line ── */
+    const skirt = acc(false);
+    for (let i = 0, n = lip.length; i < n; i++) {
+      const a = lip[i], b = lip[(i + 1) % n];
+      const u0 = i * .9, u1 = u0 + .9;
+      /* DoubleSide, so the winding around a concave notch cannot flip a panel */
+      quad(skirt, [b[0], PLINTH, b[1], u1, 0], [a[0], PLINTH, a[1], u0, 0],
+                  [a[0], -.35, a[1], u0, 1], [b[0], -.35, b[1], u1, 1]);
+    }
+    const stoneM = new THREE.MeshStandardMaterial({
+      color: C.stone, roughness: .42, metalness: .05, side: THREE.DoubleSide });
+    const sm = bake(skirt, stoneM, 'lounge-pool:plinth');
+    if (sm) g.add(sm);
+
+    /* ── the honed coping ring: the lip polygon with the water punched out ── */
+    const cope = new THREE.Mesh(flatShape(lip, edge), MAT.coping);
+    cope.position.y = PLINTH + .012;
+    g.add(cope);
+
+    /* ── the tiled basin: walls down from the coping, then the floor ── */
+    const tileMats = [];
+    const tileMat = ns => {
+      const m = new THREE.MeshStandardMaterial({
+        map: ns, roughness: .28, metalness: .02, side: THREE.DoubleSide,
+        emissive: new THREE.Color(C.uwCyan), emissiveMap: ns, emissiveIntensity: 0,
+      });
+      tileMats.push(m); return m;
+    };
+    nightBits.push(on => { for (const m of tileMats) m.emissiveIntensity = on ? .34 : 0; });
+
+    const wall = acc(false);
+    let run = 0;
+    for (let i = 0, n = edge.length; i < n; i++) {
+      const a = edge[i], b = edge[(i + 1) % n];
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const u0 = run / TILE, u1 = (run + len) / TILE;
+      run += len;
+      const vh = (PLINTH - .01 - FY) / TILE;
+      quad(wall, [b[0], PLINTH - .01, b[1], u1, 0], [a[0], PLINTH - .01, a[1], u0, 0],
+                 [a[0], FY, a[1], u0, vh], [b[0], FY, b[1], u1, vh]);
+    }
+    const wm = bake(wall, tileMat(mosaic(1, 1)), 'lounge-pool:basin-wall');
+    if (wm) g.add(wm);
+
+    const floorGeo = flatShape(edge);
+    const fuv = floorGeo.attributes.uv;
+    for (let i = 0; i < fuv.count; i++) {          // ShapeGeometry UVs are metres
+      fuv.setXY(i, fuv.getX(i) / TILE, fuv.getY(i) / TILE);
+    }
+    fuv.needsUpdate = true;
+    const floor = new THREE.Mesh(floorGeo, tileMat(mosaic(1, 1)));
+    floor.position.y = FY;
+    g.add(floor);
+
+    /* caustics on the tiles, on a copy of the outline shrunk 4 % */
+    const inner = offsetPoly(edge, LP.cx, LP.cz, -.35);
+    const cGeo = flatShape(inner);
+    const cTex = causticTex(1, 1);
+    scrolls.push({ tex: cTex, u: TUNE.CAUSTIC_U, v: TUNE.CAUSTIC_V });
+    const cuv = cGeo.attributes.uv;
+    for (let i = 0; i < cuv.count; i++) cuv.setXY(i, cuv.getX(i) / 3.4, cuv.getY(i) / 3.4);
+    cuv.needsUpdate = true;
+    const caust = new THREE.Mesh(cGeo,
+      addMat(cTex, TUNE.CAUSTIC_DAY, TUNE.CAUSTIC_DAY, TUNE.CAUSTIC_NIGHT));
+    caust.position.y = FY + .02;
+    caust.renderOrder = 1;
+    g.add(caust);
+
+    /* ── the surface. A flat sheet, NOT a Reflector (see the header) ── */
+    const wGeo = flatShape(offsetPoly(edge, LP.cx, LP.cz, -.02));
+    const wuv = wGeo.attributes.uv;
+    for (let i = 0; i < wuv.count; i++) wuv.setXY(i, wuv.getX(i) / 2.2, wuv.getY(i) / 2.2);
+    wuv.needsUpdate = true;
+    const water = new THREE.Mesh(wGeo, waterMat(1, 1, { opacity: .8 }));
+    water.position.y = WY;
+    water.renderOrder = 3;
+    g.add(water);
+
+    /* ── colliders: the chain follows the LIP, not four straight runs ── */
+    for (let i = 0, n = lip.length; i < n; i++) {
+      colLine(G.colliders, lip[i][0], lip[i][1], lip[(i + 1) % n][0], lip[(i + 1) % n][1], .55);
+    }
+  }
 
   /* teal umbrellas along both long sides + a handful of loungers */
   const umProto = makeUmbrella(MAT.teal, 1.5, 2.45, 8);
@@ -1995,16 +2143,35 @@ function buildRiver(G) {
   });
   const pathM = new THREE.MeshStandardMaterial({ color: 0xc9c2ae, roughness: .94 });
 
-  /* ── the four basins, west → east ── */
+  /* ── the basins, west → east ────────────────────────────────────────────
+     Four became eight on 2026-08-02, closing the gaps the general pass was
+     asked to close against reference/photos/resort-water-features.jpeg:
+       · `east2`  the SECOND round pool by the hotel — the aerial has two, not
+                  one, and the smaller has its own dark island in the middle
+       · `hotel0…2`  the pool complex in the crook of the crescent, which was
+                  simply missing. Three overlapping lobes, elongated along the
+                  building's face (rz > rx: the crescent's concave wall runs
+                  roughly north–south where they sit), which is what the aerial
+                  shows — one water body with planted fingers between the lobes.
+     `coarse` on a basin only changes how densely riverColliders fills its
+     interior. These four are 250 m from the nearest spawn and exist to be seen
+     from the air; filling them at the enclave's 2.6 m pitch would have cost
+     ~300 colliders for water nobody swims in. */
   const basins = [
     makeBasin({ key: 'west', cx: R.WEST.cx, cz: R.WEST.cz, rx: R.WEST.r, rz: R.WEST.r,
-      deck: R.WEST.deck, segs: 76, fr: outlineFn(SEED + 909, .155) }),
+      deck: R.WEST.deck, segs: 88, fr: outlineFn(SEED + 909, .155) }),
     makeBasin({ key: 'mid', cx: R.MID.cx, cz: R.MID.cz, rx: R.MID.r, rz: R.MID.r,
       deck: R.MID.deck, segs: 32, fr: outlineFn(SEED + 231, .18, 4) }),
     makeBasin({ key: 'lagoon', cx: L.cx, cz: L.cz, rx: L.rx, rz: L.rz,
-      deck: L.deck, segs: 68, fr: outlineFn(SEED + 447, .22) }),
+      deck: L.deck, segs: 76, fr: outlineFn(SEED + 447, .22) }),
     makeBasin({ key: 'east', cx: R.EAST.cx, cz: R.EAST.cz, rx: R.EAST.r, rz: R.EAST.r,
       deck: R.EAST.deck, segs: 56, fr: outlineFn(SEED + 613, .05, 3) }),
+    makeBasin({ key: 'east2', cx: R.EAST2.cx, cz: R.EAST2.cz, rx: R.EAST2.r, rz: R.EAST2.r,
+      deck: R.EAST2.deck, segs: 40, fr: outlineFn(SEED + 881, .06, 3), coarse: true }),
+    ...SITE.HOTEL_POOLS.map((p, i) => makeBasin({
+      key: 'hotel' + i, cx: p.cx, cz: p.cz,
+      rx: p.r * (i === 1 ? .92 : .80), rz: p.r * (i === 1 ? 1.18 : 1.28),
+      deck: p.deck, segs: 60, fr: outlineFn(SEED + 700 + i * 37, .23), coarse: true })),
   ];
   const inWater = (x, z) => basins.some(b => b.inside(x, z));
   const inDeck = (x, z) => basins.some(b => b.inside(x, z, b.deck + R.COPING));
@@ -2048,6 +2215,54 @@ function buildRiver(G) {
       quad(B, skirtV(e0[0], R.COPE_Y, e0[1], 0), skirtV(e1[0], R.COPE_Y, e1[1], 0),
               skirtV(e1[0], -R.DEPTH * .5, e1[1], .12), skirtV(e0[0], -R.DEPTH * .5, e0[1], .12));
     }
+  }
+
+  /* ── 1b · THE BEACH POOL'S CONCENTRIC RINGS ─────────────────────────────
+     "a large circular/oval pool with concentric-ring patterns on its floor."
+     In beach-pool-circular.png the floor carries half a dozen overlapping
+     medallions of concentric circles in a deeper blue — it is the single thing
+     that identifies this pool from the air, and it is why it is worth six
+     medallions of geometry rather than a texture: the whole river system is
+     UV-mapped world-planar at 1/6 m and a decal would have had to fight that.
+
+     Drawn 6 mm OVER the basin water rather than under it. The water here is
+     opaque (vertexColors, no blend — see the note on WATER_Y), so a pattern on
+     the true floor would never be seen; from the air, pattern-on-surface and
+     pattern-seen-through-water are the same picture. polygonOffset rather than
+     a bigger gap, because at 6 mm the depth buffer cannot separate them and at
+     60 mm the rings would visibly float at a grazing angle. */
+  {
+    const b = basins[0], W0 = R.WEST;
+    const ringM = new THREE.MeshStandardMaterial({
+      color: 0x2f86ad, roughness: .38, metalness: 0,
+      polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+    });
+    nightBits.push(on => {
+      ringM.color.setHex(on ? 0x14364a : 0x2f86ad);
+      ringM.emissive.setHex(0x0d5f7d);
+      ringM.emissiveIntensity = on ? .45 : 0;
+    });
+    const RGa = acc(false);
+    const RY = R.BASIN_Y + .006, BAND = .40, SEG = 40;
+    for (const [dx, dz, rr] of W0.RINGS) {
+      const ox = b.cx + dx * W0.r, oz = b.cz + dz * W0.r, R0 = rr * W0.r;
+      for (let k = 1; k <= 3; k++) {
+        const rad = R0 * (k / 3);
+        for (let j = 0; j < SEG; j++) {
+          const t0 = j / SEG * TAU, t1 = (j + 1) / SEG * TAU;
+          const P = (t, q) => [ox + Math.cos(t) * q, oz + Math.sin(t) * q];
+          const i0 = P(t0, rad - BAND / 2), i1 = P(t1, rad - BAND / 2);
+          const o0 = P(t0, rad + BAND / 2), o1 = P(t1, rad + BAND / 2);
+          /* trimmed to the pool: a medallion that ran onto the coping would
+             read as paint on the sand */
+          if (!b.inside(i0[0], i0[1], -.5) || !b.inside(o1[0], o1[1], -.5)) continue;
+          quad(RGa, V(i0[0], RY, i0[1]), V(i1[0], RY, i1[1]),
+                    V(o1[0], RY, o1[1]), V(o0[0], RY, o0[1]));
+        }
+      }
+    }
+    const rm = bake(RGa, ringM, 'river:beach-pool-rings');
+    if (rm) g.add(rm);
   }
 
   /* ── 2 · the channels ─────────────────────────────────────────────────── */
@@ -2159,7 +2374,45 @@ function buildRiverIslands(G, g, basins, R, L) {
   g.add(drumTop);
   G.colliders.push(worldCollider(bEast.cx, bEast.cz, er + .6));
 
-  /* the round island bar on the west pool's south-west rim: a sand terrace, a
+  /* the second round pool's island: a smaller dark drum, same idea */
+  const bE2 = basins.find(b => b.key === 'east2');
+  if (bE2) {
+    const r2 = R.EAST2.islandR, h2 = R.DEPTH + .7;
+    const d2 = new THREE.Mesh(new THREE.CylinderGeometry(r2, r2 * 1.06, h2, 18), MAT.darkWood);
+    d2.position.set(bE2.cx, -R.DEPTH + h2 / 2 - .05, bE2.cz);
+    g.add(d2);
+    const t2 = new THREE.Mesh(new THREE.CylinderGeometry(r2 + .26, r2 + .26, .16, 18), MAT.coping);
+    t2.position.set(bE2.cx, .64, bE2.cz);
+    g.add(t2);
+    G.colliders.push(worldCollider(bE2.cx, bE2.cz, r2 + .5));
+  }
+
+  /* ── THE BIG SHADE TREE on the beach pool's north-west rim ────────────────
+     beach-pool-circular.png is dominated by one enormous broadleaf whose crown
+     hangs over the deck and half the umbrellas — it is the second thing you see
+     after the rings. Everything else out here is a palm, so this is built
+     explicitly rather than left to nature.js's scatter: four overlapping
+     crown blobs on a flared trunk, ~9 m to the canopy. */
+  {
+    const T = R.WEST.TREE;
+    const tx = R.WEST.cx + T.dx * R.WEST.r, tz = R.WEST.cz + T.dz * R.WEST.r;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.52, 1.05, T.h * .62, 10), MAT.darkWood);
+    trunk.position.set(tx, T.h * .31, tz);
+    g.add(trunk);
+    const crownM = new THREE.MeshStandardMaterial({ color: 0x2f6b2b, roughness: .95 });
+    nightBits.push(on => crownM.color.setHex(on ? 0x14301a : 0x2f6b2b));
+    const lobes = [[0, 0, 1.0, T.h * .90], [-.42, .30, .74, T.h * .78],
+                   [.46, -.24, .70, T.h * .80], [.10, -.50, .62, T.h * .72]];
+    for (const [lx, lz, s, ly] of lobes) {
+      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(T.r * s, 1), crownM);
+      blob.position.set(tx + lx * T.r, ly, tz + lz * T.r);
+      blob.scale.y = .62;
+      g.add(blob);
+    }
+    G.colliders.push(worldCollider(tx, tz, 1.5));
+  }
+
+  /* the round island bar on the beach pool's south-west rim: a sand terrace, a
      dark timber counter and a low conical roof on four posts. Its soffit is
      the river's one warm light at night. */
   const BA = R.BAR;
@@ -2212,13 +2465,23 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
   const byKey = k => basins.find(b => b.key === k);
   const bWest = byKey('west'), bMid = byKey('mid'), bLag = byKey('lagoon'), bEast = byKey('east');
 
-  /* umbrellas + loungers ring the three big decks, set out on the sand */
-  for (const [b, n] of [[bWest, R.WEST.umbrellas], [bLag, SITE.LAGOON.umbrellas],
-                        [bEast, R.EAST.umbrellas]]) {
+  /* umbrellas + loungers ring the big decks, set out on the sand.
+     ⚠ The BEACH POOL's are WHITE, and go in their own list: in
+     beach-pool-circular.png that pool is ringed with white umbrellas and white
+     loungers, while the rest of the resort's water is under the Westin's blue
+     ones. One shared blue bucket is what the first pass had, and it made the
+     pool Carl asked for look like every other basin from the air. */
+  const whiteUmbs = [];
+  for (const [b, n, white] of [[bWest, R.WEST.umbrellas, true],
+                               [bLag, SITE.LAGOON.umbrellas, false],
+                               [bEast, R.EAST.umbrellas, false],
+                               [byKey('east2'), SITE.RIVER.EAST2.umbrellas, false],
+                               ...SITE.HOTEL_POOLS.map((p, i) => [byKey('hotel' + i), p.umbrellas, false])]) {
+    if (!b) continue;
     for (let i = 0; i < n; i++) {
       const th = (i + .35) / n * TAU;
       const [ux, uz] = b.at(th, R.COPING + b.deck * .58);
-      umbs.push([ux, uz, rnd() * TAU]);
+      (white ? whiteUmbs : umbs).push([ux, uz, rnd() * TAU]);
       for (const k of [-.28, .28]) {
         const [lx, lz] = b.at(th + k / n, R.COPING + b.deck * .24);
         loungers.push([lx, lz, Math.atan2(b.cx - lx, b.cz - lz)]);
@@ -2263,6 +2526,41 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
   }
   for (const s of islandShrubs) shrubs.push(s);
 
+  /* ── PALMS OVER THE CHANNEL ────────────────────────────────────────────────
+     "palm crowns overhanging it from both sides." That is the other half of
+     narrowing the river: in lazy-river-closeup.png you barely see the water for
+     fronds, and a 2.6 m channel with nothing over it reads as a drainage ditch
+     from the air, not as a lazy river.
+
+     nature.js cannot do this — it plants against G.colliders, and every collider
+     on this channel exists precisely to keep it clear of the water. So the
+     river plants its own bank palms, deliberately close (0.9…2.4 m past the
+     coping) with 5–6 m crowns that meet over the middle. Trunks and fronds are
+     two instanced meshes for the whole 150 m system. */
+  const palmTrunks = [], palmFronds = [];
+  for (const key of ['spine', 'spur']) {
+    const pts = lines[key];
+    for (let i = 3; i < pts.length - 3; i += 4) {
+      const s = pts[i];
+      for (const sgn of [1, -1]) {
+        const keep = rnd() < .82, off = R.COPING + R.BANK + .9 + rnd() * 1.5;
+        const h = 6.4 + rnd() * 3.4, lean = (rnd() - .5) * .30;
+        const [x, z] = lat(s, sgn, off);
+        if (!keep || inWater(x, z)) continue;
+        palmTrunks.push([x, z, h, lean * sgn]);
+        /* the crown leans BACK over the water — sgn is the bank it stands on */
+        const cx = x - s.nx * sgn * h * .13, cz = z - s.nz * sgn * h * .13;
+        /* nine fronds in two tiers — a seven-frond single ring read as a flat
+           green starfish from directly above, which is the angle that matters */
+        for (let f = 0; f < 9; f++) {
+          const tier = f % 2;
+          palmFronds.push([cx, cz, h * (tier ? .90 : .97), f / 9 * TAU + rnd() * .35,
+            (tier ? 1.7 : 2.5) + rnd() * .8, -.14 - tier * .22 - rnd() * .14]);
+        }
+      }
+    }
+  }
+
   /* path lanterns — the river's night silhouette from the air */
   const pPts = centreline(R.PATHS[0].map(([x, z]) => [x, z, R.PATH_W]), 2.4);
   for (let i = 0; i < R.LAMPS; i++) {
@@ -2292,6 +2590,12 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
   inst(new THREE.ConeGeometry(1.55, .44, 8), MAT.blue, umbs, (i, d) => {
     d.position.set(umbs[i][0], 2.42, umbs[i][1]);
     d.rotation.y = umbs[i][2];
+  });
+  inst(new THREE.CylinderGeometry(.05, .06, 2.5, 6), MAT.white, whiteUmbs,
+    (i, d) => d.position.set(whiteUmbs[i][0], 1.25, whiteUmbs[i][1]));
+  inst(new THREE.ConeGeometry(1.7, .48, 8), MAT.whiteFrame, whiteUmbs, (i, d) => {
+    d.position.set(whiteUmbs[i][0], 2.44, whiteUmbs[i][1]);
+    d.rotation.y = whiteUmbs[i][2];
   });
 
   /* a lounger is one raked slab. At 60 m up that is exactly as much lounger as
@@ -2331,6 +2635,29 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
     }
     if (plantMesh.instanceColor) plantMesh.instanceColor.needsUpdate = true;
   }
+
+  /* the bank palms. A frond is one flattened, tapered box — from the only two
+     angles this planting is read from (straight down, and from the far bank at
+     ground level) that is a frond, and 7 of them are a crown. */
+  const trunkM = new THREE.MeshStandardMaterial({ color: 0x6d5a44, roughness: .92 });
+  const frondM = new THREE.MeshStandardMaterial({
+    color: 0x2e6b31, roughness: .92, side: THREE.DoubleSide });
+  nightBits.push(on => {
+    trunkM.color.setHex(on ? 0x2a2620 : 0x6d5a44);
+    frondM.color.setHex(on ? 0x152e1b : 0x2e6b31);
+  });
+  inst(new THREE.CylinderGeometry(.13, .24, 1, 6), trunkM, palmTrunks, (i, d) => {
+    const [x, z, h, lean] = palmTrunks[i];
+    d.position.set(x, h / 2, z);
+    d.scale.set(1, h, 1);
+    d.rotation.set(lean, i * .7, 0);
+  });
+  inst(new THREE.BoxGeometry(1, .05, .46), frondM, palmFronds, (i, d) => {
+    const [x, z, y, a, len, droop] = palmFronds[i];
+    d.position.set(x + Math.cos(a) * len * .48, y + droop * len * .30, z + Math.sin(a) * len * .48);
+    d.rotation.set(0, -a, droop);
+    d.scale.set(len, 1, .92 + (i % 3) * .16);
+  });
 
   const lampM = new THREE.MeshStandardMaterial({
     color: 0xf4e6cf, roughness: .5, emissive: RC.lampWarm, emissiveIntensity: 0,
@@ -2416,7 +2743,12 @@ function riverColliders(G, basins, lines, bridges) {
     for (let i = 0; i < pts.length; i++) {
       const s = pts[i];
       if (i) run += Math.hypot(s.x - pts[i - 1].x, s.z - pts[i - 1].z);
-      if (run < s.hw * .9) continue;
+      /* the step used to be hw × 0.9 alone. Halving the river's width on
+         2026-08-02 would have doubled this chain for no gain: the circles are
+         `hw + 1.2` across, so a 1.5 m step still overlaps every neighbour by
+         more than a metre. The floor keeps the collider count flat while the
+         water got narrower. */
+      if (run < Math.max(1.5, s.hw * .9)) continue;
       run = 0;
       /* r is padded past the actual bank on purpose: nature.js clears a palm
          by collider.r + 1.4, and a palm CROWN is ~4 m across, so a trunk
@@ -2438,10 +2770,14 @@ function riverColliders(G, basins, lines, bridges) {
          · the outermost qualifying point is (1.2 + step) inside, so its circle
            still reaches 1.8 m inside — and the rim chain above covers from
            1.72 m inside outwards, so the two bands overlap. */
-    for (let x = b.cx - b.rx; x <= b.cx + b.rx; x += 2.6) {
-      for (let z = b.cz - b.rz; z <= b.cz + b.rz; z += 2.6) {
+    /* `coarse` basins (the hotel's own pools, the second round pool) are pure
+       backdrop 250 m east of everything, so they fill at 4.0 m with r 3.0 —
+       still inside the STEP ≤ r·√2 rule (4.0 ≤ 4.24), a third of the circles. */
+    const step = b.coarse ? 4.0 : 2.6, cr = b.coarse ? 3.0 : 2.0;
+    for (let x = b.cx - b.rx; x <= b.cx + b.rx; x += step) {
+      for (let z = b.cz - b.rz; z <= b.cz + b.rz; z += step) {
         if (!b.inside(x, z, -1.2)) continue;
-        G.colliders.push(worldCollider(x, z, 2.0));
+        G.colliders.push(worldCollider(x, z, cr));
       }
     }
   }
