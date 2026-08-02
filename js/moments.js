@@ -1,235 +1,328 @@
-// The five moments of the wedding day. Each moment owns a prop group + a
-// collider list; dress() shows one group and hides the rest. The ballroom is
-// SHARED by Ceremony and Wedding Dinner with different dressing — that's the
-// whole mechanic. Groups are built ONCE here and toggled with .visible.
+// moments.js — the five moments of the wedding day, each dressing a REAL place
+// on the 隐逸居 campus (see site.js MOMENT_PLACES + the reference briefs).
+//
+// House pattern: every moment's props are built ONCE here and toggled with
+// .visible; nothing is rebuilt on switch. Colliders are swapped (statics + the
+// live moment's list), never accumulated. Each moment also carries a `night`
+// flag — switching moments moves the sun.
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { M } from './materials.js';
+import { SITE } from './site.js';
 import { setFacing, syncCamera } from './player.js';
+import { setNight } from './world.js';
+import { mulberry32 } from './materials.js';
 
-/* ── tiny prop builders — recognizable silhouettes only ── */
-function chair(seatMat = M.linen, frameMat = M.gold) {
+const rnd = mulberry32(CFG.SEED);
+
+/* ── local materials (self-contained; the shell modules own their own) ── */
+const linen = new THREE.MeshStandardMaterial({ color: 0xf6f3ec, roughness: .85 });
+const chairW = new THREE.MeshStandardMaterial({ color: 0xf2efe8, roughness: .6 });
+const timber = new THREE.MeshStandardMaterial({ color: 0x3a281e, roughness: .7 });
+const gold = new THREE.MeshStandardMaterial({ color: 0xd9c08a, roughness: .3, metalness: .85 });
+const glassy = new THREE.MeshPhysicalMaterial({
+  color: 0xdfeef0, roughness: .1, transmission: .85, thickness: .4, transparent: true, opacity: .5,
+});
+const foliage = new THREE.MeshStandardMaterial({ color: 0x3f6b3a, roughness: .95 });
+const blush = new THREE.MeshStandardMaterial({ color: 0xf2d7d9, roughness: .9 });
+const deckDark = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: .6 });
+const bulb = new THREE.MeshStandardMaterial({
+  color: 0xfff0cf, emissive: 0xffcf87, emissiveIntensity: 2.2, toneMapped: false,
+});
+
+const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+const cyl = (r, h, m, seg = 16) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg), m);
+
+/* one folding chair — the ceremony needs sixty of them */
+function chair() {
   const g = new THREE.Group();
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(.44, .06, .44), seatMat);
-  seat.position.y = .45;
-  const back = new THREE.Mesh(new THREE.BoxGeometry(.44, .5, .05), frameMat);
-  back.position.set(0, .73, -.2);
-  const legs = new THREE.Mesh(new THREE.BoxGeometry(.08, .45, .08), frameMat);
-  legs.position.y = .22;
-  g.add(seat, back, legs);
-  return g;   // faces +z (back on the -z side)
+  const seat = box(.44, .06, .44, chairW); seat.position.y = .45; g.add(seat);
+  const back = box(.44, .5, .05, chairW); back.position.set(0, .72, -.2); g.add(back);
+  for (const [x, z] of [[-.18, -.18], [.18, -.18], [-.18, .18], [.18, .18]]) {
+    const l = box(.04, .45, .04, chairW); l.position.set(x, .225, z); g.add(l);
+  }
+  return g;
 }
 
+/* round dinner table for ten, dressed */
 function roundTable() {
   const g = new THREE.Group();
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(.12, .3, .72, 10), M.dark);
-  ped.position.y = .36;
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(.9, .9, .05, 22), M.linen);
-  top.position.y = .74;
-  const centerpiece = new THREE.Mesh(new THREE.CylinderGeometry(.07, .05, .3, 8), M.gold);
-  centerpiece.position.y = .9;
-  const bloom = new THREE.Mesh(new THREE.SphereGeometry(.16, 10, 8), M.blush);
-  bloom.position.y = 1.1;
-  g.add(ped, top, centerpiece, bloom);
+  const top = cyl(.9, .06, linen, 24); top.position.y = .75; g.add(top);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(.9, .86, .75, 24, 1, true), linen);
+  skirt.position.y = .375; g.add(skirt);
+  // centrepiece: a low bowl of blooms + two tapers
+  const bowl = cyl(.22, .12, gold, 14); bowl.position.y = .84; g.add(bowl);
+  for (let i = 0; i < 9; i++) {
+    const f = new THREE.Mesh(new THREE.SphereGeometry(.07, 8, 6), i % 3 ? blush : foliage);
+    f.position.set((rnd() - .5) * .38, .95 + rnd() * .1, (rnd() - .5) * .38);
+    g.add(f);
+  }
+  for (const s of [-1, 1]) {
+    const t = cyl(.02, .34, linen, 8); t.position.set(s * .34, .95, 0); g.add(t);
+    const fl = new THREE.Mesh(new THREE.SphereGeometry(.035, 6, 5), bulb);
+    fl.position.set(s * .34, 1.15, 0); g.add(fl);
+  }
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    const c = chair();
+    c.position.set(Math.sin(a) * 1.35, 0, Math.cos(a) * 1.35);
+    c.rotation.y = a + Math.PI;
+    g.add(c);
+  }
   return g;
 }
 
-function hightop() {
+/* cocktail high-top */
+function highTop() {
   const g = new THREE.Group();
-  const ped = new THREE.Mesh(new THREE.CylinderGeometry(.06, .22, 1.06, 10), M.dark);
-  ped.position.y = .53;
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(.45, .45, .04, 18), M.linen);
-  top.position.y = 1.08;
-  const candle = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .12, 6), M.gold);
-  candle.position.y = 1.16;
-  g.add(ped, top, candle);
+  const top = cyl(.42, .05, linen, 18); top.position.y = 1.08; g.add(top);
+  const skirt = new THREE.Mesh(new THREE.CylinderGeometry(.42, .38, 1.08, 18, 1, true), linen);
+  skirt.position.y = .54; g.add(skirt);
+  for (let i = 0; i < 3; i++) {
+    const fl = cyl(.03, .16, glassy, 8);
+    fl.position.set((rnd() - .5) * .5, 1.18, (rnd() - .5) * .5);
+    g.add(fl);
+  }
   return g;
 }
 
-function sofa(mat = M.blush) {
+/* a catenary run of festoon bulbs between two points */
+function stringLights(x1, z1, x2, z2, y, sag = 1.1, n = 14) {
   const g = new THREE.Group();
-  const seat = new THREE.Mesh(new THREE.BoxGeometry(1.8, .42, .75), mat);
-  seat.position.y = .21;
-  const back = new THREE.Mesh(new THREE.BoxGeometry(1.8, .5, .2), mat);
-  back.position.set(0, .62, -.27);
-  g.add(seat, back);
-  return g;   // faces +z
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const b = new THREE.Mesh(new THREE.SphereGeometry(.055, 6, 5), bulb);
+    b.position.set(
+      x1 + (x2 - x1) * t,
+      y - Math.sin(t * Math.PI) * sag,
+      z1 + (z2 - z1) * t,
+    );
+    g.add(b);
+  }
+  return g;
 }
 
-function put(group, mesh, x, z, ry = 0) {
-  mesh.position.x = x; mesh.position.z = z;
-  mesh.rotation.y = ry;
-  group.add(mesh);
-  return mesh;
+function colLine(list, x1, z1, x2, z2, r) {
+  const d = Math.hypot(x2 - x1, z2 - z1), n = Math.max(1, Math.ceil(d / r));
+  for (let i = 0; i <= n; i++) {
+    list.push({ x: x1 + (x2 - x1) * i / n, z: z1 + (z2 - z1) * i / n, r });
+  }
 }
-
-/* module-level FX handles for updateMoments */
-const FX = {};
 
 export function initMoments(G) {
-  const S = G.scene;
-  const bz = CFG.BALLROOM.L / 2, bx = CFG.BALLROOM.W / 2;
-  const staticColliders = G.colliders.slice();   // world walls/columns, snapshotted before dressing
-  const groups = {}, cols = {};
-
+  const groups = {};
+  const cols = {};
   for (const m of CFG.MOMENTS) {
     groups[m.id] = new THREE.Group();
     groups[m.id].visible = false;
-    S.add(groups[m.id]);
+    G.scene.add(groups[m.id]);
     cols[m.id] = [];
   }
 
-  /* ══ 1 · Prewedding Setup — bridal suite ══ */
+  const P = SITE.POOL, D = SITE.DECK, L = SITE.LOUNGE, LW = SITE.LAWN;
+
+  /* ── 1 · PREWEDDING — the suite deck at night, lanterns on the water ── */
   {
-    const g = groups.setup, c = cols.setup;
-    const vanity = put(g, new THREE.Mesh(new THREE.BoxGeometry(.5, .75, 1.4), M.wood), -14.4, 34);
-    vanity.position.y = .375;
-    const vm = put(g, new THREE.Mesh(new THREE.CircleGeometry(.4, 24), M.chrome), -14.62, 34);
-    vm.position.y = 1.5; vm.rotation.y = Math.PI / 2;
-    c.push({ x: -14.4, z: 34, r: .8 });
-    // garment rack with The Dress
-    for (const px of [-10, -8]) {
-      const post = put(g, new THREE.Mesh(new THREE.CylinderGeometry(.03, .06, 1.8, 8), M.gold), px, 37.5);
-      post.position.y = .9;
+    const g = groups.setup;
+    // high-tops scattered on the basalt deck, between the glass wall and turf
+    for (let i = 0; i < 7; i++) {
+      const t = highTop();
+      const x = -6.5 + i * 2.2 + (rnd() - .5) * .6;
+      const z = D.z0 + 2.2 + rnd() * 3.4;
+      t.position.set(x, 0, z);
+      g.add(t);
+      cols.setup.push({ x, z, r: .5 });
     }
-    const bar = put(g, new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 2, 8), M.gold), -9, 37.5);
-    bar.position.y = 1.78; bar.rotation.z = Math.PI / 2;
-    const dress = put(g, new THREE.Mesh(new THREE.ConeGeometry(.45, 1.3, 14), M.linen), -9, 37.5);
-    dress.position.y = .95;
-    const bodice = put(g, new THREE.Mesh(new THREE.SphereGeometry(.16, 10, 8), M.linen), -9, 37.5);
-    bodice.position.y = 1.62;
-    c.push({ x: -9, z: 37.5, r: .7 });
-    put(g, sofa(), -11, 30.6);   // faces into the room (+z geometry faces the rack)
-    c.push({ x: -11, z: 30.6, r: 1 });
-    // full-length mirror on the east wall
-    const frame = put(g, new THREE.Mesh(new THREE.BoxGeometry(.08, 1.9, .8), M.gold), -7.35, 33);
-    frame.position.y = 1;
-    const glass = put(g, new THREE.Mesh(new THREE.BoxGeometry(.03, 1.7, .64), M.chrome), -7.3, 33);
-    glass.position.y = 1;
-    c.push({ x: -7.35, z: 33, r: .5 });
+    // festoon lights strung from the roof overhang out to the turf edge
+    for (let i = 0; i < 5; i++) {
+      const x = -7 + i * 3.5;
+      g.add(stringLights(x, D.z0 + .4, x + 1.6, SITE.TURF.z1, 3.6, .9, 10));
+    }
+    // a welcome easel by the door
+    const easel = box(.9, 1.3, .05, linen);
+    easel.position.set(-3.4, 1.0, D.z0 + 1.2);
+    easel.rotation.y = .3; g.add(easel);
+    const legs = box(.06, 1.0, .06, timber);
+    legs.position.set(-3.4, .5, D.z0 + 1.3); g.add(legs);
+    // champagne tower on a draped table
+    const tbl = cyl(.6, .78, linen, 18); tbl.position.set(7.5, .39, D.z0 + 3); g.add(tbl);
+    for (let r = 0; r < 3; r++) {
+      const n = 4 - r;
+      for (let i = 0; i < n; i++) {
+        const c = cyl(.05, .14, glassy, 8);
+        c.position.set(7.5 - (n - 1) * .07 + i * .14, .85 + r * .15, D.z0 + 3);
+        g.add(c);
+      }
+    }
+    cols.setup.push({ x: 7.5, z: D.z0 + 3, r: .7 });
   }
 
-  /* ══ 2 · Ceremony — ballroom dressed with chairs, aisle, arch ══ */
+  /* ── 2 · CEREMONY — the circular lawn, chairs and an arch ── */
   {
-    const g = groups.ceremony, c = cols.ceremony;
-    const runner = put(g, new THREE.Mesh(new THREE.PlaneGeometry(2, 24), M.linen), 0, -7);
-    runner.rotation.x = -Math.PI / 2; runner.position.y = .05;
-    // the arch: a torus arc standing in front of the stage
-    const arch = put(g, new THREE.Mesh(new THREE.TorusGeometry(2, .14, 10, 28, Math.PI), M.gold), 0, -19);
-    arch.position.y = .2;
-    for (const [ax, ay, mat] of [[-1.6, 1.6, M.blush], [1.7, 1.4, M.sage], [0, 2.35, M.blush]]) {
-      const bloom = put(g, new THREE.Mesh(new THREE.SphereGeometry(.3, 10, 8), mat), ax, -19);
-      bloom.position.y = ay;
-    }
-    c.push({ x: -2, z: -19, r: .35 }, { x: 2, z: -19, r: .35 });
-    for (let row = 0; row < 6; row++) {
-      const z = -13 + row * 2.4;
-      for (let k = 0; k < 5; k++) {
-        for (const side of [-1, 1]) {
-          const x = side * (1.7 + k * .85);
-          put(g, chair(), x, z, Math.PI);   // face the stage (-z)
-          c.push({ x, z, r: .28 });
+    const g = groups.ceremony;
+    const cx = LW.cx, cz = LW.cz;
+    // 60 chairs: two blocks of 5 rows × 6, aisle down the middle, facing -Z
+    for (const side of [-1, 1]) {
+      for (let row = 0; row < 5; row++) {
+        for (let i = 0; i < 6; i++) {
+          const c = chair();
+          const x = cx + side * (1.6 + i * .62);
+          const z = cz + 12 - row * 1.0;
+          c.position.set(x, 0, z);
+          c.rotation.y = Math.PI;          // face the arch (north, -Z)
+          g.add(c);
         }
       }
     }
+    // aisle runner
+    const runner = box(2.8, .02, 22, linen);
+    runner.position.set(cx, .01, cz + 4); g.add(runner);
+    // the arch — a torus arc wound with foliage and blooms
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(2.4, .09, 8, 28, Math.PI), timber);
+    arch.position.set(cx, 0, cz - 8);
+    arch.rotation.y = Math.PI / 2;
+    g.add(arch);
+    for (let i = 0; i < 60; i++) {
+      const a = rnd() * Math.PI;
+      const f = new THREE.Mesh(new THREE.SphereGeometry(.11 + rnd() * .08, 7, 6),
+        rnd() > .55 ? blush : foliage);
+      f.position.set(cx + (rnd() - .5) * .3, Math.sin(a) * 2.4, cz - 8 + Math.cos(a) * 2.4);
+      g.add(f);
+    }
+    colLine(cols.ceremony, cx - 1.2, cz - 8, cx + 1.2, cz - 8, .5);
+    // petals down the aisle
+    for (let i = 0; i < 90; i++) {
+      const p = new THREE.Mesh(new THREE.CircleGeometry(.06, 5), blush);
+      p.rotation.x = -Math.PI / 2;
+      p.position.set(cx + (rnd() - .5) * 2.6, .03, cz - 6 + rnd() * 18);
+      g.add(p);
+    }
   }
 
-  /* ══ 3 · Cocktail Hour — foyer high-tops + bar ══ */
+  /* ── 3 · COCKTAIL — the lounge terrace by its pool ── */
   {
-    const g = groups.cocktail, c = cols.cocktail;
-    const bar = put(g, new THREE.Mesh(new THREE.BoxGeometry(8, 1.06, .7), M.wood), 21, -23.7);
-    bar.position.y = .53;
-    const barTop = put(g, new THREE.Mesh(new THREE.BoxGeometry(8.2, .05, .8), M.marble), 21, -23.7);
-    barTop.position.y = 1.08;
-    for (let i = 0; i < 9; i++) c.push({ x: 17.4 + i * .9, z: -23.7, r: .5 });
-    const spots = [[18.5, -14], [24, -10], [18.5, -4], [24, 2], [18.5, 8], [23.5, 14]];
-    for (const [x, z] of spots) {
-      put(g, hightop(), x, z);
-      c.push({ x, z, r: .55 });
+    const g = groups.cocktail;
+    const LP = SITE.LOUNGE_POOL;
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const x = LP.cx + Math.sin(a) * (LP.w * .42) + (rnd() - .5);
+      const z = LP.cz - 6.5 + Math.cos(a) * 2.4;
+      const t = highTop(); t.position.set(x, 0, z); g.add(t);
+      cols.cocktail.push({ x, z, r: .5 });
+    }
+    // a bar counter against the lounge glass
+    const bar = box(5.2, 1.1, .8, timber);
+    bar.position.set(L.cx, .55, L.glassZ + 1.6); g.add(bar);
+    const barTop = box(5.4, .08, 1.0, linen);
+    barTop.position.set(L.cx, 1.14, L.glassZ + 1.6); g.add(barTop);
+    colLine(cols.cocktail, L.cx - 2.6, L.glassZ + 1.6, L.cx + 2.6, L.glassZ + 1.6, .55);
+    for (let i = 0; i < 14; i++) {
+      const fl = cyl(.035, .18, glassy, 8);
+      fl.position.set(L.cx - 2.3 + i * .36, 1.27, L.glassZ + 1.5); g.add(fl);
     }
   }
 
-  /* ══ 4 · Wedding Dinner — the same ballroom, re-dressed ══ */
+  /* ── 4 · DINNER — inside the 280 ㎡ lounge, sixty covers ── */
   {
-    const g = groups.dinner, c = cols.dinner;
-    const floor = put(g, new THREE.Mesh(new THREE.BoxGeometry(9, .06, 7), M.wood), 0, -15.5);
-    floor.position.y = .03;   // dance floor in front of the stage
-    const head = put(g, new THREE.Mesh(new THREE.BoxGeometry(7, .78, 1), M.linen), 0, -22.6);
-    head.position.y = CFG.STAGE.H + .39;   // head table up on the stage
-    for (const x of [-6.5, 6.5]) {
-      for (const z of [-7, -1, 5, 11]) {
-        put(g, roundTable(), x, z);
-        for (let k = 0; k < 8; k++) {
-          const a = k / 8 * Math.PI * 2;
-          const cx = x + Math.sin(a) * 1.3, cz = z + Math.cos(a) * 1.3;
-          put(g, chair(M.linen, M.dark), cx, cz, a + Math.PI);   // face the table
-        }
-        c.push({ x, z, r: 1.7 });   // one collider covers table + its ring of ten
-      }
+    const g = groups.dinner;
+    // six rounds of ten = 60 seats, the lounge's stated capacity
+    const spots = [[-6, -6], [0, -6], [6, -6], [-6, 0], [0, 0], [6, 0]];
+    for (const [dx, dz] of spots) {
+      const t = roundTable();
+      const x = L.cx + dx, z = L.cz + dz;
+      t.position.set(x, 0, z);
+      g.add(t);
+      cols.dinner.push({ x, z, r: 1.5 });
+    }
+    // head table along the back wall
+    const head = box(4.4, .04, 1.0, linen);
+    head.position.set(L.cx, .76, L.cz - 5.6); g.add(head);
+    const headSkirt = box(4.4, .76, 1.0, linen);
+    headSkirt.position.set(L.cx, .38, L.cz - 5.6); g.add(headSkirt);
+    colLine(cols.dinner, L.cx - 2.2, L.cz - 5.6, L.cx + 2.2, L.cz - 5.6, .6);
+    // dance floor toward the glass
+    const floor = box(6, .04, 5, deckDark);
+    floor.position.set(L.cx, .02, L.cz + 4.4); g.add(floor);
+    // festoon runs under the ceiling
+    for (let i = 0; i < 4; i++) {
+      const z = L.cz - 5 + i * 3.2;
+      g.add(stringLights(L.cx - 8, z, L.cx + 8, z, L.h - .5, .5, 12));
     }
   }
 
-  /* ══ 5 · After Party — terrace, DJ + mirror ball + lounges ══ */
+  /* ── 5 · AFTER PARTY — the pool deck, DJ, mirror ball ── */
   {
-    const g = groups.afterparty, c = cols.afterparty;
-    const booth = put(g, new THREE.Mesh(new THREE.BoxGeometry(.8, 1.1, 2.4), M.dark), 42.8, 0);
-    booth.position.y = .55;
-    FX.djGlow = put(g, new THREE.Mesh(new THREE.BoxGeometry(.06, .9, 2.2), M.gold.clone()), 42.35, 0);
-    FX.djGlow.position.y = .55;
-    const deck = put(g, new THREE.Mesh(new THREE.BoxGeometry(.5, .06, 1.2), M.chrome), 42.7, 0);
-    deck.position.y = 1.13;
-    c.push({ x: 42.8, z: -.8, r: .7 }, { x: 42.8, z: .8, r: .7 });
-    for (const z of [-2.2, 2.2]) {
-      const spk = put(g, new THREE.Mesh(new THREE.BoxGeometry(.6, 1.3, .5), M.dark), 42.6, z);
-      spk.position.y = .65;
-      c.push({ x: 42.6, z, r: .5 });
+    const g = groups.afterparty;
+    const booth = box(2.4, 1.1, .8, deckDark);
+    booth.position.set(0, .55, D.z0 + 1.4); g.add(booth);
+    const face = box(2.2, .5, .06, bulb);
+    face.position.set(0, .7, D.z0 + 1.0); g.add(face);
+    colLine(cols.afterparty, -1.2, D.z0 + 1.4, 1.2, D.z0 + 1.4, .6);
+    for (const s of [-1, 1]) {
+      const sp = box(.6, 1.6, .5, deckDark);
+      sp.position.set(s * 3.2, .8, D.z0 + 1.2); g.add(sp);
+      cols.afterparty.push({ x: s * 3.2, z: D.z0 + 1.2, r: .5 });
     }
-    const pole = put(g, new THREE.Mesh(new THREE.CylinderGeometry(.04, .06, 3.2, 8), M.dark), 38, 0);
-    pole.position.y = 1.6;
-    FX.ball = put(g, new THREE.Mesh(new THREE.SphereGeometry(.35, 18, 12), M.chrome), 38, 0);
-    FX.ball.position.y = 2.95;
-    c.push({ x: 38, z: 0, r: .25 });
-    for (const [z, ry] of [[-10.5, 0], [10.5, Math.PI]]) {
-      put(g, sofa(M.dark), 31, z, ry);   // lounges face the floor
-      c.push({ x: 31, z, r: 1 });
+    // mirror ball over the deck
+    const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(.45, 1),
+      new THREE.MeshStandardMaterial({ color: 0xdfe6ea, roughness: .12, metalness: 1, flatShading: true }));
+    ball.position.set(0, 4.2, D.z0 + 4.5);
+    g.add(ball);
+    G.tickers.push((dt) => { ball.rotation.y += dt * .55; });
+    // festoon criss-crossing the deck, denser than the prewedding rig
+    for (let i = 0; i < 6; i++) {
+      const x = -8 + i * 3.2;
+      g.add(stringLights(x, D.z0 + .4, x + 2.4, SITE.TURF.z1, 4.0, 1.0, 12));
+    }
+    // lounge seating out on the turf
+    for (const [x, z] of [[-9, -8], [9, -8], [-11, -4]]) {
+      const sofa = box(2.2, .55, .9, linen);
+      sofa.position.set(x, .28, z); g.add(sofa);
+      cols.afterparty.push({ x, z, r: 1.1 });
     }
   }
 
-  /* ── one interactable per moment, gated on that moment being live ── */
+  /* ── interactables: one per moment ── */
   const when = i => () => G.momentIndex === i;
   G.interactables.push(
-    { x: -7.35, z: 33, r: .5, label: () => 'Check the mirror',
-      use: () => G.ui.toast('Deep breath. Everyone out there came for you two.', 3), enabled: when(0) },
-    { x: 0, z: -19, r: 1, label: () => 'Stand at the altar',
-      use: () => G.ui.toast('This is where the "I do" happens. 💍', 3), enabled: when(1) },
-    { x: 21, z: -23.7, r: 4.1, label: () => 'Order a signature cocktail',
+    { x: -3.4, z: D.z0 + 1.2, r: 1.2, label: () => 'Read the welcome sign',
+      use: () => G.ui.toast('“Carl & Rachel — welcome to Haitang Bay. Shoes optional.”', 3.4),
+      enabled: when(0) },
+    { x: LW.cx, z: LW.cz - 8, r: 2.0, label: () => 'Stand at the arch',
+      use: () => G.ui.toast('This is where the “I do” happens. 💍', 3), enabled: when(1) },
+    { x: L.cx, z: L.glassZ + 1.6, r: 2.0, label: () => 'Order from the bar',
       use: () => G.ui.toast('🥂 One Yuzu 75, coming right up.', 3), enabled: when(2) },
-    { x: 0, z: -15.5, r: 2, label: () => 'Take the first dance',
-      use: () => G.ui.toast('The parquet is yours — everyone else joins after the second song.', 3.2), enabled: when(3) },
-    { x: 42.8, z: 0, r: 1.4, label: () => 'Drop a request',
-      use: () => G.ui.toast('🎧 The DJ nods. It was always going to be this song.', 3), enabled: when(4) },
+    { x: L.cx, z: L.cz + 4.4, r: 2.2, label: () => 'Step onto the dance floor',
+      use: () => G.ui.toast('The floor is yours — everyone joins after the second song.', 3.2),
+      enabled: when(3) },
+    { x: 0, z: D.z0 + 1.4, r: 1.6, label: () => 'Request a song',
+      use: () => G.ui.toast('🎧 The DJ nods. It was always going to be this song.', 3),
+      enabled: when(4) },
   );
 
-  /* ── the switcher: dress the venue, swap colliders, teleport ── */
+  /* statics are everything the builders registered BEFORE any dressing */
+  const staticColliders = G.colliders.slice();
+
   G.momentIndex = -1;
   G.setMoment = (idx, opts = {}) => {
     const m = CFG.MOMENTS[idx];
     if (!m || idx === G.momentIndex) return;
     G.momentIndex = idx;
+
     for (const mm of CFG.MOMENTS) groups[mm.id].visible = mm === m;
+
     G.colliders.length = 0;
     G.colliders.push(...staticColliders, ...cols[m.id]);
-    G.setMode?.('walk', { quiet: true });   // spawns are authored as ground positions
+
+    setNight(G, !!m.night, { quiet: true });
+
+    if (G.setMode) G.setMode('walk', { quiet: true });
     G.player.pos.set(m.spawn.x, CFG.EYE_HEIGHT, m.spawn.z);
     setFacing(m.spawn.yaw);
     syncCamera(G);
+
     G.ui.setMoment(m, idx);
-    if (!opts.quiet) G.ui.toast(m.blurb, 4);
+    if (!opts.quiet) G.ui.toast(m.blurb, 4.2, true);   // jump the queue
   };
 }
 
-export function updateMoments(G, dt, time) {
-  if (G.momentIndex !== 4) return;
-  FX.ball.rotation.y += dt * 1.1;
-  FX.djGlow.material.emissiveIntensity = .55 + Math.sin(time * 5.2) * .35;
-}
+export function updateMoments() { /* per-moment animation is registered on G.tickers */ }

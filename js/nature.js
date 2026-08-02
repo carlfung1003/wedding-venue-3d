@@ -1,0 +1,1251 @@
+// nature.js — the living half of the campus: ground, beach, ocean, palms and
+// planting. Everything is procedural geometry + CanvasTexture; no external
+// assets. Coordinates come from site.js (SITE.*) — nothing here invents its own.
+//
+// Reference: reference/photos/clubhouse-aerial.jpeg + westin-site-map.jpeg —
+// a dense palm canopy over mown lawn, turquoise shallows going deep blue
+// offshore with three white breaker lines, clipped hedges and magenta
+// bougainvillea packed against every white wall.
+//
+// Exports:  buildNature(G)      — builds everything, pushes colliders + a ticker
+//           setNatureNight(on)  — instant day/night material swap
+
+import * as THREE from 'three';
+import { SITE, siteFloorY } from './site.js';
+import { CFG } from './config.js';
+import { mulberry32 } from './materials.js';
+
+/* ═══════════════════════════════════════════════════════════════════════
+   tuning — these want to live in CFG one day (see report); keeping them
+   local for now because config.js belongs to another module.
+   ═══════════════════════════════════════════════════════════════════════ */
+const NAT = {
+  /* Metres per grass-texture repeat. At 10 m the 700 m lawn tiled 70× and the
+     repeat read as a chequerboard grid all the way to the horizon once the fog
+     came down — the bigger the tile, the fewer seams to spot. */
+  GRASS_TILE: 42,
+  SAND_TILE: 9,
+  OCEAN_W: SITE.OCEAN.size, // X extent of the water plane
+  OCEAN_L: 1600,            // Z extent — long enough that its ends die in fog
+  OCEAN_SEG_X: 140,         // ~6.4 m per segment: 6 samples across a 38 m swell
+  OCEAN_SEG_Z: 34,          // crests run shore-parallel, so Z needs almost none
+  SHORE_TAPER: 26,          // swell amplitude fades over the last N m of shoal
+  WAVE: {
+    a1: 0.34, k1: (Math.PI * 2) / 38, w1: 0.55,
+    a2: 0.13, k2: (Math.PI * 2) / 17, w2: 0.90,
+    a3: 0.07, k3: (Math.PI * 2) / 23, w3: 0.45,
+  },
+  TRUNK_R: 0.35,            // palm collider radius (spec)
+  PALM_GAP: 4.2,            // minimum spacing for scattered palms
+  HEDGE: { h: 1.45, t: 1.05, seg: 2.1, colR: 0.8, colStep: 0.7 },
+  SWAY: 0.026,              // peak frond-sway tilt, radians
+  SEEDS: { palm: 0x5ea117, plant: 0x0b06a13, tex: 0x1eaf00 },
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   canvas-texture plumbing
+   ═══════════════════════════════════════════════════════════════════════ */
+function tex(w, h, draw, repeat, srgb = true) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;   // colour maps only (house rule)
+  t.anisotropy = 8;
+  if (repeat) {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(repeat[0], repeat[1]);
+  }
+  return t;
+}
+
+/* a speck that wraps across the canvas seams, so tiled ground never shows a grid */
+function wrapDot(g, x, y, r, w, h) {
+  g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  if (x < r) { g.beginPath(); g.arc(x + w, y, r, 0, 7); g.fill(); }
+  if (x > w - r) { g.beginPath(); g.arc(x - w, y, r, 0, 7); g.fill(); }
+  if (y < r) { g.beginPath(); g.arc(x, y + h, r, 0, 7); g.fill(); }
+  if (y > h - r) { g.beginPath(); g.arc(x, y - h, r, 0, 7); g.fill(); }
+}
+
+/* Scale down a material's fog contribution.
+   sky.js runs a fairly thick exp2 haze — right for the palm grove, but the sea
+   starts 200 m+ from any drone position, so at full strength the turquoise
+   drowns in white and the surf line disappears (Carl's note #5). This keeps
+   atmospheric perspective on the water, just at `k` of its normal rate. */
+function softenFog(mat, k) {
+  const s = k.toFixed(3);
+  mat.onBeforeCompile = (sh) => {
+    sh.vertexShader = sh.vertexShader.replace(
+      '#include <fog_vertex>',
+      `#ifdef USE_FOG\n\tvFogDepth = - mvPosition.z * ${s};\n#endif`,
+    );
+  };
+  mat.customProgramCacheKey = () => `softfog${s}`;   // appended to the real key
+  return mat;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   textures
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* mown resort lawn — rich jade turf with soft mottling.
+   NO mower stripes: the aerials show even, deep green turf, and axis-aligned
+   bands on a 700 m plane read as a texture bug from the air (Carl's note). */
+function grassTex() {
+  return tex(512, 512, (g, w, h) => {
+    const rnd = mulberry32(NAT.SEEDS.tex + 1);
+    g.fillStyle = '#3c6530'; g.fillRect(0, 0, w, h);
+    /* Broad tonal patches — irregular and non-directional. Keep these FAINT:
+       any feature big enough to recognise becomes the thing your eye tracks
+       from tile to tile, and the lawn turns into a chequerboard from the air.
+       The macro plane in buildGround() supplies large-scale variation instead,
+       at 1× across the whole lawn, so it cannot repeat. */
+    for (let i = 0; i < 54; i++) {
+      const t = rnd();
+      g.fillStyle = t < .45
+        ? `rgba(${68 + rnd() * 24 | 0},${104 + rnd() * 26 | 0},${46 + rnd() * 18 | 0},.12)`
+        : `rgba(${34 + rnd() * 16 | 0},${64 + rnd() * 20 | 0},${32 + rnd() * 14 | 0},.13)`;
+      wrapDot(g, rnd() * w, rnd() * h, 20 + rnd() * 78, w, h);
+    }
+    /* blade speckle — weighted dark so the turf reads deep, not pale */
+    for (let i = 0; i < 5600; i++) {
+      const l = rnd();
+      g.fillStyle = l < .22
+        ? `rgba(${92 + rnd() * 40 | 0},${132 + rnd() * 40 | 0},${58 + rnd() * 24 | 0},.46)`
+        : l < .64
+          ? `rgba(${48 + rnd() * 24 | 0},${82 + rnd() * 24 | 0},${38 + rnd() * 16 | 0},.52)`
+          : `rgba(${26 + rnd() * 16 | 0},${52 + rnd() * 18 | 0},${24 + rnd() * 12 | 0},.48)`;
+      g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2.4, 2 + rnd() * 4.5);
+    }
+  }, [1, 1]);
+}
+
+/* one big low-frequency overlay so 60 grass repeats never read as a grid */
+function macroTex() {
+  return tex(512, 512, (g, w, h) => {
+    const rnd = mulberry32(NAT.SEEDS.tex + 2);
+    g.clearRect(0, 0, w, h);
+    for (let i = 0; i < 130; i++) {
+      const x = rnd() * w, y = rnd() * h, r = 18 + rnd() * 90;
+      const dark = rnd() < .68;
+      const rg = g.createRadialGradient(x, y, 0, x, y, r);
+      rg.addColorStop(0, dark ? 'rgba(16,38,20,.34)' : 'rgba(150,190,112,.15)');
+      rg.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = rg;
+      g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    }
+  });
+}
+
+/* Haitang Bay sand — pale warm gold, shell speckle, wind ripples */
+function sandTex() {
+  return tex(512, 512, (g, w, h) => {
+    const rnd = mulberry32(NAT.SEEDS.tex + 3);
+    g.fillStyle = '#e3d3ad'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 30; i++) {
+      g.fillStyle = rnd() < .5 ? 'rgba(214,196,158,.5)' : 'rgba(246,238,214,.45)';
+      wrapDot(g, rnd() * w, rnd() * h, 30 + rnd() * 80, w, h);
+    }
+    g.strokeStyle = 'rgba(196,176,138,.28)'; g.lineWidth = 1.6;
+    for (let i = 0; i < 26; i++) {           // ripple lines, roughly shore-parallel
+      const y = rnd() * h;
+      g.beginPath(); g.moveTo(0, y);
+      for (let x = 0; x <= w; x += 32) g.lineTo(x, y + Math.sin(x * .04 + i) * 4);
+      g.stroke();
+    }
+    for (let i = 0; i < 2600; i++) {
+      const l = rnd();
+      g.fillStyle = l < .5 ? 'rgba(255,252,240,.5)'
+        : l < .85 ? 'rgba(180,160,124,.45)' : 'rgba(126,110,86,.35)';
+      g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 1.8, 1 + rnd() * 1.8);
+    }
+  }, [1, 1]);
+}
+
+/* wet-sand sheen strip laid along the waterline (one-shot gradient across u) */
+function wetSandTex() {
+  return tex(128, 64, (g, w, h) => {
+    const grad = g.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, 'rgba(92,80,58,0)');
+    grad.addColorStop(.34, 'rgba(96,84,60,.62)');
+    grad.addColorStop(.66, 'rgba(112,98,72,.5)');
+    grad.addColorStop(1, 'rgba(150,132,100,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, w, h);
+  });
+}
+
+/* the sea colour ramp: deep sapphire offshore → aqua → pale turquoise shallows.
+   u runs west→east across the plane, so this is a pure distance-from-shore ramp. */
+function waterGradTex(night) {
+  return tex(512, 32, (g, w, h) => {
+    const grad = g.createLinearGradient(0, 0, w, 0);
+    if (night) {
+      grad.addColorStop(0.00, '#050b1c');
+      grad.addColorStop(0.42, '#08172e');
+      grad.addColorStop(0.72, '#0d2b45');
+      grad.addColorStop(0.90, '#13415c');
+      grad.addColorStop(1.00, '#1b5b73');
+    } else {
+      /* Haitang Bay in Carl's aerial: sapphire at the horizon running through
+         a broad vivid teal to a bright turquoise shoal. Pushed deliberately
+         saturated — the scene's exp2 fog eats ~half of it at aerial range. */
+      grad.addColorStop(0.00, '#0a3a7a');   // horizon-deep sapphire
+      grad.addColorStop(0.26, '#0a5ba4');
+      grad.addColorStop(0.50, '#0490bc');
+      grad.addColorStop(0.72, '#04bfca');   // the vivid aerial turquoise
+      grad.addColorStop(0.88, '#2adfd3');
+      grad.addColorStop(0.97, '#78ecdd');
+      grad.addColorStop(1.00, '#a8f2e4');   // shallow wash over pale sand
+    }
+    g.fillStyle = grad; g.fillRect(0, 0, w, h);
+    /* faint banding so the ramp isn't mathematically smooth */
+    const rnd = mulberry32(NAT.SEEDS.tex + 4);
+    for (let i = 0; i < 90; i++) {
+      g.fillStyle = `rgba(255,255,255,${.012 + rnd() * .03})`;
+      g.fillRect(rnd() * w, 0, 2 + rnd() * 26, h);
+    }
+  });
+}
+
+/* seamless ripple normal map — integer harmonics so it tiles exactly.
+   NO colorSpace: normal maps must stay linear (r180). */
+function waterNormalTex() {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const g = c.getContext('2d');
+  const img = g.createImageData(S, S), d = img.data;
+  const K = n => (Math.PI * 2 * n) / S;
+  const k3 = K(3), k5 = K(5), k8 = K(8), k9 = K(9), k13 = K(13);
+  const H = (x, y) =>
+    0.52 * Math.sin(x * k8 + y * k3) +
+    0.30 * Math.sin(x * k3 - y * k9 + 1.7) +
+    0.18 * Math.sin((x + y) * k13 + 2.9) +
+    0.12 * Math.sin(x * k5 - y * k5 + 0.6);
+  const STR = 1.35;
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const dx = H(x + 1, y) - H(x - 1, y);
+      const dy = H(x, y + 1) - H(x, y - 1);
+      const nx = -dx * STR, ny = -dy * STR, nz = 1;
+      const l = Math.hypot(nx, ny, nz), i = (y * S + x) * 4;
+      d[i]     = (nx / l * .5 + .5) * 255;
+      d[i + 1] = (ny / l * .5 + .5) * 255;
+      d[i + 2] = (nz / l * .5 + .5) * 255;
+      d[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(26, 60);
+  t.anisotropy = 4;
+  return t;
+}
+
+/* surf foam: alpha streaks. u = across the band, v = along the shore. */
+function foamTex(seed, softness) {
+  return tex(256, 512, (g, w, h) => {
+    const rnd = mulberry32(seed);
+    g.clearRect(0, 0, w, h);
+    /* the band body — soft at both edges */
+    const grad = g.createLinearGradient(0, 0, w, 0);
+    grad.addColorStop(0, 'rgba(255,255,255,0)');
+    grad.addColorStop(.34, `rgba(255,255,255,${.5 * softness})`);
+    grad.addColorStop(.58, `rgba(255,255,255,${.85 * softness})`);
+    grad.addColorStop(.82, `rgba(240,252,255,${.4 * softness})`);
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, w, h);
+    /* punch holes + add crests so it reads as broken foam, not a painted stripe */
+    g.globalCompositeOperation = 'destination-out';
+    for (let i = 0; i < 240; i++) {
+      g.fillStyle = `rgba(0,0,0,${.25 + rnd() * .7})`;
+      wrapDot(g, rnd() * w, rnd() * h, 4 + rnd() * 26, w, h);
+    }
+    g.globalCompositeOperation = 'source-over';
+    for (let i = 0; i < 200; i++) {
+      g.fillStyle = `rgba(255,255,255,${.2 + rnd() * .6})`;
+      const y = rnd() * h, x = w * (.3 + rnd() * .5);
+      g.fillRect(x, y, 3 + rnd() * 16, 1 + rnd() * 3);
+    }
+    for (let i = 0; i < 320; i++) {
+      g.fillStyle = `rgba(255,255,255,${.3 + rnd() * .6})`;
+      wrapDot(g, rnd() * w, rnd() * h, .8 + rnd() * 2.6, w, h);
+    }
+  });
+}
+
+/* coconut-palm trunk: stacked leaf-scar rings, grey-brown, lichen mottle.
+   Rings are the read that says "coconut palm" rather than "pole", so they are
+   deliberately high-contrast — at 16 repeats over an 11 m trunk that lands at
+   roughly the real 25 cm scar pitch. */
+function barkTex() {
+  return tex(128, 512, (g, w, h) => {
+    const rnd = mulberry32(NAT.SEEDS.tex + 5);
+    g.fillStyle = '#8b7a63'; g.fillRect(0, 0, w, h);
+    const rings = 22, s = h / rings;
+    for (let i = 0; i < rings; i++) {
+      const y = i * s;
+      g.fillStyle = `rgba(${104 + rnd() * 36 | 0},${92 + rnd() * 30 | 0},${72 + rnd() * 24 | 0},.9)`;
+      g.fillRect(0, y, w, s * .76);
+      g.fillStyle = 'rgba(38,30,22,.62)';                // scar groove — deeper
+      g.fillRect(0, y + s * .76, w, s * .24);
+      g.fillStyle = 'rgba(240,232,212,.2)';              // sun-bleached top edge
+      g.fillRect(0, y, w, 2.2);
+      /* a couple of curved scar chevrons per ring — breaks the barcode look */
+      g.strokeStyle = 'rgba(52,42,30,.3)'; g.lineWidth = 1.3;
+      for (let k = 0; k < 3; k++) {
+        const x0 = rnd() * w, yy = y + s * (.2 + rnd() * .45);
+        g.beginPath(); g.moveTo(x0, yy);
+        g.quadraticCurveTo(x0 + 14, yy + 2.4, x0 + 30, yy);
+        g.stroke();
+      }
+    }
+    for (let i = 0; i < 620; i++) {                       // fibre + lichen
+      const l = rnd();
+      g.fillStyle = l < .5 ? 'rgba(52,42,30,.34)'
+        : l < .8 ? 'rgba(214,206,184,.18)' : 'rgba(118,132,96,.2)';
+      g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 3, 1 + rnd() * 5);
+    }
+  }, [1.2, 16]);
+}
+
+/* Frond atlas. Texture v 0.15→1 is the frond (leaflet comb, alpha-cut);
+   v 0→0.10 is a solid coconut-brown patch the nut geometry samples, so the
+   whole crown stays ONE material / ONE draw call per variant. */
+function frondTex() {
+  return tex(512, 512, (g, w, h) => {
+    const rnd = mulberry32(NAT.SEEDS.tex + 6);
+    g.clearRect(0, 0, w, h);
+    const fh = h * .85;            // frond band occupies canvas rows 0..fh
+    const mid = fh * .5;
+    /* leaflets — a DENSE comb either side of the rachis, angled toward the tip.
+       Two passes: a dark under-comb first, then a slightly offset upper comb,
+       so the alpha-tested blade reads as solid dark green foliage rather than
+       the stringy willow it was at 5 px pitch. */
+    for (let pass = 0; pass < 2; pass++) {
+      const x0 = pass ? 5.6 : 3;
+      for (let x = x0; x < w - 6; x += 3.4) {
+        const s = x / w;
+        const reach = Math.sin(Math.PI * Math.pow(s, .58)) * mid * 1.06;
+        for (const side of [-1, 1]) {
+          const len = reach * (pass ? .82 + rnd() * .3 : .96 + rnd() * .1);
+          const lean = 12 + rnd() * 20;            // sweep toward the tip
+          const tone = rnd();
+          g.strokeStyle = pass === 0
+            ? `rgba(${20 + rnd() * 16 | 0},${52 + rnd() * 20 | 0},${22 + rnd() * 12 | 0},.98)`
+            : tone < .5
+              ? `rgba(${32 + rnd() * 18 | 0},${76 + rnd() * 22 | 0},${30 + rnd() * 14 | 0},.98)`
+              : tone < .86
+                ? `rgba(${46 + rnd() * 20 | 0},${96 + rnd() * 24 | 0},${38 + rnd() * 14 | 0},.97)`
+                : `rgba(${84 + rnd() * 30 | 0},${128 + rnd() * 28 | 0},${50 + rnd() * 18 | 0},.95)`;
+          g.lineWidth = pass ? 2.6 + rnd() * 1.6 : 3.4 + rnd() * 1.8;
+          g.beginPath();
+          g.moveTo(x, mid);
+          g.quadraticCurveTo(x + lean * .5, mid + side * len * .55,
+                             x + lean, mid + side * len);
+          g.stroke();
+        }
+      }
+    }
+    /* rachis */
+    g.strokeStyle = 'rgba(96,106,52,.98)'; g.lineWidth = 6;
+    g.beginPath(); g.moveTo(0, mid); g.lineTo(w * .99, mid); g.stroke();
+    g.strokeStyle = 'rgba(168,178,110,.55)'; g.lineWidth = 1.8;
+    g.beginPath(); g.moveTo(0, mid - 2); g.lineTo(w * .99, mid - 2); g.stroke();
+    /* coconut patch (bottom rows → texture v ≈ 0.05) */
+    g.fillStyle = '#6a4a2c'; g.fillRect(0, h * .88, w, h * .12);
+    for (let i = 0; i < 120; i++) {
+      g.fillStyle = rnd() < .5 ? 'rgba(42,28,16,.5)' : 'rgba(148,116,78,.45)';
+      g.fillRect(rnd() * w, h * .88 + rnd() * h * .12, 2 + rnd() * 6, 1 + rnd() * 3);
+    }
+  });
+}
+
+/* clipped hedge / topiary: dense tight foliage */
+function hedgeTex() {
+  return tex(256, 256, (g, w, h) => {
+    const rnd = mulberry32(NAT.SEEDS.tex + 7);
+    g.fillStyle = '#24401f'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 2600; i++) {
+      const l = rnd();
+      g.fillStyle = l < .3
+        ? `rgba(${64 + rnd() * 30 | 0},${106 + rnd() * 30 | 0},${48 + rnd() * 20 | 0},.9)`
+        : l < .72
+          ? `rgba(${40 + rnd() * 20 | 0},${74 + rnd() * 22 | 0},${34 + rnd() * 14 | 0},.9)`
+          : `rgba(${20 + rnd() * 14 | 0},${42 + rnd() * 16 | 0},${20 + rnd() * 10 | 0},.85)`;
+      const x = rnd() * w, y = rnd() * h, r = 1.6 + rnd() * 3.4;
+      wrapDot(g, x, y, r, w, h);
+    }
+  }, [2, 1]);
+}
+
+/* looser tropical shrub leaves — bigger blades, jade/olive spread */
+function shrubTex() {
+  return tex(256, 256, (g, w, h) => {
+    const rnd = mulberry32(NAT.SEEDS.tex + 8);
+    g.fillStyle = '#2c4a26'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) {
+      const l = rnd();
+      g.fillStyle = l < .34
+        ? `rgba(${78 + rnd() * 34 | 0},${124 + rnd() * 34 | 0},${54 + rnd() * 22 | 0},.9)`
+        : l < .74
+          ? `rgba(${46 + rnd() * 22 | 0},${84 + rnd() * 26 | 0},${38 + rnd() * 16 | 0},.9)`
+          : `rgba(${24 + rnd() * 16 | 0},${50 + rnd() * 18 | 0},${26 + rnd() * 12 | 0},.88)`;
+      const x = rnd() * w, y = rnd() * h, a = rnd() * 7;
+      g.save(); g.translate(x, y); g.rotate(a);
+      g.beginPath(); g.ellipse(0, 0, 3 + rnd() * 9, 1.6 + rnd() * 3.4, 0, 0, 7); g.fill();
+      g.restore();
+    }
+  }, [2, 2]);
+}
+
+/* Bougainvillea — an ACCENT, not a colour field. In the aerials it is a
+   scatter of small rose patches half-lost in dark leaf, so this texture is
+   mostly foliage with deep-rose bracts through it, and nothing near the
+   fluorescent magenta the first pass used. */
+function bougTex() {
+  return tex(256, 256, (g, w, h) => {
+    const rnd = mulberry32(NAT.SEEDS.tex + 9);
+    g.fillStyle = '#22381f'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) {          // dark leaf body — now dominant
+      g.fillStyle = `rgba(${22 + rnd() * 22 | 0},${48 + rnd() * 26 | 0},${24 + rnd() * 16 | 0},.92)`;
+      wrapDot(g, rnd() * w, rnd() * h, 2 + rnd() * 7, w, h);
+    }
+    for (let i = 0; i < 620; i++) {          // bracts — deep rose / carmine
+      const l = rnd();
+      g.fillStyle = l < .46
+        ? `rgba(${162 + rnd() * 26 | 0},${34 + rnd() * 24 | 0},${78 + rnd() * 26 | 0},.94)`
+        : l < .82
+          ? `rgba(${186 + rnd() * 24 | 0},${58 + rnd() * 28 | 0},${100 + rnd() * 26 | 0},.9)`
+          : `rgba(${122 + rnd() * 26 | 0},${24 + rnd() * 18 | 0},${58 + rnd() * 22 | 0},.92)`;
+      const x = rnd() * w, y = rnd() * h;
+      g.save(); g.translate(x, y); g.rotate(rnd() * 7);
+      g.beginPath(); g.ellipse(0, 0, 1.8 + rnd() * 3.2, 1.4 + rnd() * 2.2, 0, 0, 7); g.fill();
+      g.restore();
+    }
+    for (let i = 0; i < 90; i++) {           // sparse cream flower centres
+      g.fillStyle = `rgba(248,236,206,${.18 + rnd() * .3})`;
+      wrapDot(g, rnd() * w, rnd() * h, .6 + rnd() * 1.1, w, h);
+    }
+    for (let i = 0; i < 240; i++) {          // shadow pockets — keeps it deep
+      g.fillStyle = `rgba(10,20,12,${.2 + rnd() * .3})`;
+      wrapDot(g, rnd() * w, rnd() * h, 1.6 + rnd() * 5, w, h);
+    }
+  }, [2, 2]);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   module state
+   ═══════════════════════════════════════════════════════════════════════ */
+let built = false;
+let night = false;
+let root = null;              // THREE.Group holding everything nature owns
+const MAT = {};               // named materials, for the night swap
+const anim = {                // per-frame handles
+  ocean: null, surf: [], palms: [], palmMeshes: [], water: null,
+};
+
+/* day → night colour/response table. `c` multiplies the map, so a white day
+   colour keeps the texture honest and the night colour tints it moonlit. */
+const NIGHT_TABLE = {
+  apron:   { day: { c: 0x4e6238, r: 1 },   night: { c: 0x1b2430, r: 1 } },
+  grass:   { day: { c: 0xffffff, r: .95 }, night: { c: 0x4a6076, r: .98 } },
+  macro:   { day: { c: 0xffffff, o: .5 },  night: { c: 0x54687e, o: .34 } },
+  sand:    { day: { c: 0xffffff, r: .96 }, night: { c: 0x6d7c92, r: .97 } },
+  wet:     { day: { c: 0xffffff, o: .55 }, night: { c: 0x8fa3bd, o: .4 } },
+  bark:    { day: { c: 0xffffff, r: .88 }, night: { c: 0x53637a, r: .9 } },
+  frond:   { day: { c: 0xffffff, r: .82 }, night: { c: 0x4d6580, r: .88 } },
+  hedge:   { day: { c: 0xffffff, r: .92 }, night: { c: 0x415a72, r: .95 } },
+  shrub:   { day: { c: 0xffffff, r: .9 },  night: { c: 0x445c74, r: .94 } },
+  boug:    { day: { c: 0xffffff, r: .86 }, night: { c: 0x6b5878, r: .9 } },
+  cover:   { day: { c: 0xffffff, r: .95 }, night: { c: 0x3e5468, r: .97 } },
+  foam:    { day: { c: 0xffffff, o: .85 }, night: { c: 0xa9c2dd, o: .55 } },
+};
+
+function applyNightTo(key, mat, on) {
+  const row = NIGHT_TABLE[key]; if (!row || !mat) return;
+  const v = on ? row.night : row.day;
+  if (v.c !== undefined) mat.color.setHex(v.c);
+  if (v.r !== undefined) mat.roughness = v.r;
+  if (v.o !== undefined) mat.opacity = v.o;
+  /* deliberately NO needsUpdate: colour/roughness/opacity are uniforms, and
+     world.js flips night on every moment switch — a recompile of eleven
+     materials per switch would be a visible hitch. */
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   site helpers
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* where the sand meets the sea — solved from siteFloorY so it survives any
+   future change to the beach slope. */
+function shorelineX() {
+  let lo = SITE.BEACH.x0, hi = SITE.BEACH.x1;      // f(lo) < oceanY < f(hi)
+  for (let i = 0; i < 40; i++) {
+    const m = (lo + hi) * .5;
+    if (siteFloorY(m, 0) < SITE.OCEAN.y) lo = m; else hi = m;
+  }
+  return (lo + hi) * .5;
+}
+
+/* everything a plant must not grow through. Rects are axis-aligned (villa
+   rotations are all < 0.15 rad, so the bounding rect is close enough). */
+function exclusionZones() {
+  const S = SITE, rects = [], discs = [];
+  const rect = (cx, cz, w, d) => rects.push({ cx, cz, hw: w * .5, hd: d * .5 });
+
+  rect(S.SUITE.cx, S.SUITE.cz, S.SUITE.w + S.SUITE.roofOverhang * 2, S.SUITE.d + S.SUITE.roofOverhang * 2);
+  rect(S.SUITE.pantry.cx, S.SUITE.pantry.cz, S.SUITE.pantry.w, S.SUITE.pantry.d);
+  rect(S.SUITE.spa.cx, S.SUITE.spa.cz, S.SUITE.spa.w, S.SUITE.spa.d);
+  rect(S.DECK.cx, (S.DECK.z0 + S.DECK.z1) * .5, S.DECK.w, S.DECK.z1 - S.DECK.z0);
+  rect(S.DECK.cx, (S.TURF.z0 + S.TURF.z1) * .5, S.DECK.w, S.TURF.z1 - S.TURF.z0);
+  rect(S.POOL.cx, S.POOL.cz, S.POOL.w + 3, S.POOL.d + 3);
+  rect((S.CABANAS.x0 + S.CABANAS.x1) * .5, S.CABANAS.z, S.CABANAS.x1 - S.CABANAS.x0 + 2, 6);
+  rect((S.LOUNGERS.x0 + S.LOUNGERS.x1) * .5, S.LOUNGERS.z, S.LOUNGERS.x1 - S.LOUNGERS.x0 + 2, 6);
+  rect(S.PERGOLA.cx, S.PERGOLA.cz, S.PERGOLA.w + 1, S.PERGOLA.d + 1);
+  rect((S.PLAZA.x0 + S.PLAZA.x1) * .5, (S.PLAZA.z0 + S.PLAZA.z1) * .5,
+       S.PLAZA.x1 - S.PLAZA.x0, S.PLAZA.z1 - S.PLAZA.z0);
+  rect(S.LOUNGE.cx, S.LOUNGE.cz, S.LOUNGE.w + 2, S.LOUNGE.d + 2);
+  rect(S.LOUNGE_POOL.cx, S.LOUNGE_POOL.cz, S.LOUNGE_POOL.w + 3, S.LOUNGE_POOL.d + 3);
+  rect(0, SITE.ROAD.z, 500, 14);
+  for (const [vx, vz] of S.VILLAS) rect(vx, vz, S.VILLA.w + 7, S.VILLA.d + 8);
+
+  discs.push({ cx: S.LAWN.cx, cz: S.LAWN.cz, r: S.LAWN.hedgeR + 1.5 });
+  discs.push({ cx: S.LAGOON.cx, cz: S.LAGOON.cz, r: Math.max(S.LAGOON.rx, S.LAGOON.rz) + 4 });
+  discs.push({ cx: S.HOTEL.cx, cz: S.HOTEL.cz, r: S.HOTEL.r + 8 });
+  return { rects, discs };
+}
+
+function makeBlocked(zones) {
+  return (x, z, m = 0) => {
+    for (const r of zones.rects) {
+      if (Math.abs(x - r.cx) < r.hw + m && Math.abs(z - r.cz) < r.hd + m) return true;
+    }
+    for (const d of zones.discs) {
+      const dx = x - d.cx, dz = z - d.cz;
+      if (dx * dx + dz * dz < (d.r + m) * (d.r + m)) return true;
+    }
+    return false;
+  };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ground + beach
+   ═══════════════════════════════════════════════════════════════════════ */
+function buildGround() {
+  const N = SITE.GROUND.size;
+
+  /* a hazy apron far below the datum, so the lawn's edge and the ocean's
+     never show as a cut line from fly mode. Sits under the water line, so
+     the sea covers the half of it that runs offshore. */
+  MAT.apron = new THREE.MeshStandardMaterial({ color: 0x4e6238, roughness: 1, metalness: 0 });
+  const apron = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000), MAT.apron);
+  apron.rotation.x = -Math.PI / 2;
+  apron.position.set(SITE.BEACH.x1 + 900, -0.95, 0);
+  root.add(apron);
+
+  /* lawn — starts where the sand stops (siteFloorY is flat 0 from here east) */
+  const gt = grassTex();
+  gt.repeat.set(N / NAT.GRASS_TILE, N / NAT.GRASS_TILE);
+  MAT.grass = new THREE.MeshStandardMaterial({ map: gt, roughness: .95, metalness: 0 });
+  const lawn = new THREE.Mesh(new THREE.PlaneGeometry(N, N), MAT.grass);
+  lawn.rotation.x = -Math.PI / 2;
+  lawn.position.set(SITE.BEACH.x1 + N / 2, 0, 0);
+  lawn.receiveShadow = true;
+  root.add(lawn);
+
+  /* macro mottle over the campus so the tiling never reads from the air */
+  MAT.macro = new THREE.MeshStandardMaterial({
+    map: macroTex(), transparent: true, opacity: .5, depthWrite: false,
+    roughness: 1, metalness: 0,
+    polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
+  });
+  /* sized to cover the whole lawn, not just the enclave — the tiling shows
+     wherever this doesn't reach */
+  const macro = new THREE.Mesh(new THREE.PlaneGeometry(N, N), MAT.macro);
+  macro.rotation.x = -Math.PI / 2;
+  macro.position.set(SITE.BEACH.x1 + N / 2, .012, 0);
+  macro.renderOrder = -1;
+  root.add(macro);
+
+  /* beach — its own sloped sheet, heights read straight off siteFloorY */
+  const bx0 = SITE.BEACH.x0 - 22, bx1 = SITE.BEACH.x1 + .4;
+  const bw = bx1 - bx0, bl = N;
+  const bgeo = new THREE.PlaneGeometry(bw, bl, 56, 44);
+  const bp = bgeo.attributes.position;
+  const rnd = mulberry32(NAT.SEEDS.tex + 11);
+  const bcx = (bx0 + bx1) * .5;
+  for (let i = 0; i < bp.count; i++) {
+    const wx = bp.getX(i) + bcx, wz = -bp.getY(i);
+    /* dune noise fades out over the last 6 m so the sand meets the lawn dead
+       flat at the datum — the overlap strip is settled by polygonOffset below */
+    const seam = Math.max(0, Math.min(1, (SITE.BEACH.x1 - wx) / 6));
+    bp.setZ(i, siteFloorY(wx, wz) + (rnd() - .5) * .07 * seam);
+  }
+  bgeo.computeVertexNormals();
+  const st = sandTex();
+  st.repeat.set(bw / NAT.SAND_TILE, bl / NAT.SAND_TILE);
+  MAT.sand = new THREE.MeshStandardMaterial({
+    map: st, roughness: .96, metalness: 0,
+    polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
+  });
+  const beach = new THREE.Mesh(bgeo, MAT.sand);
+  beach.rotation.x = -Math.PI / 2;
+  beach.position.set(bcx, 0, 0);
+  beach.receiveShadow = true;
+  root.add(beach);
+
+  /* wet-sand sheen hugging the waterline */
+  const sx = shorelineX();
+  const wt = wetSandTex();
+  wt.wrapT = THREE.RepeatWrapping; wt.repeat.set(1, 40);
+  MAT.wet = new THREE.MeshStandardMaterial({
+    map: wt, transparent: true, opacity: .55, depthWrite: false,
+    roughness: .35, metalness: .05,
+  });
+  const ww = 16;
+  const wgeo = new THREE.PlaneGeometry(ww, bl, 12, 24);
+  const wp = wgeo.attributes.position;
+  for (let i = 0; i < wp.count; i++) {
+    const wx = wp.getX(i) + sx, wz = -wp.getY(i);
+    wp.setZ(i, siteFloorY(wx, wz) + .035);
+  }
+  wgeo.computeVertexNormals();
+  const wet = new THREE.Mesh(wgeo, MAT.wet);
+  wet.rotation.x = -Math.PI / 2;
+  wet.position.set(sx, 0, 0);
+  wet.renderOrder = -1;
+  root.add(wet);
+
+  return sx;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ocean — flat plane, swell displaced on the CPU with analytic normals,
+   plus four scrolling surf bands (three breakers + the shore wash).
+   ═══════════════════════════════════════════════════════════════════════ */
+function buildOcean(shoreX) {
+  const OW = NAT.OCEAN_W, OL = NAT.OCEAN_L;
+  const east = SITE.OCEAN.x1 + 48;          // tuck the east edge under the sand
+  const cx = east - OW / 2;
+
+  const geo = new THREE.PlaneGeometry(OW, OL, NAT.OCEAN_SEG_X, NAT.OCEAN_SEG_Z);
+  /* both colour ramps are baked once — the night flip only swaps the
+     reference, never re-draws a canvas (it fires on every moment switch) */
+  MAT.waterMaps = [waterGradTex(false), waterGradTex(true)];
+  for (const t of MAT.waterMaps) t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;
+  MAT.water = new THREE.MeshStandardMaterial({
+    map: MAT.waterMaps[night ? 1 : 0],
+    normalMap: waterNormalTex(),
+    normalScale: new THREE.Vector2(.55, .55),
+    roughness: .12, metalness: .28, envMapIntensity: .8,
+  });
+  const sea = new THREE.Mesh(geo, MAT.water);
+  sea.rotation.x = -Math.PI / 2;
+  sea.position.set(cx, SITE.OCEAN.y, 0);
+  root.add(sea);
+
+  /* cache the undisplaced lattice — only the local z (world y) moves */
+  const pos = geo.attributes.position, nor = geo.attributes.normal;
+  const n = pos.count;
+  const bx = new Float32Array(n), by = new Float32Array(n);
+  for (let i = 0; i < n; i++) { bx[i] = pos.getX(i); by[i] = pos.getY(i); }
+  pos.setUsage(THREE.DynamicDrawUsage);
+  nor.setUsage(THREE.DynamicDrawUsage);
+  anim.ocean = { geo, pos, nor, bx, by, n, cx, shoreX };
+
+  /* surf: [offset from shoreline, width, opacity, run-up, period, phase] */
+  const bands = [
+    { dx: 1.5, w: 11, o: .92, runup: 2.6, T: 7.5, ph: 0.0, y: .085, soft: 1.0 },
+    { dx: -7, w: 6.5, o: .85, runup: 1.8, T: 9.0, ph: 1.9, y: .07, soft: .95 },
+    { dx: -19, w: 5.0, o: .7, runup: 1.3, T: 11.5, ph: 3.4, y: .06, soft: .8 },
+    { dx: -34, w: 4.0, o: .5, runup: 1.0, T: 14.0, ph: 5.1, y: .05, soft: .62 },
+  ];
+  MAT.foam = [];
+  bands.forEach((b, i) => {
+    const ft = foamTex(NAT.SEEDS.tex + 20 + i, b.soft);
+    ft.wrapS = THREE.ClampToEdgeWrapping;
+    ft.wrapT = THREE.RepeatWrapping;
+    ft.repeat.set(1, OL / 26);
+    const m = new THREE.MeshStandardMaterial({
+      map: ft, transparent: true, opacity: b.o, depthWrite: false,
+      roughness: .8, metalness: 0, color: 0xffffff,
+    });
+    MAT.foam.push(m);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(b.w, OL, 1, 1), m);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(shoreX + b.dx, SITE.OCEAN.y + b.y, 0);
+    mesh.renderOrder = 1;
+    root.add(mesh);
+    anim.surf.push({ mesh, m, base: shoreX + b.dx, ...b });
+  });
+}
+
+/* the swell field — h and its two derivatives, shared by ticker + normals */
+function waveAt(wx, wz, t, out) {
+  const W = NAT.WAVE;
+  const p1 = wx * W.k1 + t * W.w1;
+  const p2 = wx * W.k2 + wz * .03 - t * W.w2;
+  const p3 = wz * W.k3 + wx * .05 + t * W.w3;
+  const s1 = Math.sin(p1), s2 = Math.sin(p2), s3 = Math.sin(p3);
+  out[0] = W.a1 * s1 + W.a2 * s2 + W.a3 * s3;                       // height
+  out[1] = W.a1 * W.k1 * Math.cos(p1) + W.a2 * W.k2 * Math.cos(p2)
+         + W.a3 * .05 * Math.cos(p3);                               // dh/dX
+  out[2] = W.a2 * .03 * Math.cos(p2) + W.a3 * W.k3 * Math.cos(p3);  // dh/dZ
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   coconut palms — the signature vegetation (the aerials are 60 % canopy)
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* tapered cylinder bent into the classic coconut lean, base flared */
+function trunkGeo(o) {
+  const H = o.h;
+  const g = new THREE.CylinderGeometry(o.rTop, o.rBot, H, 7, 9, true);
+  g.translate(0, H / 2, 0);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const y = p.getY(i), t = Math.max(0, Math.min(1, y / H));
+    const flare = t < .11 ? (0.11 - t) * 3.0 : 0;      // bulbous root collar
+    const neck = t > .90 ? (t - .90) * 2.4 : 0;        // crownshaft swell up top
+    const k = t * t * .8 + t * .2;                      // k(1) === 1
+    p.setX(i, p.getX(i) * (1 + flare + neck) + o.bendX * k);
+    p.setZ(i, p.getZ(i) * (1 + flare + neck) + o.bendZ * k);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/* the crown: n drooping fronds + a nut cluster, all in ONE indexed geometry
+   so a palm is exactly two draw calls no matter how many are on screen. */
+function crownGeo(rnd, o) {
+  const pos = [], uv = [], idx = [];
+  const S = 5, V0 = .15;
+  for (let f = 0; f < o.fronds; f++) {
+    const az = (f / o.fronds) * Math.PI * 2 + (rnd() - .5) * .55;
+    const L = o.frondL * (.82 + rnd() * .36);
+    const W = o.frondW * (.85 + rnd() * .3);
+    const rise = .72 + rnd() * .5, fall = 1.3 + rnd() * .55;
+    const ca = Math.cos(az), sa = Math.sin(az);
+    const base = pos.length / 3;
+    for (let j = 0; j <= S; j++) {
+      const s = j / S;
+      const px = L * s * ca, pz = L * s * sa;
+      const py = L * (rise * s - fall * s * s);
+      const hw = W * .5 * Math.sin(Math.PI * Math.pow(s, .7)) + .02;
+      const drop = hw * .55;
+      pos.push(px - sa * hw, py - drop, pz + ca * hw);   // left edge
+      pos.push(px, py, pz);                              // rachis
+      pos.push(px + sa * hw, py - drop, pz - ca * hw);   // right edge
+      uv.push(s, V0, s, V0 + (1 - V0) * .5, s, 1);
+    }
+    for (let j = 0; j < S; j++) {
+      const a = base + j * 3, b = a + 3;
+      idx.push(a, b, b + 1, a, b + 1, a + 1);
+      idx.push(a + 1, b + 1, b + 2, a + 1, b + 2, a + 2);
+    }
+  }
+  /* coconuts — UVs pinned to the atlas's opaque brown patch */
+  if (o.nuts) {
+    const nut = new THREE.OctahedronGeometry(.17, 0);
+    const np = nut.attributes.position;
+    for (let k = 0; k < o.nuts; k++) {
+      const a = rnd() * Math.PI * 2, r = .22 + rnd() * .26;
+      const ox = Math.cos(a) * r, oz = Math.sin(a) * r, oy = -.22 - rnd() * .22;
+      const base = pos.length / 3;
+      for (let i = 0; i < np.count; i++) {
+        pos.push(np.getX(i) + ox, np.getY(i) * 1.15 + oy, np.getZ(i) + oz);
+        uv.push(.5, .05);
+      }
+      for (let i = 0; i < np.count; i += 3) idx.push(base + i, base + i + 1, base + i + 2);
+    }
+    nut.dispose();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  g.translate(o.bendX, o.h, o.bendZ);      // sit the crown on the bent trunk top
+  return g;
+}
+
+/* three silhouettes — tall & leaning, mid, and a stocky young palm */
+function palmVariants(rnd) {
+  const specs = [
+    { h: 11.5, rTop: .17, rBot: .34, bendX: 1.9, bendZ: .5, fronds: 9, frondL: 4.6, frondW: .95, nuts: 5 },
+    { h: 8.6, rTop: .18, rBot: .33, bendX: -1.3, bendZ: 1.1, fronds: 8, frondL: 4.1, frondW: .88, nuts: 4 },
+    { h: 5.8, rTop: .2, rBot: .32, bendX: .7, bendZ: -.9, fronds: 7, frondL: 3.5, frondW: .8, nuts: 0 },
+  ];
+  return specs.map(s => ({ trunk: trunkGeo(s), crown: crownGeo(rnd, s), spec: s }));
+}
+
+/* seeded placement: the grove band as a jittered grid (planted, like the
+   reference), then dart-thrown scatter through the campus, then a ring
+   around the ceremony lawn. */
+function placePalms(G, blocked, preColliders) {
+  const rnd = mulberry32(CFG.SEED ^ NAT.SEEDS.palm);
+  const out = [];
+  const gap2 = NAT.PALM_GAP * NAT.PALM_GAP;
+
+  const clearOfWorld = (x, z) => {
+    for (let i = 0; i < preColliders; i++) {
+      const c = G.colliders[i];
+      const dx = x - c.x, dz = z - c.z, rr = c.r + 1.4;
+      if (dx * dx + dz * dz < rr * rr) return false;
+    }
+    return true;
+  };
+  const farEnough = (x, z) => {
+    for (let i = 0; i < out.length; i++) {
+      const dx = x - out[i].x, dz = z - out[i].z;
+      if (dx * dx + dz * dz < gap2) return false;
+    }
+    return true;
+  };
+  const push = (x, z) => {
+    out.push({ x, z, y: siteFloorY(x, z) - .18 });
+    return true;
+  };
+
+  /* 1 — the grove band between the campus and the beach */
+  const P = SITE.PALM_GROVE;
+  const bw = P.x1 - P.x0, bl = P.z1 - P.z0;
+  const cols = Math.max(1, Math.round(Math.sqrt(P.count * (bw / bl))));
+  const rows = Math.ceil(P.count / cols);
+  const cw = bw / cols, cl = bl / rows;
+  let made = 0;
+  for (let r = 0; r < rows && made < P.count; r++) {
+    for (let c = 0; c < cols && made < P.count; c++) {
+      const x = P.x0 + (c + .5 + (rnd() - .5) * .8) * cw;
+      const z = P.z0 + (r + .5 + (rnd() - .5) * .8) * cl;
+      if (blocked(x, z, 2) || !clearOfWorld(x, z)) continue;
+      push(x, z); made++;
+    }
+  }
+
+  /* 2 — palms threaded through the campus itself */
+  const B = SITE.BOUNDS;
+  for (let i = 0, tries = 0; i < SITE.SCATTER_PALMS && tries < SITE.SCATTER_PALMS * 60; tries++) {
+    const x = SITE.BEACH.x1 + 2 + rnd() * (112 - SITE.BEACH.x1);
+    const z = B.z0 + 8 + rnd() * (B.z1 - B.z0 - 16);
+    if (blocked(x, z, 3) || !clearOfWorld(x, z) || !farEnough(x, z)) continue;
+    push(x, z); i++;
+  }
+
+  /* 3 — the ring that frames the ceremony lawn (SITE.LAWN.palms) */
+  const L = SITE.LAWN;
+  for (let i = 0; i < L.palms; i++) {
+    const a = (i / L.palms) * Math.PI * 2 + rnd() * .12;
+    const r = L.hedgeR + 2.6 + rnd() * 2.4;
+    push(L.cx + Math.cos(a) * r, L.cz + Math.sin(a) * r);
+  }
+  return out;
+}
+
+function buildPalms(G, blocked, preColliders) {
+  const rnd = mulberry32(CFG.SEED ^ (NAT.SEEDS.palm + 7));
+  const variants = palmVariants(rnd);
+
+  MAT.bark = new THREE.MeshStandardMaterial({ map: barkTex(), roughness: .88, metalness: 0 });
+  MAT.frond = new THREE.MeshStandardMaterial({
+    map: frondTex(), alphaTest: .5, side: THREE.DoubleSide,
+    roughness: .82, metalness: 0,
+  });
+
+  const spots = placePalms(G, blocked, preColliders);
+  const buckets = variants.map(() => []);
+  for (const s of spots) {
+    /* bias: tall palms in the grove and along the beach, stocky ones inland */
+    const roll = rnd();
+    const v = s.x < SITE.BEACH.x1 + 12 ? (roll < .62 ? 0 : roll < .9 ? 1 : 2)
+                                       : (roll < .34 ? 0 : roll < .78 ? 1 : 2);
+    s.v = v;
+    s.s = (v === 0 ? .82 : .86) + rnd() * .36;
+    s.rotY = rnd() * Math.PI * 2;
+    s.leanX = (rnd() - .5) * .1;
+    s.leanZ = (rnd() - .5) * .1;
+    s.ph = rnd() * Math.PI * 2;
+    s.f = .55 + rnd() * .45;
+    s.amp = NAT.SWAY * (.55 + rnd() * .9);
+    s.i = buckets[v].length;
+    buckets[v].push(s);
+    G.colliders.push({ x: s.x, z: s.z, r: NAT.TRUNK_R });
+  }
+
+  const dummy = new THREE.Object3D();
+  variants.forEach((V, vi) => {
+    const list = buckets[vi];
+    if (!list.length) return;
+    const tm = new THREE.InstancedMesh(V.trunk, MAT.bark, list.length);
+    const cm = new THREE.InstancedMesh(V.crown, MAT.frond, list.length);
+    tm.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    cm.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    tm.castShadow = cm.castShadow = true;
+    tm.receiveShadow = true;
+    list.forEach((p, i) => {
+      dummy.position.set(p.x, p.y, p.z);
+      dummy.rotation.set(p.leanX, p.rotY, p.leanZ);
+      dummy.scale.setScalar(p.s);
+      dummy.updateMatrix();
+      tm.setMatrixAt(i, dummy.matrix);
+      cm.setMatrixAt(i, dummy.matrix);
+    });
+    tm.instanceMatrix.needsUpdate = cm.instanceMatrix.needsUpdate = true;
+    tm.computeBoundingSphere(); cm.computeBoundingSphere();
+    root.add(tm, cm);
+    anim.palmMeshes[vi] = { tm, cm, list };
+  });
+  anim.palms = spots;
+  return spots.length;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   understory — clipped hedges, shrub masses, bougainvillea, ground cover
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* a low-poly blob with noise-scaled vertices; reads as a foliage mass */
+function blobGeo(rnd, detail, rough) {
+  const g = new THREE.IcosahedronGeometry(1, detail);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const k = 1 + (rnd() - .5) * rough;
+    p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k);
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/* lay a hedge run and its collider chain. pts = [[x,z],…] polyline. */
+function hedgeRun(G, pts, h, t, segs, colliders) {
+  const H = NAT.HEDGE;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, z0] = pts[i], [x1, z1] = pts[i + 1];
+    const dx = x1 - x0, dz = z1 - z0, len = Math.hypot(dx, dz);
+    if (len < .01) continue;
+    const n = Math.max(1, Math.round(len / H.seg));
+    for (let s = 0; s < n; s++) {
+      const a = (s + .5) / n;
+      segs.push({
+        x: x0 + dx * a, z: z0 + dz * a,
+        w: len / n + .06, h, t, rot: Math.atan2(dx, dz),
+      });
+    }
+    if (colliders) {
+      /* half-open: the next run's first circle closes the seam, so a long
+         chain never doubles its colliders at the joints */
+      const steps = Math.max(1, Math.ceil(len / H.colStep));
+      for (let s = 0; s < steps; s++) {
+        const a = s / steps;
+        G.colliders.push({ x: x0 + dx * a, z: z0 + dz * a, r: H.colR });
+      }
+    }
+  }
+}
+
+function buildUnderstory(G, blocked) {
+  const rnd = mulberry32(CFG.SEED ^ NAT.SEEDS.plant);
+  const dummy = new THREE.Object3D();
+  const H = NAT.HEDGE;
+
+  /* ── hedges ───────────────────────────────────────────────────────── */
+  const segs = [];
+
+  /* the ceremony lawn's hedge ring, with a 7 m entrance facing the campus */
+  const L = SITE.LAWN;
+  const openA = Math.atan2(SITE.SUITE.cz - L.cz, SITE.SUITE.cx - L.cx);
+  const half = 3.6 / L.hedgeR;                     // half-angle of the gap
+  const RING = 132;
+  for (let i = 0; i < RING; i++) {
+    const a0 = openA + half + (i / RING) * (Math.PI * 2 - half * 2);
+    const a1 = openA + half + ((i + 1) / RING) * (Math.PI * 2 - half * 2);
+    hedgeRun(G, [
+      [L.cx + Math.cos(a0) * L.hedgeR, L.cz + Math.sin(a0) * L.hedgeR],
+      [L.cx + Math.cos(a1) * L.hedgeR, L.cz + Math.sin(a1) * L.hedgeR],
+    ], H.h * (.94 + rnd() * .14), H.t, segs, true);
+  }
+
+  /* hedge wall behind the pool cabanas (SITE.CABANAS has no depth — 3 m assumed) */
+  const C = SITE.CABANAS, cabZ = C.z + 3.0;
+  hedgeRun(G, [[C.x0 - 1.6, cabZ], [C.x1 + 1.6, cabZ]], 1.85, 1.2, segs, true);
+
+  /* clipped runs framing the event plaza. SITE.PLAZA's west end overlaps the
+     pool's x range, so both runs start clear of the pool coping — a hedge
+     inside the water would be a collider in the middle of the hero shot. */
+  const P = SITE.PLAZA;
+  const px0 = Math.max(P.x0 + 1, SITE.POOL.cx + SITE.POOL.w / 2 + 2.5);
+  hedgeRun(G, [[px0, P.z0 - 1.4], [P.x1, P.z0 - 1.4]], 1.05, .9, segs, true);
+  hedgeRun(G, [[px0, P.z1 + 1.4], [P.x1, P.z1 + 1.4]], 1.05, .9, segs, true);
+
+  /* lounge terrace screen */
+  const LG = SITE.LOUNGE;
+  hedgeRun(G, [[LG.cx - LG.w / 2 - 2, LG.cz + LG.d / 2 + 2.4],
+               [LG.cx + LG.w / 2 + 2, LG.cz + LG.d / 2 + 2.4]], 1.25, 1.0, segs, true);
+
+  MAT.hedge = new THREE.MeshStandardMaterial({ map: hedgeTex(), roughness: .92, metalness: 0 });
+  const hgeo = new THREE.BoxGeometry(1, 1, 1, 2, 2, 2);
+  const hp = hgeo.attributes.position;                     // rough the clipped top
+  for (let i = 0; i < hp.count; i++) {
+    if (hp.getY(i) > .4) hp.setY(i, hp.getY(i) + (rnd() - .5) * .1);
+  }
+  hgeo.computeVertexNormals();
+  const hedge = new THREE.InstancedMesh(hgeo, MAT.hedge, segs.length);
+  hedge.castShadow = hedge.receiveShadow = true;
+  const col = new THREE.Color();
+  segs.forEach((s, i) => {
+    dummy.position.set(s.x, s.h * .5, s.z);
+    dummy.rotation.set(0, s.rot, 0);
+    dummy.scale.set(s.t, s.h, s.w);
+    dummy.updateMatrix();
+    hedge.setMatrixAt(i, dummy.matrix);
+    col.setHSL(.26 + (rnd() - .5) * .035, .34 + rnd() * .12, .34 + rnd() * .1);
+    hedge.setColorAt(i, col);
+  });
+  hedge.instanceMatrix.needsUpdate = true;
+  if (hedge.instanceColor) hedge.instanceColor.needsUpdate = true;
+  hedge.computeBoundingSphere();
+  root.add(hedge);
+
+  /* ── shrub masses ─────────────────────────────────────────────────── */
+  const shrubs = [];
+  const B = SITE.BOUNDS;
+  for (let i = 0, tries = 0; i < 210 && tries < 9000; tries++) {
+    const x = SITE.BEACH.x1 + 1 + rnd() * (118 - SITE.BEACH.x1);
+    const z = B.z0 + 6 + rnd() * (B.z1 - B.z0 - 12);
+    if (blocked(x, z, 1.4)) continue;
+    const n = 2 + (rnd() * 4 | 0);                 // clumps, never lone bushes
+    for (let k = 0; k < n; k++) {
+      const a = rnd() * Math.PI * 2, r = rnd() * 2.4;
+      shrubs.push({ x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, s: .7 + rnd() * 1.3 });
+    }
+    i++;
+  }
+  /* dune scrub where the lawn meets the sand */
+  for (let i = 0; i < 90; i++) {
+    const x = SITE.BEACH.x1 - 2 + rnd() * 16;
+    const z = B.z0 + rnd() * (B.z1 - B.z0);
+    shrubs.push({ x, z, s: .55 + rnd() * .8, dune: true });
+  }
+
+  MAT.shrub = new THREE.MeshStandardMaterial({ map: shrubTex(), roughness: .9, metalness: 0 });
+  const sgeo = blobGeo(mulberry32(NAT.SEEDS.plant + 3), 1, .5);
+  const shrub = new THREE.InstancedMesh(sgeo, MAT.shrub, Math.max(1, shrubs.length));
+  shrub.castShadow = shrub.receiveShadow = true;
+  shrubs.forEach((s, i) => {
+    const y = siteFloorY(s.x, s.z);
+    dummy.position.set(s.x, y + s.s * .52, s.z);
+    dummy.rotation.set((rnd() - .5) * .3, rnd() * 6.28, (rnd() - .5) * .3);
+    dummy.scale.set(s.s * (.9 + rnd() * .5), s.s * (.7 + rnd() * .5), s.s * (.9 + rnd() * .5));
+    dummy.updateMatrix();
+    shrub.setMatrixAt(i, dummy.matrix);
+    col.setHSL(s.dune ? .21 + rnd() * .04 : .25 + (rnd() - .5) * .07,
+               s.dune ? .22 + rnd() * .12 : .3 + rnd() * .2,
+               .3 + rnd() * .18);
+    shrub.setColorAt(i, col);
+  });
+  shrub.instanceMatrix.needsUpdate = true;
+  if (shrub.instanceColor) shrub.instanceColor.needsUpdate = true;
+  shrub.computeBoundingSphere();
+  root.add(shrub);
+
+  /* ── bougainvillea — a SPARSE ACCENT, not a hedge ──────────────────────
+     This used to place 128 mounds at up to 1.9× scale and the aerial read as
+     a magenta rash (Carl's note). In the references it is a handful of small
+     pink patches tucked against white walls — a few percent of the greenery.
+     campus.js ALSO dresses each villa's walls, so nothing is placed there. */
+  const anchors = [
+    { x0: C.x0 + 1, x1: C.x1 - 1, z0: cabZ - 2.2, z1: cabZ - 1.4, n: 4 },
+    { x0: SITE.SUITE.cx - 12.5, x1: SITE.SUITE.cx - 10, z0: SITE.SUITE.cz - 6, z1: SITE.SUITE.cz + 3, n: 3 },
+    { x0: SITE.SUITE.cx + 15, x1: SITE.SUITE.cx + 17.5, z0: SITE.SUITE.cz - 4, z1: SITE.SUITE.cz + 4, n: 3 },
+    { x0: LG.cx - 9, x1: LG.cx + 9, z0: LG.cz + LG.d / 2 + 3, z1: LG.cz + LG.d / 2 + 4.2, n: 4 },
+  ];
+  const bougs = [];
+  for (const a of anchors) {
+    for (let i = 0; i < a.n; i++) {
+      bougs.push({
+        x: a.x0 + rnd() * (a.x1 - a.x0),
+        z: a.z0 + rnd() * (a.z1 - a.z0),
+        s: .55 + rnd() * .45,
+      });
+    }
+  }
+  /* a few along the lawn's hedge ring, well spaced */
+  for (let i = 0; i < 5; i++) {
+    const a = rnd() * Math.PI * 2, r = L.hedgeR + 1.1 + rnd() * .9;
+    bougs.push({ x: L.cx + Math.cos(a) * r, z: L.cz + Math.sin(a) * r, s: .5 + rnd() * .4 });
+  }
+
+  MAT.boug = new THREE.MeshStandardMaterial({ map: bougTex(), roughness: .86, metalness: 0 });
+  const bgeo = blobGeo(mulberry32(NAT.SEEDS.plant + 5), 1, .42);
+  const boug = new THREE.InstancedMesh(bgeo, MAT.boug, bougs.length);
+  boug.castShadow = boug.receiveShadow = true;
+  bougs.forEach((b, i) => {
+    const y = siteFloorY(b.x, b.z);
+    dummy.position.set(b.x, y + b.s * .55, b.z);
+    dummy.rotation.set(0, rnd() * 6.28, 0);
+    dummy.scale.set(b.s * (1 + rnd() * .5), b.s * (.75 + rnd() * .45), b.s * (1 + rnd() * .5));
+    dummy.updateMatrix();
+    boug.setMatrixAt(i, dummy.matrix);
+    col.setHSL(.9 + rnd() * .09, .55 + rnd() * .35, .45 + rnd() * .18);
+    boug.setColorAt(i, col);
+  });
+  boug.instanceMatrix.needsUpdate = true;
+  if (boug.instanceColor) boug.instanceColor.needsUpdate = true;
+  boug.computeBoundingSphere();
+  root.add(boug);
+
+  /* ── low ground-cover beds ────────────────────────────────────────── */
+  const cover = [];
+  for (let i = 0, tries = 0; i < 34 && tries < 3000; tries++) {
+    const x = SITE.BEACH.x1 + 4 + rnd() * (114 - SITE.BEACH.x1);
+    const z = B.z0 + 8 + rnd() * (B.z1 - B.z0 - 16);
+    if (blocked(x, z, 1.0)) continue;
+    const n = 7 + (rnd() * 8 | 0);
+    for (let k = 0; k < n; k++) {
+      const a = rnd() * Math.PI * 2, r = rnd() * 3.4;
+      cover.push({ x: x + Math.cos(a) * r, z: z + Math.sin(a) * r, s: .8 + rnd() * 1.5 });
+    }
+    i++;
+  }
+  MAT.cover = new THREE.MeshStandardMaterial({ map: shrubTex(), roughness: .95, metalness: 0 });
+  const cgeo = blobGeo(mulberry32(NAT.SEEDS.plant + 8), 0, .55);
+  const covr = new THREE.InstancedMesh(cgeo, MAT.cover, Math.max(1, cover.length));
+  covr.receiveShadow = true;
+  cover.forEach((c2, i) => {
+    const y = siteFloorY(c2.x, c2.z);
+    dummy.position.set(c2.x, y + .06, c2.z);
+    dummy.rotation.set(0, rnd() * 6.28, 0);
+    dummy.scale.set(c2.s, .22 + rnd() * .16, c2.s);
+    dummy.updateMatrix();
+    covr.setMatrixAt(i, dummy.matrix);
+    col.setHSL(.24 + (rnd() - .5) * .06, .32 + rnd() * .22, .26 + rnd() * .14);
+    covr.setColorAt(i, col);
+  });
+  covr.instanceMatrix.needsUpdate = true;
+  if (covr.instanceColor) covr.instanceColor.needsUpdate = true;
+  covr.computeBoundingSphere();
+  root.add(covr);
+
+  return { hedges: segs.length, shrubs: shrubs.length, bougs: bougs.length, cover: cover.length };
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   entry point
+   ═══════════════════════════════════════════════════════════════════════ */
+export function buildNature(G) {
+  if (built) return root;                    // idempotent — safe to call twice
+  built = true;
+  night = !!G.night;
+
+  root = new THREE.Group();
+  root.name = 'nature';
+  G.scene.add(root);
+  G.colliders ||= [];
+
+  const zones = exclusionZones();
+  const blocked = makeBlocked(zones);
+  /* snapshot the world's own colliders BEFORE planting, so palms only test
+     against buildings — not against each other twice */
+  const preColliders = G.colliders.length;
+
+  const shoreX = buildGround();
+  buildOcean(shoreX);
+  const palmCount = buildPalms(G, blocked, preColliders);
+  const under = buildUnderstory(G, blocked);
+
+  /* ── one ticker for the whole of nature ── */
+  const w = [0, 0, 0];
+  const dummy = new THREE.Object3D();
+  (G.tickers ||= []).push((dt, t) => {
+    /* ocean swell — analytic normals, no computeVertexNormals per frame */
+    const o = anim.ocean;
+    if (o) {
+      const arr = o.pos.array, narr = o.nor.array;
+      for (let i = 0; i < o.n; i++) {
+        const wx = o.bx[i] + o.cx, wz = -o.by[i];
+        /* waves shoal and flatten as they run up the sand */
+        let taper = (o.shoreX - wx) / NAT.SHORE_TAPER;
+        taper = taper < 0 ? 0 : taper > 1 ? 1 : taper;
+        waveAt(wx, wz, t, w);
+        const i3 = i * 3;
+        arr[i3 + 2] = w[0] * taper;
+        const nx = -w[1] * taper, ny = w[2] * taper;
+        const l = Math.sqrt(nx * nx + ny * ny + 1);
+        narr[i3] = nx / l; narr[i3 + 1] = ny / l; narr[i3 + 2] = 1 / l;
+      }
+      o.pos.needsUpdate = true;
+      o.nor.needsUpdate = true;
+      /* drift the ripple normals so the specular never sits still */
+      const nm = MAT.water.normalMap;
+      nm.offset.x = (nm.offset.x + dt * .012) % 1;
+      nm.offset.y = (nm.offset.y - dt * .006 + 1) % 1;
+    }
+
+    /* surf — swash run-up plus a slow breathing pulse */
+    for (const b of anim.surf) {
+      const ph = t * (Math.PI * 2 / b.T) + b.ph;
+      b.mesh.position.x = b.base + Math.sin(ph) * b.runup;
+      const pulse = .55 + .45 * (.5 + .5 * Math.sin(ph * 2 + b.ph));
+      b.m.opacity = b.o * pulse * (night ? .62 : 1);
+      b.m.map.offset.y = (b.m.map.offset.y + dt * .015) % 1;
+    }
+
+    /* frond sway — the whole palm leans a couple of centimetres off vertical */
+    const gust = .62 + .38 * Math.sin(t * .21) + .12 * Math.sin(t * .07 + 1.3);
+    for (const M2 of anim.palmMeshes) {
+      if (!M2) continue;
+      for (let i = 0; i < M2.list.length; i++) {
+        const p = M2.list[i];
+        const a = p.amp * gust;
+        dummy.position.set(p.x, p.y, p.z);
+        dummy.rotation.set(
+          p.leanX + Math.sin(t * p.f + p.ph) * a,
+          p.rotY,
+          p.leanZ + Math.cos(t * p.f * .83 + p.ph) * a * .8,
+        );
+        dummy.scale.setScalar(p.s);
+        dummy.updateMatrix();
+        M2.tm.setMatrixAt(i, dummy.matrix);
+        M2.cm.setMatrixAt(i, dummy.matrix);
+      }
+      M2.tm.instanceMatrix.needsUpdate = true;
+      M2.cm.instanceMatrix.needsUpdate = true;
+    }
+  });
+
+  if (night) setNatureNight(true);
+
+  root.userData.stats = {
+    palms: palmCount, ...under,
+    colliders: G.colliders.length - preColliders,
+  };
+  return root;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   day ↔ night — instant, no tween
+   ═══════════════════════════════════════════════════════════════════════ */
+export function setNatureNight(on) {
+  night = !!on;
+  if (!built) return;                        // buildNature() re-applies on build
+
+  for (const k of ['apron', 'grass', 'macro', 'sand', 'wet', 'bark', 'frond',
+                   'hedge', 'shrub', 'boug', 'cover']) {
+    applyNightTo(k, MAT[k], night);
+  }
+  if (MAT.foam) for (const m of MAT.foam) applyNightTo('foam', m, night);
+
+  /* the sea gets a whole new colour ramp, not just a tint */
+  if (MAT.water) {
+    MAT.water.map = MAT.waterMaps[night ? 1 : 0];
+    MAT.water.roughness = night ? .07 : .12;
+    MAT.water.metalness = night ? .42 : .28;
+    MAT.water.envMapIntensity = night ? .35 : .8;
+    MAT.water.normalScale.set(night ? .32 : .55, night ? .32 : .55);
+    MAT.water.emissive.setHex(night ? 0x061224 : 0x000000);
+    MAT.water.emissiveIntensity = night ? 1 : 0;
+    /* no needsUpdate — swapping between two live maps keeps the same program */
+  }
+}

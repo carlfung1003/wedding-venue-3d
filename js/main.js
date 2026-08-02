@@ -5,10 +5,11 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 import { CFG } from './config.js';
-import { buildWorld, floorY } from './world.js';
+import { buildWorld, floorY, updateWorld, toggleNight } from './world.js';
 import { initPlayer, updatePlayer, lock } from './player.js';
 import { initTouch } from './touch.js';
-import { initMoments, updateMoments } from './moments.js';
+import { initMoments } from './moments.js';
+import { initIntroCam, updateIntroCam, startDive } from './introcam.js';
 import { initUI } from './ui.js';
 
 /* ── renderer ── */
@@ -28,7 +29,7 @@ renderer.toneMappingExposure = 1.0;
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x0b0d1a);
 
-const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, .08, 400);
+const camera = new THREE.PerspectiveCamera(CFG.FOV, innerWidth / innerHeight, CFG.NEAR, CFG.FAR);
 
 /* environment probe — real reflections in the marble, gold and mirror ball */
 const pmrem = new THREE.PMREMGenerator(renderer);
@@ -88,20 +89,30 @@ initMoments(G);
 G.ui.buildChips(CFG.MOMENTS);
 G.ui.setMode(G.mode);
 
-/* the ceremony dressing makes the title backdrop — down the aisle at the arch */
+/* The title card plays over a drone orbit of the whole enclave — the aerial
+   Carl photographed. The ceremony dressing is on the lawn below it. */
 G.setMoment(1, { quiet: true });
+initIntroCam(G);
 
-/* ── begin ── */
+/* ── begin: fly down out of the sky, over the pool, in through the folded-open
+   glass wall, and land standing in the great room ── */
 document.getElementById('begin').addEventListener('click', e => {
   e.currentTarget.blur();   // Space is fly-ascend — a focused button would re-click
   G.overlayOpen = false;
-  G.started = true;
   G.ui.hideOverlay();
-  G.ui.showHUD();
-  if (G.touchMode) G.showTouchUI();
-  else lock(G);   // Esc naturally drops the lock; clicking the view re-locks
-  G.momentIndex = -1;          // force the switch even though 1 is dressed
-  G.setMoment(0);              // the day starts in the bridal suite
+  startDive(G, () => {
+    G.started = true;
+    G.ui.showHUD();
+    if (G.touchMode) G.showTouchUI();
+    else lock(G);   // Esc naturally drops the lock; clicking the view re-locks
+    G.momentIndex = -1;   // force the switch even though 1 is dressed
+    G.setMoment(0);       // the day starts the night before, in the suite
+  });
+});
+
+/* N — golden hour ↔ the lantern-lit night, any time */
+addEventListener('keydown', e => {
+  if (e.code === 'KeyN' && G.started && !G.overlayOpen) toggleNight(G);
 });
 
 /* ── resize ── */
@@ -122,8 +133,9 @@ function frame(now) {
   last = now;
   time += dt;
 
-  if (G.started && !G.overlayOpen) updatePlayer(G, dt);
-  updateMoments(G, dt, time);
+  if (G.introActive) updateIntroCam(G, dt);
+  else if (G.started && !G.overlayOpen) updatePlayer(G, dt);
+  updateWorld(G, dt, time);
   G.ui.update(dt);
 
   renderer.render(scene, camera);
@@ -135,6 +147,17 @@ requestAnimationFrame(frame);
 window.__game = {
   G,
   setMoment: i => G.setMoment(i),
+  toggleNight: () => toggleNight(G),
+  /* skip the opening dive — tests and screenshots want the ground immediately */
+  skipIntro() {
+    G.introActive = false;
+    G.overlayOpen = false;
+    G.started = true;
+    G.ui.hideOverlay();
+    G.ui.showHUD();
+    G.momentIndex = -1;
+    G.setMoment(0);
+  },
   fastForward(seconds) {
     /* stub — there is no sim clock yet; when the day gets a timeline
        (lighting arcs, scheduled beats) it must advance through here so

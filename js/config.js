@@ -1,4 +1,7 @@
 // All tuning lives here — no magic numbers in game code (house rule).
+// WHERE things are is NOT here: that's js/site.js, the master site plan.
+import { MOMENT_PLACES } from './site.js';
+
 export const CFG = {
   // --- player ---
   EYE_HEIGHT: 1.65,
@@ -9,55 +12,58 @@ export const CFG = {
   PITCH_MAX: 1.35,
   PLAYER_R: 0.35,           // body cylinder radius — added to every collider's r at test time
   INTERACT_DIST: 2.6,
-  WORLD_BOUND: 60,          // absolute |x|,|z| safety clamp if a collider is ever missed
+  WORLD_BOUND: 300,         // absolute |x|,|z| safety clamp — the campus is ~500 m across
 
   // --- fly mode (spectator flight — W/S along the look direction, no collisions) ---
-  FLY_SPEED: 14,
-  FLY_FAST: 34,             // Shift, or a fully-pushed touch stick
-  FLY_MAX_ALT: 150,         // must stay well inside SKY_R (see world.js gotcha)
+  FLY_SPEED: 18,
+  FLY_FAST: 46,             // Shift, or a fully-pushed touch stick
+  FLY_MAX_ALT: 220,         // must stay well inside SKY_R
   FLY_MIN_CLEAR: 0.5,       // lowest flight = floorY(x,z) + this
 
-  // --- venue dimensions (meters — the placeholder shell is sized from these) ---
-  // Compass convention: the stage sits at -z ("north"), the foyer at +x ("east").
-  BALLROOM: { W: 30, L: 50, H: 8 },      // x-width, z-length, ceiling height
-  FOYER:    { W: 12, H: 5 },             // pre-function space along the ballroom's full east side
-  CORRIDOR: { W: 4,  H: 3.4 },           // service corridor behind the ballroom (+z)
-  SUITE:    { W: 8,  L: 10, H: 3.4 },    // bridal suite off the corridor's west end
-  TERRACE:  { W: 18, L: 26, RAIL_H: 1.05 },  // outdoors, east of the foyer
-  STAGE:    { W: 12, D: 5, H: 0.6 },
-  COLUMN:   { R: 0.5, X: 10.5, Z0: -15, SPACING: 6, COUNT: 6 },  // two rows at ±X
-  WALL_T: 0.3,
-  DOOR_H: 2.6,              // lintels start here above every opening
-  SKY_R: 240,               // sky-dome radius — must exceed FLY_MAX_ALT + WORLD_BOUND diagonal
-  SEED: 20270320,           // 2027.03.20 — the big day
+  // --- camera ---
+  FOV: 58,
+  NEAR: 0.08,
+  FAR: 3000,                // the ocean and the hotel crescent are far away
+  SKY_R: 900,               // sky-dome radius — must exceed FLY_MAX_ALT + world diagonal
 
-  // --- lighting (warm hotel interior) ---
-  LIGHT: {
-    HEMI: 0.5,
-    SUN: 0.7,
-    CHANDELIER: 60,         // ballroom point lights (three, PointLight intensity)
-    FOYER: 30,
-    SUITE: 22,
-    TERRACE: 26,
-    ENV: 0.35,              // scene.environmentIntensity (PMREM RoomEnvironment)
+  // --- the opening aerial ---
+  // The title card plays over a slow drone orbit above the pool, then "STEP
+  // INSIDE" flies you down into the suite — the wizard.carlfung.dev entrance.
+  INTRO: {
+    RADIUS: 92,             // orbit radius around the hero pool
+    HEIGHT: 58,
+    SPEED: 0.055,           // rad/sec
+    DIVE_TIME: 5.2,         // seconds from the orbit down to the deck
   },
 
-  // --- the five moments of the day (moments.js builds one prop group per id) ---
+  SEED: 20270320,           // 2027.03.20 — the big day
+
+  // --- lighting ---
+  LIGHT: {
+    HEMI_DAY: 0.75, HEMI_NIGHT: 0.22,
+    SUN_DAY: 2.1,   SUN_NIGHT: 0.16,
+    ENV_DAY: 0.95,  ENV_NIGHT: 0.30,   // scene.environmentIntensity
+    EXPOSURE_DAY: 1.0, EXPOSURE_NIGHT: 1.12,
+  },
+  START_AT_NIGHT: false,    // open on the golden-hour aerial; N toggles
+
+  // --- the five moments of the day ---
+  // Real locations now (see js/site.js MOMENT_PLACES + the reference briefs).
   MOMENTS: [
-    { id: 'setup', name: 'Prewedding Setup', area: 'Bridal Suite',
-      spawn: { x: -11, z: 31.5, yaw: Math.PI },
-      blurb: 'Garment bags, good light and one very important dress — the quiet hours before it all begins.' },
-    { id: 'ceremony', name: 'Ceremony', area: 'Grand Ballroom',
-      spawn: { x: 0, z: 8, yaw: 0 },
-      blurb: 'Rows of white chairs, a long aisle, and an arch waiting at the end of it.' },
-    { id: 'cocktail', name: 'Cocktail Hour', area: 'Foyer',
-      spawn: { x: 21, z: 14, yaw: 0 },
-      blurb: 'High-tops and champagne in the foyer while the ballroom flips behind the doors.' },
-    { id: 'dinner', name: 'Wedding Dinner', area: 'Grand Ballroom',
-      spawn: { x: 0, z: 16, yaw: 0 },
-      blurb: 'The same ballroom, re-dressed — round tables of ten, a head table, and a dance floor.' },
-    { id: 'afterparty', name: 'After Party', area: 'Terrace',
-      spawn: { x: 30, z: 0, yaw: -Math.PI / 2 },
-      blurb: 'String lights over the terrace. The DJ has the rest of the night.' },
+    { id: 'setup', name: 'Prewedding Setup', area: 'Presidential Suite',
+      spawn: MOMENT_PLACES.PREWEDDING, night: true,
+      blurb: 'The night before — lanterns on the pool, the glass wall folded open, everyone spilling out of the living room.' },
+    { id: 'ceremony', name: 'Ceremony', area: 'The Circular Lawn',
+      spawn: MOMENT_PLACES.CEREMONY, night: false,
+      blurb: 'Chairs on the grass, an aisle through the palms, and an arch with the sea behind it.' },
+    { id: 'cocktail', name: 'Cocktail Hour', area: 'Clubhouse Terrace',
+      spawn: MOMENT_PLACES.COCKTAIL, night: false,
+      blurb: 'High-tops by the terrace pool, teal umbrellas, and something cold while the lounge is flipped.' },
+    { id: 'dinner', name: 'Wedding Dinner', area: '隐逸居 Lounge',
+      spawn: MOMENT_PLACES.DINNER, night: true,
+      blurb: 'Two hundred and eighty square metres, sixty seats, and the glass walls folded back to the pool.' },
+    { id: 'afterparty', name: 'After Party', area: 'Suite Pool Deck',
+      spawn: MOMENT_PLACES.AFTERPARTY, night: true,
+      blurb: 'The DJ takes the deck. Lanterns still burning on the water at 1 a.m.' },
   ],
 };

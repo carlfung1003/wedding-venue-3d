@@ -24,18 +24,22 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
 #overlay{
   position:fixed;inset:0;z-index:30;
   display:flex;align-items:center;justify-content:center;
-  background:radial-gradient(ellipse at 50% 42%,rgba(19,16,23,.5) 0%,rgba(12,9,16,.88) 78%);
+  /* keep this light — the drone orbit of the resort plays behind the card and
+     is half the reason to open the page. Scrim only enough to hold the type. */
+  background:radial-gradient(ellipse at 50% 42%,rgba(16,13,20,.12) 0%,rgba(10,8,14,.52) 80%);
   padding:18px;
 }
 #overlay .card{
   position:relative;
   max-width:520px;width:100%;
-  background:rgba(24,19,30,.94);
+  background:rgba(20,16,26,.82);
+  backdrop-filter:blur(9px) saturate(1.1);
+  -webkit-backdrop-filter:blur(9px) saturate(1.1);
   border:1px solid var(--gold-dim);
   border-radius:4px;
   padding:44px 40px 30px;
   text-align:center;
-  box-shadow:0 30px 80px rgba(0,0,0,.6);
+  box-shadow:0 30px 80px rgba(0,0,0,.55);
 }
 #overlay .card::before{
   content:'';position:absolute;inset:8px;

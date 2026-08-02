@@ -1,27 +1,38 @@
 # CLAUDE.md — wedding-venue-3d (The Big Day)
 
-First-person 3D walkthrough of Carl & Rachel's wedding venue (a hotel), told
-as five "moments" of the wedding day. Three.js r180 via CDN importmap — pure
-static HTML/CSS/JS, **no build step**, no dependencies.
+First-person 3D walkthrough of Carl & Rachel's wedding venue — **The Westin
+Sanya Haitang Bay, 隐逸居 (Yinyiju) clubhouse enclave** — told as five
+"moments" of the wedding day. Three.js r180 via CDN importmap — pure static
+HTML/CSS/JS, **no build step**, no dependencies.
 
 Run it: `python3 serve.py` → http://localhost:8799 (`file://` won't load ES modules)
 
-**The venue is a placeholder — and it's the WRONG venue.** Everything in
-`world.js` is boxes and cylinders sized from `CFG`; it exists so the moment
-system, both movement modes, controls and UI are real. Carl's reference
-photos (2026-08-01) show the real venue is an outdoor beachfront resort
-campus, not an indoor ballroom — see **Venue brief** below. `world.js` gets
-replaced wholesale in Phase 2.
+The whole campus is modelled from Carl's own reference material: the suite
+walkthrough video, the enclave aerials, the atrium photo and the hotel's
+隐逸居 deck. **Nothing is a stock ballroom any more** — if a proportion looks
+wrong, check the briefs in `reference/` before changing it.
 
 ## Architecture
 
+**`js/site.js` is the master site plan** — the single source of coordinate
+truth. Every builder reads its footprint from `SITE.*`; no module invents its
+own coordinates. Change the layout there, never in a builder.
+
 | File | Owns |
 |------|------|
-| `js/config.js` | ALL tuning — walk + fly feel (`FLY_SPEED`/`FLY_FAST`/`FLY_MAX_ALT`), venue dimensions, lighting levels, the `MOMENTS` table (id/name/area/spawn/blurb). No magic numbers elsewhere. |
-| `js/main.js` | Renderer bootstrap (PMREM RoomEnvironment, sRGB, ACES — modeled on alice-lunch-party, no post yet), the `G` context object, `G.setMode`/`G.toggleMode` (walk ↔ fly), begin-button flow, resize, clock loop, `window.__game` debug hook |
-| `js/materials.js` | Every CanvasTexture recipe (carpet, marble, wall panels, parquet, linen, night sky) + the shared material set `M.*`; also exports `mulberry32` (seeded PRNG) |
-| `js/world.js` | The placeholder hotel shell: ballroom, foyer, terrace, corridor + bridal suite, stage, columns, string lights, all lighting. `floorY(x,z)` + `colliderLine`/`wall` collider authoring. |
-| `js/moments.js` | The five moment prop groups + per-moment colliders, the one-interactable-per-moment registry, `G.setMoment` (dress + collider swap + teleport), mirror-ball/DJ FX |
+| `js/site.js` | **The master site plan.** `SITE.*` footprints for the suite, deck, pool, cabanas, atrium, lounge, villas (with the real 11-key room mix), lawn, lagoon, palm grove, beach, ocean, hotel crescent. Plus `siteFloorY(x,z)`, `MOMENT_PLACES` (spawns) and `INTRO_PATH` (the opening dive). |
+| `js/config.js` | ALL tuning — walk + fly feel, camera, the intro orbit/dive, day-vs-night lighting levels, the `MOMENTS` table. No magic numbers elsewhere, and **no coordinates** (those are site.js). |
+| `js/main.js` | Renderer bootstrap (PMREM RoomEnvironment, sRGB, ACES), the `G` context object, `G.setMode`/`G.toggleMode` (walk ↔ fly), the begin→dive flow, N-key night toggle, resize, clock loop, `window.__game` debug hook |
+| `js/world.js` | **The integrator.** Builds nothing itself: calls each builder in order, owns `floorY(x,z)` (delegates to `siteFloorY`), owns the day↔night fan-out (`setNight`/`toggleNight`), and runs `G.tickers` each frame. |
+| `js/sky.js` | Sky dome (day + night gradients), sun/moon, stars, fog, and the whole global lighting rig |
+| `js/nature.js` | Ground, beach, animated ocean, the palm population, hedges, topiary, bougainvillea |
+| `js/water.js` | The hero pool (raised plinth, infinity edge, caustics), **the floating lanterns**, the deck + turf + "THE WESTIN" letters, cabana pavilions, loungers, lounge pool, lagoon, villa plunge pools |
+| `js/campus.js` | The 隐逸居 lounge, the ten guest villas (3 real types), circular lawn edging, event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
+| `js/atrium.js` | The clubhouse's central courtyard — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, villa entry doors |
+| `js/suite.js` | The presidential suite, inside and out — folding glass wall, great room, dining, pantry, the L-stair with its chandelier, the spa, the 2F lounge and balcony |
+| `js/introcam.js` | The opening: a drone orbit of the enclave behind the title card, then a bezier dive over the pool and in through the glass wall, handing the look state to `player.js` on landing |
+| `js/materials.js` | Shared CanvasTexture recipes + `M.*`; also exports `mulberry32` (seeded PRNG). Builders define their own local materials — only `mulberry32` is universally imported. |
+| `js/moments.js` | The five moment prop groups + per-moment colliders, the one-interactable-per-moment registry, `G.setMoment` (dress + collider swap + night flip + teleport) |
 | `js/player.js` | Ported from lassen-camp: pointer-lock FPS look (module-level yaw/pitch), Tab cursor mode, nearest-interactable prompt, and BOTH movement modes — walk (WASD + stick, walk/run, `{x,z,r}` cylinder collision, `floorY` eye-height clamp) and fly (spectator flight along the look direction, Space/C altitude, no collisions, altitude clamp) |
 | `js/touch.js` | Ported from lassen-camp: floating joystick → `touchInput`, drag-to-look, quick-tap interact, `.tbtn` buttons (✦ interact, FLY toggle, held ▲▼ in fly mode). Pointer lock bypassed entirely in touch mode. |
 | `js/ui.js` | Overlay show/hide, moment chips + active state, toast queue, prompt — plain id-addressed divs toggled with `.hidden` |
@@ -133,7 +144,54 @@ hotel does between 4 pm and 6 pm on a real wedding day. Every moment's props
 are built once in `initMoments` and toggled with `.visible`; nothing is
 rebuilt on switch.
 
+## Layout corrections from Carl (2026-08-01) — do not regress these
+
+He checked the render against the site map and the hotel's own photos and
+caught three things. All are now encoded in `site.js`; if a future change
+makes the campus "look tidier" by undoing one, it is wrong:
+
+1. **The enclave is SMALL and sits in the resort's south-west, by the beach.**
+   隐逸居 is only 3,500 ㎡. Carl's ten guest villas are two tight rows just
+   south of the pool — not a subdivision spread over the map. The compactness
+   is the point.
+2. **`SITE.RESORT_VILLAS` are NOT part of the package.** ~50 other villas fill
+   the ground between the enclave and the main hotel. They exist so the
+   enclave reads as small and private, which is how the site map reads. They
+   are backdrop: cheap instanced boxes, no interiors, built by
+   `buildResortVillas()` in `campus.js`.
+3. **Poolside orientation was flipped.** Standing in the suite looking south,
+   the cabana pavilions AND the loungers are both on your **LEFT** (the east,
+   +X half); the west half is open lawn. Verified against the hotel deck's
+   balcony photo (p5). Because `player.js` builds `fwd` as
+   `(-sin yaw, 0, -cos yaw)`, facing +Z puts +X on your left — so swapping
+   these X ranges silently mirrors the whole view.
+
 ## Gotchas
+
+- **`js/site.js` is the ONLY place coordinates live.** Six builder modules were
+  written in parallel against it; the moment any of them hard-codes a position,
+  the campus silently drifts apart. If you need a new landmark, add it to `SITE`
+  first, then build against it.
+- **Builders own their own materials.** Only `mulberry32` is imported from
+  `materials.js`. This is deliberate — it let six agents write 6,000 lines
+  concurrently without fighting over a shared material table. Don't "tidy" it
+  into a global palette without a reason.
+- **Every builder exports `buildX(G)` + `setXNight(on)`, and `world.js` fans the
+  night switch out to all of them.** A module that forgets `setXNight` will
+  stay stuck in daylight while the rest of the campus goes dark — very obvious,
+  very confusing. `water.js` also exports `setLanterns`.
+- **Per-frame work goes on `G.tickers`,** not on a module-local rAF. `world.js`
+  `updateWorld()` runs them; `main.js` calls it once per frame.
+- **Spawn yaw: 0 faces NORTH (−Z), π faces SOUTH (+Z).** `player.js` builds
+  `fwd` as `(-sin yaw, 0, -cos yaw)`. Getting this backwards spawns you facing
+  a wall — it happened once with the dinner spawn, which pointed away from its
+  own tables. Check spawns against the props they're meant to show.
+- **The folding glass wall's open span must stay collider-free**, and fly mode
+  has no collisions at all — that's what makes "fly in from outside" work. If
+  you ever add a wall collider across that opening, the whole entrance breaks.
+- **`CFG.WORLD_BOUND` is a real constraint, not a formality.** The campus is
+  ~500 m across; the placeholder's value of 60 would have pinned the player
+  inside the pool deck.
 
 - **`floorY(x,z)` is the single source of ground truth** (lassen `getHeight`
   pattern). It's flat 0 today, but stage steps, terrace decks and ramps must

@@ -40,8 +40,11 @@ export function initUI(G) {
       else promptEl.classList.add('hidden');
     },
 
-    /* toasts queue rather than clobber — blurbs are worth reading out */
-    toast(msg, secs = 2.6) {
+    /* toasts queue rather than clobber — blurbs are worth reading out.
+       `now` jumps the queue: a moment's blurb must never trail a moment behind
+       when someone taps through the chips quickly. */
+    toast(msg, secs = 2.6, now = false) {
+      if (now) { queue.length = 0; toastT = 0; }
       queue.push({ msg, secs });
     },
 
