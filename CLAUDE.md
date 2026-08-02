@@ -180,6 +180,30 @@ were building to:
 4. Cabanas as solid stepped blocks (Rachel's `IMG_8099.jpg`): they are white
    stepped volumes with punched rectangular window slots and a `THE WESTIN`
    mark, NOT the open post-and-beam portal frames `water.js` builds today.
+5. **Rooftop infinity pool on the main Westin tower** — see below.
+
+## QUEUED — the hotel's rooftop infinity pool (Carl, 2026-08-01)
+
+Reference: `reference/photos/hotel-rooftop-pool.png` (top-down of the crescent
+hotel and its grounds). Add the **top-floor infinity pool** to `SITE.HOTEL`,
+the big curved tower — it currently has terraced balconies and a green roof
+cap but no rooftop pool.
+
+**Why it matters:** Carl and Rachel are hosting **brunch with the wedding
+party two days before the wedding** — i.e. **2027-03-18** — up there. So this
+is a real event venue in the story, not set dressing, and it is the one part
+of the main hotel guests will actually stand in.
+
+The crescent is currently modelled cheaply and deliberately (it is the fly-mode
+skyline, ~285 m east). A rooftop pool people care about probably wants more
+than the backdrop treatment: a deck, loungers, an infinity edge facing the sea
+to the west, and enough parapet/plant detail to read at close range.
+
+**Likely follow-on, ask Carl before building it:** this is a natural **sixth
+moment** ("Welcome Brunch", 2027-03-18) alongside the existing five in
+`CFG.MOMENTS`. It would need a spawn on the roof, its own dressing (brunch
+tables, a buffet), and the moment chips/UI already scale to six. Carl asked
+only for the pool — do not add a moment unprompted.
 
 ## QUEUED — walkable stairs (Carl, 2026-08-01)
 
