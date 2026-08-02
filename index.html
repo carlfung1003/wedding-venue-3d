@@ -22,7 +22,16 @@
 <meta name="twitter:image" content="https://venue.carlfung.dev/assets/og.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- The webfont stylesheet is loaded OUT of the render path on purpose. As a
+     plain <link> it is render-blocking, and on a cold visit Google answered
+     late enough (~1.4 s measured) that the browser had painted NOTHING by the
+     time main.js started building the world — the blank tab the loading card
+     below exists to prevent. media="print" parks it; onload promotes it, and
+     `display=swap` does the rest. The card is authored to read in the fallback
+     serif, so the swap is a refinement, never the difference between text and
+     no text. -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
 {
@@ -36,8 +45,32 @@
 <body>
 <canvas id="scene"></canvas>
 
-<!-- ────────────────────────── title card ────────────────────────── -->
-<div id="overlay">
+<!-- ────────────────────────── loading card ──────────────────────────
+     STATIC MARKUP ON PURPOSE. ~2,900 meshes and ~300k triangles get built
+     before the first frame, and a guest who is shown a black tab for that long
+     reads it as broken and closes it. This card is on screen before js/main.js
+     has even been fetched; main.js only drives its copy and its bar, and
+     buildWorld yields the main thread between builders so those updates can
+     actually reach the screen. Nothing in here is focusable — no focus trap —
+     and main.js removes the whole node once the world is up. -->
+<div id="loading">
+  <div class="card">
+    <p class="kicker">Carl &amp; Rachel · 20 · 03 · 2027</p>
+    <h2>The Big Day</h2>
+    <p class="phase" id="loadPhase" role="status" aria-live="polite">Setting the tables…</p>
+    <div class="track" id="loadTrack" role="progressbar"
+         aria-labelledby="loadPhase" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <i id="loadBar"></i>
+    </div>
+    <p class="pct" id="loadPct">0%</p>
+  </div>
+</div>
+
+<!-- ────────────────────────── title card ──────────────────────────
+     `inert` until the world is built — the drone orbit is already playing
+     behind this card by then, and "Step inside" must never be reachable (by
+     click OR by Tab) against an unbuilt scene. main.js lifts it. -->
+<div id="overlay" inert>
   <div class="card">
     <p class="kicker">Carl &amp; Rachel · 20 · 03 · 2027</p>
     <h1>The Big Day</h1>

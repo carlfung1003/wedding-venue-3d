@@ -32,7 +32,7 @@
 //      the buildings used to be and walks through the ones that are there now.
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, isEnclaveLocal } from './site.js';
+import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave, isEnclaveLocal } from './site.js';
 
 import { buildSky, setSkyNight } from './sky.js';
 import { buildNature, setNatureNight } from './nature.js';
@@ -53,9 +53,108 @@ import { buildSuite, setSuiteNight } from './suite.js';
    you get the surface they are standing on; omit it and you get bare terrain.
    Everything that is not the walker — prop placement, the fly-mode clamp,
    main.js's fly→walk landing — deliberately omits it, so a 3.8 m platform can
-   never shove a flyer around or drop a palm tree on a balcony. */
+   never shove a flyer around or drop a palm tree on a balcony.
+   ONE region is not in site.js's registry — the cabana boardwalk, patched on
+   below because this change did not own that file. Read that comment before
+   adding a second one here; the registry is still where these belong. */
 export function floorY(x, z, fromY) {
-  return siteFloorY(x, z, fromY, CFG.STEP_UP, CFG.HEAD_CLEAR);
+  const y = siteFloorY(x, z, fromY, CFG.STEP_UP, CFG.HEAD_CLEAR);
+  if (typeof fromY !== 'number') return y;   // no feet, no platforms (see above)
+  return boardwalkY(x, z, fromY, y);
+}
+
+/* ── the cabana boardwalk, patched onto the height field ────────────────────
+   BELONGS IN site.js's WALK_REGIONS — this is a lodger, not a design. The next
+   time that file is open, add
+
+     rect('cabana-boardwalk', 11.9, -2.4, 14.4, 21.4, 0.30)
+
+   to the registry (the numbers below are already in its enclave-local frame,
+   which is what rect() wants) and delete everything down to the end of
+   boardwalkY. It lives here only because this change did not own site.js.
+
+   What it fixes: water.js's buildPavilions lays a timber deck with its top at
+   y 0.30 behind the cabana run — local x ±(HALF + 1.4), z −0.1…2.4 — inside a
+   group rotated +π/2 and parked at (CABANAS.x, (z0 + z1) / 2), so local (x,z)
+   maps to enclave (CB.x + z, cz − x). No region covered it, so floorY answered
+   0 and a walker crossing the planks sank to the shins in them. The two stone
+   steps off the suite end are below 0.30 and inside STEP_UP of the deck, so
+   they need no entry of their own — the lip is climbable from anywhere. */
+const _CB = SITE.CABANAS;
+const _BW_CZ = (_CB.z0 + _CB.z1) / 2;
+const _BW_HALF = (_CB.z1 - _CB.z0) / 2 + 1.4;
+const BOARDWALK = {
+  y: 0.30,
+  x0: _CB.x - 0.1, x1: _CB.x + 2.4,          // enclave x 11.9 … 14.4
+  z0: _BW_CZ - _BW_HALF, z1: _BW_CZ + _BW_HALF,   // enclave z −2.4 … 21.4
+};
+
+function boardwalkY(x, z, fromY, ground) {
+  const l = worldToEnclave(x, z);
+  const B = BOARDWALK;
+  if (l.x < B.x0 || l.x > B.x1 || l.z < B.z0 || l.z > B.z1) return ground;
+  /* siteFloorY's own resolution rule: the highest surface still within a
+     step-up of the feet wins. Open sky above the planks, so no headroom gate. */
+  return (B.y > ground && B.y <= fromY + CFG.STEP_UP) ? B.y : ground;
+}
+
+/* ── build phases ───────────────────────────────────────────────────────────
+   buildWorld is async so that the loading card can PAINT. Each builder is one
+   phase; between phases the main thread goes back to the browser (yieldFrame)
+   and the caller is told how far along we are. The weights below are measured,
+   rounded costs — they exist only so the bar moves at a roughly even rate, and
+   G.buildProfile records the real numbers every load if they ever need
+   re-tuning (`__game.G.buildProfile` in the console). The ORDER is load-bearing
+   (nature last — see the comment in buildWorld); the weights are not. */
+const PHASES = [
+  /* label                              weight   measured, ms (1× / 6× CPU) */
+  ['Hanging the sky over Haitang Bay', 1],   //     3 /  15
+  ['Filling the pool', 9],                   //    48 / 284
+  ['Raising the villas', 4],                 //    16 /  90
+  ['Setting the atrium stone', 9],           //    50 / 285
+  ['Opening up the suite', 2],               //     6 /  35
+  ['Turning the clubhouse to the sea', 1],   //     3 /  16
+  ['Planting the palm grove', 12],           //    68 / 357
+  ['Lighting the lanterns', 1],              //     0 /   2
+];
+
+/* Hand the main thread back long enough for one frame to reach the screen.
+   rAF alone is not enough: its callback runs just BEFORE the paint, so
+   resolving there would let the next builder start and the frame would never
+   be composited. The setTimeout inside it lands after the paint, which is the
+   whole trick. (scheduler.yield() would be the modern spelling, but Safari
+   does not have it and half the wedding party is on an iPhone.)
+   The outer timer is a safety floor, not a race: a backgrounded tab never
+   fires rAF at all, and the build still has to finish. */
+export function yieldFrame() {
+  return new Promise(res => {
+    let done = false;
+    const fin = () => { if (done) return; done = true; res(); };
+    requestAnimationFrame(() => setTimeout(fin, 0));
+    setTimeout(fin, 250);
+  });
+}
+
+function phaseRunner(G, onPhase) {
+  const total = PHASES.reduce((s, p) => s + p[1], 0);
+  let i = 0, done = 0, t0 = 0;
+  G.buildProfile = [];
+  const close = () => {
+    if (i === 0) return;
+    G.buildProfile.push([PHASES[i - 1][0], Math.round(performance.now() - t0)]);
+    done += PHASES[i - 1][1];
+  };
+  return {
+    /* report where we are + what is about to happen, let it paint, then work */
+    async next() {
+      close();
+      onPhase?.(done / total, PHASES[i][0]);
+      await yieldFrame();
+      t0 = performance.now();
+      i++;
+    },
+    end() { close(); onPhase?.(1, null); },
+  };
 }
 
 /* campus.js root children that are enclave, by name. The rest of that root —
@@ -68,7 +167,14 @@ const _ctr = new THREE.Vector3();
 const _mat = new THREE.Matrix4();
 const _pos = new THREE.Vector3();
 
-export function buildWorld(G) {
+/* ASYNC since 2026-08-02. `onPhase(fraction, label)` is called once per builder
+   with the work completed so far — main.js drives the loading card off it. The
+   awaits are not decoration: without them the browser never gets a rendering
+   opportunity between here and the first frame, and the tab stays black for the
+   whole build. main.js must await this before initPlayer/initMoments. */
+export async function buildWorld(G, onPhase) {
+  const P = phaseRunner(G, onPhase);
+
   G.tickers = G.tickers || [];
   G.colliders = G.colliders || [];
   G.night = !!CFG.START_AT_NIGHT;
@@ -91,16 +197,22 @@ export function buildWorld(G) {
     toWorld: enclaveToWorld,
   };
 
+  await P.next();
   G.groups.sky = buildSky(G);
 
   /* ── the enclave builders ── */
   const col0 = G.colliders.length;
+  await P.next();
   G.groups.water = buildWater(G);
+  await P.next();
   G.groups.campus = buildCampus(G);
+  await P.next();
   G.groups.atrium = buildAtrium(G);
+  await P.next();
   G.groups.suite = buildSuite(G);
   const col1 = G.colliders.length;
 
+  await P.next();
   /* atrium + suite are wholly enclave — take the roots whole */
   enclave.add(G.groups.atrium);
   enclave.add(G.groups.suite);
@@ -129,6 +241,7 @@ export function buildWorld(G) {
      run planted a palm through the middle of it), so the enclave's FOOTPRINTS
      go in as temporary keep-out circles for the duration of the nature build
      and come straight back out. */
+  await P.next();
   const keepOut = enclaveKeepOut();
   const koStart = G.colliders.length;
   for (const k of keepOut) G.colliders.push(k);
@@ -147,7 +260,9 @@ export function buildWorld(G) {
   _baseline = new Set(G.scene.children);
   _adoptFor = G;
 
+  await P.next();
   applyNight(G, G.night, true);
+  P.end();
 }
 
 /* ── the enclave's footprints, as world-space keep-out circles ──────────────

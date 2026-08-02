@@ -29,7 +29,7 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
   background:radial-gradient(ellipse at 50% 42%,rgba(16,13,20,.12) 0%,rgba(10,8,14,.52) 80%);
   padding:18px;
 }
-#overlay .card{
+#overlay .card,#loading .card{
   position:relative;
   max-width:520px;width:100%;
   background:rgba(20,16,26,.82);
@@ -41,7 +41,7 @@ canvas#scene{position:fixed;inset:0;width:100%;height:100%;display:block}
   text-align:center;
   box-shadow:0 30px 80px rgba(0,0,0,.55);
 }
-#overlay .card::before{
+#overlay .card::before,#loading .card::before{
   content:'';position:absolute;inset:8px;
   border:1px solid rgba(216,180,106,.18);
   border-radius:2px;pointer-events:none;
@@ -87,6 +87,62 @@ body.touch .touchOnly{display:grid}
 #begin:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(216,180,106,.28)}
 #begin:active{transform:translateY(0)}
 .legal{font-size:11px;color:#6d6478;margin-top:18px;font-style:italic}
+
+/* ────────────────────────── loading card ──────────────────────────
+   The same double-ruled card as the title screen, one notch quieter — it is
+   the first thing a guest ever sees, so it has to read as part of the invite
+   and not as a spinner. Two rules matter more than they look:
+   · every font falls back to a system serif / sans. The webfont link is
+     deliberately non-render-blocking (see index.html), so this card usually
+     paints BEFORE Cormorant arrives and must be legible without it.
+   · no backdrop-filter. There is nothing behind this card but a black canvas,
+     and blurring it would burn GPU time during the one second we are trying to
+     give back. */
+#loading{
+  position:fixed;inset:0;z-index:40;
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse at 50% 40%,#1d1826 0%,var(--ink) 76%);
+  padding:18px;
+  transition:opacity .6s ease;
+}
+#loading.gone{opacity:0;pointer-events:none}
+#loading .card{
+  max-width:400px;
+  padding:38px 34px 30px;
+  backdrop-filter:none;-webkit-backdrop-filter:none;
+  background:rgba(20,16,26,.9);
+}
+#loading h2{
+  font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  font-weight:500;font-size:42px;line-height:1.02;
+  color:var(--ivory);
+}
+#loading .phase{
+  font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;
+  font-style:italic;font-size:17px;color:var(--faint);
+  margin:12px 0 0;min-height:1.4em;
+  animation:loadpulse 2.6s ease-in-out infinite;
+}
+@keyframes loadpulse{0%,100%{opacity:.62}50%{opacity:1}}
+#loading .track{
+  position:relative;height:2px;width:100%;max-width:250px;
+  margin:22px auto 11px;overflow:hidden;
+  background:rgba(216,180,106,.15);
+}
+/* scaleX, not width: a transform transition runs on the compositor, so the bar
+   still slides to its new value while the main thread is busy compiling
+   shaders. A width transition would freeze halfway — during exactly the stall
+   the card is here to explain. Same reason .phase pulses on opacity. */
+#loading .track i{
+  position:absolute;left:0;top:0;bottom:0;width:100%;
+  transform:scaleX(0);transform-origin:left center;
+  background:linear-gradient(90deg,#c9a35c,#e6c684);
+  transition:transform .3s ease;
+}
+#loading .pct{
+  font-size:10px;letter-spacing:.28em;color:#6d6478;
+  font-variant-numeric:tabular-nums;
+}
 
 /* ────────────────────────── hud ────────────────────────── */
 #hud{position:fixed;top:0;left:0;right:0;z-index:20;pointer-events:none}
@@ -199,6 +255,9 @@ body.touch .touchOnly{display:grid}
 @media (max-width:560px){
   #overlay .card{padding:30px 20px 22px}
   #overlay h1{font-size:42px}
+  #loading .card{padding:30px 22px 24px}
+  #loading h2{font-size:34px}
+  #loading .phase{font-size:15px}
   .controls{grid-template-columns:1fr;gap:7px}
   #momentName{font-size:20px}
   #momentName i{font-size:14px}

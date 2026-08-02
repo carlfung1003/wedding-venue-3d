@@ -179,7 +179,7 @@ were building to:
 3. ~~The river~~ — DONE 2026-08-02, see `SITE.RIVER` / `buildRiver` in water.js.
 4. ~~Cabanas as solid stepped blocks~~ — DONE 2026-08-02.
 5. ~~Rooftop infinity pool~~ — DONE 2026-08-02 (geometry only; not yet stood-on-able, see notes).
-6. **Loading screen** — see below.
+6. ~~Loading screen~~ — DONE 2026-08-02. Whole queue complete.
 
 ## QUEUED — loading screen (Carl, 2026-08-02)
 
