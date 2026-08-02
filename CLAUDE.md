@@ -181,6 +181,31 @@ were building to:
 - **IMG_8093** — pool from the stair. **IMG_8095** — pool from the stair view.
   **IMG_8102** — another atrium angle.
 
+## SESSION HANDOFF — read this if you are picking the project up cold
+
+Everything below the architecture table is here because it was learned the hard
+way. Orientation, in the order it will save you time:
+
+1. **The five traps**, in Gotchas: the `+Z`/left sign; walk-don't-render; y-agnostic
+   colliders; the light-count shader recompile; NaN failing silently.
+2. **"Layout corrections from Carl"** — he has been to the venue. When his account
+   and a reference photo disagree, HE WINS. Every entry there was a real error.
+3. **The work queue** and the **polish backlog** — what's done, what's next, and
+   the small known things nobody has got to.
+4. `reference/*.md` are committed briefs distilled from gitignored media. ⚠️
+   `suite-interior-brief.md` §4 is MIRRORED — banner-flagged, cost four bugs.
+
+**Working method that held up:** one agent per job with **strict file ownership**
+(two agents in one file corrupted a build; a third left the page unable to
+parse). Hand it the reference photo, the constraints, and demand evidence —
+walk tests, before/after numbers, side-by-side screenshots. Agents were killed
+mid-edit repeatedly, so **syntax-check every file and boot headless before you
+commit**, and never trust a "done" report without its evidence attached.
+
+**Deploy:** `vercel --prod --yes` from the repo. It sometimes aliases to the
+project URL rather than the domain — **always curl `venue.carlfung.dev` and
+confirm it serves the new build.**
+
 ## QUEUED — the resort's water features (Carl, 2026-08-02)
 
 Comes AFTER the ceremony/cocktail/dinner grounds. Reference:
