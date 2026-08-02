@@ -452,7 +452,17 @@ function makeMaterials() {
     /* underwater niche lights + the coping wash: cool, unlike every other
        emissive on the campus, which is what makes the roof read at 285 m */
     poolGlow: new THREE.MeshStandardMaterial({ color: 0x0e1a1e, emissive: 0x63e3ff, emissiveIntensity: 0 }),
+    /* the cove reveal under the terrace lip. It rides the crescent's CONCAVE
+       face, so like hotelFacade it is seen from inside the cylinder → BackSide.
+       This one line is what makes the roof read from the enclave after dark:
+       the water itself is edge-on and invisible from 285 m at 6° of elevation. */
+    rtCove: new THREE.MeshStandardMaterial({
+      color: 0x0e1a1e, emissive: 0x63e3ff, emissiveIntensity: 0, side: THREE.BackSide }),
+    rtCoveWarm: new THREE.MeshStandardMaterial({
+      color: 0x1a1a1c, emissive: 0xffc27a, emissiveIntensity: 0, side: THREE.BackSide }),
   };
+  glow(m.rtCove, .04, 3.0);
+  glow(m.rtCoveWarm, .04, 2.6);
   tint(m.rtGlass, 0x8a97a8);
   tint(m.rtWater, 0x6f8fa0);
   glow(m.rtWater, .02, .95);
@@ -1347,17 +1357,24 @@ function buildHotelRoof(G, g, acx, acz) {
     inst('rtCopperI', UNIT_BOX, MAT.copper,
       mat4(WX(th, rc), DY + R.parapetH, WZ(th, rc), .11, .11, R.rOut - R.rIn, th));
   }
+  /* ── the cove reveal under the terrace lip: cool along the pool, warm past
+        its ends. Set 140 mm proud of the plinth face because the depth buffer
+        (near .08 / far 3000) only resolves ~60 mm at 285 m. ── */
+  shell(89.86, .18, DY - .40, MAT.rtCove, p0, p1);
+  shell(89.86, .18, DY - .40, MAT.rtCoveWarm, a0, p0, 32);
+  shell(89.86, .18, DY - .40, MAT.rtCoveWarm, p1, a1, 32);
+
   /* fin posts every ~3 m — the rhythm is what actually makes a frameless glass
      rail visible at distance; the glass alone is just a haze */
-  for (let i = 0; i <= 42; i++) {
-    const th = a0 + (a1 - a0) * (i / 42);
+  for (let i = 0; i <= 29; i++) {
+    const th = a0 + (a1 - a0) * (i / 29);
     inst('rtCopperI', UNIT_BOX, MAT.copper,
-      mat4(WX(th, 90.18), DY + R.parapetH / 2, WZ(th, 90.18), .1, R.parapetH, .16, th));
+      mat4(WX(th, 90.18), DY + R.parapetH / 2, WZ(th, 90.18), .07, R.parapetH, .12, th));
   }
-  for (let i = 0; i <= 26; i++) {
-    const th = e0 + (e1 - e0) * (i / 26);
+  for (let i = 0; i <= 24; i++) {
+    const th = e0 + (e1 - e0) * (i / 24);
     inst('rtCopperI', UNIT_BOX, MAT.copper,
-      mat4(WX(th, 105.4), capY + R.parapetH / 2, WZ(th, 105.4), .1, R.parapetH, .16, th));
+      mat4(WX(th, 105.4), capY + R.parapetH / 2, WZ(th, 105.4), .07, R.parapetH, .12, th));
   }
 
   /* ── underwater niche lights along the back wall + a wash into the trough:
