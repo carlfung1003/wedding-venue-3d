@@ -4,6 +4,39 @@ Source: `reference/video/frames/f001.jpg … f063.jpg` (832×464). Daytime video
 build target is a NIGHT scene, so the lighting inventory below matters as much as geometry.
 Orientation convention used throughout: **the pool-facing glass wall = SOUTH**.
 
+> ## ⚠️ THIS BRIEF IS MIRRORED — every EAST/WEST below is BACKWARDS
+>
+> Corrected 2026-08-01. This document was distilled from a handheld walkthrough,
+> and handedness read off a moving phone camera reverses easily. It did. **Read
+> every "east"/"west", "left"/"right" and the §4 plan as its mirror image.**
+> North/south (the pool side vs the entry side) are correct — only the
+> cross-axis is flipped.
+>
+> How we know, independent of the brief:
+> * **f048 / f050** — standing inside, looking out through the folding wall at
+>   the pool, the **exterior stair and the "THE WESTIN"/H pillar are at the FAR
+>   LEFT of the view**, on the same side as the white cabana blocks. §1/§7 put
+>   the exterior stair at the *west* corner, which is the right-hand side of
+>   that view. Contradiction.
+> * §1 and §6 put the **cabana blocks W and the loungers E**. Carl, who has been
+>   there, confirmed the opposite (cabanas/pavilions on your LEFT looking at the
+>   pool = east, chairs on the right = west) and `SITE.CABANAS` / `SITE.LOUNGERS`
+>   were fixed accordingly — so the E/W labelling is reversed wholesale, not in
+>   one paragraph.
+> * Carl then named four suite elements on the wrong side in the build —
+>   exterior stair, pantry shelf, interior staircase, spa/massage room — which
+>   is *every* element §4 places off the centre line, all flipped the same way.
+>
+> **The corrected plan (what the build now uses):** dining + pantry **EAST**,
+> living centre, black L-stair **WEST**, spa corridor + spa suite **WEST**,
+> exterior stair + signage pillar **EAST**. It is encoded in `SITE.SUITE`
+> (`diningX +5.5, livingX -1.0, stairX -6.0, pantry.cx +6.5, spa.cx -10.5`)
+> plus `SITE.EXT_STAIR.x +9.0` / `SITE.SIGN_PILLAR.x +9.5`; `js/suite.js` still
+> authors in this document's mirrored frame and reflects on the way out via its
+> `mx()` helper (see the §1a banner in that file). Nothing else in this brief —
+> materials, dimensions, fixture inventory, the camera path's north/south
+> sense — is affected.
+
 ## 1. Camera path
 
 | Frames | Where / moving toward |
@@ -46,6 +79,11 @@ Orientation convention used throughout: **the pool-facing glass wall = SOUTH**.
 - Floor-to-floor ≈ 3.8 m → ~22 risers @ ~0.17 m.
 
 ## 4. Approximate floor plan (coarse — verify in blockout)
+
+> ⚠️ **MIRRORED — read this plan left-for-right.** PANTRY/DINING are on the
+> EAST, STAIR/SPA on the WEST, and the exterior stair is off the EAST corner.
+> See the banner at the top of this file. The build follows the corrected
+> reading; do not "fix" `site.js` back to match the ASCII below.
 
 Ceilings: 1F great room ≈ 3.4 m (white, stepped coffers + cove LED); spa ≈ 3.0 m; 2F lounge ≈ 3.0 m with dark timber louver band at window head. Interior doors ~2.2–2.4 m (oversized); folding glass leaves ~2.8 m tall × ~0.95 m wide.
 

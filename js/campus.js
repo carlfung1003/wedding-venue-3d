@@ -1022,7 +1022,9 @@ function buildExtStair(G, root) {
   const soff = box(g, wide + .12, .22, Math.hypot(run, 3.8), E.x, 1.85, E.z - .1, MAT.stucco);
   soff.rotation.x = pitch;
   /* landing at the 2F balcony */
-  box(g, 2.1, .24, 2.0, E.x + .4, 3.68, z0 - run - .9, MAT.stone);
+  /* nudge the 2F landing back TOWARD the facade — a bare `+ .4` pushed it away
+     once EXT_STAIR.x went positive in the suite mirror */
+  box(g, 2.1, .24, 2.0, E.x - Math.sign(E.x) * .4, 3.68, z0 - run - .9, MAT.stone);
   /* glass balustrades + copper handrails, both sides */
   for (const s of [-1, 1]) {
     const b = box(g, .05, 1.0, Math.hypot(run, 3.8), E.x + s * (wide / 2 + .04), 2.42, E.z - .1, MAT.clear);

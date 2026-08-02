@@ -1256,8 +1256,12 @@ function buildUnderstory(G, blocked, enc) {
      placing four instances at NaN. */
   const anchors = [
     { x0: cabX - 2.2, x1: cabX - 1.4, z0: C.z0 + 1, z1: C.z1 - 1, n: 4 },
-    { x0: SITE.SUITE.cx - 12.5, x1: SITE.SUITE.cx - 10, z0: SITE.SUITE.cz - 6, z1: SITE.SUITE.cz + 3, n: 3 },
-    { x0: SITE.SUITE.cx + 15, x1: SITE.SUITE.cx + 17.5, z0: SITE.SUITE.cz - 4, z1: SITE.SUITE.cz + 4, n: 3 },
+    /* The suite's flanks SWAPPED when its interior plan was un-mirrored on
+       2026-08-01 (the spa annex moved west). These anchors are hard offsets
+       from SUITE.cx, so they didn't move — the spa moved on top of them, and
+       two mounds ended up growing inside the massage room. Mirrored to match. */
+    { x0: SITE.SUITE.cx + 10, x1: SITE.SUITE.cx + 12.5, z0: SITE.SUITE.cz - 6, z1: SITE.SUITE.cz + 3, n: 3 },
+    { x0: SITE.SUITE.cx - 17.5, x1: SITE.SUITE.cx - 15, z0: SITE.SUITE.cz - 4, z1: SITE.SUITE.cz + 4, n: 3 },
     { x0: LG.cx - 9, x1: LG.cx + 9, z0: LG.cz + LG.d / 2 + 3, z1: LG.cz + LG.d / 2 + 4.2, n: 4 },
   ];
   const bougs = [];

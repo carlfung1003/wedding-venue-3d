@@ -15,13 +15,58 @@
 // All textures/materials are LOCAL to this module (only mulberry32 is shared).
 
 import * as THREE from 'three';
-import { SITE } from './site.js';
+import { SITE, MOMENT_PLACES, worldToEnclave } from './site.js';
 import { mulberry32 } from './materials.js';
 
 /* ══════════════════════════════════════════════════════════════════════
    1 · DIMENSIONS — everything derived from SITE.SUITE
    ══════════════════════════════════════════════════════════════════════ */
 const S = SITE.SUITE;
+
+/* ══════════════════════════════════════════════════════════════════════
+   1a · THE MIRROR — read this before you touch a single X in this file
+   ══════════════════════════════════════════════════════════════════════
+   reference/suite-interior-brief.md §4 — the plan this whole file was built
+   from — is REVERSED left-for-right. It was distilled from a handheld phone
+   walkthrough, and handedness read off a moving camera flips easily. Carl has
+   been to the suite and independently named four things on the wrong side
+   (exterior stair, pantry shelf, interior staircase, spa) — which is every
+   element the plan puts off the centre line. See the long note in
+   site.js SITE.SUITE for the frame evidence (f048 / f050).
+
+   The fix is a reflection of the WHOLE interior about the building's centre
+   line, x = SITE.SUITE.cx = 0. This file keeps authoring in the old (brief)
+   frame — 400-odd interior X coordinates, most of them offsets from a wall
+   constant, and hand-negating them is exactly how a room ends up HALF
+   mirrored, which is the bug we are fixing. Instead every primitive reflects
+   its X on the way out through mx():
+
+     · slab / box / cyl / col  — the four leaves everything else is built on,
+       so wallRun, coffer, downlights, glazedBay, fascia, doubleDoor, chair,
+       tableLamp, curtainPanel, levelRail and every collider follow for free;
+     · the handful of direct .position.set() calls (stair soffit, chandelier,
+       rakeRail, the spa's brass inlay, the folding leaves, buildLighting);
+     · every rotation.y and rotation.z, which a reflection negates
+       (M·R_y(θ) = R_y(−θ)·M for M = diag(−1,1,1)); rotation.x is unaffected,
+       and .translateZ() is too — only .translateX() flips sign.
+
+   Boxes and cylinders are symmetric about their own centres, so reflecting
+   the CENTRE of an axis-aligned primitive is a true reflection of it. Nothing
+   is scaled negative: winding order, normals and CanvasTexture text are all
+   untouched.
+
+   SITE.SUITE carries the CORRECTED coordinates. The anchors below read them
+   back through mx() so the two files can never drift: change a side in
+   site.js and this file follows. checkMirror() at the bottom re-derives the
+   built positions and warns in the console if they ever disagree.           */
+const mx = x => -x;
+
+/* SITE anchors, pulled back into this file's (mirrored) authoring frame */
+const LIVING_X = mx(S.livingX);          //  1.0
+const DINING_X = mx(S.diningX);          // -5.5
+const STAIR_X = mx(S.stairX);            //  6.0
+const P = { ...S.pantry, cx: mx(S.pantry.cx) };   // cx -6.5
+const SPA = { ...S.spa, cx: mx(S.spa.cx) };       // cx 10.5
 
 const X0 = S.cx - S.w / 2;          //  -8    west wall
 const X1 = S.cx + S.w / 2;          //  +8    east wall
@@ -52,10 +97,10 @@ const LOUVRE_H = 0.70;                  // horizontal bronze screen band, 2F hea
 const WT = 0.26;                    // interior partition thickness
 const EWT = 0.36;                   // exterior wall thickness
 
-/* --- east annex: spa + corridor. SITE.SUITE.spa spans x 7..14, which laps
-   1 m inside the envelope; we clip its west face to the envelope's east wall
-   (x = 8) so the two volumes don't intersect. Centre stays within 0.5 m. --- */
-const SPA = S.spa;                                   // {cx:10.5, cz:-22, w:7, d:5}
+/* --- the annex: spa + corridor. SITE.SUITE.spa spans (mirrored frame) x 7..14,
+   which laps 1 m inside the envelope; we clip its inner face to the envelope
+   wall (x = 8) so the two volumes don't intersect. Centre stays within 0.5 m.
+   Built here on the +X side and reflected out to the WEST by mx(). --- */
 const ANX_X0 = X1;                                   //  8.0
 const ANX_X1 = SPA.cx + SPA.w / 2;                   // 14.0
 const CORW = S.corridorW;                            //  1.6 CLEAR corridor width
@@ -65,15 +110,17 @@ const SPA_ZS = SPA.cz + SPA.d / 2;                   // -19.5 spa south wall
 const COR_ZS = SPA_ZS + 2.5;                         // -17.0 corridor runs on past
                                                      // the spa to its second door
 
-/* --- pantry, NW corner (SITE.SUITE.pantry), west face clipped to the wall --- */
-const P = S.pantry;                                  // {cx:-6.5, cz:-24.5, w:4, d:3.5}
+/* --- pantry (SITE.SUITE.pantry), outer face clipped to the wall. Authored in
+   the NW corner of this file's frame; mx() lands it in the real NE one. --- */
 const P_X1 = P.cx + P.w / 2;                         // -4.5
 const P_ZS = P.cz + P.d / 2;                         // -22.75
 
-/* --- the staircase. L-shaped dog-leg, 22 risers over SITE floorToFloor --- */
+/* --- the staircase. L-shaped dog-leg, 22 risers over SITE floorToFloor.
+   The mass is 3.8 m wide and hangs off the envelope wall, so its zone runs
+   from 1.8 m inboard of SITE.SUITE.stairX out to the wall. --- */
 const RISE = YF2 / 22;                               // 0.17273
 const ST = {
-  x0: 4.2, x1: X1,            // the whole stair zone
+  x0: STAIR_X - 1.8, x1: X1,  // 4.2 → 8.0, the whole stair zone
   zN: -24.4, zS: -19.28,      // north face of the mass / top of the upper flight
   w: 1.2,                     // clear flight width
   goLo: 0.30, goUp: 0.29,
@@ -92,15 +139,24 @@ const GW = {
   x1: S.glassWallW / 2,       //  7.0
   leafW: S.leafW,             // 0.95
   leafH: S.leafH,             // 2.8
-  closedX1: -1.3,             // leaves closed from x0 to here (dining end)
+  /* Leaves closed from x0 to here (dining end); the rest of the frontage is
+     the walk-in / fly-in opening. Was -1.3 — 6 closed leaves — which the
+     mirror would have dropped 0.3 m from the PREWEDDING spawn (SITE local
+     x = 1, i.e. x = -1 in this file's frame), pinning the spawn against the
+     glazing collider. That spawn is also INTRO_PATH.land and must not move,
+     so the wall gives way instead: two leaves more are folded away, and the
+     stone pier marking the joint slides with them (buildGreatRoom +
+     buildColliders keep the same "just inboard of closedX1" relationship).
+     Kept on the 0.95 m leaf module (x0 + 4 × leafW) so the run stays flush.
+     Opening is now SITE x -6.15 … 3.2 with the spawn 2.2 m inside it, and the
+     pier ends up 2.3 m to the walker's left — the mirror of the 2.4 m it
+     stood to their right before. */
+  closedX1: -3.2,             // leaves closed from x0 to here (dining end)
   stackX0: 6.2,               // the folded concertina stacks here
 };
 
-/* 1F room anchors straight off SITE */
-const LIVING_X = S.livingX, DINING_X = S.diningX;
-
 /* ══════════════════════════════════════════════════════════════════════
-   2 · SMALL HELPERS
+   2 · SMALL HELPERS — every one of these reflects X through mx() (see §1a)
    ══════════════════════════════════════════════════════════════════════ */
 
 /** Box spanning an explicit x/y/z range — the workhorse for architecture. */
@@ -108,7 +164,7 @@ function slab(parent, mat, x0, x1, y0, y1, z0, z1) {
   const w = Math.abs(x1 - x0), h = Math.abs(y1 - y0), d = Math.abs(z1 - z0);
   if (w < 1e-4 || h < 1e-4 || d < 1e-4) return null;
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  m.position.set(mx((x0 + x1) / 2), (y0 + y1) / 2, (z0 + z1) / 2);
   parent.add(m);
   return m;
 }
@@ -116,15 +172,15 @@ function slab(parent, mat, x0, x1, y0, y1, z0, z1) {
 /** Box by centre + size, with optional Y rotation. */
 function box(parent, mat, w, h, d, x, y, z, ry = 0) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  m.rotation.y = ry;
+  m.position.set(mx(x), y, z);
+  m.rotation.y = -ry;
   parent.add(m);
   return m;
 }
 
 function cyl(parent, mat, rt, rb, h, x, y, z, seg = 16, open = false) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg, 1, open), mat);
-  m.position.set(x, y, z);
+  m.position.set(mx(x), y, z);
   parent.add(m);
   return m;
 }
@@ -154,9 +210,13 @@ function wallRun(parent, mat, axis, fixed, t, a0, a1, y0, y1, holes = []) {
 
 /* ── colliders ─────────────────────────────────────────────────────────
    updatePlayer only understands {x,z,r} cylinders, so walls are chains of
-   circles at a step <= r (house rule — widen it and corners get squeezable). */
+   circles at a step <= r (house rule — widen it and corners get squeezable).
+   Colliders are authored in the same mirrored frame as the geometry and go
+   through mx() too, so they stay welded to the walls they belong to. They are
+   still ENCLAVE-LOCAL at this point — world.js rewrites the slice buildSuite
+   pushed through enclaveToWorld() once the enclave group is placed. */
 let COL = null;
-function col(x, z, r) { COL.push({ x, z, r }); }
+function col(x, z, r) { COL.push({ x: mx(x), z, r }); }
 function colLine(x1, z1, x2, z2, r, step) {
   const st = step || r * 0.9;
   const dx = x2 - x1, dz = z2 - z1;
@@ -540,6 +600,7 @@ export function buildSuite(G) {
   buildSecondFloor(root);
   buildLighting(root, G);
   buildColliders();
+  checkMirror();
 
   G.scene.add(root);
   G.suite = root;
@@ -691,14 +752,17 @@ function buildFoldingGlassWall(root) {
   const nClosed = Math.round((GW.closedX1 - GW.x0) / GW.leafW);
   for (let i = 0; i < nClosed; i++) {
     const leaf = makeLeaf(GW.leafW, GW.leafH);
-    leaf.position.set(GW.x0 + GW.leafW * (i + .5), 0, ZS);
+    /* makeLeaf's own slabs are already reflected, so the group only needs its
+       position and rotation reflected — see §1a. translateX flips with the
+       rotation; translateZ would not. */
+    leaf.position.set(mx(GW.x0 + GW.leafW * (i + .5)), 0, ZS);
     g.add(leaf);
   }
   /* one leaf swung open on its hinge — the "swing-door mode" of the video */
   const swing = makeLeaf(GW.leafW, GW.leafH);
-  swing.position.set(GW.closedX1 + .06, 0, ZS - .04);
-  swing.rotation.y = -1.15;
-  swing.translateX(GW.leafW / 2);
+  swing.position.set(mx(GW.closedX1 + .06), 0, ZS - .04);
+  swing.rotation.y = 1.15;
+  swing.translateX(-GW.leafW / 2);
   g.add(swing);
 
   /* ── the folded concertina: 8 leaves stacked at the east end ──
@@ -710,8 +774,8 @@ function buildFoldingGlassWall(root) {
     const x0 = GW.stackX0 + j * dx, x1 = GW.stackX0 + (j + 1) * dx;
     const z0 = hz(j), z1 = hz(j + 1);
     const leaf = makeLeaf(GW.leafW, GW.leafH);
-    leaf.position.set((x0 + x1) / 2, 0, (z0 + z1) / 2);
-    leaf.rotation.y = Math.atan2(-(z1 - z0), x1 - x0);
+    leaf.position.set(mx((x0 + x1) / 2), 0, (z0 + z1) / 2);
+    leaf.rotation.y = -Math.atan2(-(z1 - z0), x1 - x0);
     g.add(leaf);
   }
   /* stack post the leaves park against */
@@ -811,8 +875,11 @@ function buildGreatRoom(root) {
   slab(g, MT.espresso, sx - 1.3, sx + 1.3, .32, .60, sz + .9, sz + 1.9);
   slab(g, MT.espressoPlain, sx - 1.34, sx + 1.34, .58, .63, sz + .86, sz + 1.94);
 
-  /* a dark stone-clad pier between the closed and folded glazing (f016) */
-  slab(g, MT.stonePier, -2.05, -1.4, 0, H1, ZS - .95, ZS - .35);
+  /* a dark stone-clad pier between the closed and folded glazing (f016).
+     Moved 1.9 m with GW.closedX1 when the plan was mirrored — it marks that
+     joint, and left where it was it stood in the PREWEDDING spawn's way out
+     to the deck. Keep the two in step (buildColliders has the matching rect). */
+  slab(g, MT.stonePier, -3.95, -3.3, 0, H1, ZS - .95, ZS - .35);
   /* floor register plates in the marble */
   for (const rx of [-.6, 3.2]) slab(g, MT.brass, rx - .28, rx + .28, .001, .012, -14.5, -14.34);
 
@@ -851,8 +918,8 @@ function chair(parent, x, z, ry) {
   for (const lx of [-.2, .2]) for (const lz of [-.2, .2]) {
     slab(c, MT.espressoPlain, lx - .025, lx + .025, 0, .44, lz - .025, lz + .025);
   }
-  c.position.set(x, 0, z);
-  c.rotation.y = ry;
+  c.position.set(mx(x), 0, z);
+  c.rotation.y = -ry;
   parent.add(c);
   return c;
 }
@@ -992,7 +1059,7 @@ function buildStair(root, G) {
   {
     const len = Math.hypot(13 * ST.goUp, 13 * RISE) + .5;
     const m = new THREE.Mesh(new THREE.BoxGeometry(ST.w, .22, len), MT.black);
-    m.position.set((ST.lx0 + ST.lx1) / 2, (ST.lyY + YF2) / 2 - .17,
+    m.position.set(mx((ST.lx0 + ST.lx1) / 2), (ST.lyY + YF2) / 2 - .17,
       (ST.lzS + ST.zS) / 2);
     m.rotation.x = -upAng;
     g.add(m);
@@ -1029,7 +1096,7 @@ function buildStair(root, G) {
 
   /* ── the chandelier: 3 tiers of champagne-gold crystal strands ── */
   const chand = new THREE.Group();
-  chand.position.set(5.6, 0, -20.6);   // in the void, framed by the 2F slot
+  chand.position.set(mx(5.6), 0, -20.6);   // in the void, framed by the 2F slot
   g.add(chand);
   cyl(chand, MT.brassBright, .12, .12, .06, 0, Y2C - .05, 0, 16);
   cyl(chand, MT.brassBright, .022, .022, .5, 0, Y2C - .32, 0, 8);
@@ -1042,7 +1109,7 @@ function buildStair(root, G) {
 
   /* slow rotation + a gentle crystal shimmer */
   (G.tickers ||= []).push((dt, t) => {
-    chand.rotation.y += dt * .06;
+    chand.rotation.y -= dt * .06;   // mirrored, like every other rotation.y
     const base = NIGHT ? 2.6 : .3;
     MT.crystal.emissiveIntensity = base * (1 + .07 * Math.sin(t * 1.7));
   });
@@ -1056,8 +1123,9 @@ function rakeRail(parent, axis, fixed, a0, y0, a1, y1, ang) {
     const geo = axis === 'z' ? new THREE.BoxGeometry(w, h, len)
       : new THREE.BoxGeometry(len, h, w);
     const m = new THREE.Mesh(geo, mat);
-    if (axis === 'z') { m.position.set(fixed, mid[1], mid[0]); m.rotation.x = -ang; }
-    else { m.position.set(mid[0], mid[1], fixed); m.rotation.z = ang; }
+    /* mirrored: X reflects, rotation.z negates with it, rotation.x doesn't */
+    if (axis === 'z') { m.position.set(mx(fixed), mid[1], mid[0]); m.rotation.x = -ang; }
+    else { m.position.set(mx(mid[0]), mid[1], fixed); m.rotation.z = -ang; }
     parent.add(m);
     return m;
   };
@@ -1075,7 +1143,7 @@ function levelRail(parent, axis, fixed, a0, a1, y) {
   } else {
     slab(parent, MT.glassRail, a0, a1, y, y + .98, fixed - .011, fixed + .011);
     const r = cyl(parent, MT.sapele, .031, .031, Math.abs(a1 - a0), (a0 + a1) / 2, y + 1.01, fixed, 10);
-    r.rotation.z = Math.PI / 2;
+    r.rotation.z = -Math.PI / 2;
   }
 }
 
@@ -1123,7 +1191,7 @@ function buildAnnex(root) {
   slab(g, MT.onyx, ox, ox + .06, 0, H2, -25.6, -21.0);
   for (let i = 0; i < 5; i++) {                       // diagonal brass inlay
     const m = new THREE.Mesh(new THREE.BoxGeometry(.02, .045, 4.3), MT.brassBright);
-    m.position.set(ox + .05, .55 + i * .62, -23.3);
+    m.position.set(mx(ox + .05), .55 + i * .62, -23.3);
     m.rotation.x = .34;
     g.add(m);
   }
@@ -1295,7 +1363,7 @@ function buildLighting(root, G) {
   void G;
   for (const [x, y, z, dist, dayI, nightI, dayHex, nightHex] of REAL_LIGHTS) {
     const l = new THREE.PointLight(0xffffff, 1, dist, 2);
-    l.position.set(x, y, z);
+    l.position.set(mx(x), y, z);
     nightLight(l, dayI, nightI, dayHex, nightHex);
     root.add(l);
   }
@@ -1303,9 +1371,10 @@ function buildLighting(root, G) {
 
 /* ══════════════════════════════════════════════════════════════════════
    14 · COLLIDERS — chains of {x,z,r} cylinders (house pattern)
-   NOTE: the folded-open span of the glass wall (x -1.3 … 6.15) is left
-   deliberately COLLIDER-FREE so a walker can stroll straight in from the
-   pool deck — and a flyer can come in through the same gap.
+   NOTE: the folded-open span of the glass wall (SITE-space x -6.15 … 3.2, i.e.
+   -3.2 … 6.15 in this file's mirrored authoring frame) is left deliberately
+   COLLIDER-FREE so a walker can stroll straight in from the pool deck — and a
+   flyer can come in through the same gap. Authored X goes through mx().
    ══════════════════════════════════════════════════════════════════════ */
 function buildColliders() {
   /* r is the GEOMETRY radius — CFG.PLAYER_R is added at test time (house rule),
@@ -1325,9 +1394,11 @@ function buildColliders() {
   colLine(X0, ZS - .2, X0 + 1.0, ZS - .2, WR);
   colLine(X1 - 1.0, ZS - .2, X1, ZS - .2, WR);
   colLine(GW.x0, ZS, GW.closedX1, ZS, .26);          // closed bi-fold leaves
-  colRect(-2.05, ZS - .95, -1.4, ZS - .35, .3);      // stone pier
+  colRect(-3.95, ZS - .95, -3.3, ZS - .35, .3);      // stone pier (moves with closedX1)
   colRect(6.15, ZS - 1.0, 7.4, ZS, .26);             // the folded leaf stack
-  /* x −1.3 … 6.15 at z −13.5: intentionally nothing. Walk / fly straight in. */
+  /* THIS FILE'S FRAME x −3.2 … 6.15 at z −13.5: intentionally nothing — after
+     mx() that is SITE-space x −6.15 … 3.2, the walk-in / fly-in span, with the
+     PREWEDDING spawn (SITE x = 1) 1.9 m inside it. Never close this. */
 
   /* ── pantry ── */
   colLine(X0, P_ZS, -5.55, P_ZS, .28);               // red lattice screen
@@ -1361,4 +1432,39 @@ function buildColliders() {
   colRect(COR_X1 + .1, -24.3, COR_X1 + 1.0, -22.5, .3);         // spa sofa
   colLine(ANX_X0 + .1, -25.9, ANX_X0 + .9, -25.9, .3);          // corridor daybed
   colLine(ANX_X0 + .1, -23.9, ANX_X0 + .9, -23.9, .3);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   15 · MIRROR SELF-CHECK — cheap insurance for §1a
+   This file authors in the mirrored brief frame and site.js holds the truth;
+   the whole point of mx() is that the two can never drift, but a future edit
+   that hand-negates one X "to fix it" would silently half-mirror the room
+   again — the exact bug this file was rescued from. So re-derive three
+   landmarks that carry literal coordinates and shout if they no longer land
+   on the side SITE.SUITE says they do. Console warning only: a mis-sided
+   sofa is a bug report, not a reason to refuse to draw the venue.
+   ══════════════════════════════════════════════════════════════════════ */
+function checkMirror() {
+  const bad = [];
+  const side = (built, want, what) => {
+    if (Math.sign(built) !== Math.sign(want)) {
+      bad.push(`${what}: built at x ${built.toFixed(2)}, SITE says ${want}`);
+    }
+  };
+  side(mx((ST.x0 + ST.x1) / 2), S.stairX, 'stair mass');
+  side(mx((-7.8 + -5.55) / 2), S.pantry.cx, 'pantry lattice shelf');
+  side(mx((11.3 + 13.5) / 2), S.spa.cx, 'spa jacuzzi');
+  side(mx(DINING_X), S.diningX, 'dining table');
+
+  /* the folded-open span must still swallow the PREWEDDING spawn, which is
+     also INTRO_PATH.land — the dive lands there and has to be able to walk
+     out. Span in SITE space, plus a body radius (CFG.PLAYER_R 0.35) and the
+     leaf collider radius (0.26). */
+  const sp = worldToEnclave(MOMENT_PLACES.PREWEDDING.x, MOMENT_PLACES.PREWEDDING.z);
+  const lo = Math.min(mx(GW.closedX1), mx(6.15)), hi = Math.max(mx(GW.closedX1), mx(6.15));
+  if (sp.x < lo + .7 || sp.x > hi - .7) {
+    bad.push(`PREWEDDING spawn x ${sp.x.toFixed(2)} is not clear inside the `
+      + `open glass span ${lo.toFixed(2)}…${hi.toFixed(2)} — move the wall, not the spawn`);
+  }
+  if (bad.length) console.warn('[suite] mirror check:\n  ' + bad.join('\n  '));
 }

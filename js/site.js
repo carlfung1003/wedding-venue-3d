@@ -26,12 +26,38 @@ export const SITE = {
     glassWallZ: -13.5,       // south face — the folding glass wall plane
     glassWallW: 14,          // glazed frontage width
     leafW: 0.95, leafH: 2.8, // folding leaf module
-    // interior partitions, all in world coords (see suite-interior-brief §4)
-    diningX: -5.5,           // dining area centre X (west third)
-    livingX: 1.0,            // living area centre X
-    stairX: 6.0,             // black stair mass (east end of great room)
-    pantry: { cx: -6.5, cz: -24.5, w: 4, d: 3.5 },   // NW corner
-    spa:    { cx: 10.5, cz: -22.0, w: 7, d: 5 },     // east, off the corridor
+    /* ── interior plan, ENCLAVE-LOCAL. MIRRORED 2026-08-01 — see below ──────
+       These five were authored from reference/suite-interior-brief.md §4, and
+       that plan is REVERSED left-for-right. The brief was distilled from a
+       handheld walkthrough video, and handedness read off a moving phone
+       camera is trivially easy to flip; §4 flipped, and everything built from
+       it flipped with it. Carl has been to the suite and named four elements
+       on the wrong side — exterior stair, pantry shelf, interior staircase,
+       spa/massage room — which is every element §4 places off the centre line.
+
+       The frames settle it independently of Carl:
+         · f048 / f050 — from inside, looking out through the folding wall at
+           the pool, the exterior stair and the "THE WESTIN"/H pillar are at
+           the FAR LEFT of the view, on the same side as the white cabana
+           blocks. Facing the pool is local +Z, and player.js builds fwd as
+           (−sin yaw, 0, −cos yaw), so LEFT is local +X. SITE.CABANAS is
+           already at x +12 (Carl-verified on site), so the exterior stair
+           belongs at +X too — the brief put it west.
+         · The brief's own §1/§6 put the cabanas W and the loungers E; Carl
+           corrected both to the opposite. The E/W labelling is reversed
+           wholesale, not in one paragraph.
+
+       So the whole interior is reflected about the building's centre line
+       (x = SUITE.cx = 0): dining + pantry EAST, stair + spa WEST, exterior
+       stair EAST. suite.js still authors its 400-odd interior X coordinates
+       in the old brief frame and reflects them on the way out through its
+       mx() helper — read the banner at the top of that file before editing
+       either side. Do NOT "tidy" one of these back without the other.        */
+    diningX: 5.5,            // dining area centre X (east third)
+    livingX: -1.0,           // living area centre X
+    stairX: -6.0,            // black stair mass (west end of great room)
+    pantry: { cx: 6.5, cz: -24.5, w: 4, d: 3.5 },    // NE corner
+    spa:    { cx: -10.5, cz: -22.0, w: 7, d: 5 },    // west, off the corridor
     corridorW: 1.6,
     balconyD: 2.0,           // 2F balcony depth, south side
   },
@@ -70,8 +96,12 @@ export const SITE = {
   CABANAS: { x: 12.0, z0: -1, z1: 20, count: 7, wMin: 2.6, wMax: 3.4, hMin: 2.5, hMax: 3.5 },
   LOUNGERS: { x: -7.6, z0: 0, z1: 19, count: 8, umbrellas: 3 },
   PERGOLA: { cx: 12, cz: 25, w: 5, d: 4, h: 3.0 },   // far end, closing the view
-  SIGN_PILLAR: { x: -9.5, z: -12.0 },            // dark "THE WESTIN" / "H" pillar
-  EXT_STAIR: { x: -9.0, z: -16.0 },              // exterior stair to 2F balcony
+  // Both of these read off the SUITE's interior plan and moved with it when the
+  // mirror was corrected (see SUITE above): in f048/f050 the stair and the
+  // pillar stand together at the far LEFT of the view out to the pool, i.e.
+  // local +X, the same side as CABANAS. They were at −9.0 / −9.5.
+  SIGN_PILLAR: { x: 9.5, z: -12.0 },             // dark "THE WESTIN" / "H" pillar
+  EXT_STAIR: { x: 9.0, z: -16.0 },               // exterior stair to 2F balcony
 
   // event plaza — moved WEST of the deck: the east side is now the pavilion
   // and lounger run down the pool's long edge
@@ -314,7 +344,10 @@ export function siteFloorY(x, z) {
 // or the spawns will silently disagree with the geometry.
 const MOMENT_PLACES_LOCAL = {
   // inside the great room, looking out through the folded-open glass wall at
-  // the lantern-lit pool — the shot the whole project exists for
+  // the lantern-lit pool — the shot the whole project exists for.
+  // Fixed point of the 2026-08-01 interior mirror: the glass wall's open span
+  // and the stone pier were moved to keep this walkable (suite.js GW.closedX1),
+  // never the spawn — it is INTRO_PATH.land too, so the dive would miss.
   PREWEDDING: { x: 1, z: -18, yaw: Math.PI },
   // Standing at the BACK of the aisle looking north up it to the arch.
   // x tracks LAWN.cx (−75). z must sit behind the last row: moments.js lays
