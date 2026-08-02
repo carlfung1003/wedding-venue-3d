@@ -56,6 +56,28 @@ export const SITE = {
     diningX: 5.5,            // dining area centre X (east third)
     livingX: -1.0,           // living area centre X
     stairX: -6.0,            // black stair mass (west end of great room)
+    /* THE L-STAIR, in SITE (mirror-corrected) coordinates. Lived as a bag of
+       literals inside suite.js until walkable stairs landed; the height field
+       needs the same numbers, and two files deriving a staircase from two
+       copies of the same magic numbers is exactly how the campus drifts apart.
+       suite.js now builds `ST` from this through mx() — see §1a there.
+         · 22 risers over floorToFloor: 8 up the lower flight (7 treads + the
+           landing as the 8th riser), 14 up the upper one (13 treads + the 2F
+           slab as the 14th).
+         · the lower flight runs E→W in SITE terms: its foot is at
+           x = landing.x1 + 7 × goLo and it climbs toward −X onto the landing.
+         · the upper flight then climbs SOUTH (+Z) from the landing to zS,
+           where it meets the 2F stair hall at floorToFloor. */
+    stair: {
+      x0: -8.0, x1: -4.2,        // the stair zone: envelope wall → 1.8 m inboard of stairX
+      zN: -24.4, zS: -19.28,     // north face of the mass / top of the upper flight
+      w: 1.2,                    // clear flight width
+      goLo: 0.30, goUp: 0.29,    // going of each flight
+      nLo: 8, nUp: 14,           // risers per flight (8 + 14 = 22)
+      risers: 22,
+      lx0: -7.95, lx1: -6.75,    // the quarter landing
+      lzN: -24.25, lzS: -23.05,
+    },
     pantry: { cx: 6.5, cz: -24.5, w: 4, d: 3.5 },    // NE corner
     spa:    { cx: -10.5, cz: -22.0, w: 7, d: 5 },    // west, off the corridor
     corridorW: 1.6,
@@ -75,6 +97,10 @@ export const SITE = {
     cx: 0, cz: 9.0,          // centre — starts just past the turf band
     w: 10, d: 25,
     plinth: 0.45,            // raised on black stone
+    coping: 0.55,            // stone band around the basin — the plinth's outer
+                             // half-extent is w/2 + coping. water.js passes this
+                             // literal to makeRectPool; it lives here now because
+                             // the walkable height field needs the same rectangle.
     waterY: 0.40,            // water surface (just under coping)
     depth: 1.5,
     lanterns: 9,             // big glowing floating lanterns — SIGNATURE SHOT
@@ -101,7 +127,15 @@ export const SITE = {
   // pillar stand together at the far LEFT of the view out to the pool, i.e.
   // local +X, the same side as CABANAS. They were at −9.0 / −9.5.
   SIGN_PILLAR: { x: 9.5, z: -12.0 },             // dark "THE WESTIN" / "H" pillar
-  EXT_STAIR: { x: 9.0, z: -16.0 },               // exterior stair to 2F balcony
+  // exterior stair up the suite's flank. steps/tread/w/landing mirror the
+  // literals campus.js's buildExtStair() still carries — the walkable height
+  // field reads them from here, and campus.js should read them too the next
+  // time that file is open (it was owned by another agent when this landed).
+  EXT_STAIR: {
+    x: 9.0, z: -16.0,
+    steps: 19, tread: 0.30, w: 1.6,   // 19 × 0.2 m risers = SUITE.floorToFloor
+    landingW: 2.1, landingD: 2.0, landingBack: 0.4, landingY: 3.80,
+  },
 
   // event plaza — moved WEST of the deck: the east side is now the pavilion
   // and lounger run down the pool's long edge.
@@ -132,7 +166,13 @@ export const SITE = {
       [14, -38.5, 11, 4.5],
     ],
     topiary: 14,
-    stair: { x: -8, z: -47 },   // open-riser stair w/ copper handrail to the gallery
+    slabT: 0.35,             // gallery slab thickness (deck top → soffit below)
+    // open-riser stair w/ copper handrail up to the 2F gallery. It rises NORTH
+    // (−Z) from the court floor; `footOff` places its foot clear of pond A's
+    // north edge, and `wellPad`/`wellZ1` size the stairwell void punched
+    // through the 2F deck. atrium.js derives its STAIR/WELL from these.
+    stair: { x: -8, z: -47, w: 1.6, risers: 16, going: 0.45,
+      footOff: 3.1, wellPad: 1.0, wellZ1: -42.5 },
   },
 
   // ------------------------------------------------------- clubhouse & lounge
@@ -159,7 +199,14 @@ export const SITE = {
   // path (LAWN.hedgeR + 3.8 = 27.8 m around (−75, −46); the lounge's NW roof
   // corner clears it by ~0.5 m). cz is pinned the same way — pushing the lounge
   // any further north walks its roof straight into that ring path.
-  LOUNGE: { cx: -44, cz: -16, w: 20, d: 14, h: 4.2, glassZ: -9 },
+  // `plinth` + the pad/step numbers mirror campus.js's buildLounge() locals
+  // (PL = .34, the plinth box pushed +0.5 x / +0.3 z and 2.4 × 3.0 m proud of
+  // the walls, then two terrace steps down to the paving). They live here now
+  // because the walkable height field has to stand the player ON that plinth —
+  // the DINNER spawn is inside it. campus.js should read them when next open.
+  LOUNGE: { cx: -44, cz: -16, w: 20, d: 14, h: 4.2, glassZ: -9,
+    plinth: 0.34, plinthPadX: 2.4, plinthPadZ: 3.0, plinthOffX: 0.5, plinthOffZ: 0.3,
+    step2Y: 0.16, step2Z0: 1.0, step2Z1: 1.9 },   // step Zs are offsets from glassZ
   // same principle as the hero pool — it runs AWAY from the lounge's glass
   // wall, so from inside you look down its length, not across it. cz keeps the
   // 6 m terrace between the folding glass and the coping that the cocktail-hour
@@ -267,7 +314,32 @@ export const SITE = {
   // main Westin crescent, far east — backdrop for fly mode
   // pushed east so its 95 m arc clears the RESORT_VILLAS field (which stops at
   // x ≈ 177) — the crescent is the skyline you fly toward, not a neighbour
-  HOTEL: { cx: 285, cz: 10, r: 95, arc: 1.5, floors: 7, floorH: 3.6 },
+  HOTEL: { cx: 285, cz: 10, r: 95, arc: 1.5, floors: 7, floorH: 3.6,
+    // ── the rooftop infinity pool + brunch terrace (Carl & Rachel, 2027-03-18)
+    // Radii are measured from the crescent's ARC CENTRE (cx − r, cz) = (190, 10),
+    // the frame buildHotel()/buildHotelRoof() work in; angles are half-widths in
+    // radians about the crescent's centre bearing (θ = π/2, i.e. due east of the
+    // arc centre). Smaller radius = WEST = the concave, sea-facing side, so the
+    // infinity edge is the pool's INNER radius and spills toward the horizon.
+    ROOFTOP: {
+      roofY: 25.2,       // floors × floorH — top of the crescent / green roof cap
+      deckY: 26.6,       // WALKABLE terrace surface (a 1.4 m plinth over the cap)
+      waterY: 26.52,     // pool surface, 80 mm below the coping
+      basinY: 25.32,     // pool floor → 1.20 m of water
+      parapetH: 1.15,    // frameless glass balustrade, above deckY
+      arcHalf: 0.62,     // terrace half-angle (crescent itself is arc/2 = 0.75)
+      rIn: 90.0,         // terrace inner edge = top of the leaning inner facade
+      rOut: 103.2,       // terrace outer edge; the green roof cap runs on to 106
+      poolArcHalf: 0.36, // ~68 m of water along the curve
+      poolIn: 90.9,      // THE INFINITY EDGE — spills west, toward the sea
+      poolOut: 96.4,     // pool back wall → 5.5 m across
+      loungeR: 98.2,     // the lounger row, facing the drop
+      gardenR: 101.5,    // cabanas · planters · the bar pavilion
+      barArcHalf: 0.075, // rooftop bar, on the crescent's centreline
+      barH: 3.2,         // bar pavilion clear height above deckY
+      coreArcHalf: 0.50, // the two stair/lift head-houses
+    },
+  },
   ROAD: { z: -95 },          // arrival road + parking, north edge
 
   GROUND: { size: 700 },     // lawn/ground plane extent
@@ -328,22 +400,22 @@ export const ENCLAVE = {
   oz: 34,                   // …and south toward the bottom of the map
 };
 
-const _EC = Math.cos(ENCLAVE.rotY), _ES = Math.sin(ENCLAVE.rotY);
+const _EC = Math.cos(ENCLAVE.rotY), _XS = Math.sin(ENCLAVE.rotY);
 
 /** Enclave-local (x,z) → world (x,z). Same transform world.js gives the group,
  *  so anything that needs world coordinates (spawns, the intro path, colliders)
  *  agrees with the geometry to the last decimal. */
 export function enclaveToWorld(x, z) {
   return {
-    x: x * _EC + z * _ES + ENCLAVE.ox,
-    z: -x * _ES + z * _EC + ENCLAVE.oz,
+    x: x * _EC + z * _XS + ENCLAVE.ox,
+    z: -x * _XS + z * _EC + ENCLAVE.oz,
   };
 }
 
 /** The inverse — world (x,z) → enclave-local. */
 export function worldToEnclave(x, z) {
   const dx = x - ENCLAVE.ox, dz = z - ENCLAVE.oz;
-  return { x: dx * _EC - dz * _ES, z: dx * _ES + dz * _EC };
+  return { x: dx * _EC - dz * _XS, z: dx * _XS + dz * _EC };
 }
 
 /** A heading authored in enclave space → the same heading in world space.
@@ -364,13 +436,265 @@ export function isEnclaveLocal(x, z) {
   return true;
 }
 
-// Height of the ground at any point. Flat campus, sand slopes into the sea.
-export function siteFloorY(x, z) {
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE WALKABLE HEIGHT FIELD — floorY grows a second storey
+   ═══════════════════════════════════════════════════════════════════════════
+   CLAUDE.md has promised since day one that floorY(x,z) is the single source of
+   ground truth and that "stage steps, terrace decks and ramps must be expressed
+   there". Until 2026-08-02 it returned 0 everywhere but the beach, so every
+   staircase, deck and plinth on this campus was geometry the player slid
+   straight through — which is why walking up the suite's stair did nothing.
+
+   ── the registry ────────────────────────────────────────────────────────────
+   WALK_REGIONS is a flat list of walkable surfaces. Two shapes:
+
+     rect(id, x0, z0, x1, z1, y, opts)                     a flat platform
+     ramp(id, x0, z0, x1, z1, axis, a0, y0, a1, y1, opts)  a stair or slope
+
+   A ramp's height is a linear interpolation along `axis` ('x' or 'z') between
+   a0→y0 and a1→y1, CLAMPED outside that span, so the ends are flat lips rather
+   than cliffs. opts:
+     · ceil   absolute Y of whatever roofs this surface (default ∞). Only used
+              by the headroom gate below.
+     · t      slab thickness — the surface's own UNDERSIDE is y − t, which is
+              the ceiling for anything standing under it (default SLAB_T).
+     · holes  [{x0,z0,x1,z1}] cut out of the footprint (a stair void, a pool
+              basin). A point inside a hole is not on the region at all.
+     · world  true if the footprint is authored in WORLD coordinates.
+
+   ── the frame ───────────────────────────────────────────────────────────────
+   floorY is called with WORLD coordinates (the player's position), but every
+   footprint on this campus is authored ENCLAVE-LOCAL, because SITE.* is and the
+   whole clubhouse is re-parented under a rotated group. So the QUERY POINT is
+   mapped through worldToEnclave() once per call and the regions stay in the
+   frame they were authored in — get this backwards and the stairs end up 90 m
+   away. Backdrop content outside the enclave (the hotel crescent's rooftop
+   terrace, say) sets `world: true` and is tested against the raw point.
+
+   ── the resolution rule ─────────────────────────────────────────────────────
+   Regions overlap on purpose: the suite's 2F floor sits directly above its 1F.
+   Returning max() would teleport the player onto the roof on the first frame,
+   so the query is RELATIVE TO THE FEET:
+
+     1. Collect every surface at (x,z): the terrain, plus each region's height.
+     2. Keep the ones at or below `fromY + stepUp` — the surfaces the player can
+        actually reach by stepping up. Everything higher is a ceiling, not a
+        floor, and is ignored.
+     3. Answer with the HIGHEST of those, i.e. the thing you are standing on.
+     4. Headroom gate — a genuine step UP is refused unless the space above the
+        new surface is at least `headClear` tall, where the ceiling is the lower
+        of the region's own `ceil` and the underside of any surface above it.
+        Rejected candidates fall through to the next one down. Standing still is
+        never refused: you can be somewhere cramped, you just cannot climb into
+        it. This is the "entered from below" rule CLAUDE.md asked for.
+     5. If nothing is reachable (the player is under everything), answer with the
+        LOWEST surface, so a fall always has a floor.
+
+   Walking up the stair therefore happens for free: the ramp lifts the feet
+   tread by tread, and only when they are within stepUp of 3.8 does the 2F floor
+   become eligible. Standing in the great room at y = 0 it never is.          */
+
+const SLAB_T = 0.32;          // default platform thickness (→ underside)
+/* CFG owns the real tuning (house rule) but config.js imports THIS file, so
+   site.js must not import CFG back. world.js — which imports both — injects
+   CFG.STEP_UP / CFG.HEAD_CLEAR into every in-game call; these defaults exist
+   only for direct callers (tests, the console). Keep them in step with CFG. */
+const DEF_STEP_UP = 0.4;
+const DEF_HEAD_CLEAR = 1.8;
+
+function rect(id, x0, z0, x1, z1, y, o = {}) {
+  return {
+    id, y, axis: null,
+    x0: Math.min(x0, x1), x1: Math.max(x0, x1),
+    z0: Math.min(z0, z1), z1: Math.max(z0, z1),
+    ceil: o.ceil === undefined ? Infinity : o.ceil,
+    t: o.t === undefined ? SLAB_T : o.t,
+    holes: o.holes || null,
+    world: !!o.world,
+  };
+}
+
+function ramp(id, x0, z0, x1, z1, axis, a0, y0, a1, y1, o = {}) {
+  const r = rect(id, x0, z0, x1, z1, y0, o);
+  r.axis = axis; r.a0 = a0; r.a1 = a1; r.ry0 = y0; r.ry1 = y1;
+  return r;
+}
+
+/* ── the suite, in SITE (mirror-corrected) coordinates ── */
+const _SU = SITE.SUITE, _ST = _SU.stair;
+const _SX0 = _SU.cx - _SU.w / 2, _SX1 = _SU.cx + _SU.w / 2;   //  -8 …  8
+const _SZS = _SU.glassWallZ, _SZN = _SZS - _SU.d;             // -13.5 … -26.5
+const _YF2 = _SU.floorToFloor;                                //  3.8  2F finished floor
+const _Y2C = _YF2 + _SU.floor2H;                              //  6.8  2F ceiling
+const _RISE = _YF2 / _ST.risers;                              //  0.1727
+const _LANDY = _ST.nLo * _RISE;                               //  1.3818  quarter landing
+const _FOOTX = _ST.lx1 + (_ST.nLo - 1) * _ST.goLo;            // -4.65   bottom nosing
+
+/* ── the atrium ── */
+const _A = SITE.ATRIUM, _AS = _A.stair;
+const _AX0 = _A.cx - _A.w / 2, _AX1 = _A.cx + _A.w / 2;
+const _AZ0 = _A.cz - _A.d / 2, _AZ1 = _A.cz + _A.d / 2;
+const _ACX0 = _A.cx - _A.courtW / 2, _ACX1 = _A.cx + _A.courtW / 2;
+const _ACZ0 = _A.cz - _A.courtD / 2, _ACZ1 = _A.cz + _A.courtD / 2;
+const _AH1 = _A.floorH, _AH2 = _A.floorH * _A.floors;
+const _ASTZ0 = _AS.z + _AS.footOff;                        // -43.9 foot of the flight
+const _ASTZ1 = _ASTZ0 - _AS.risers * _AS.going;            // -51.1 top, at 2F deck
+const _AWELL = { x0: _AS.x - _AS.wellPad, x1: _ACX0, z0: _ASTZ1, z1: _AS.wellZ1 };
+
+/* ── the lounge plinth ── */
+const _LO = SITE.LOUNGE;
+const _LOX = _LO.cx + _LO.plinthOffX, _LOZ = _LO.cz + _LO.plinthOffZ;
+const _LOW = (_LO.w + _LO.plinthPadX) / 2, _LOD = (_LO.d + _LO.plinthPadZ) / 2;
+
+/* ── the exterior stair ── */
+const _ES = SITE.EXT_STAIR;
+const _XSRUN = _ES.steps * _ES.tread;
+const _XSZ0 = _ES.z + _XSRUN / 2;                          // -13.15 foot (south)
+const _XSZ1 = _XSZ0 - _XSRUN + _ES.tread;                  // -18.55 top tread
+const _XSLX = _ES.x - Math.sign(_ES.x) * _ES.landingBack;  //   8.6  landing centre
+
+/* ── the pool ── */
+const _P = SITE.POOL;
+const _PPX = _P.w / 2 + _P.coping, _PPZ = _P.d / 2 + _P.coping;
+
+export const WALK_REGIONS = [
+  /* ══ the presidential suite ═══════════════════════════════════════════════
+     The 2F is THREE rects, not one, because suite.js cuts the slab open over
+     the stair (buildShell) — authoring the hole here as geometry rather than as
+     a `holes` entry keeps the two descriptions of the same slab side by side. */
+  rect('suite-2f-lounge', _ST.x1, _SZN, _SX1, _SZS, _YF2, { ceil: _Y2C }),
+  rect('suite-2f-north', _SX0, _SZN, _ST.x1, _ST.zN, _YF2, { ceil: _Y2C }),
+  rect('suite-2f-hall', _SX0, _ST.zS, _ST.x1, _SZS, _YF2, { ceil: _Y2C }),
+  // the balcony slab is 20 mm below the finished floor, under the deep roof
+  rect('suite-balcony', _SX0 + .5, _SZS, _SX1 - .5, _SZS + _SU.balconyD, _YF2 - .02,
+    { ceil: _Y2C }),
+  // lower flight: climbs from the great-room floor toward −X onto the landing
+  ramp('suite-stair-lower', _ST.lx1, _ST.lzN, _FOOTX, _ST.lzS, 'x',
+    _FOOTX, 0, _ST.lx1, _LANDY),
+  rect('suite-stair-landing', _ST.lx0, _ST.lzN, _ST.lx1, _ST.lzS, _LANDY),
+  // upper flight: climbs SOUTH from the landing to the 2F stair hall
+  ramp('suite-stair-upper', _ST.lx0, _ST.lzS, _ST.lx1, _ST.zS, 'z',
+    _ST.lzS, _LANDY, _ST.zS, _YF2),
+
+  /* ══ the exterior stair up the suite's flank ══════════════════════════════
+     Built by campus.js; registered here by coordinate alone. Its landing is a
+     dead end today — the suite's facade is solid at 2F on that side — see the
+     note in CLAUDE.md. */
+  ramp('ext-stair', _ES.x - _ES.w / 2, _XSZ1, _ES.x + _ES.w / 2, _XSZ0, 'z',
+    _XSZ0, 0, _XSZ1, _YF2),
+  rect('ext-stair-landing',
+    _XSLX - _ES.landingW / 2, _XSZ1 - _ES.landingD - .35,
+    _XSLX + _ES.landingW / 2, _XSZ1 + .2, _ES.landingY),
+
+  /* ══ deck · turf · the hero pool ═════════════════════════════════════════
+     The deck and the turf band ARE at datum (water.js lays the pavers 4 mm
+     under it), so this rect changes nothing today — it is here so that raising
+     the terrace is a one-number edit rather than a new subsystem. The plinth
+     is the real step: 0.45 m of black stone with the basin cut out of it. */
+  rect('pool-deck', -SITE.DECK.w, SITE.DECK.z0, SITE.DECK.w,
+    _P.cz + _P.d / 2 + 3.4, 0),
+  rect('pool-plinth', _P.cx - _PPX, _P.cz - _PPZ, _P.cx + _PPX, _P.cz + _PPZ, _P.plinth,
+    { holes: [{ x0: _P.cx - _P.w / 2, x1: _P.cx + _P.w / 2,
+      z0: _P.cz - _P.d / 2, z1: _P.cz + _P.d / 2 }] }),
+
+  /* ══ the atrium's upper gallery ══════════════════════════════════════════
+     The ring (envelope minus court) at 3.6 m, minus the stairwell void — which
+     is exactly the seven slabs atrium.js builds, expressed as four runs and one
+     hole. Ceiling is the 2F soffit. */
+  rect('atrium-2f-n', _AX0, _AZ0, _AX1, _ACZ0, _AH1, { ceil: _AH2 - _A.slabT, t: _A.slabT, holes: [_AWELL] }),
+  rect('atrium-2f-s', _AX0, _ACZ1, _AX1, _AZ1, _AH1, { ceil: _AH2 - _A.slabT, t: _A.slabT }),
+  rect('atrium-2f-w', _AX0, _ACZ0, _ACX0, _ACZ1, _AH1, { ceil: _AH2 - _A.slabT, t: _A.slabT, holes: [_AWELL] }),
+  rect('atrium-2f-e', _ACX1, _ACZ0, _AX1, _ACZ1, _AH1, { ceil: _AH2 - _A.slabT, t: _A.slabT }),
+  // the open-riser flight, rising north out of the court onto that gallery
+  ramp('atrium-stair', _AS.x - _AS.w / 2, _ASTZ1, _AS.x + _AS.w / 2, _ASTZ0, 'z',
+    _ASTZ0, 0, _ASTZ1, _AH1),
+
+  /* ══ the 隐逸居 lounge — WEDDING DINNER ═══════════════════════════════════
+     The room sits on a 0.34 m plinth and the DINNER spawn is inside it, so
+     without this the player stands shin-deep in the marble. Two steps down to
+     the terrace paving on the south side. */
+  rect('lounge-plinth', _LOX - _LOW, _LOZ - _LOD, _LOX + _LOW, _LOZ + _LOD, _LO.plinth,
+    { ceil: _LO.plinth + _LO.h }),
+  rect('lounge-step', _LO.cx - (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z0,
+    _LO.cx + (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z1, _LO.step2Y),
+];
+
+/* Terrain only — the flat campus with sand sloping into the sea. This is what
+   floorY answers when nobody says where the feet are (prop placement, the fly
+   clamp), and it is the bottom candidate of every height-field query. */
+export function siteGroundY(x, z) {
   if (x < SITE.BEACH.x1) {
     const t = Math.min(1, (SITE.BEACH.x1 - x) / (SITE.BEACH.x1 - SITE.OCEAN.x1));
     return -t * t * 1.1;     // gentle beach slope down to the waterline
   }
   return 0;
+}
+
+/** Surface height of one region at a point, or null if the point misses it. */
+function regionY(r, x, z) {
+  if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) return null;
+  if (r.holes) {
+    for (const h of r.holes) {
+      if (x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) return null;
+    }
+  }
+  if (!r.axis) return r.y;
+  const a = r.axis === 'x' ? x : z;
+  let t = (a - r.a0) / (r.a1 - r.a0);
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return r.ry0 + (r.ry1 - r.ry0) * t;
+}
+
+/* scratch, reused every frame — the walker calls this once per frame and the
+   candidate list is never more than a handful long */
+const _h = [], _c = [], _t = [], _rej = [];
+
+/**
+ * Height of the walkable surface under a point.
+ * @param x,z       WORLD coordinates.
+ * @param fromY     the walker's CURRENT feet height. Omit it (or pass a
+ *                  non-number) to get bare terrain — that is the back-compatible
+ *                  2-argument contract every non-walking caller still uses.
+ * @param stepUp    how far the walker may climb in one step (CFG.STEP_UP).
+ * @param headClear headroom a surface must have to be climbed onto (CFG.HEAD_CLEAR).
+ */
+export function siteFloorY(x, z, fromY, stepUp = DEF_STEP_UP, headClear = DEF_HEAD_CLEAR) {
+  const g = siteGroundY(x, z);
+  if (typeof fromY !== 'number') return g;
+
+  const l = worldToEnclave(x, z);
+  let n = 0;
+  _h[n] = g; _c[n] = Infinity; _t[n] = 0; _rej[n] = 0; n++;
+  for (let i = 0; i < WALK_REGIONS.length; i++) {
+    const r = WALK_REGIONS[i];
+    const y = r.world ? regionY(r, x, z) : regionY(r, l.x, l.z);
+    if (y === null) continue;
+    _h[n] = y; _c[n] = r.ceil; _t[n] = r.t; _rej[n] = 0; n++;
+  }
+  if (n === 1) return g;
+
+  const lim = fromY + stepUp;
+  for (;;) {
+    /* the highest surface we could step onto and have not already refused */
+    let bi = -1, bh = -Infinity;
+    for (let i = 0; i < n; i++) {
+      if (_rej[i] || _h[i] > lim || _h[i] <= bh) continue;
+      bh = _h[i]; bi = i;
+    }
+    if (bi < 0) break;
+    if (bh > fromY + 1e-3) {           // a genuine climb — is there room up there?
+      let ceil = _c[bi];
+      for (let j = 0; j < n; j++) {
+        if (_h[j] > bh + 0.05) ceil = Math.min(ceil, _h[j] - _t[j]);
+      }
+      if (ceil - bh < headClear) { _rej[bi] = 1; continue; }
+    }
+    return bh;
+  }
+  /* under everything (mid-fall, or wedged below a slab): give the fall a floor */
+  let lo = _h[0];
+  for (let i = 1; i < n; i++) if (_h[i] < lo) lo = _h[i];
+  return lo;
 }
 
 // Spawn convention: yaw = 0 faces NORTH (-Z), yaw = π faces SOUTH (+Z).

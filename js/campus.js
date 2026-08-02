@@ -290,6 +290,38 @@ function texHotelWindows() {
   }, [26, 1]);
 }
 
+/* pale mosaic + a soft ripple web — the rooftop pool's basin.
+   The ripple is baked into the colour map and SCROLLED in tick(), which is all
+   the movement a pool 285 m from the camera can justify (water.js owns the one
+   pool that gets a real mirror pass). */
+function texRipple() {
+  return tex(256, 256, (g, w, h) => {
+    g.fillStyle = '#bfe4e6'; g.fillRect(0, 0, w, h);
+    /* mosaic grid */
+    g.strokeStyle = 'rgba(120,178,186,.5)'; g.lineWidth = 1.4;
+    for (let k = 0; k <= w; k += 32) {
+      g.beginPath(); g.moveTo(k, 0); g.lineTo(k, h); g.stroke();
+      g.beginPath(); g.moveTo(0, k); g.lineTo(w, k); g.stroke();
+    }
+    const rnd = mulberry32(9137);
+    for (let y = 0; y < h; y += 32) for (let x = 0; x < w; x += 32) {
+      g.fillStyle = `rgba(${196 + rnd() * 44 | 0},${228 + rnd() * 24 | 0},${230 + rnd() * 22 | 0},.5)`;
+      g.fillRect(x + 1.5, y + 1.5, 29, 29);
+    }
+    /* interference web = caustics */
+    g.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 26; i++) {
+      const cx = rnd() * w, cy = rnd() * h, r0 = 12 + rnd() * 46;
+      g.strokeStyle = `rgba(255,255,255,${.10 + rnd() * .16})`;
+      g.lineWidth = 1 + rnd() * 2.6;
+      for (let k = 0; k < 3; k++) {
+        g.beginPath(); g.arc(cx, cy, r0 + k * 9, 0, Math.PI * 2); g.stroke();
+      }
+    }
+    g.globalCompositeOperation = 'source-over';
+  }, [1, 1]);
+}
+
 /* the illuminated signage plate */
 function texSign() {
   return tex(512, 256, (g, w, h) => {
@@ -379,7 +411,53 @@ function makeMaterials() {
       roughness: .82, side: THREE.BackSide,
     }),
     hotelBack: tint(new THREE.MeshStandardMaterial({ map: retile(hotelFace, 26, 1), roughness: .9 }), 0x606776),
+
+    /* ── the rooftop brunch terrace + infinity pool ─────────────────────────
+       Every one of these lands on an arcBand() ribbon or an open cylinder, so
+       the maps are re-tiled for "u across the band, v along the crescent". */
+    /* pale travertine, NOT the campus's dark basalt paver — a sun deck people
+       walk on barefoot, and the light ground is what makes the white furniture
+       and the turquoise read from 285 m */
+    rtPave: tint(new THREE.MeshStandardMaterial({ map: retile(stone, 3.4, 1), roughness: .9 }), 0x767d8c),
+    /* the balustrade needs to be SEEN — MAT.clear (opacity .22) vanishes at any
+       distance, and a terrace whose edge you can't see reads as walking off
+       into space. A touch more body + a copper cap rail + fin posts. */
+    rtGlass: new THREE.MeshStandardMaterial({
+      color: 0xcadde4, roughness: .04, metalness: .22, envMapIntensity: 1.5,
+      transparent: true, opacity: .34, side: THREE.DoubleSide,
+    }),
+    /* the 1.4 m plinth the terrace sits on: its OUTER face is seen from the
+       east, its INNER face from inside the crescent's cylinder (BackSide,
+       same trick as hotelFacade/hotelPodium) */
+    rtPlinth: tint(new THREE.MeshStandardMaterial({ map: retile(stone, 30, 1), roughness: .9 }), 0x818898),
+    rtPlinthIn: tint(new THREE.MeshStandardMaterial({
+      map: retile(stone, 30, 1), roughness: .9, side: THREE.BackSide }), 0x818898),
+    rtTeak: tint(new THREE.MeshStandardMaterial({ map: retile(deck, 2.2, 1), roughness: .78 }), 0x7f7c8a),
+    rtCoping: tint(new THREE.MeshStandardMaterial({ map: retile(marble, 1, 1), roughness: .26 }), 0x8b91a2),
+    rtSlat: tint(new THREE.MeshStandardMaterial({ map: retile(slat, 1.6, 1), roughness: .64,
+      side: THREE.DoubleSide }), 0x8e8b9c),
+    rtBasin: tint(new THREE.MeshStandardMaterial({
+      map: texRipple(), roughness: .2, metalness: .06, side: THREE.DoubleSide,
+    }), 0x5f7590),
+    rtWater: new THREE.MeshStandardMaterial({
+      color: 0x2bb0c6, roughness: .08, metalness: .12, envMapIntensity: 1.6,
+      transparent: true, opacity: .64, emissive: 0x1ea6c4, emissiveIntensity: 0,
+      side: THREE.DoubleSide, depthWrite: false,
+    }),
+    /* the sheet of water falling off the infinity lip — lit from beneath at night */
+    rtSpill: new THREE.MeshStandardMaterial({
+      color: 0xdff3f6, roughness: .16, metalness: .1, transparent: true, opacity: .46,
+      emissive: 0xa9e6f2, emissiveIntensity: 0, side: THREE.BackSide, depthWrite: false,
+    }),
+    /* underwater niche lights + the coping wash: cool, unlike every other
+       emissive on the campus, which is what makes the roof read at 285 m */
+    poolGlow: new THREE.MeshStandardMaterial({ color: 0x0e1a1e, emissive: 0x63e3ff, emissiveIntensity: 0 }),
   };
+  tint(m.rtGlass, 0x8a97a8);
+  tint(m.rtWater, 0x6f8fa0);
+  glow(m.rtWater, .02, .95);
+  glow(m.rtSpill, .05, 1.25);
+  glow(m.poolGlow, .05, 3.1);
   tint(m.hotelFacade, 0x6d7482);
   glow(m.glass, 0, 1.05);
   glow(m.glowLamp, .04, 2.6);
@@ -498,6 +576,20 @@ function ribbon(pts, halfW, vScale = 6) {
   g.setIndex(idx);
   g.computeVertexNormals();
   return g;
+}
+
+/** A flat band following the crescent's arc, in the hotel group's own frame
+    (origin = arc centre). Radius r ± halfW, sweeping θ from a0 to a1 (a0 < a1
+    keeps the normals pointing UP). Built on ribbon() rather than RingGeometry
+    on purpose: RingGeometry's UVs are (x,y)/(2·outerRadius), which at r ≈ 100
+    squeezes every texture into a 6 % sliver of UV space. */
+function arcBand(r, halfW, a0, a1, y, seg = 128, vScale = 6) {
+  const pts = [];
+  for (let i = 0; i <= seg; i++) {
+    const th = a0 + (a1 - a0) * (i / seg);
+    pts.push({ x: Math.sin(th) * r, y, z: Math.cos(th) * r });
+  }
+  return ribbon(pts, halfW, vScale);
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1131,11 +1223,291 @@ function buildHotel(G, root) {
     conf.add(new THREE.Mesh(ribbon(pts, 4.6, 8), MAT.greenRoof));
   }
 
+  /* the rooftop brunch terrace — the one part of the crescent people stand in */
+  buildHotelRoof(G, g, acx, acz);
+
   /* coarse collider ring so a walker can't stroll into the crescent */
   for (let i = 0; i <= 26; i++) {
     const th = Math.PI / 2 - tl / 2 + (i / 26) * tl;
     G.colliders.push({ x: acx + dirX(th) * H.r, z: acz + dirZ(th) * H.r, r: 14 });
   }
+  return g;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   8b · THE ROOFTOP INFINITY POOL — SITE.HOTEL.ROOFTOP
+   Carl & Rachel host the wedding party up here on 2027-03-18, two days before
+   the wedding, so unlike the rest of the crescent this has to survive being
+   looked at from three metres as well as from 285.
+
+   Two coordinate frames are in play and mixing them silently shears the whole
+   terrace off the building:
+     · ring / cylinder meshes go into `g`, whose origin is the ARC CENTRE
+       (SITE.HOTEL.cx − r, SITE.HOTEL.cz) = (190, 10). Local, polar-ish.
+     · anything through inst() goes into a bucket that flushBuckets() parents
+       to `root` — no transform — so those need WORLD coordinates. WX()/WZ().
+
+   Radial section, west (the sea) → east:
+     90.00  glass balustrade on a marble ledge
+     90.35  catch trough, 0.55 m deep — the spill lands here
+     90.90  THE INFINITY EDGE
+     96.40  pool back wall, marble coping
+     97.20  teak lounger deck
+     99.60  paving: lanterns, then cabanas / the bar / planters
+    103.20  a 1.35 m step down onto the existing green roof cap, which runs to 106
+   ════════════════════════════════════════════════════════════════════════ */
+function buildHotelRoof(G, g, acx, acz) {
+  const R = SITE.HOTEL.ROOFTOP;
+  const C = Math.PI / 2;                                 // crescent centre bearing
+  const a0 = C - R.arcHalf, a1 = C + R.arcHalf;          // terrace sweep
+  const p0 = C - R.poolArcHalf, p1 = C + R.poolArcHalf;  // pool sweep
+  const DY = R.deckY, WY = R.waterY, BY = R.basinY, RY = R.roofY;
+  const PL = DY - RY;                                    // plinth, 1.4 m
+  const TR = 90.35, TROUGH_Y = DY - .55;                 // catch trough
+  const rc = (R.rIn + R.rOut) / 2;
+
+  const WX = (th, r) => acx + Math.sin(th) * r;
+  const WZ = (th, r) => acz + Math.cos(th) * r;
+  /* a flat radial band r0→r1 sweeping s→e. Bands are laid EDGE TO EDGE, never
+     stacked: at 285 m the depth buffer (near .08 / far 3000) resolves about
+     6 cm, so a coplanar overlay would z-fight from the enclave. */
+  const band = (r0, r1, s, e, y, mat, vs = 1) => {
+    const m = new THREE.Mesh(arcBand((r0 + r1) / 2, (r1 - r0) / 2, s, e, y, 128, vs), mat);
+    g.add(m); return m;
+  };
+  /* an open cylinder sector — y is its CENTRE */
+  const shell = (r, h, y, mat, s = a0, e = a1, seg = 128) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg, 1, true, s, e - s), mat);
+    m.position.y = y; g.add(m); return m;
+  };
+
+  /* ── the plinth the terrace stands on ── */
+  shell(R.rOut, PL, RY + PL / 2, MAT.rtPlinth);
+  shell(R.rIn, PL, RY + PL / 2, MAT.rtPlinthIn);
+  for (const th of [a0, a1]) {                            // close the two ends
+    inst('stoneI', UNIT_BOX, MAT.stone,
+      mat4(WX(th, rc), RY + PL / 2, WZ(th, rc), .34, PL, R.rOut - R.rIn, th));
+  }
+
+  /* ── the deck, as edge-to-edge bands ── */
+  band(R.rIn, TR, a0, a1, DY, MAT.rtCoping, 1.6);              // balustrade ledge
+  band(TR, R.poolIn, a0, p0, DY, MAT.rtPave, 1);               // paving, west end
+  band(TR, R.poolIn, p1, a1, DY, MAT.rtPave, 1);               // paving, east end
+  band(R.poolIn, R.poolOut, a0, p0, DY, MAT.rtPave, 1);        // …and past the pool
+  band(R.poolIn, R.poolOut, p1, a1, DY, MAT.rtPave, 1);
+  band(R.poolOut, 97.2, a0, a1, DY, MAT.rtCoping, 1.6);        // pool coping
+  band(97.2, 99.6, a0, a1, DY, MAT.rtTeak, 6);                 // lounger deck
+  band(99.6, R.rOut, a0, a1, DY, MAT.rtPave, 1);               // garden band
+
+  /* ── catch trough: the infinity edge spills into it, 0.55 m below the deck ── */
+  band(TR, R.poolIn, p0, p1, TROUGH_Y, MAT.blackstone, 2);
+  shell(TR, .55, DY - .275, MAT.blackstone, p0, p1);
+
+  /* ── the pool: floor, back wall, the infinity lip, two end walls ── */
+  band(R.poolIn, R.poolOut, p0, p1, BY, MAT.rtBasin, 3);       // basin floor
+  shell(R.poolOut, DY - BY, (BY + DY) / 2, MAT.rtBasin, p0, p1);
+  shell(R.poolIn, WY - BY, (BY + WY) / 2, MAT.rtBasin, p0, p1);   // THE lip
+  const pmid = (R.poolIn + R.poolOut) / 2, pw = R.poolOut - R.poolIn;
+  for (const th of [p0, p1]) {
+    inst('rtTileI', UNIT_BOX, MAT.rtBasin,
+      mat4(WX(th, pmid), (BY + DY) / 2, WZ(th, pmid), .3, DY - BY, pw, th));
+  }
+  /* water, then the sheet falling off the lip */
+  band(R.poolIn, R.poolOut, p0, p1, WY, MAT.rtWater, 5);
+  shell(R.poolIn - .03, WY - TROUGH_Y, (WY + TROUGH_Y) / 2, MAT.rtSpill, p0, p1);
+
+  /* three submerged steps at each end of the pool */
+  for (const s of [-1, 1]) {
+    const th = C + s * (R.poolArcHalf - .022);
+    for (let k = 0; k < 3; k++) {
+      const r = R.poolOut - .55 - k * .55;
+      inst('rtTileI', UNIT_BOX, MAT.rtBasin,
+        mat4(WX(th, r), BY + (3 - k) * .40 / 2, WZ(th, r), 2.6, (3 - k) * .40, .55, th));
+    }
+  }
+
+  /* ── balustrades: frameless glass, copper top rail. The inner run stands on
+        the marble ledge, so from the water you look THROUGH it at the sea. ── */
+  shell(90.18, R.parapetH, DY + R.parapetH / 2, MAT.rtGlass);
+  shell(90.18, .11, DY + R.parapetH, MAT.copper);
+  /* the outer roof edge and the two green-roof end sectors get the same rail —
+     it has to close the WHOLE crescent, not just the terrace, or there is a
+     25 m drop off the parts of the cap the terrace does not cover */
+  const e0 = C - SITE.HOTEL.arc / 2, e1 = C + SITE.HOTEL.arc / 2;
+  const capY = RY + .05;
+  shell(105.4, R.parapetH, capY + R.parapetH / 2, MAT.rtGlass, e0, e1);
+  shell(105.4, .11, capY + R.parapetH, MAT.copper, e0, e1);
+  for (const [s, e] of [[e0, a0], [a1, e1]]) {
+    shell(90.18, R.parapetH, capY + R.parapetH / 2, MAT.rtGlass, s, e, 24);
+    shell(90.18, .11, capY + R.parapetH, MAT.copper, s, e, 24);
+  }
+  for (const th of [a0, a1]) {                                        // the two ends
+    inst('rtGlassI', UNIT_BOX, MAT.rtGlass,
+      mat4(WX(th, rc), DY + R.parapetH / 2, WZ(th, rc), .05, R.parapetH, R.rOut - R.rIn, th));
+    inst('rtCopperI', UNIT_BOX, MAT.copper,
+      mat4(WX(th, rc), DY + R.parapetH, WZ(th, rc), .11, .11, R.rOut - R.rIn, th));
+  }
+  /* fin posts every ~3 m — the rhythm is what actually makes a frameless glass
+     rail visible at distance; the glass alone is just a haze */
+  for (let i = 0; i <= 42; i++) {
+    const th = a0 + (a1 - a0) * (i / 42);
+    inst('rtCopperI', UNIT_BOX, MAT.copper,
+      mat4(WX(th, 90.18), DY + R.parapetH / 2, WZ(th, 90.18), .1, R.parapetH, .16, th));
+  }
+  for (let i = 0; i <= 26; i++) {
+    const th = e0 + (e1 - e0) * (i / 26);
+    inst('rtCopperI', UNIT_BOX, MAT.copper,
+      mat4(WX(th, 105.4), capY + R.parapetH / 2, WZ(th, 105.4), .1, R.parapetH, .16, th));
+  }
+
+  /* ── underwater niche lights along the back wall + a wash into the trough:
+        the only COOL emissives on the campus, which is exactly why the roof
+        still reads once the rest of the resort goes warm and orange ── */
+  for (let i = 0; i < 15; i++) {
+    const th = p0 + (p1 - p0) * ((i + .5) / 15);
+    inst('rtLitI', UNIT_BOX, MAT.poolGlow,
+      mat4(WX(th, R.poolOut - .07), WY - .3, WZ(th, R.poolOut - .07), .9, .14, .07, th));
+    inst('rtLitI', UNIT_BOX, MAT.poolGlow,
+      mat4(WX(th, TR + .16), TROUGH_Y + .06, WZ(th, TR + .16), .8, .05, .16, th));
+  }
+
+  /* ── 16 loungers on the teak, feet toward the drop ── */
+  for (let i = 0; i < 16; i++) {
+    const th = C - .335 + (i / 15) * .67;
+    const x = WX(th, R.loungeR), z = WZ(th, R.loungeR);
+    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + .17, z, .82, .34, 2.05, th));
+    inst('rtMarbleI', UNIT_BOX, MAT.marble, mat4(x, DY + .40, z, .74, .13, 1.9, th));
+    const bx = WX(th, R.loungeR + .92), bz = WZ(th, R.loungeR + .92);
+    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(bx, DY + .58, bz, .82, .62, .13, th, .5));
+    if (i % 2 === 1) {                       // a side table between each pair
+      const tth = th + .012;
+      inst('rtSlatI', UNIT_BOX, MAT.slat,
+        mat4(WX(tth, R.loungeR - 1.3), DY + .22, WZ(tth, R.loungeR - 1.3), .5, .44, .5, tth));
+    }
+  }
+
+  /* ── 8 parasols between the pairs ── */
+  for (let i = 0; i < 8; i++) {
+    const th = C - .30 + (i / 7) * .60;
+    const x = WX(th, R.loungeR + 1.35), z = WZ(th, R.loungeR + 1.35);
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + 1.25, z, .11, 2.5, .11));
+    inst('rtUmbI', UNIT_CONE, MAT.umbrella, mat4(x, DY + 2.72, z, 3.5, .8, 3.5));
+  }
+
+  /* ── deck lanterns along the back of the teak ── */
+  for (let i = 0; i < 15; i++) {
+    const th = a0 + (a1 - a0) * ((i + .5) / 15);
+    const x = WX(th, 99.9), z = WZ(th, 99.9);
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .55, z, .1, 1.1, .1));
+    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + 1.24, z, .26, .38, .26, th));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(x, DY + 1.46, z, .32, .07, .32, th));
+  }
+
+  /* ── the bar pavilion, dead centre on the crescent's axis ── */
+  const bH = R.barH, bA = R.barArcHalf;
+  shell(R.rOut, bH, DY + bH / 2, MAT.rtSlat, C - bA, C + bA);                  // back wall
+  band(99.7, R.rOut + .3, C - bA - .012, C + bA + .012, DY + bH, MAT.rtSlat, 1.1);
+  band(99.6, R.rOut + .4, C - bA - .015, C + bA + .015, DY + bH - .22, MAT.copper, 4);
+  for (const dr of [99.9, R.rOut - .2]) for (let k = 0; k < 3; k++) {
+    const th = C - bA + (k / 2) * bA * 2;
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(WX(th, dr), DY + bH / 2, WZ(th, dr), .17, bH, .17));
+  }
+  for (let i = 0; i < 7; i++) {                                                 // curved counter
+    const th = C - bA * .82 + (i / 6) * bA * 1.64;
+    const x = WX(th, 100.7), z = WZ(th, 100.7);
+    inst('rtSlatI', UNIT_BOX, MAT.slat, mat4(x, DY + .53, z, 2.3, 1.06, .9, th));
+    inst('rtMarbleI', UNIT_BOX, MAT.marble, mat4(x, DY + 1.09, z, 2.42, .1, 1.02, th));
+    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + .18, z, 2.1, .1, .12, th));
+    const sth = th - bA * .1;                                                   // a stool
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(WX(sth, 99.6), DY + .33, WZ(sth, 99.6), .1, .66, .1));
+    inst('rtWhiteI', UNIT_BOX, MAT.white,
+      mat4(WX(sth, 99.6), DY + .70, WZ(sth, 99.6), .48, .12, .48, sth));
+  }
+  for (let i = 0; i < 5; i++) {                                                 // lit back-bar
+    const th = C - bA * .8 + (i / 4) * bA * 1.6;
+    inst('glowI', UNIT_BOX, MAT.glowLamp,
+      mat4(WX(th, R.rOut - .16), DY + 1.55, WZ(th, R.rOut - .16), 2.2, .09, .1, th));
+    inst('inLightI', UNIT_BOX, MAT.inLight,
+      mat4(WX(th, 101.3), DY + bH - .16, WZ(th, 101.3), 2.2, .09, 1.5, th));
+  }
+  pointLight(g, Math.sin(C) * 101, DY + bH - .5, Math.cos(C) * 101, 0, 42, 30);
+
+  /* ── six cabanas flanking the bar ── */
+  for (const s of [-1, 1]) for (const off of [.185, .265, .345]) {
+    const th = C + s * off;
+    const x = WX(th, R.gardenR), z = WZ(th, R.gardenR);
+    inst('deckI', UNIT_BOX, MAT.deck, mat4(x, DY + .06, z, 3.8, .12, 3.2, th));
+    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + 1.3, z, 3.4, 2.5, 2.8, th));
+    inst('rtSlatI', UNIT_BOX, MAT.slat,
+      mat4(WX(th, R.gardenR + 1.28), DY + 1.3, WZ(th, R.gardenR + 1.28), 3.2, 2.3, .16, th));
+    inst('darkI', UNIT_BOX, MAT.dark,
+      mat4(WX(th, R.gardenR - 1.45), DY + 2.42, WZ(th, R.gardenR - 1.45), 3.5, .18, .3, th));
+    inst('glowI', UNIT_BOX, MAT.glowLamp,
+      mat4(WX(th, R.gardenR - 1.3), DY + 2.2, WZ(th, R.gardenR - 1.3), 2.9, .1, .12, th));
+    inst('rtMarbleI', UNIT_BOX, MAT.marble,
+      mat4(WX(th, R.gardenR - 1.9), DY + .28, WZ(th, R.gardenR - 1.9), 1.5, .44, 1.1, th));
+  }
+
+  /* ── brunch seating on the paved aprons past each end of the water. This is
+        where the wedding party eats on 2027-03-18: four tops, parasols, and
+        nothing between them and the sea but the glass. ── */
+  for (const s of [-1, 1]) for (let k = 0; k < 4; k++) {
+    const th = C + s * (R.poolArcHalf + .035 + k * .055);
+    const r = 93.4 + (k % 2) * 1.6;
+    const x = WX(th, r), z = WZ(th, r);
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .36, z, .14, .72, .14));
+    inst('rtTopI', UNIT_CYL, MAT.marble, mat4(x, DY + .75, z, 1.35, .07, 1.35));
+    for (let c = 0; c < 4; c++) {                       // four white chairs
+      const ca = c * Math.PI / 2 + .4;
+      const cxp = x + Math.cos(ca) * 1.05, czp = z - Math.sin(ca) * 1.05;
+      inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(cxp, DY + .23, czp, .5, .46, .5, ca));
+      inst('rtWhiteI', UNIT_BOX, MAT.white,
+        mat4(x + Math.cos(ca) * 1.28, DY + .62, z - Math.sin(ca) * 1.28, .5, .5, .08, ca));
+    }
+    if (k % 2 === 0) {                                   // a parasol over every other one
+      inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + 1.35, z, .09, 2.7, .09));
+      inst('rtUmbI', UNIT_CONE, MAT.umbrella, mat4(x, DY + 2.86, z, 3.0, .7, 3.0));
+    }
+  }
+
+  /* ── the two stair / lift head-houses: the only way up here ── */
+  for (const s of [-1, 1]) {
+    const th = C + s * R.coreArcHalf;
+    const x = WX(th, 101.2), z = WZ(th, 101.2);
+    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + 1.8, z, 5.2, 3.6, 4.6, th));
+    inst('rtCopperI', UNIT_BOX, MAT.copper, mat4(x, DY + 3.68, z, 5.6, .22, 5.0, th));
+    inst('glass', UNIT_BOX, MAT.glass,
+      mat4(WX(th, 98.85), DY + 1.6, WZ(th, 98.85), 3.0, 2.4, .12, th));
+    inst('rtSlatI', UNIT_BOX, MAT.slat,
+      mat4(WX(th, 103.5), DY + 1.7, WZ(th, 103.5), 4.4, 3.0, .16, th));
+    inst('glowI', UNIT_BOX, MAT.glowLamp,
+      mat4(WX(th, 98.7), DY + 2.9, WZ(th, 98.7), 2.4, .1, .14, th));
+  }
+
+  /* ── planters: a run along the outer parapet, plus pots between the cabanas.
+        Every one of these rides an EXISTING bucket, so the whole garden band
+        costs zero extra draw calls. ── */
+  for (let i = 0; i < 26; i++) {
+    const th = a0 + (a1 - a0) * ((i + .5) / 26);
+    const d = Math.abs(th - C);
+    if (d < R.barArcHalf + .028) continue;                     // clear of the bar
+    if (Math.abs(d - R.coreArcHalf) < .034) continue;          // clear of the cores
+    const x = WX(th, 102.5), z = WZ(th, 102.5);
+    inst('stoneI', UNIT_BOX, MAT.stone, mat4(x, DY + .38, z, 2.9, .76, 1.2, th));
+    inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(x, DY + 1.02, z, 2.5, 1.0, 1.05));
+    if (i % 5 === 2) {
+      inst('bougain', UNIT_BLOB, MAT.bougain, mat4(x, DY + 1.35, z, 1.9, 1.5, 1.2));
+    }
+  }
+  /* and a soft green rim on the green-roof cap outside the terrace */
+  for (let i = 0; i < 22; i++) {
+    const th = (C - .74) + (i / 21) * 1.48;
+    inst('hedgeI', UNIT_BLOB, MAT.hedge,
+      mat4(WX(th, 104.4), RY + .55, WZ(th, 104.4), 3.0, 1.1, 1.7));
+  }
+
+  /* one cool point light over the water so the terrace has depth after dark */
+  pointLight(g, Math.sin(C) * 93.6, DY + 2.2, Math.cos(C) * 93.6, 0, 30, 34, 0x7fe3ff);
   return g;
 }
 
@@ -1208,12 +1580,22 @@ function buildRoad(G, root, rnd) {
    ════════════════════════════════════════════════════════════════════════ */
 function tick(dt) {
   clock += (typeof dt === 'number' && dt > 0 ? dt : .016);
-  if (!night || !MAT) return;
+  if (!MAT) return;
+  /* rooftop pool: drift the baked caustic web across the basin. Two texture
+     offsets a frame is the entire per-frame cost of that pool — the crescent
+     is 285 m out and must never buy a reflection pass (water.js owns the one
+     pool that does). */
+  const rm = MAT.rtBasin.map;
+  if (rm) { rm.offset.x = clock * .006; rm.offset.y = clock * .010; }
+  if (!night) return;
   const f = 1 + Math.sin(clock * 1.6) * .035 + Math.sin(clock * 3.7 + 1.1) * .02;
   MAT.loungeGlow.emissiveIntensity = 2.3 * f;
   MAT.glass.emissiveIntensity = 1.05 * (1 + Math.sin(clock * .8 + .5) * .04);
   MAT.hotelFacade.emissiveIntensity = 1.35 * (1 + Math.sin(clock * .55) * .05);
   MAT.sign.emissiveIntensity = 1.55 * (1 + Math.sin(clock * 2.3 + .4) * .025);
+  /* the rooftop water breathes a little slower than the resort's warm glow */
+  MAT.rtWater.emissiveIntensity = .95 * (1 + Math.sin(clock * .7 + 2.1) * .07);
+  MAT.rtSpill.emissiveIntensity = 1.25 * (1 + Math.sin(clock * 1.3) * .09);
 }
 
 /* ════════════════════════════════════════════════════════════════════════

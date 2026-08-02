@@ -156,8 +156,25 @@ export function updatePlayer(G, dt) {
     }
   }
 
-  /* ── eye height rides floorY — the single source of ground truth ── */
-  player.pos.y = floorY(player.pos.x, player.pos.z) + CFG.EYE_HEIGHT;
+  /* ── eye height rides floorY, which is now a real HEIGHT FIELD ───────────
+     Pass the current FEET height in: floorY resolves to the highest walkable
+     surface at or below feet + STEP_UP, which is what lets you climb the
+     suite's stair and the pool plinth while stopping you teleporting onto the
+     2F floor from the great room below it.
+     Up is a snap (a step you can take, you take instantly). Down is gravity,
+     so walking off the deck edge drops you instead of leaving you hovering. */
+  const feet = player.pos.y - CFG.EYE_HEIGHT;
+  const target = floorY(player.pos.x, player.pos.z, feet);
+
+  if (target >= feet - 1e-3) {
+    player.fallV = 0;
+    player.pos.y = target + CFG.EYE_HEIGHT;
+  } else {
+    player.fallV = Math.min(CFG.FALL_MAX, (player.fallV || 0) + CFG.FALL_G * dt);
+    const nextFeet = Math.max(target, feet - player.fallV * dt);
+    if (nextFeet <= target + 1e-3) player.fallV = 0;
+    player.pos.y = nextFeet + CFG.EYE_HEIGHT;
+  }
   syncCamera(G);
 
   /* ── nearest interactable in reach and roughly faced ── */

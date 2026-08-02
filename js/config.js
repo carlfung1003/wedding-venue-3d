@@ -11,6 +11,16 @@ export const CFG = {
   TOUCH_LOOK_SENS: 0.0038,  // drag-to-look, rad per px
   PITCH_MAX: 1.35,
   PLAYER_R: 0.35,           // body cylinder radius — added to every collider's r at test time
+  // --- the height field (walkable stairs, 2026-08-02) ---
+  // floorY(x,z,feetY) resolves to the highest walkable surface AT OR BELOW
+  // feetY + STEP_UP, which is what stops the player teleporting onto the 2F
+  // floor from the great room. Raise STEP_UP and thresholds get easier — but
+  // 0.40 is already the tallest single step on the campus (the lounge plinth
+  // at 0.34 + its marble), and much more starts letting people climb walls.
+  STEP_UP: 0.40,            // automatic step-up: kerbs, thresholds, single steps
+  HEAD_CLEAR: 1.8,          // a surface must have this much room above it to be climbed onto
+  FALL_G: 16,               // m/s² — walking off a deck edge drops you, never floats you
+  FALL_MAX: 18,             // terminal speed of that drop
   INTERACT_DIST: 2.6,
   WORLD_BOUND: 300,         // absolute |x|,|z| safety clamp — the campus is ~500 m across
 

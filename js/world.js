@@ -43,11 +43,19 @@ import { buildSuite, setSuiteNight } from './suite.js';
 
 /* The single source of ground truth (lassen `getHeight` pattern). Player,
    prop placement and the fly-mode altitude clamp all read this — never nudge
-   camera height directly. The campus is flat at datum; only the beach slopes
-   into the sea. The relocated enclave still sits entirely on flat ground
-   (its west edge lands at x ≈ −85; the sand starts at SITE.BEACH.x1 = −118). */
-export function floorY(x, z) {
-  return siteFloorY(x, z);
+   camera height directly.
+   ── since 2026-08-02 it is a real HEIGHT FIELD ──────────────────────────────
+   site.js owns the registry of walkable regions (the suite's stair and 2F, the
+   atrium's gallery and stair, the lounge plinth, the pool plinth, the exterior
+   stair) and resolves them; world.js keeps delegating, and injects the tuning
+   because site.js cannot import CFG (config.js imports site.js).
+   THE THIRD ARGUMENT IS THE CONTRACT: pass the walker's current feet height and
+   you get the surface they are standing on; omit it and you get bare terrain.
+   Everything that is not the walker — prop placement, the fly-mode clamp,
+   main.js's fly→walk landing — deliberately omits it, so a 3.8 m platform can
+   never shove a flyer around or drop a palm tree on a balcony. */
+export function floorY(x, z, fromY) {
+  return siteFloorY(x, z, fromY, CFG.STEP_UP, CFG.HEAD_CLEAR);
 }
 
 /* campus.js root children that are enclave, by name. The rest of that root —
