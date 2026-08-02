@@ -266,11 +266,133 @@ export const SITE = {
     courtW: 15, courtD: 9,         // type 1 walled courtyard
   },
 
-  // ------------------------------------------------------------- lagoon pool
-  // Big free-form resort pool, sand-coloured deck, blue umbrellas. On the site
-  // map this is the serpentine that snakes between the villa fields toward the
-  // hotel — so it sits east of the enclave, threaded through RESORT_VILLAS.
-  LAGOON: { cx: 122, cz: 18, rx: 30, rz: 17, umbrellas: 10 },
+  // ------------------------------------------------------- THE RESORT RIVER
+  // The Westin's serpentine lazy-river system, read straight off
+  // reference/photos/river-lazy-river-detail.png (Carl's crop) and the site
+  // map. West → east, exactly the order the aerial gives it:
+  //
+  //   WEST   a big free-form CIRCULAR POOL, sand deck, a round island bar on
+  //          its south-west rim, ringed by palms
+  //   SPINE  a long narrow LAZY RIVER snaking east out of it — widening and
+  //          narrowing, doubling back on itself twice, crossed by little
+  //          timber footbridges. This is the dominant feature and it is LONG
+  //          (~90 m of centreline across ~46 m of ground).
+  //   MID    a small round basin where the river bulges, with its own deck
+  //   LAGOON the broad organic basin it opens into, with a planted island
+  //   SPUR   a hairpin channel back out of the basin, north then east
+  //   EAST   a circular pool with a central round feature — the one nearest
+  //          the hotel
+  //
+  // WORLD coordinates. The river is resort backdrop and is NOT part of the
+  // rotated 隐逸居 enclave: it must never be routed through enclaveToWorld,
+  // and water.js keeps the whole system in one group whose bounding-box
+  // centre sits east of x = 84 so world.js's adoptWater() leaves it alone.
+  //
+  // Routing envelope, checked against the neighbours that may not move:
+  //   · RESORT_VILLAS  villa rows at z = −16 and z = 65 (x 88…177), plus the
+  //     two strays at (177, 11) and (168, 38) → the free corridor is
+  //     x 54…160, z −4…52. Every basin and bank below sits inside it.
+  //   · the enclave's world footprint stops at x ≈ 20 → the west pool's deck
+  //     starts at x ≈ 54, leaving ~34 m of palm grove between them
+  //   · HOTEL's podium reaches x ≈ 248 at the crescent tips → ~90 m clear
+  //   · ROAD at z = −95 → ~95 m clear
+  //
+  // Geometry note: SPINE/SPUR are CENTRELINES, [x, z, halfWidth]. water.js
+  // runs a centripetal Catmull-Rom through them and carries the half-width in
+  // the curve's unused Y channel, so the width interpolates as smoothly as the
+  // path does. Basins are star-shaped free-form outlines (a seeded sum of low
+  // harmonics on an ellipse) built as radial fans, so they have interior
+  // vertices to carry the shallow→deep colour ramp.
+  RIVER: {
+    DEPTH: 1.05,          // how far the edge skirt reaches below the water
+    // ⚠ EVERY river surface sits ABOVE the datum, water included. nature.js's
+    // lawn is one opaque 700 m sheet at y = 0 that runs under the whole
+    // resort, so a pool surface at the natural −60 mm is simply BURIED — which
+    // is what happened to the old SITE.LAGOON: its "water" never rendered and
+    // what read as a pool from the air was only its sand deck. The 25 mm the
+    // deck stands over the water does all the work the sign of that number
+    // used to; the edge skirt supplies the depth.
+    WATER_Y: .020,        // channel water
+    BASIN_Y: .045,        // basin water — wins the overlap where a channel
+                          // runs into a basin (both opaque, so no blending)
+    DECK_Y: .075,         // sand deck
+    COPE_Y: .105,         // dark coping lip
+    PATH_Y: .060,
+    COPING: .35,          // width of the coping lip at every water edge
+    BANK: .55,            // pale sand apron beside a channel — narrow on
+                          // purpose: in the reference the lazy river is cut
+                          // straight through planting, not through a beach
+
+    // ── the west end: a big free-form circular pool with a round island bar
+    WEST: { cx: 65, cz: 22, r: 12.0, deck: 4.2, umbrellas: 9 },
+    BAR:  { cx: 56.5, cz: 32.5, r: 5.0, h: 3.4 },
+
+    // ── THE LAZY RIVER. ~128 m of centreline over 57 m of ground: five full
+    // reversals, three of them proper hairpins, exactly the scribble the
+    // aerial shows. The width breathes with it — 1.5 m half-width in the tight
+    // turns (a real lazy river is 3–4 m across), 5.2 m as it spills into the
+    // lagoon. Keep it NARROW: the first pass ran 2.2–2.6 and the loops read
+    // as a chain of ponds rather than one long river.
+    SPINE: [
+      [ 74.0, 25.0, 3.2],   // outfall, inside the west pool's south-east rim
+      [ 78.5, 30.0, 2.6],
+      [ 84.0, 32.5, 2.1],
+      [ 89.0, 30.0, 1.8],
+      [ 90.5, 24.0, 1.9],
+      [ 87.5, 18.5, 1.7],   // hairpin 1 — the river turns back on itself
+      [ 90.5, 13.5, 1.5],
+      [ 96.0, 11.5, 1.6],   // the northern extreme
+      [100.5, 14.0, 1.8],
+      [102.0, 20.0, 2.0],
+      [100.0, 26.0, 1.8],   // hairpin 2
+      [101.5, 31.5, 1.9],
+      [107.0, 34.5, 2.1],   // the southern extreme
+      [111.5, 33.0, 2.0],
+      [115.0, 26.5, 2.2],   // …through the MID basin
+      [113.0, 20.5, 1.9],   // hairpin 3
+      [115.5, 15.0, 1.8],
+      [120.0, 14.5, 2.1],
+      [124.5, 19.0, 2.5],
+      [126.5, 24.0, 3.2],
+      [128.0, 30.0, 4.2],
+      [131.0, 33.5, 5.2],   // …and it is inside LAGOON by here
+    ],
+    MID: { cx: 115.0, cz: 26.0, r: 4.4, deck: 2.0 },
+
+    // ── the hairpin back out of the lagoon's north rim to the east pool
+    SPUR: [
+      [134.0, 25.0, 3.6],
+      [133.5, 18.5, 2.4],
+      [136.0, 12.0, 2.1],
+      [141.0,  9.0, 2.2],
+      [145.5, 11.5, 2.8],   // …into the east pool
+    ],
+
+    EAST: { cx: 147, cz: 13, r: 7.8, deck: 3.2, islandR: 3.1, umbrellas: 7 },
+
+    // the lagoon's planted island, as a fraction of LAGOON.rx / .rz
+    ISLAND: { dx: .24, dz: .18, r: 3.4 },
+
+    // footbridges, as [which centreline, t along it 0…1]
+    BRIDGES: [['spine', .13], ['spine', .37], ['spine', .61], ['spine', .85], ['spur', .50]],
+
+    // pale walking paths — control points only, water.js smooths them
+    PATHS: [
+      [[62, 6], [76, 4], [90, 5.5], [104, 3.5], [118, 5.5], [130, 3.0],
+       [142, 2.0], [152, 5.0], [157, 12], [154, 20]],
+      [[55, 40], [68, 44], [82, 41], [96, 44], [110, 41], [122, 44],
+       [134, 46], [145, 42], [151, 33], [150, 24]],
+    ],
+    PATH_W: 1.3,          // half-width of a path
+    LAMPS: 22,            // path lanterns — the night silhouette
+  },
+
+  // LAGOON is the river's big eastern basin. It KEEPS ITS NAME because
+  // nature.js reads SITE.LAGOON.{cx,cz,rx,rz} as a palm keep-out disc — the
+  // one footprint in the system big enough that the bank colliders alone
+  // wouldn't stop a palm landing mid-water. Everything else in the river is
+  // kept palm-free by the collider chains water.js lays down its centrelines.
+  LAGOON: { cx: 134, cz: 33, rx: 12, rz: 9.5, deck: 2.8, umbrellas: 8 },
 
   // --------------------------------------------------- the REST of the resort
   // Villas that are NOT part of Carl's package. On the site map they fill the

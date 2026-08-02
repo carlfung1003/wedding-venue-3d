@@ -174,13 +174,13 @@ were building to:
 
 ## Work queue (Carl's order, 2026-08-01)
 
-1. Pool + room-type placement — spec below. **IN PROGRESS.**
-2. **Walkable stairs** — see the section below.
-3. **The river** — see the section below.
+1. ~~Pool + room-type placement~~ — DONE 2026-08-01.
+2. ~~Walkable stairs~~ — DONE 2026-08-02, floorY is now a height field.
+3. ~~The river~~ — DONE 2026-08-02, see `SITE.RIVER` / `buildRiver` in water.js.
 4. Cabanas as solid stepped blocks (Rachel's `IMG_8099.jpg`): they are white
    stepped volumes with punched rectangular window slots and a `THE WESTIN`
    mark, NOT the open post-and-beam portal frames `water.js` builds today.
-5. **Rooftop infinity pool on the main Westin tower** — see below.
+5. ~~Rooftop infinity pool~~ — DONE 2026-08-02 (geometry only; not yet stood-on-able, see notes).
 6. **Loading screen** — see below.
 
 ## QUEUED — loading screen (Carl, 2026-08-02)

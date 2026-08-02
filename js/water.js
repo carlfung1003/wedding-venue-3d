@@ -102,6 +102,7 @@ const C = {
 
 let ROOT = null;                    // the group returned by buildWater
 let CAM = null;
+let CTX = null;                     // the G handed to buildWater (river cull pass)
 let night = false;
 let lanternsVisible = true;
 let T = 0;                          // own accumulator — never trust the caller's t
@@ -1569,180 +1570,742 @@ function buildLoungePool(G) {
   return g;
 }
 
-/* ═════════════════════════════ LAGOON POOL ════════════════════════════════
-   Big free-form resort pool — the aerial shows it snaking. The outline is a
-   seeded sum of low harmonics, so it is organic yet perfectly stable across
-   loads (house rule: never Math.random).
-   ═════════════════════════════════════════════════════════════════════════ */
-function lagoonOutline(N) {
-  const L = SITE.LAGOON;
-  const rnd = mulberry32(SEED + 909);
-  const harm = [];
-  for (let k = 1; k <= 6; k++) {
-    harm.push({ k, a: (.125 - (k - 1) * .015) * (.6 + rnd() * .8), p: rnd() * Math.PI * 2 });
+/* ═══════════════════════ THE RESORT RIVER ═════════════════════════════════
+   The Westin's serpentine lazy-river system — the dominant feature of the
+   resort's middle ground, and the thing you actually read from fly mode.
+   Reference: reference/photos/river-lazy-river-detail.png (Carl's crop) and
+   reference/photos/westin-site-map.jpeg. Footprint: SITE.RIVER + SITE.LAGOON.
+
+   WHAT REPLACED WHAT.  This used to be `buildLagoon()`: one free-form blob
+   built as a ShapeGeometry with a scaled copy punched out for the deck. The
+   aerial is nothing like a blob — it is a *route*: circular pool → long
+   winding channel → basin → hairpin → circular pool. So the shape is now
+   driven by two authored CENTRELINES (SITE.RIVER.SPINE / .SPUR, [x, z,
+   halfWidth]) plus four star-shaped BASINS, and everything else — banks,
+   coping, sand deck, skirt, paths, planting — is generated from those.
+
+   Four decisions worth knowing before editing:
+
+   1 · THE WATER IS OPAQUE, and carries its depth as a VERTEX-COLOUR ramp
+       (pale at the bank, deep in the middle) instead of as transparency over
+       a tiled basin. Two reasons. Cost: this is ~4,000 m² of backdrop seen
+       from directly overhead in fly mode, and a transparent sheet over a lit
+       basin floor is three overlapping near-fullscreen layers for something
+       100 m away. Correctness: the channels and the basins OVERLAP by
+       construction (the river runs *into* the lagoon), and two coplanar
+       transparent sheets double-blend into a visible dark seam. Opaque water
+       makes the overlap free — the channel is simply built 25 mm lower and
+       the basin wins the depth test. water.js reserves its one Reflector for
+       the hero pool; nothing here adds a second mirror pass.
+
+   2 · BASINS ARE RADIAL FANS, not ShapeGeometry. The old free-form outline
+       technique is kept (a seeded sum of low harmonics on an ellipse, so the
+       shape is organic but identical on every load — house rule: never
+       Math.random), but earcut triangulation puts every vertex ON the
+       contour, which leaves nothing in the middle to carry the depth ramp.
+       A fan over rings of the same outline gives interior vertices for free,
+       and the outline is star-shaped about its centre by construction, so the
+       fan can never self-intersect.
+
+   3 · IT IS ALL BAKED INTO A HANDFUL OF MESHES. Per-feature meshes cost ~100
+       draw calls (the old lagoon's ten cloned umbrellas alone were 40); the
+       whole system is accumulated into one buffer per material and every
+       repeated object is instanced.
+
+   4 · WINDING IS LOAD-BEARING. Every horizontal surface here is FrontSide, so
+       a quad wound the wrong way is invisible from above — which is the only
+       view that matters. See quad() for the rule and both emitters for how it
+       flips between the two sides of a channel.
+
+   Deliberately NOT modelled from the reference: the water slides and the
+   inner-tube dock at the head of the real lazy river, the pool bar's stools,
+   the shade sails, and the second, smaller loop that runs behind the hotel's
+   north wing — all close-up detail on a backdrop you fly past.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const TAU = Math.PI * 2;
+const WHITE = new THREE.Color(0xffffff);
+
+const RC = {
+  shallow:       new THREE.Color(0x59cfe4),
+  deep:          new THREE.Color(0x0a6796),
+  nightTint:     new THREE.Color(0x35576b),   // multiplies the vertex ramp
+  nightEmissive: new THREE.Color(0x0a5f77),
+  lampWarm:      new THREE.Color(0xffc274),
+};
+
+/* a small LUT so the depth ramp costs no allocation per vertex */
+const RAMP = Array.from({ length: 12 }, (_, i) => RC.shallow.clone().lerp(RC.deep, i / 11));
+const ramp = k => RAMP[Math.max(0, Math.min(11, Math.round(k * 11)))];
+
+/* ── geometry accumulators ──────────────────────────────────────────────── */
+function acc(colour) { return { p: [], t: [], c: colour ? [] : null }; }
+
+/* One quad = two triangles; each vertex is [x, y, z, u, v, colour?].
+   WINDING (three r180, don't guess): for a face pointing +Y the cross product
+   (B−A)×(C−A) must come out positive, which means A must be the corner with
+   the LARGER lateral offset when walking a ribbon, and the SMALLER radius
+   when walking a ring. Both are derived in place at the call sites. */
+function quad(a, A, B, C, D) {
+  for (const v of [A, B, C, A, C, D]) {
+    a.p.push(v[0], v[1], v[2]);
+    a.t.push(v[3], v[4]);
+    if (a.c) { const c = v[5] || RC.shallow; a.c.push(c.r, c.g, c.b); }
   }
-  const pts = [];
-  for (let i = 0; i < N; i++) {
-    const th = i / N * Math.PI * 2;
+}
+
+function bake(a, mat, name) {
+  if (!a.p.length) return null;
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(a.p, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(a.t, 2));
+  if (a.c) g.setAttribute('color', new THREE.Float32BufferAttribute(a.c, 3));
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  const m = new THREE.Mesh(g, mat);
+  m.name = name;
+  return m;
+}
+
+/* UVs are WORLD-PLANAR (u = x/S, v = −z/S) on every horizontal surface, so one
+   merged buffer tiles consistently across features and never stretches through
+   a bend. The textures are therefore taken at repeat 1 and the scale lives in
+   the UVs. */
+const UVS = 1 / 6;
+const pu = x => x * UVS, pv = z => -z * UVS;
+
+/* ── the free-form outline: organic, seeded, star-shaped about its centre ──
+   Amplitudes are normalised so `amp` is the actual maximum deviation from the
+   base ellipse — otherwise a seed that rolls high on every harmonic pins the
+   shape against the clamp and the "organic" blob comes out with flat circular
+   arcs cut into it. */
+function outlineFn(seed, amp, harmonics = 5) {
+  const rnd = mulberry32(seed);
+  const harm = [];
+  let tot = 0;
+  for (let k = 2; k <= harmonics + 1; k++) {
+    const a = (1 - (k - 2) * .16) * (.45 + rnd());
+    harm.push({ k, a, p: rnd() * TAU });
+    tot += a;
+  }
+  for (const h of harm) h.a *= amp / (tot || 1);
+  return th => {
     let f = 1;
     for (const h of harm) f += h.a * Math.sin(h.k * th + h.p);
-    f = Math.max(.68, Math.min(1.2, f));
-    pts.push([L.cx + Math.cos(th) * L.rx * f, L.cz + Math.sin(th) * L.rz * f]);
+    return Math.max(.7, Math.min(1.32, f));
+  };
+}
+
+/* a basin in world space, with the two operations everything else needs:
+   a point on (or offset from) its outline, and an exact inside test */
+function makeBasin(o) {
+  const b = { ...o, rm: (o.rx + o.rz) * .5 };
+  b.at = (th, off = 0) => {
+    const f = b.fr(th);
+    const dx = Math.cos(th) * b.rx * f, dz = Math.sin(th) * b.rz * f;
+    const L = Math.hypot(dx, dz) || 1;
+    return [b.cx + dx + dx / L * off, b.cz + dz + dz / L * off];
+  };
+  /* normalising by (rx, rz) turns the outline into exactly fr(θ), so this is
+     exact for any star-shaped blob — not a bounding-circle approximation */
+  b.inside = (x, z, off = 0) => {
+    const nx = (x - b.cx) / b.rx, nz = (z - b.cz) / b.rz;
+    return Math.hypot(nx, nz) < b.fr(Math.atan2(nz, nx)) + off / b.rm;
+  };
+  return b;
+}
+
+/* ── centreline sampler ─────────────────────────────────────────────────────
+   The half-width rides in the curve's unused Y channel, so it interpolates
+   with exactly the same centripetal Catmull-Rom that smooths the path — no
+   second curve to keep in sync, and no way for width and position to drift
+   apart when a control point moves. Samples are arc-length even (getPointAt),
+   so the ribbon's quads stay square-ish through the tight reversals. */
+function centreline(ctrl, step) {
+  const curve = new THREE.CatmullRomCurve3(
+    ctrl.map(([x, z, hw]) => new THREE.Vector3(x, hw, z)), false, 'centripetal', .5);
+  const n = Math.max(8, Math.round(curve.getLength() / step));
+  const out = [];
+  for (let i = 0; i <= n; i++) {
+    const p = curve.getPointAt(i / n);
+    out.push({ x: p.x, z: p.z, hw: p.y, t: i / n });
   }
-  return pts;
+  for (let i = 0; i <= n; i++) {
+    const a = out[Math.max(0, i - 1)], b = out[Math.min(n, i + 1)];
+    const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1;
+    out[i].tx = dx / L;  out[i].tz = dz / L;
+    out[i].nx = -dz / L; out[i].nz = dx / L;        // unit left normal
+  }
+  return out;
 }
 
-/* Shape lives in the XY plane; rotating -90° about X maps local +Y to world -Z,
-   so points go in as (x, -z) and land at world (x, y, z). */
-function shapeFrom(pts) {
-  const s = new THREE.Shape();
-  s.moveTo(pts[0][0], -pts[0][1]);
-  for (let i = 1; i < pts.length; i++) s.lineTo(pts[i][0], -pts[i][1]);
-  s.closePath();
-  return s;
-}
-function pathFrom(pts) {
-  const p = new THREE.Path();
-  p.moveTo(pts[0][0], -pts[0][1]);
-  for (let i = 1; i < pts.length; i++) p.lineTo(pts[i][0], -pts[i][1]);
-  p.closePath();
-  return p;
-}
-function scaleAbout(pts, cx, cz, k) {
-  return pts.map(([x, z]) => [cx + (x - cx) * k, cz + (z - cz) * k]);
+/* lateral point on a centreline: |u| = 1 is the bank, `extra` walks further
+   out (coping, sand bank, planting) on the same side */
+function lat(s, u, extra = 0) {
+  const d = s.hw * u + (u < 0 ? -extra : extra);
+  return [s.x + s.nx * d, s.z + s.nz * d];
 }
 
-function buildLagoon(G) {
-  const L = SITE.LAGOON;
+/* the system's water footprint, kept for cullPlantsInRiver */
+let riverWater = null;
+
+/* ═══════════════════════════ the builder ══════════════════════════════════ */
+function buildRiver(G) {
+  const R = SITE.RIVER, L = SITE.LAGOON;
   const g = new THREE.Group();
+  g.name = 'river';
+  /* ONE group for the WHOLE system. world.js's adoptWater() classifies
+     water.js's root children by bounding-box centre and leaves anything at
+     x ≥ 84 in world space; the river spans x ≈ 47…160, centre ≈ 103. Split
+     this across several ROOT children and the western half would be swept
+     into the rotated enclave. */
   ROOT.add(g);
 
-  const N = 108;
-  const edge = lagoonOutline(N);
-  const outer = scaleAbout(edge, L.cx, L.cz, 1.17);
-  const DEPTH = 1.05, WY = -.06;
+  const WY = R.BASIN_Y, CY = R.WATER_Y;   // basin water, channel water
 
-  /* sand deck ring: outer shape with the lagoon punched out as a hole */
-  const ring = shapeFrom(outer);
-  ring.holes.push(pathFrom(edge));
-  const sandMesh = new THREE.Mesh(new THREE.ShapeGeometry(ring),
-    new THREE.MeshStandardMaterial({ map: sand(.34, .34), roughness: .96 }));
-  sandMesh.rotation.x = -Math.PI / 2;
-  sandMesh.position.y = 0;
-  g.add(sandMesh);
+  /* ── materials ── */
+  /* the UVs are world-planar at 1/6 m, so a repeat of .45 puts the ripple
+     tile at ~13 m — big enough that it never reads as a repeating pattern
+     from directly above, which is the only angle this water is really seen at */
+  const nrm = normalTex(.45, .45);
+  scrolls.push({ tex: nrm, u: TUNE.SCROLL_U * .5, v: TUNE.SCROLL_V * .5 });
+  /* Roughness/env are deliberately DULL. The hero pool is a mirror because
+     Carl's photos are a mirror; this one is read from 150 m up, and a mirror
+     seen from straight above reflects nothing but sky — the first pass came
+     out white. The reference reads as flat, saturated turquoise, so the
+     vertex ramp does the work and the environment only puts a sheen on it. */
+  const waterM = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: .34, metalness: 0,
+    normalMap: nrm, normalScale: new THREE.Vector2(.06, .06),
+    envMapIntensity: .55,
+  });
+  nightBits.push(on => {
+    waterM.color.copy(on ? RC.nightTint : WHITE);
+    waterM.emissive.copy(RC.nightEmissive);
+    waterM.emissiveIntensity = on ? .5 : 0;
+    waterM.roughness = on ? .16 : .34;
+    waterM.envMapIntensity = on ? .35 : .55;
+    /* a whisper. At .16 the wave texture read as diagonal banding straight
+       down from fly mode — the plan shape is the point, not the ripple. */
+    const ns = on ? .045 : .06;
+    waterM.normalScale.set(ns, ns);
+  });
 
-  /* dark coping line right at the water's edge */
-  const lip = shapeFrom(scaleAbout(edge, L.cx, L.cz, 1.022));
-  lip.holes.push(pathFrom(edge));
-  const lipMesh = new THREE.Mesh(new THREE.ShapeGeometry(lip), MAT.coping);
-  lipMesh.rotation.x = -Math.PI / 2;
-  lipMesh.position.y = .012;
-  g.add(lipMesh);
+  const sandM = new THREE.MeshStandardMaterial({
+    map: sand(1, 1), color: 0xc4b795, roughness: .96 });
+  const copeM = new THREE.MeshStandardMaterial({ color: C.stoneLight, roughness: .34, metalness: .05 });
+  const skirtM = new THREE.MeshStandardMaterial({
+    map: plaster(1, 1), roughness: .4, side: THREE.DoubleSide,
+  });
+  const pathM = new THREE.MeshStandardMaterial({ color: 0xc9c2ae, roughness: .94 });
 
-  /* basin floor */
-  const floorShape = shapeFrom(edge);
-  const floor = new THREE.Mesh(new THREE.ShapeGeometry(floorShape),
-    new THREE.MeshStandardMaterial({ map: plaster(.3, .3), roughness: .35 }));
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.y = -DEPTH;
-  g.add(floor);
+  /* ── the four basins, west → east ── */
+  const basins = [
+    makeBasin({ key: 'west', cx: R.WEST.cx, cz: R.WEST.cz, rx: R.WEST.r, rz: R.WEST.r,
+      deck: R.WEST.deck, segs: 76, fr: outlineFn(SEED + 909, .155) }),
+    makeBasin({ key: 'mid', cx: R.MID.cx, cz: R.MID.cz, rx: R.MID.r, rz: R.MID.r,
+      deck: R.MID.deck, segs: 32, fr: outlineFn(SEED + 231, .18, 4) }),
+    makeBasin({ key: 'lagoon', cx: L.cx, cz: L.cz, rx: L.rx, rz: L.rz,
+      deck: L.deck, segs: 68, fr: outlineFn(SEED + 447, .22) }),
+    makeBasin({ key: 'east', cx: R.EAST.cx, cz: R.EAST.cz, rx: R.EAST.r, rz: R.EAST.r,
+      deck: R.EAST.deck, segs: 56, fr: outlineFn(SEED + 613, .05, 3) }),
+  ];
+  const inWater = (x, z) => basins.some(b => b.inside(x, z));
+  const inDeck = (x, z) => basins.some(b => b.inside(x, z, b.deck + R.COPING));
 
-  /* caustics on the floor — under the water, never over it */
-  const cTex = causticTex(.3, .3);
-  scrolls.push({ tex: cTex, u: TUNE.CAUSTIC_U, v: TUNE.CAUSTIC_V });
-  const caust = new THREE.Mesh(new THREE.ShapeGeometry(floorShape),
-    addMat(cTex, TUNE.CAUSTIC_DAY, TUNE.CAUSTIC_DAY, TUNE.CAUSTIC_NIGHT));
-  caust.rotation.x = -Math.PI / 2;
-  caust.position.y = -DEPTH + .02;
-  caust.renderOrder = 1;
-  g.add(caust);
+  const W = acc(true), S = acc(false), K = acc(false), B = acc(false), P = acc(false);
+  const V = (x, y, z, col) => [x, y, z, pu(x), pv(z), col];
+  const skirtV = (x, y, z, v) => [x, y, z, pu(x) + pv(z), v];
 
-  /* basin wall: a ribbon from grade down to the floor */
-  const pos = [], uv = [];
-  let run = 0;
-  for (let i = 0; i < N; i++) {
-    const a = edge[i], b = edge[(i + 1) % N];
-    const seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const u0 = run / 3, u1 = (run + seg) / 3;
-    run += seg;
-    // two triangles: a-top, b-top, b-bot / a-top, b-bot, a-bot
-    pos.push(a[0], .02, a[1],  b[0], .02, b[1],  b[0], -DEPTH, b[1]);
-    uv.push(u0, 1, u1, 1, u1, 0);
-    pos.push(a[0], .02, a[1],  b[0], -DEPTH, b[1],  a[0], -DEPTH, a[1]);
-    uv.push(u0, 1, u1, 0, u0, 0);
-  }
-  const wallGeo = new THREE.BufferGeometry();
-  wallGeo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  wallGeo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  wallGeo.computeVertexNormals();
-  const wall = new THREE.Mesh(wallGeo, new THREE.MeshStandardMaterial({
-    map: plaster(1, .35), roughness: .4, side: THREE.DoubleSide,
-  }));
-  g.add(wall);
+  /* ── 1 · basins: water fan, coping ring, sand deck ring, skirt ────────── */
+  const RINGS = [0, .26, .46, .63, .77, .89, 1];
+  for (const b of basins) {
+    for (let j = 0; j < b.segs; j++) {
+      const t0 = j / b.segs * TAU, t1 = (j + 1) / b.segs * TAU;
+      const e0 = b.at(t0), e1 = b.at(t1);
 
-  /* the water sheet. NOTE the missing shimmer sheet — the lagoon used to carry
-     an extra additive caustic plane ON TOP of the surface, same as the hero
-     pool did. That was the "cartoon noodles"; reflection carries the surface
-     now (low roughness + high envMapIntensity in waterMat). */
-  const water = new THREE.Mesh(new THREE.ShapeGeometry(floorShape),
-    waterMat(.42, .42, {
-      opacity: .78, color: C.lagoon, nightColor: C.lagoonNight,
-      su: TUNE.SCROLL_U * .7, sv: TUNE.SCROLL_V * .7,
-    }));
-  water.rotation.x = -Math.PI / 2;
-  water.position.y = WY;
-  water.renderOrder = 3;
-  g.add(water);
+      /* water — concentric rings of the same outline, so the shallow→deep
+         ramp has interior vertices to live on. Walking θ upward with the
+         inner ring first is the +Y winding for a ring (see quad). */
+      for (let k = 0; k < RINGS.length - 1; k++) {
+        const r0 = RINGS[k], r1 = RINGS[k + 1];
+        const c0 = ramp(1 - Math.pow(r0, 1.4)), c1 = ramp(1 - Math.pow(r1, 1.4));
+        const ax = b.cx + (e0[0] - b.cx) * r0, az = b.cz + (e0[1] - b.cz) * r0;
+        const bx = b.cx + (e1[0] - b.cx) * r0, bz = b.cz + (e1[1] - b.cz) * r0;
+        const cx = b.cx + (e1[0] - b.cx) * r1, cz = b.cz + (e1[1] - b.cz) * r1;
+        const dx = b.cx + (e0[0] - b.cx) * r1, dz = b.cz + (e0[1] - b.cz) * r1;
+        quad(W, V(ax, WY, az, c0), V(bx, WY, bz, c0), V(cx, WY, cz, c1), V(dx, WY, dz, c1));
+      }
 
-  /* two planted islands rising out of the water */
-  const rnd = mulberry32(SEED + 313);
-  for (const [ang, dist, r] of [[2.1, .42, 2.6], [5.0, .5, 1.9]]) {
-    const ix = L.cx + Math.cos(ang) * L.rx * dist;
-    const iz = L.cz + Math.sin(ang) * L.rz * dist;
-    const isl = new THREE.Mesh(new THREE.CylinderGeometry(r, r * 1.1, DEPTH + .5, 22), MAT.sandM);
-    isl.position.set(ix, -DEPTH + (DEPTH + .5) / 2 - .05, iz);
-    g.add(isl);
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(r, .12, 6, 26), MAT.coping);
-    rim.rotation.x = -Math.PI / 2;
-    rim.position.set(ix, .38, iz);
-    g.add(rim);
-    for (let k = 0; k < 6; k++) {
-      const a = rnd() * 6.283, dd = rnd() * r * .7;
-      const sh = new THREE.Mesh(new THREE.SphereGeometry(.35 + rnd() * .4, 8, 6), MAT.greenery);
-      sh.position.set(ix + Math.cos(a) * dd, .5 + rnd() * .3, iz + Math.sin(a) * dd);
-      sh.scale.y = .75;
-      g.add(sh);
-    }
-    G.colliders.push({ x: ix, z: iz, r: r + .3 });
-  }
+      /* dark coping lip at the water's edge, then the sand deck beyond it */
+      const k0 = b.at(t0, R.COPING), k1 = b.at(t1, R.COPING);
+      quad(K, V(e0[0], R.COPE_Y, e0[1]), V(e1[0], R.COPE_Y, e1[1]),
+              V(k1[0], R.COPE_Y, k1[1]), V(k0[0], R.COPE_Y, k0[1]));
+      const d0 = b.at(t0, R.COPING + b.deck), d1 = b.at(t1, R.COPING + b.deck);
+      quad(S, V(k0[0], R.DECK_Y, k0[1]), V(k1[0], R.DECK_Y, k1[1]),
+              V(d1[0], R.DECK_Y, d1[1]), V(d0[0], R.DECK_Y, d0[1]));
 
-  /* blue umbrellas + a few loungers on the sand ring */
-  const umbPts = scaleAbout(edge, L.cx, L.cz, 1.1);
-  const umProto = makeUmbrella(MAT.blue, 1.5, 2.45, 8);
-  const loungerProto = makeLounger();
-  for (let i = 0; i < L.umbrellas; i++) {
-    const idx = Math.floor(i * N / L.umbrellas);
-    const [ux, uz] = umbPts[idx];
-    const u = umProto.clone();
-    u.position.set(ux, 0, uz);
-    u.rotation.y = Math.atan2(L.cx - ux, L.cz - uz);
-    g.add(u);
-    G.colliders.push({ x: ux, z: uz, r: .2 });
-    if (i % 2 === 0) {
-      const l = loungerProto.clone();
-      l.position.set(ux + (L.cx - ux) * .06, 0, uz + (L.cz - uz) * .06);
-      l.rotation.y = Math.atan2(L.cx - ux, L.cz - uz) + Math.PI;
-      g.add(l);
+      /* skirt: the coping's underside carried below the water line, so the
+         edge reads as a pool wall and not as a paper cut-out at grazing
+         angles. DoubleSide — you see the far bank's inner face across the
+         water and the near bank's outer face from the deck. */
+      quad(B, skirtV(e0[0], R.COPE_Y, e0[1], 0), skirtV(e1[0], R.COPE_Y, e1[1], 0),
+              skirtV(e1[0], -R.DEPTH * .5, e1[1], .12), skirtV(e0[0], -R.DEPTH * .5, e0[1], .12));
     }
   }
 
-  /* keep walkers out of the water */
-  const colPts = scaleAbout(edge, L.cx, L.cz, 1.0);
-  for (let i = 0; i < N; i++) {
-    const a = colPts[i], b = colPts[(i + 1) % N];
-    colLine(G.colliders, a[0], a[1], b[0], b[1], .95);
+  /* ── 2 · the channels ─────────────────────────────────────────────────── */
+  const DIV = [-1, -.6, -.24, .24, .6, 1];
+  const lines = { spine: centreline(R.SPINE, 1.6), spur: centreline(R.SPUR, 1.6) };
+
+  /* bridge sites resolved up front, so the collider chain can leave a gap
+     under each one — a walker must still be able to cross the river */
+  const bridges = R.BRIDGES.map(([which, t]) => {
+    const pts = lines[which];
+    const s = pts[Math.round(t * (pts.length - 1))];
+    return { s, x: s.x, z: s.z, w: s.hw * 2 + 3.0 };
+  });
+
+  for (const key of ['spine', 'spur']) {
+    const pts = lines[key];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], q = pts[i + 1];
+
+      /* water, trimmed where the channel is already inside a basin. Built at
+         WATER_Y, 25 mm under BASIN_Y, so the overlap the trim cannot avoid
+         (a straddling quad) resolves in the basin's favour and never
+         z-fights. Both are opaque, so there is no blend seam either. */
+      if (!(inWater(a.x, a.z) && inWater(q.x, q.z))) {
+        for (let j = 0; j < DIV.length - 1; j++) {
+          const u0 = DIV[j], u1 = DIV[j + 1];
+          const c0 = ramp((1 - u0 * u0) * .72), c1 = ramp((1 - u1 * u1) * .72);
+          const A = lat(a, u1), Bp = lat(q, u1), Cp = lat(q, u0), D = lat(a, u0);
+          quad(W, V(A[0], CY, A[1], c1), V(Bp[0], CY, Bp[1], c1),
+                  V(Cp[0], CY, Cp[1], c0), V(D[0], CY, D[1], c0));
+        }
+      }
+
+      /* coping + skirt + a narrow pale bank on both sides, trimmed where the
+         channel has run onto a basin's deck */
+      if (inDeck(a.x, a.z) && inDeck(q.x, q.z)) continue;
+      for (const sgn of [1, -1]) {
+        const e0 = lat(a, sgn), e1 = lat(q, sgn);
+        const k0 = lat(a, sgn, R.COPING), k1 = lat(q, sgn, R.COPING);
+        const n0 = lat(a, sgn, R.COPING + R.BANK), n1 = lat(q, sgn, R.COPING + R.BANK);
+        /* the −1 side's "outward" is the more NEGATIVE lateral offset, so the
+           ring is walked the other way round and the quad order must flip —
+           otherwise half of every band faces the ground */
+        const band = (A, i0, i1, o0, o1, y) => {
+          const v = [V(o0[0], y, o0[1]), V(o1[0], y, o1[1]), V(i1[0], y, i1[1]), V(i0[0], y, i0[1])];
+          quad(A, ...(sgn > 0 ? v : [v[3], v[2], v[1], v[0]]));
+        };
+        band(K, e0, e1, k0, k1, R.COPE_Y);
+        band(S, k0, k1, n0, n1, R.DECK_Y);
+        quad(B, skirtV(e0[0], R.COPE_Y, e0[1], 0), skirtV(e1[0], R.COPE_Y, e1[1], 0),
+                skirtV(e1[0], -R.DEPTH * .45, e1[1], .12), skirtV(e0[0], -R.DEPTH * .45, e0[1], .12));
+      }
+    }
   }
+
+  /* ── 3 · the pale walking paths ───────────────────────────────────────── */
+  for (const ctrl of R.PATHS) {
+    const pts = centreline(ctrl.map(([x, z]) => [x, z, R.PATH_W]), 2.4);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i], q = pts[i + 1];
+      const A = lat(a, 1), Bp = lat(q, 1), Cp = lat(q, -1), D = lat(a, -1);
+      quad(P, V(A[0], R.PATH_Y, A[1]), V(Bp[0], R.PATH_Y, Bp[1]),
+              V(Cp[0], R.PATH_Y, Cp[1]), V(D[0], R.PATH_Y, D[1]));
+    }
+  }
+
+  for (const [a, m, n] of [[W, waterM, 'river:water'], [S, sandM, 'river:sand'],
+                           [K, copeM, 'river:coping'], [B, skirtM, 'river:skirt'],
+                           [P, pathM, 'river:paths']]) {
+    const mesh = bake(a, m, n);
+    if (mesh) g.add(mesh);
+  }
+
+  const islandShrubs = buildRiverIslands(G, g, basins, R, L);
+  buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater);
+  buildRiverBridges(g, bridges);
+  riverColliders(G, basins, lines, bridges);
+  /* An EXACT footprint for the understory cull below — the collider chains are
+     a circle approximation tuned for the walker and for nature's palm test,
+     and a shrub is small enough to sit in the slack between two of them. */
+  riverWater = { basins, lines };
   return g;
+}
+
+/* ── islands, the round island bar, the east pool's centre feature ──────── */
+function buildRiverIslands(G, g, basins, R, L) {
+  const bEast = basins.find(b => b.key === 'east');
+  const rnd = mulberry32(SEED + 313);
+
+  /* the lagoon's planted island — the dark green blob in the aerial */
+  const ix = L.cx + L.rx * R.ISLAND.dx, iz = L.cz + L.rz * R.ISLAND.dz;
+  const ir = R.ISLAND.r, ih = R.DEPTH + .55;
+  const isl = new THREE.Mesh(new THREE.CylinderGeometry(ir, ir * 1.12, ih, 20), MAT.greenery);
+  isl.position.set(ix, -R.DEPTH + ih / 2 - .05, iz);
+  g.add(isl);
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(ir + .16, ir + .16, .22, 20), MAT.coping);
+  rim.position.set(ix, .40, iz);
+  g.add(rim);
+  G.colliders.push(worldCollider(ix, iz, ir + .4));
+
+  /* the east pool's central round feature — a raised dark-timber drum ringed
+     in pale stone, which is what the aerial shows sitting in that circle */
+  const er = R.EAST.islandR, eh = R.DEPTH + .9;
+  const drum = new THREE.Mesh(new THREE.CylinderGeometry(er, er * 1.06, eh, 24), MAT.darkWood);
+  drum.position.set(bEast.cx, -R.DEPTH + eh / 2 - .05, bEast.cz);
+  g.add(drum);
+  const drumTop = new THREE.Mesh(new THREE.CylinderGeometry(er + .3, er + .3, .18, 24), MAT.coping);
+  drumTop.position.set(bEast.cx, .84, bEast.cz);
+  g.add(drumTop);
+  G.colliders.push(worldCollider(bEast.cx, bEast.cz, er + .6));
+
+  /* the round island bar on the west pool's south-west rim: a sand terrace, a
+     dark timber counter and a low conical roof on four posts. Its soffit is
+     the river's one warm light at night. */
+  const BA = R.BAR;
+  const terr = new THREE.Mesh(new THREE.CylinderGeometry(BA.r, BA.r + .25, .42, 26), MAT.sandM);
+  terr.position.set(BA.cx, .21, BA.cz);
+  g.add(terr);
+  const counter = new THREE.Mesh(
+    new THREE.CylinderGeometry(BA.r * .58, BA.r * .58, 1.1, 20, 1, true), MAT.darkWood);
+  counter.position.set(BA.cx, .97, BA.cz);
+  g.add(counter);
+  const roofM = new THREE.MeshStandardMaterial({ color: 0x7a5637, roughness: .93 });
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(BA.r * .95, 1.5, 14), roofM);
+  roof.position.set(BA.cx, BA.h + .4, BA.cz);
+  g.add(roof);
+  const soffitM = new THREE.MeshStandardMaterial({
+    color: 0x6b4a30, roughness: .9, side: THREE.DoubleSide,
+    emissive: RC.lampWarm, emissiveIntensity: 0,
+  });
+  const soffit = new THREE.Mesh(new THREE.CircleGeometry(BA.r * .9, 14), soffitM);
+  soffit.rotation.x = Math.PI / 2;
+  soffit.position.set(BA.cx, BA.h - .32, BA.cz);
+  g.add(soffit);
+  nightBits.push(on => { soffitM.emissiveIntensity = on ? 1.6 : 0; });
+  for (let i = 0; i < 4; i++) {
+    const a = i / 4 * TAU + .4;
+    box(g, .14, BA.h - .3, .14,
+      BA.cx + Math.cos(a) * BA.r * .78, (BA.h - .3) / 2 + .4,
+      BA.cz + Math.sin(a) * BA.r * .78, MAT.darkWood);
+  }
+  G.colliders.push(worldCollider(BA.cx, BA.cz, BA.r + .3));
+
+  /* planting for the island, handed to the shared instanced bucket below */
+  const out = [];
+  for (let k = 0; k < 8; k++) {
+    const a = rnd() * TAU, d = rnd() * ir * .7;
+    out.push([ix + Math.cos(a) * d, iz + Math.sin(a) * d, 1.1 + rnd() * 1.3, .5 + rnd() * .28]);
+  }
+  return out;
+}
+
+/* ── instanced dressing ─────────────────────────────────────────────────────
+   Every repeated object in the river is an InstancedMesh. The old lagoon spent
+   ~75 draw calls on ten umbrellas and five loungers cloned as Groups; the
+   whole population here — 24 umbrellas, 28 loungers, ~150 planting clumps and
+   22 path lanterns — costs seven. */
+function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
+  const rnd = mulberry32(SEED + 771);
+  const umbs = [], loungers = [], shrubs = [], lamps = [];
+
+  const byKey = k => basins.find(b => b.key === k);
+  const bWest = byKey('west'), bMid = byKey('mid'), bLag = byKey('lagoon'), bEast = byKey('east');
+
+  /* umbrellas + loungers ring the three big decks, set out on the sand */
+  for (const [b, n] of [[bWest, R.WEST.umbrellas], [bLag, SITE.LAGOON.umbrellas],
+                        [bEast, R.EAST.umbrellas]]) {
+    for (let i = 0; i < n; i++) {
+      const th = (i + .35) / n * TAU;
+      const [ux, uz] = b.at(th, R.COPING + b.deck * .58);
+      umbs.push([ux, uz, rnd() * TAU]);
+      for (const k of [-.28, .28]) {
+        const [lx, lz] = b.at(th + k / n, R.COPING + b.deck * .24);
+        loungers.push([lx, lz, Math.atan2(b.cx - lx, b.cz - lz)]);
+      }
+    }
+  }
+  for (let i = 0; i < 4; i++) {                        // the little mid-river basin
+    const th = (i + .5) / 4 * TAU;
+    const [lx, lz] = bMid.at(th, R.COPING + bMid.deck * .45);
+    loungers.push([lx, lz, Math.atan2(bMid.cx - lx, bMid.cz - lz)]);
+  }
+
+  /* planting: clumps pressed right up against both banks of both channels and
+     scattered around every deck. The reference threads the whole river
+     through dense low greenery, and from 60 m up this is what carries it —
+     nature.js's palm scatter is campus-wide and far too thin on its own. */
+  for (const key of ['spine', 'spur']) {
+    const pts = lines[key];
+    for (let i = 2; i < pts.length - 2; i += 2) {
+      const s = pts[i];
+      for (const sgn of [1, -1]) {
+        /* the three rnd() calls stay unconditional (nature.js's pattern) so
+           rejecting a clump never shifts the seeded sequence for the rest */
+        const skip = rnd() < .34, off = R.COPING + R.BANK + 1.5 + rnd() * 3.2;
+        const sc = 1.1 + rnd() * 1.6;
+        const [x, z] = lat(s, sgn, off);
+        /* a tight meander puts the outside of one bend on the inside of the
+           next, so a bank clump can land in the water two loops downstream */
+        if (skip || inWater(x, z)) continue;
+        shrubs.push([x, z, sc, .42 + rnd() * .28]);
+      }
+    }
+  }
+  for (const b of basins) {
+    const n = Math.round(b.rm * 2.4);
+    for (let i = 0; i < n; i++) {
+      const [x, z] = b.at(rnd() * TAU, R.COPING + b.deck + .8 + rnd() * 4.2);
+      const sc = 1.1 + rnd() * 1.8, sy = .42 + rnd() * .28;
+      if (inWater(x, z)) continue;          // the basins sit close together
+      shrubs.push([x, z, sc, sy]);
+    }
+  }
+  for (const s of islandShrubs) shrubs.push(s);
+
+  /* path lanterns — the river's night silhouette from the air */
+  const pPts = centreline(R.PATHS[0].map(([x, z]) => [x, z, R.PATH_W]), 2.4);
+  for (let i = 0; i < R.LAMPS; i++) {
+    const s = pPts[Math.round((i + .5) / R.LAMPS * (pPts.length - 1))];
+    const [x, z] = lat(s, i % 2 ? 1 : -1, .8);
+    lamps.push([x, z]);
+  }
+
+  const dummy = new THREE.Object3D();
+  const inst = (geo, mat, list, place) => {
+    if (!list.length) return null;
+    const m = new THREE.InstancedMesh(geo, mat, list.length);
+    for (let i = 0; i < list.length; i++) {
+      dummy.position.set(0, 0, 0); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1);
+      place(i, dummy);
+      dummy.updateMatrix();
+      m.setMatrixAt(i, dummy.matrix);
+    }
+    m.instanceMatrix.needsUpdate = true;
+    m.computeBoundingSphere();
+    g.add(m);
+    return m;
+  };
+
+  inst(new THREE.CylinderGeometry(.05, .06, 2.5, 6), MAT.white, umbs,
+    (i, d) => d.position.set(umbs[i][0], 1.25, umbs[i][1]));
+  inst(new THREE.ConeGeometry(1.55, .44, 8), MAT.blue, umbs, (i, d) => {
+    d.position.set(umbs[i][0], 2.42, umbs[i][1]);
+    d.rotation.y = umbs[i][2];
+  });
+
+  /* a lounger is one raked slab. At 60 m up that is exactly as much lounger as
+     reads; the enclave's own deck has the modelled ones. */
+  inst(new THREE.BoxGeometry(.68, .14, 1.95), MAT.white, loungers, (i, d) => {
+    d.position.set(loungers[i][0], .36, loungers[i][1]);
+    d.rotation.set(-.16, loungers[i][2], 0);
+  });
+
+  /* Planting gets its OWN material so it can carry per-instance colour.
+     `instanceColor` compiles USE_INSTANCING_COLOR into the material's program,
+     so it must never be set on a material a non-instanced mesh also uses —
+     MAT.greenery is shared, this one is not. */
+  const plantM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .92, metalness: 0 });
+  /* Detail-1 icosahedron (80 tris). This is over half the river's triangle
+     budget and a 6×4 sphere would be 36 — but a 6-segment sphere seen from
+     STRAIGHT ABOVE is a hexagon, and the whole point of this planting is the
+     plan view. Trim the count before you trim the mesh. */
+  const plantMesh = inst(new THREE.IcosahedronGeometry(1, 1), plantM, shrubs, (i, d) => {
+    const [x, z, s, sy] = shrubs[i];
+    d.position.set(x, s * sy * .78, z);
+    d.rotation.set((i % 5) * .09, i * 1.13, (i % 7) * .07);
+    d.scale.set(s, s * sy, s * (.86 + (i % 4) * .07));
+  });
+  if (plantMesh) {
+    /* Explicit sRGB hexes, NOT setHSL. Color.setHSL defaults to the WORKING
+       colour space, which is Linear-sRGB — an l of 0.3 there is a mid-bright
+       green once it is displayed, and the first pass came out as a field of
+       pale mint balls that flattened the whole aerial. `new Color(hex)`
+       converts sRGB→linear for us, so these are the greens they look like. */
+    const PALETTE = [0x2c5228, 0x37662f, 0x27492a, 0x426f33, 0x1f4526, 0x365e39];
+    const col = new THREE.Color();
+    for (let i = 0; i < shrubs.length; i++) {
+      col.setHex(PALETTE[(rnd() * PALETTE.length) | 0]);
+      col.multiplyScalar(.82 + rnd() * .42);
+      plantMesh.setColorAt(i, col);
+    }
+    if (plantMesh.instanceColor) plantMesh.instanceColor.needsUpdate = true;
+  }
+
+  const lampM = new THREE.MeshStandardMaterial({
+    color: 0xf4e6cf, roughness: .5, emissive: RC.lampWarm, emissiveIntensity: 0,
+  });
+  nightBits.push(on => { lampM.emissiveIntensity = on ? 2.8 : 0; });
+  inst(new THREE.CylinderGeometry(.045, .055, 1.0, 5), MAT.stone, lamps,
+    (i, d) => d.position.set(lamps[i][0], .5, lamps[i][1]));
+  inst(new THREE.SphereGeometry(.17, 6, 5), lampM, lamps,
+    (i, d) => d.position.set(lamps[i][0], 1.1, lamps[i][1]));
+}
+
+/* ── footbridges: two instanced buckets for the whole set ───────────────── */
+function buildRiverBridges(g, bridges) {
+  const dummy = new THREE.Object3D();
+  const decks = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), MAT.timberDeck, bridges.length);
+  const rails = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), MAT.darkWood, bridges.length * 2);
+  bridges.forEach((br, i) => {
+    /* three's Y-rotation maps local +Z to (sin y, cos y), so this aims the
+       deck's long axis along the channel's normal — i.e. across the water */
+    const yaw = Math.atan2(br.s.nx, br.s.nz);
+    dummy.position.set(br.x, .62, br.z);
+    dummy.rotation.set(0, yaw, 0);
+    dummy.scale.set(2.0, .16, br.w);
+    dummy.updateMatrix(); decks.setMatrixAt(i, dummy.matrix);
+    for (let k = 0; k < 2; k++) {
+      const s = k ? .95 : -.95;
+      dummy.position.set(br.x + br.s.tx * s, 1.06, br.z + br.s.tz * s);
+      dummy.rotation.set(0, yaw, 0);
+      dummy.scale.set(.1, .72, br.w);
+      dummy.updateMatrix(); rails.setMatrixAt(i * 2 + k, dummy.matrix);
+    }
+  });
+  decks.instanceMatrix.needsUpdate = true; rails.instanceMatrix.needsUpdate = true;
+  decks.computeBoundingSphere(); rails.computeBoundingSphere();
+  g.add(decks); g.add(rails);
+}
+
+/* ── a WORLD-SPACE collider ─────────────────────────────────────────────────
+   world.js maps every collider an enclave builder pushed through
+   enclaveToWorld(), and it decides which ones BY POSITION ALONE:
+   isEnclaveLocal() is essentially `x < 84`. water.js is a MIXED builder — the
+   hero pool is enclave, the river is resort backdrop — and the river's west
+   pool sits at x ≈ 65, so on the first pass its ~120 colliders were quietly
+   teleported into the palm grove at (−92…−68, 87…111): invisible walls on the
+   walk to the beach, and NO keep-out left at the pool, which is why nature.js
+   was free to plant in it.
+
+   The old SITE.LAGOON never hit this because it began at x = 92. Rather than
+   shorten the river back behind that line, these colliders say what they are:
+   `x` and `z` are accessors whose setter is a deliberate no-op, so world.js's
+   in-place rewrite is a silent, harmless miss. Same intent as the
+   `userData.worldSpace` opt-out world.js already honours for late geometry —
+   there is just no flag for colliders yet. If one ever lands, delete this and
+   set the flag.
+
+   (Pre-compensating instead — pushing worldToEnclave(x, z) so the rewrite maps
+   it back — cannot work here: the pre-image of anything east of x = 22 lands
+   at z ≤ −80, where isEnclaveLocal is false and the rewrite never fires.) */
+function worldCollider(x, z, r) {
+  const c = { r };
+  Object.defineProperty(c, 'x', { get: () => x, set: () => {}, enumerable: true });
+  Object.defineProperty(c, 'z', { get: () => z, set: () => {}, enumerable: true });
+  return c;
+}
+
+/* ── colliders ──────────────────────────────────────────────────────────────
+   Coarse on purpose. The river is ~120 m from the nearest spawn and is read
+   from the air, so this is really two jobs: keep a wandering walker out of the
+   water, and — because nature.js plants its palms against G.colliders rather
+   than against SITE — keep the palm population out of the channel. Only
+   SITE.LAGOON is big enough to also need nature's own keep-out disc; every
+   other basin and the whole channel are covered by what is pushed here.
+   The bridge sites are deliberately left OPEN: a chain across them would seal
+   the only way over the river.
+   Returns the same circles as a keep-out list (see cullPlantsInRiver). */
+function riverColliders(G, basins, lines, bridges) {
+  const nearBridge = (x, z) => bridges.some(b =>
+    (x - b.x) ** 2 + (z - b.z) ** 2 < (b.w * .62) ** 2);
+
+  for (const key of ['spine', 'spur']) {
+    const pts = lines[key];
+    let run = 1e3;
+    for (let i = 0; i < pts.length; i++) {
+      const s = pts[i];
+      if (i) run += Math.hypot(s.x - pts[i - 1].x, s.z - pts[i - 1].z);
+      if (run < s.hw * .9) continue;
+      run = 0;
+      /* r is padded past the actual bank on purpose: nature.js clears a palm
+         by collider.r + 1.4, and a palm CROWN is ~4 m across, so a trunk
+         planted at the bank line hangs its fronds over the whole channel */
+      if (!nearBridge(s.x, s.z)) G.colliders.push(worldCollider(s.x, s.z, s.hw + 1.2));
+    }
+  }
+
+  for (const b of basins) {
+    const n = Math.max(16, Math.round(b.rm * 3.4));
+    for (let j = 0; j < n; j++) {
+      const [x, z] = b.at(j / n * TAU, -.4);
+      G.colliders.push(worldCollider(x, z, 1.6));
+    }
+    /* Fill the middle, or nature plants a palm in open water. Two numbers
+       have to line up or the fill leaks:
+         · STEP ≤ r·√2, else the grid's corners are holes (2.6 grid, r 2.0 →
+           1.84 m half-diagonal, covered);
+         · the outermost qualifying point is (1.2 + step) inside, so its circle
+           still reaches 1.8 m inside — and the rim chain above covers from
+           1.72 m inside outwards, so the two bands overlap. */
+    for (let x = b.cx - b.rx; x <= b.cx + b.rx; x += 2.6) {
+      for (let z = b.cz - b.rz; z <= b.cz + b.rz; z += 2.6) {
+        if (!b.inside(x, z, -1.2)) continue;
+        G.colliders.push(worldCollider(x, z, 2.0));
+      }
+    }
+  }
+}
+
+/* ── keep nature's understory out of the water ──────────────────────────────
+   nature.js runs AFTER water.js and dart-throws its shrub masses and ground
+   cover against exclusionZones() ALONE — it never consults G.colliders, which
+   is what keeps the *palms* out. SITE.LAGOON is the only river footprint in
+   that list, so without this pass two or three shrub clumps float in the west
+   pool and the channel on every load, which is exactly the kind of thing you
+   only see in a top-down screenshot.
+
+   Same technique world.js uses for the enclave: on the first frame (nature is
+   built by then) collapse the offending instances to zero scale, keeping the
+   translation. Palm buckets are skipped — they are marked DynamicDrawUsage
+   because the sway ticker rewrites their matrices every frame, so anything
+   written here would be gone by the next one. Runs once. */
+const _cm = new THREE.Matrix4(), _cp = new THREE.Vector3(), _cz = new THREE.Vector3(0, 0, 0);
+let riverCullDone = false;
+
+function cullPlantsInRiver(G) {
+  riverCullDone = true;
+  const root = G.groups && G.groups.nature;
+  if (!root || !riverWater) return 0;
+  const { basins, lines } = riverWater;
+  const chan = [];
+  for (const key of ['spine', 'spur']) for (const s of lines[key]) chan.push(s);
+  let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+  const grow = (x, z, r) => {
+    x0 = Math.min(x0, x - r); x1 = Math.max(x1, x + r);
+    z0 = Math.min(z0, z - r); z1 = Math.max(z1, z + r);
+  };
+  for (const b of basins) grow(b.cx, b.cz, Math.max(b.rx, b.rz) * 1.4);
+  for (const s of chan) grow(s.x, s.z, s.hw + 1);
+  const inRiver = (x, z) => {
+    for (const b of basins) if (b.inside(x, z, .3)) return true;
+    for (const s of chan) {
+      const dx = x - s.x, dz = z - s.z, r = s.hw + .3;
+      if (dx * dx + dz * dz < r * r) return true;
+    }
+    return false;
+  };
+  let culled = 0;
+  for (const child of root.children) {
+    if (!child.isInstancedMesh) continue;
+    if (child.instanceMatrix.usage === THREE.DynamicDrawUsage) continue;   // palms
+    let touched = 0;
+    for (let i = 0; i < child.count; i++) {
+      child.getMatrixAt(i, _cm);
+      _cp.setFromMatrixPosition(_cm);
+      if (_cp.x < x0 || _cp.x > x1 || _cp.z < z0 || _cp.z > z1) continue;
+      if (!inRiver(_cp.x, _cp.z)) continue;
+      _cm.scale(_cz);
+      child.setMatrixAt(i, _cm);
+      touched++;
+    }
+    if (touched) { child.instanceMatrix.needsUpdate = true; culled += touched; }
+  }
+  return culled;
 }
 
 /* ═══════════════════════ VILLA PLUNGE POOLS ═══════════════════════════════
@@ -1848,6 +2411,9 @@ function buildVillaPools(G) {
 function tick(dt) {
   const d = Math.max(0, Math.min(.05, dt || 0));
   T += d;
+  /* one-shot, on the first frame: nature.js is built after water.js, so the
+     river can only evict the shrubs that landed in it once they exist */
+  if (!riverCullDone && CTX) cullPlantsInRiver(CTX);
   for (const s of scrolls) {
     s.tex.offset.x += s.u * d;
     s.tex.offset.y += s.v * d;
@@ -1875,6 +2441,7 @@ export function buildWater(G) {
   ROOT = new THREE.Group();
   ROOT.name = 'water';
   CAM = G.camera || null;
+  CTX = G;
   G.scene.add(ROOT);
 
   buildMaterials();
@@ -1885,7 +2452,7 @@ export function buildWater(G) {
   buildPoolside(G);
   buildLanterns(G);
   buildLoungePool(G);
-  buildLagoon(G);
+  buildRiver(G);
   buildVillaPools(G);
 
   (G.tickers ||= []).push((dt) => tick(dt));
