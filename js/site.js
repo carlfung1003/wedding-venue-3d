@@ -316,9 +316,11 @@ const MOMENT_PLACES_LOCAL = {
   // inside the great room, looking out through the folded-open glass wall at
   // the lantern-lit pool — the shot the whole project exists for
   PREWEDDING: { x: 1, z: -18, yaw: Math.PI },
-  // back of the aisle facing the arch. x tracks LAWN.cx — this spawn was left
-  // 27 m off-axis when the lawn moved, which put the ceremony in open grass.
-  CEREMONY:   { x: -75, z: -36, yaw: 0 },
+  // Standing at the BACK of the aisle looking north up it to the arch.
+  // x tracks LAWN.cx (−75). z must sit behind the last row: moments.js lays
+  // the chairs at LAWN.cz + 12 … + 8 (z −34…−38) and the arch at LAWN.cz − 8
+  // (z −54), so anything in −34…−38 spawns you inside the seating.
+  CEREMONY:   { x: -75, z: -30, yaw: 0 },
   COCKTAIL:   { x: 46, z: -18, yaw: Math.PI }, // lounge terrace, facing the pool
   // inside the lounge just in from the glass, looking NORTH up the room across
   // the six rounds to the head table (the tables sit at z −36…−30)
