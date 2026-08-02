@@ -181,6 +181,40 @@ were building to:
    stepped volumes with punched rectangular window slots and a `THE WESTIN`
    mark, NOT the open post-and-beam portal frames `water.js` builds today.
 5. **Rooftop infinity pool on the main Westin tower** — see below.
+6. **Loading screen** — see below.
+
+## QUEUED — loading screen (Carl, 2026-08-02)
+
+Carl: *"implement a loading screen if it hasn't loaded completely for the 3D
+model rendering, otherwise people would not know they need to wait or think
+it's broken."*
+
+**This is real, not polish.** `main.js` calls `buildWorld(G)` **synchronously**
+before the first frame, and that builds ~3,000 meshes / ~265k triangles,
+generates every CanvasTexture, and compiles the Reflector shader. On a cold
+load the tab is blank — not the title card, nothing — for the whole of it. A
+guest who doesn't know that reads it as broken and closes the tab. Worse on
+mobile.
+
+Requirements:
+- Show a branded card **immediately** on DOM ready, before any Three.js work.
+  Match the existing title-card styling (Cormorant Garamond, champagne gold on
+  deep charcoal). Something in-voice, e.g. "Setting the tables…", not
+  "Loading…".
+- Real progress if cheap to get, otherwise a determinate-feeling animation —
+  but it must not claim 100% before the scene is actually up.
+- **Yield to the browser between build phases** so the card can actually
+  paint. `buildWorld` currently blocks the main thread end to end; splitting
+  it across `requestAnimationFrame`/`await` boundaries per builder (sky,
+  nature, water, campus, atrium, suite) is the natural seam, and each of those
+  is already a separate call in `world.js`.
+- Hand off to the existing title card + drone orbit only once the world is
+  built, so "Step inside" is never pressable against an unbuilt scene.
+- `hogwarts-flight` has the house precedent: a `#loading` div killed with
+  `.classList.add('hidden')` after the world build. Follow that pattern.
+
+⚠️ Don't regress the opening: `initIntroCam` + the drone orbit must still be
+running behind the title card when it appears.
 
 ## QUEUED — the hotel's rooftop infinity pool (Carl, 2026-08-01)
 
