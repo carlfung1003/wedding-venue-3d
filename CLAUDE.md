@@ -213,6 +213,31 @@ Comes AFTER the ceremony/cocktail/dinner grounds. Reference:
 resort water system. Carl: *"let's also fix all the water feature of the
 hotel."*
 
+**Carl's photo references (2026-08-02) — these are the spec, use them:**
+- **`reference/photos/hotel-rooftop-pool-day-night.png`** — the rooftop, day
+  AND night, and it is spectacular. The pool runs **hard to the building edge**
+  with a clean infinity edge straight onto the sea horizon; there is NO deck
+  between water and edge. Along the inland long side: a row of **white
+  four-poster cabana daybeds with curtains** on timber decking, backed by a
+  dramatic **white perforated lattice screen wall with pointed/faceted tops**.
+  At night that screen is **washed with blue light projections** and the pool
+  floor is **speckled with star-like points**. Model the screen wall — it is
+  what makes the roof read at distance, day and night.
+- **`reference/photos/beach-pool-circular.png`** — the beach pool: a large
+  **circular/oval pool with concentric-ring patterns on its floor**, a
+  sand-coloured deck, white umbrellas and loungers, a **round bar/structure**
+  on its inland edge, a big shade tree, and the palm grove and beach directly
+  beyond. This sits close to the clubhouse.
+- **`reference/photos/lazy-river-closeup.png`** — the river's true character:
+  **narrow**, bright turquoise, tight against timber and grass edges, with palm
+  crowns overhanging it from both sides. Wide enough for one paddleboard. If
+  the built river reads wider or more open than this, narrow it.
+- **`reference/photos/clubhouse-lawn-to-beach.png`** — ⚠️ **also the ceremony
+  reference.** The presidential pool with its white blocks, a **square fire-pit
+  feature** on the paved terrace beside it, clipped hedges and topiary, and
+  then the **huge open lawn** running to the palm grove and the sea. That lawn
+  is where the ceremony and cocktails go.
+
 Three specific asks, plus a general pass:
 
 1. **A beach pool structure very close to the clubhouse.** In the aerial this
