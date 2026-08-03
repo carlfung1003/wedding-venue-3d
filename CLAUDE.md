@@ -192,6 +192,21 @@ were building to:
 - **IMG_8093** — pool from the stair. **IMG_8095** — pool from the stair view.
   **IMG_8102** — another atrium angle.
 
+## What this project is FOR (Carl, 2026-08-02) — the priority order
+
+> *"my take is the goal should highlight the club house, the hotel build
+> itself and the water features. I care less about any other random building
+> blocks right now."*
+
+**Three heroes: the 隐逸居 clubhouse enclave, the Westin crescent, the water
+system.** Everything else — the ~50 `SITE.RESORT_VILLAS`, the road, the
+parking — is context. When they conflict, the heroes win: move, thin or delete
+backdrop villas rather than let them constrain the composition or the scale of
+the crescent. Spend triangles and draw calls on the three, not on the field.
+
+This is a *judgement* rule, not a layout rule — it tells you what to trade
+when two corrections disagree.
+
 ## SESSION HANDOFF — read this if you are picking the project up cold
 
 Everything below the architecture table is here because it was learned the hard
