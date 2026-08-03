@@ -221,6 +221,27 @@ way. Orientation, in the order it will save you time:
 4. `reference/*.md` are committed briefs distilled from gitignored media. ⚠️
    `suite-interior-brief.md` §4 is MIRRORED — banner-flagged, cost four bugs.
 
+**The whose-word-wins order** (settled the hardest disagreements):
+Carl > his photos > the planner's renders > the hotel's marketing deck >
+inference. He has been to the venue — when his account and a photo disagree,
+HE WINS (that settled the pool's orientation). The planner's renders are the
+real 2027-03-20 design and outrank venue photos for DECOR — **but not for
+names**: they romanise the surnames as *Feng/Zheng*; the couple are **Fung**
+and **Cheng**. `reference/suite-interior-brief.md` is bottom of the pile —
+distilled from a handheld video, and mirrored.
+
+**Two failure shapes that cost the most, both silent:**
+- **Typed proportional constants.** The rooftop pool's span, the facade tile
+  count and the collider ring count were each a fraction of `HOTEL.arc`, each
+  hand-typed. Growing the arc broke all three and nothing errored — the
+  building simply grew around the pool. They are DERIVED now; keep them that
+  way, and grep for magic numbers near any dimension you are about to change.
+- **Eyeballing position.** The water looked "close but wrong" through several
+  passes. Calibrating the aerial (0.22 m/px, anchored on two features) showed
+  the whole band was **rotated the wrong way** — reality climbs 24 m north
+  west-to-east, ours fell 57 m south. Measure against a calibrated reference;
+  state the offsets.
+
 **Working method that held up:** one agent per job with **strict file ownership**
 (two agents in one file corrupted a build; a third left the page unable to
 parse). Hand it the reference photo, the constraints, and demand evidence —
