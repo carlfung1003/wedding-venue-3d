@@ -206,6 +206,49 @@ commit**, and never trust a "done" report without its evidence attached.
 project URL rather than the domain — **always curl `venue.carlfung.dev` and
 confirm it serves the new build.**
 
+## QUEUED — THE PROPORTION PASS (Carl, 2026-08-02) — biggest outstanding item
+
+Carl put the real aerial beside the build. **Save both and look at them side by
+side before changing a number**: `reference/photos/resort-true-proportions.jpeg`
+(reality) vs `reference/photos/build-proportions-2026-08-02.png` (ours). His
+words:
+
+> *"the hotel and the water features are very close by and it extends all the
+> way to the beach nicely. Right now there's a big disconnection between hotel
+> and water feature, and water feature to the beach … the hotel shape is
+> slightly smaller than actual — if you look at the real picture it's almost a
+> half circle, but the one we have now is very small in comparison. In contrast
+> the pool isn't that big in perspective compared to the actual hotel."*
+
+Four linked corrections — **they are one job, because they are all the same
+ratio problem.** Fixing any one alone will make the others look worse:
+
+1. **The hotel crescent is far too small.** In the aerial it is **almost a half
+   circle** and it dominates the whole east side. `SITE.HOTEL.arc` is 1.5 rad;
+   a half circle is π. Grow the arc AND the radius so it reads as the anchor
+   of the resort.
+2. **The water features are too big relative to it.** Don't shrink them
+   blindly — get the RATIO right. In the aerial the lazy-river system reads
+   modest against that huge building; in the build the pools dominate.
+3. **Close the gap between the hotel and the water.** In the aerial the river
+   and the round pools run right up to the crescent's inner face; in the build
+   there is a wide empty lawn between them.
+4. **Close the gap between the water and the beach.** The system "extends all
+   the way to the beach nicely" — the west basin should sit just inland of the
+   sand behind only a palm belt (this overlaps the beach-pool placement item).
+
+Also: **the rooftop has BOTH an infinity pool AND a rooftop bar area** — the
+bar is a distinct zone, not just a counter beside the water. See the build
+screenshot for what is there now.
+
+⚠️ **This touches everything.** `SITE.HOTEL` feeds `HOTEL_ROOF`, the walkable
+rooftop annulus + its polar hole, the y-ranged rooftop colliders, the stair
+tower, and the Welcome Brunch spawn and dressing (`campus.js` AND `moments.js`
+place the four-tops at matching radii). `SITE.RIVER`/`LAGOON`/`HOTEL_POOLS` and
+`RESORT_VILLAS` all sit between them. Expect to re-walk the roof and re-check
+every moment. Do it as ONE deliberate pass with a scale rationale written down,
+not as a series of nudges.
+
 ## QUEUED — hotel facade + beach pool placement (Carl, 2026-08-02)
 
 1. **The Westin's facade is wrong.** Reference: `reference/video/westin-day-drone.mp4`
