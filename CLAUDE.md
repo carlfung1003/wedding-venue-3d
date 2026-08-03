@@ -145,9 +145,9 @@ teleport to the moment's spawn.
 |---|--------|-------|------|----------|
 | 1 | Welcome Brunch | The Westin Rooftop | 03-18 | the eight existing four-tops dressed (linen, settings, blooms, chair slips + sashes), a buffet run and a champagne service on the teak, a menu easel at the bridge |
 | 2 | Prewedding Setup | Presidential Suite | 03-19 | high-tops on the deck, festoon runs, welcome easel, champagne tower |
-| 3 | Ceremony | The Beachfront Lawn | 03-20 | 60 white chairs facing the sea, aisle runner + petals, a 4.8 m dressed arch on stone bases, two urns |
+| 3 | Ceremony | The Beachfront Lawn | 03-20 | **from the planner's renders** — 60 wooden cross-back chairs each tied with a white chiffon drape, a petal-strewn GRASS aisle lined with blue-and-cream clusters, two 3 m asymmetric floral installations at its head with a pale-blue fabric flower between them, two slim white arch frames each hanging a crystal chandelier, a pale arched welcome board, and six extras on the −X flank (dessert bar, favour wheelbarrow, hat rack, plinth pair, coconut rack, beverage cart) |
 | 4 | Cocktail Hour | The Beachfront Lawn | 03-20 | same lawn 26 m east: a 6 m bar, eight high-tops, three teal parasols, festoon on poles |
-| 5 | Wedding Dinner | The Pool Lawns | 03-20 | eight rounds of EIGHT (64 covers) across the two lawns, head table + dance floor on the walk between them, festoon on poles |
+| 5 | Wedding Dinner | The Pool Lawns | 03-20 | **from the planner's renders** — 64 covers as SIX rounds of eight + TWO bare-timber longs of eight, all on wooden cross-back chairs; strung festoon (real cable, not floating bulbs) criss-crossing both lawns; four crystal candelabra on tall curved poles; head table + dance floor on the walk between them |
 | 6 | After Party | Suite Pool Deck | 03-20 | DJ booth, speakers, mirror ball, lounges, string lights |
 
 **The order is CHRONOLOGICAL and the chip bar is read as a timeline** — the
@@ -157,6 +157,11 @@ else shifted by one on 2026-08-02. Nothing may hold a raw moment index:
 backdrop and the post-dive landing through it, and `moments.js` gates its
 interactables on ids. Insert a moment where it belongs in time; do not append
 one to protect an index.
+
+**Ceremony and Wedding Dinner are dressed from the couple's ACTUAL wedding
+designer** (Rosa Wed 蔷薇婚礼) as of 2026-08-02 — see "THE DECOR PASS" near the
+top of this file for the seven renders, the palette and the traps. Anything in
+those two moments that disagrees with `reference/photos/decor-*.jpg` is wrong.
 
 **The shared-ballroom redress is the core design.** Ceremony and Wedding
 Dinner are the *same room* wearing different prop groups — exactly what a
@@ -252,6 +257,163 @@ commit**, and never trust a "done" report without its evidence attached.
 **Deploy:** `vercel --prod --yes` from the repo. It sometimes aliases to the
 project URL rather than the domain — **always curl `venue.carlfung.dev` and
 confirm it serves the new build.**
+
+## THE DECOR PASS — CEREMONY + WEDDING DINNER — DONE 2026-08-02
+
+**`js/moments.js` only.** Nothing else was touched: no site plan, no builder, no
+coordinate, no spawn. Ceremony and Wedding Dinner are now dressed from the
+couple's actual wedding designer — **Rosa Wed 蔷薇婚礼** — instead of from
+inference.
+
+**The seven renders are the spec and they outrank anything previously inferred**
+(`reference/photos/`, gitignored with the rest of the media):
+`decor-ceremony-main.jpg` (the key image), `decor-dessert-bar.jpg`,
+`decor-plinths-and-hats.jpg`, `decor-favor-wheelbarrow.jpg`,
+`decor-beverage-coconut.jpg`, `decor-dinner-rounds.jpg`,
+`decor-dinner-chandeliers.jpg`.
+
+The deliverables are the side-by-sides, reference stacked over the build at an
+identical width: **`compare-ceremony-decor-2026-08-02.jpg`**,
+`compare-extras-bar-2026-08-02.jpg`,
+`compare-extras-plinths-hats-2026-08-02.jpg`,
+`compare-extras-wheelbarrow-2026-08-02.jpg`,
+`compare-extras-coconut-2026-08-02.jpg`,
+`compare-dinner-rounds-2026-08-02.jpg`,
+`compare-dinner-chandeliers-2026-08-02.jpg`.
+
+### The palette, which was not in the build at all
+
+Dusty/powder **BLUE**, cream, ivory and white over **pale green** foliage —
+hydrangea, garden roses, delphinium — soft and pale against the sea. The build's
+ceremony was plain white folding chairs under a green-and-blush arch with a
+3 × 12 m linen runner; there is no blue, no timber and no runner anywhere in the
+design. Getting the colour right was the single biggest change and it is now one
+table, `PAL`, at the top of moments.js:
+
+| | | |
+|---|---|---|
+| `HYDRANGEA` | `0x92b8de` | the powder-blue heads — the signature |
+| `DELPH` | `0x7099c9` | delphinium, the deeper blue in the ground clusters |
+| `MIST` | `0xbcd3ea` | palest blue — the fabric flower, the far blooms |
+| `CREAM` | `0xecd7ae` | the champagne garden rose |
+| `IVORY` / `WHITE` | `0xf6ecd8` / `0xfdfbf6` | |
+| `LEAF` / `LEAF_D` | `0x94ae87` / `0x74906b` | pale sage, **not** the old `0x3f6b3a` |
+| `OAK` / `OAK_D` | `0xc3a37c` / `0xa88a66` | the cross-back chairs |
+| `PEARL` / `STONE` | `0xf5efe2` / `0xdfe4e8` | pearl strands; the welcome board |
+
+⚠ **Both the hues AND the mix weights were retuned once, on evidence.** The first
+pass read WHITE from twelve metres: cream, ivory and white sit within a few
+points of each other under the golden-hour sun and pale sage went silver. `PAL`
+was deepened and `bloomHue()`'s blue band widened from 37 % to 45 %. If it ever
+looks washed out again, that is the knob.
+
+### What is built, per render
+
+- **`decor-ceremony-main.jpg`** — 60 **wooden cross-back chairs** (eleven timber
+  members each) in five rows of six a side, every one tied with a white chiffon
+  drape: a fan flaring above the backrest and a skirt falling behind the seat.
+  The aisle is **GRASS STREWN WITH PETALS** — the linen runner is deleted — lined
+  both sides with low blue-and-cream clusters that thicken toward the head. Two
+  **asymmetric floral installations** flank the head at ±3.1 m, 3.3 m and 2.95 m
+  tall, built on a teardrop profile with a wing of bloom spilling sideways over
+  the aisle. A **pale-blue fabric flower** hangs between them at 2.35 m with two
+  chiffon streamers. Two **slim white arch frames** stand outboard of the aisle
+  at z 69, each hanging a five-tier **crystal/pearl bead chandelier**. A tall
+  pale **arched welcome board** (CanvasTexture on an ExtrudeGeometry cap) stands
+  beside the front of the block.
+- **`decor-dessert-bar.jpg`** — a 6 m white counter with **"Fung & Cheng"** in
+  script on its front, a white **double-tiered parasol** hung with sixteen pearl
+  strands and small blooms, two drink dispensers, two cupcake stands, dessert
+  plates, flutes, two fluted plinths and florals grounding both ends.
+- **`decor-favor-wheelbarrow.jpg`** — the galvanised barrow of fifteen gold
+  favour boxes, beside the bar.
+- **`decor-plinths-and-hats.jpg`** — three white rectangular plinths with floral
+  tops and **nine catenaries of pearls** swagged between the two tall ones; and
+  the **hat rack**: fifteen straw hats on three real lines between two timber
+  posts, with a basket of spares.
+- **`decor-beverage-coconut.jpg`** — the white arched shelving rack of coconuts
+  and the small white **canopy cart** of fruit with a "Beverage" cloth.
+- **`decor-dinner-rounds.jpg` + `decor-dinner-chandeliers.jpg`** — the same
+  cross-back chair, which is what makes the day read as one wedding; **six rounds
+  of eight plus two bare-timber longs of eight (still 64 covers)**, the longs on
+  the paved-walk side of each lawn; **four crystal candelabra on tall curved
+  poles**; and festoon that is actually **strung** — a real catenary cable with
+  the bulbs hung off it, criss-crossing both lawns and the walk.
+
+### The cost, and why it went the way it did
+
+Everything repeated is instanced. A `bucket` collects placements while a moment
+is authored and bakes ONE `InstancedMesh` into that moment's group at the end;
+a `tinted` bucket carries per-instance colour, which is what lets every
+hydrangea, rose, leaf, coconut and lemon on the campus share one sphere and one
+material. The cross-back chair is eleven scalings of a single unit box, so all
+sixty ceremony chairs are ONE draw call.
+
+| measured at the moment's own spawn | before | after |
+|---|---|---|
+| **CEREMONY** draw calls in frame | 710 | **51** (−659, −93 %) |
+| CEREMONY triangles in frame | 231,838 | 369,606 (+137,768) |
+| CEREMONY whole-scene drawables | 2,327 | **1,599** (−728) |
+| CEREMONY whole-scene triangles | 372,039 | 511,315 (+139,276) |
+| **DINNER** draw calls in frame | 532 | **199** (−333, −63 %) |
+| DINNER triangles in frame | 287,076 | 313,896 (+26,820) |
+| DINNER whole-scene drawables | 2,344 | **1,692** (−652) |
+| DINNER whole-scene triangles | 383,859 | 401,175 (+17,316) |
+| scene meshes / geometries | 3,653 / 3,339 | **2,248 / 1,941** |
+| InstancedMeshes (instances) | 91 (5,992) | 116 (13,334) |
+| textures | 166 | 169 (+3 CanvasTextures) |
+| **lights** | 34 | **34 — unchanged** |
+| colliders (ceremony / dinner) | 8,425 / 8,452 | 8,454 / 8,464 |
+
+**Triangles went UP and draw calls collapsed, and that is the trade on purpose.**
+There are ~1,900 blooms and ~480 pearls/crystals in the ceremony where there were
+~280 crude spheres — that is what a florist's installation costs — but they are
+one draw call each instead of 720 meshes. The bloom sphere was cut to
+`SphereGeometry(1, 6, 4)` (36 tris) to pay for the count. **The other four
+moments are byte-for-byte unchanged.**
+
+### Three traps this pass hit, all silent
+
+1. **A prop's instanced parts must go through the prop's own frame.** Each extra
+   is authored at the origin facing −Z and dropped through `frame(x, z, yaw)`.
+   The unique meshes take it via `applyMatrix4(F)`; the INSTANCES take it as
+   `put()`'s last argument, and the first version simply forgot to pass it — so
+   the entire dessert bar, hat rack, plinths, coconut rack and cart were built at
+   the enclave origin while their one or two plain Meshes stood correctly out on
+   the lawn. Nothing threw. Every extras function now opens with a curried
+   `iput`/`iflor` pair bound to `F`; use them, not bare `put`/`bloomMass`.
+2. **`rotateZ` on a geometry, not a Euler, is what mirrors the chandelier poles.**
+   The elbow is a quarter torus pre-rotated at build time so a plain `rot.y` of 0
+   or π flips the overhang. Composing a Z-rotation with a Y-rotation through one
+   XYZ Euler does not — it bends the pole sideways. Same family of bug as the
+   arch that was once built edge-on.
+3. **The welcome board's position is a FRAMING constraint, not a taste one.**
+   Against a 44.6° half-FOV, anything within a couple of metres of the CEREMONY
+   spawn and off to the side is never in shot. Two placements at the aisle mouth
+   were invisible from the spawn before it was moved to z 66.8, past the last
+   row, 5.45 m off the centre-line — which is also where the render has it.
+
+### Verified — headless Playwright, 1600 × 900, zero page errors, zero console errors *or warnings*
+
+- `node --experimental-default-type=module --check` clean on `js/moments.js`
+  (the only file changed), and ESLint clean for `no-undef` / `no-unused-vars`.
+- **All six moments** switch, dress, night-flip and spawn flat with **zero
+  first-frame drift**: brunch feet 26.600, the other five 0.000; night flags
+  false/true/false/false/true/true as `CFG.MOMENTS` specifies.
+- **Ceremony walk**, from the real spawn (−22, 59) with real key input: six 0.9 s
+  bursts up the aisle, **2.87–2.92 m each, no stall**, feet 0.000 throughout,
+  past the head at z 71.4 and out to z 76.4; "Stand at the arch" fires from
+  z 67.7 to z 73.6; strafing both ways across the head is clear.
+- **Ceremony → extras walk**, spawn out along the −X flank to x −36.4: five
+  bursts, 2.84–2.91 m each, no stall; the hat-rack post deflects the walker 0.1 m
+  and does not block.
+- **Dinner walk**: spawn (−17, −3) 14.5 m up the inner lawn between the rounds,
+  then 17 m across the paved walk to the outer lawn — eleven bursts,
+  2.86–2.93 m each, feet 0.000 throughout. Turning up the walk fires "Step onto
+  the dance floor" over z −0.3…4.9.
+- **The other four moments' interactables still fire**: cocktail "Order from the
+  bar" at z 64.3, after-party "Request a song" in reach at the spawn, brunch
+  spawn feet 26.600 → 25.320 walking into the rooftop pool.
 
 ## THE WATER POSITION PASS — DONE 2026-08-02
 
@@ -1194,6 +1356,16 @@ makes the campus "look tidier" by undoing one, it is wrong:
    these X ranges silently mirrors the whole view.
 
 ## Gotchas
+
+- ⚠️ **THE COUPLE ARE FUNG AND CHENG. The planner's renders letter them "Feng"
+  and "Zheng".** Rosa Wed romanised the surnames with a different system than
+  Carl and Rachel actually use, so `decor-dessert-bar.jpg` says "Feng&Zheng" and
+  `decor-ceremony-main.jpg` says "Feng jiaheng & Zheng". Both are wrong for this
+  wedding. **Never transcribe a name straight off a reference render** — check it
+  against the project's own copy (`~/projects/wedding-app`, the title card,
+  `CFG.SEED`). Everything moments.js letters uses that copy: the dessert bar
+  reads **"Fung & Cheng"** and the welcome board reads **"Carl & Rachel"**. The
+  DATE on the render, 2027.03.20, is correct and is `CFG.SEED`.
 
 - **`js/site.js` is the ONLY place coordinates live.** Six builder modules were
   written in parallel against it; the moment any of them hard-codes a position,
