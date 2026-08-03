@@ -115,7 +115,15 @@ export function updatePlayer(G, dt) {
     }
     player.pos.x = Math.max(-CFG.WORLD_BOUND, Math.min(CFG.WORLD_BOUND, player.pos.x));
     player.pos.z = Math.max(-CFG.WORLD_BOUND, Math.min(CFG.WORLD_BOUND, player.pos.z));
-    player.pos.y = Math.max(floorY(player.pos.x, player.pos.z) + CFG.FLY_MIN_CLEAR,
+    /* fromY = EYE height, not feet, and the difference is load-bearing: the
+       clamp holds pos.y at floor + FLY_MIN_CLEAR, which puts the FEET below
+       that floor — pass feet as fromY and the held surface un-registers on the
+       very next frame (lim = feet + STEP_UP < floor) and the flyer falls
+       through the terrace it was just standing on. Measured from the eye the
+       held surface stays inside the step window, so hovering over the rooftop
+       deck is stable, and a flyer can no longer sink through a walkable
+       surface and then F-land at the bottom of the building. */
+    player.pos.y = Math.max(floorY(player.pos.x, player.pos.z, player.pos.y - CFG.STEP_UP) + CFG.FLY_MIN_CLEAR,
       Math.min(CFG.FLY_MAX_ALT, player.pos.y));
     syncCamera(G);
     // no interacting mid-air — the {x,z,r} distance test ignores altitude

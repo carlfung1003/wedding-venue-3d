@@ -138,9 +138,16 @@ G.setMode = (mode, opts = {}) => {
   G.mode = mode;
   G.flyUp = G.flyDown = false;
   if (mode === 'walk') {
-    // settle back onto the ground at the current x,z; the walk branch's
-    // collider pass nudges us out of anything we landed inside next frame
-    G.player.pos.y = floorY(G.player.pos.x, G.player.pos.z) + CFG.EYE_HEIGHT;
+    /* Settle onto the highest walkable surface AT OR BELOW the flyer's feet —
+       the fromY argument is what makes landing on the rooftop terrace resolve
+       the deck (26.60) instead of the grade 26 m under it. Without it floorY
+       answers bare ground and landing over the roof teleported the player to
+       the bottom of the building. The walk branch's collider pass still nudges
+       us out of anything we landed inside next frame. */
+    /* fromY is the EYE height, matching the fly clamp: a flyer held at the
+       minimum clearance has feet BELOW the surface it hovers over, so a
+       feet-based resolve would reject that surface and land at grade. */
+    G.player.pos.y = floorY(G.player.pos.x, G.player.pos.z, G.player.pos.y - CFG.STEP_UP) + CFG.EYE_HEIGHT;
   }
   G.ui.setMode(mode);
   document.getElementById('touch').classList.toggle('flymode', mode === 'fly');
