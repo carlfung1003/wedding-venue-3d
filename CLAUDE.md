@@ -212,6 +212,35 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## ⏸ IN PROGRESS, NOT DEPLOYED — the rooftop bar (2026-08-02)
+
+An agent was killed mid-edit building the rooftop bar. **The working tree is
+committed but production is deliberately one commit behind.** State:
+
+- ✅ **Verified safe.** Syntax clean, page loads, zero console errors, and the
+  rooftop walk passes: the pool now occupies only ONE half of the arc
+  (feet 25.32) and the other half is deck (26.60). No fall-through where the
+  polar hole was re-cut. That was the dangerous part and it landed correctly.
+- ⚠️ **The bar itself is incomplete** — the agent died on "the caustic texture
+  and the bar's materials". Expect missing/unfinished geometry on the deck
+  half. **Look at it before deploying.**
+
+**The three asks it was mid-way through** (Carl, with references):
+1. **Stray white boxes** littering the terrace — `reference/photos/bug-rooftop-white-boxes.png`.
+   Trace them to their emitter in `campus.js buildHotelRoof`; do not hide them.
+2. **The left half of the roof is a BAR, not pool** — refs
+   `rooftop-bar-night.png` / `rooftop-bar-dusk.png`: a blue-lit perforated cube
+   on splayed columns, dark timber decking, rattan dining chairs, a
+   cantilevered planted canopy, a bar counter, plus a **live-band stage**.
+   ⚠️ This NARROWS the pool that was widened earlier the same day — that is
+   intended, not a regression. Keep both spans DERIVED from `arcHalf`.
+3. **Cocktail hour keeps the ceremony decor** — same lawn, an hour apart; only
+   the seating would be cleared. And the real cocktail bar is a **ROUND
+   timber-plank** bar, not the white counter: refs `decor-cocktail-bar.jpg`
+   (+ menu easel, lavender/lilac florals) and `decor-cocktail-menu.jpg` (four
+   drinks — orange Aperol spritz, pink non-alcoholic, yellow rum highball,
+   amber lychee negroni — build them in their real colours and glassware).
+
 ## SESSION HANDOFF — read this if you are picking the project up cold
 
 Everything below the architecture table is here because it was learned the hard

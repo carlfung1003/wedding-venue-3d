@@ -1801,16 +1801,53 @@ function buildHotel(G, root) {
      reference/video/hotel-frames/trim1_002 + dawn_001: the crescent does NOT
      end in a clean parapet. It ends in a stepped-back attic band and a run of
      white plant/lift boxes standing proud of it, and that broken skyline is
-     most of what the building reads as in silhouette at dusk. */
-  const attic = new THREE.Mesh(
-    new THREE.CylinderGeometry(rIn + 7.4, rIn + 7.4, 2.6, 96, 1, true, th0 + .05, tl - .10),
-    MAT.hotelEnd);
-  attic.position.y = HT + 1.3; g.add(attic);
-  for (let i = 0; i < 11; i++) {
-    const th = th0 + tl * (.045 + .91 * (i / 10));
-    const r = rIn + 9 + (i % 3) * 2.4, hgt = 2.4 + (i % 4) * .9;
-    inst('hotelBoxI', UNIT_BOX, MAT.hotelEnd,
-      mat4(WX(th, r), HT + hgt / 2, WZ(th, r), 3.4 + (i % 3), hgt, 5.2, th));
+     most of what the building reads as in silhouette at dusk.
+
+     ⚠ 2026-08-02 — THE ROOFLINE ONLY EXISTS WHERE THE TERRACE DOES NOT.
+     Both of these were authored against a BARE green roof cap, and both were
+     left standing when the walkable brunch terrace was built over the same
+     band a pass later. Nothing threw; the terrace simply grew up around them:
+       · the attic band (r 91.4, y 25.2…27.8) came out of the rooftop POOL
+         1.28 m proud of the water and ran the whole length of it — a white
+         wall straight across the infinity edge, which is the one view this
+         venue exists for. It is in the deck-level screenshot as the band
+         between the water and the sea.
+       · the eleven plant boxes sat at r 93 / 95.4 / 97.8 — i.e. across the
+         water (90.10…96.40), the coping and the teak — up to 5.1 m tall, so
+         they stood IN the pool and among the daybeds. That is exactly what
+         Carl photographed in bug-rooftop-white-boxes.png: "a lot of random
+         white boxes here".
+     Over the terrace the job is already done, and better: the 1.4 m terrace
+     plinth IS the stepped-back band, and the 5.1 m lattice screen, the two
+     head-houses, the bar pavilion and thirty daybed canopies ARE the broken
+     skyline. So both are clamped to the two bare end sectors of the cap, past
+     the terrace's own sweep and DERIVED from ROOFTOP.arcHalf so they cannot
+     drift back under it however the arc changes.
+     The NORTH sector gets none of the boxes: the sky-bar block already stands
+     there (θ = C + arc/2, 17 m of it), which is the same silhouette job. So
+     the crescent ends in a stepped mass at BOTH tips, which is what the dawn
+     frames show. */
+  const RA = SITE.HOTEL.ROOFTOP.arcHalf;
+  const CAP_ENDS = [[th0 + .05, Math.PI / 2 - RA - .02],
+    [Math.PI / 2 + RA + .02, th0 + tl - .05]];
+  for (const [s, e] of CAP_ENDS) {
+    if (e - s < .015) continue;
+    const attic = new THREE.Mesh(
+      new THREE.CylinderGeometry(rIn + 7.4, rIn + 7.4, 2.6, 12, 1, true, s, e - s),
+      MAT.hotelEnd);
+    attic.position.y = HT + 1.3; g.add(attic);
+  }
+  {
+    /* the south sector, inboard of the 2 m end wall and outboard of the
+       terrace's glazed end: two radial ranks, two boxes each */
+    const [s0, s1] = CAP_ENDS[0];
+    const lo = s0 + .022, hi = s1 - .012;
+    for (let i = 0; i < 4; i++) {
+      const th = lo + (hi - lo) * (.22 + .56 * ((i >> 1) & 1));
+      const r = rIn + 9 + (i & 1) * 4.9, hgt = 2.4 + (i % 4) * .9;
+      inst('hotelBoxI', UNIT_BOX, MAT.hotelEnd,
+        mat4(WX(th, r), HT + hgt / 2, WZ(th, r), 3.4 + (i % 3), hgt, 4.6, th));
+    }
   }
 
   /* podium (in front, campus side) + the two end walls that close the sector.
