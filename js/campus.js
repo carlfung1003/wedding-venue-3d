@@ -1971,6 +1971,33 @@ function buildHotel(G, root) {
    marble ledge → glass balustrade → paving → the eight brunch four-tops at
    r 93.4 / 95.0, which are pinned there by moments.js and must not move.
    ════════════════════════════════════════════════════════════════════════ */
+/* The lounger row, in ONE place — buildHotelRoof() stands them up and
+   roofColliders() rings them, and both used to carry the same literal `16` and
+   the same literal `±0.335`.
+
+   It is now TWO runs, on the outer stretches of the terrace, and that is the
+   composition rather than an accident of the maths. When the terrace only
+   spanned ±0.62 the loungers were the middle of it and the eight brunch
+   four-tops (±0.075…±0.51 at r 99.2) stood in among them — the Welcome Brunch
+   spawn was literally being nudged 0.19 m by a lounger's collider. Now that the
+   terrace follows the crescent's 2.35 rad there is 200 m of deck: the middle
+   ~115 m is the brunch room (bar, four-tops, buffet) and the loungers take the
+   long ends, which is also where a hotel would put them. `pitch` is a metre
+   figure at the lounger radius, so the count follows the run. */
+const LOUNGE_INNER = 0.60;        // clear of the outermost four-top and its chairs
+function loungerRow(R) {
+  const C = Math.PI / 2, pitch = 4.39 / R.loungeR;
+  const outer = R.arcHalf - 0.06;
+  const th = [];
+  for (const s of [-1, 1]) {
+    for (let a = LOUNGE_INNER; a <= outer + 1e-9; a += pitch) {
+      if (Math.abs(a - R.coreArcHalf) < 0.050) continue;      // the head-houses
+      th.push(C + s * a);
+    }
+  }
+  return { th, pitch };
+}
+
 function buildHotelRoof(G, g, acx, acz) {
   const R = SITE.HOTEL.ROOFTOP;
   const C = Math.PI / 2;                                 // crescent centre bearing
@@ -2104,10 +2131,14 @@ function buildHotelRoof(G, g, acx, acz) {
     shell(103.3, .11, DY + R.parapetH, MAT.copper, s, e, 64);
   }
 
-  /* fin posts every ~3 m — the rhythm is what actually makes a frameless glass
-     rail visible at distance; the glass alone is just a haze */
-  for (let i = 0; i <= 29; i++) {
-    const th = a0 + (a1 - a0) * (i / 29);
+  /* fin posts every ~3.9 m — the rhythm is what actually makes a frameless
+     glass rail visible at distance; the glass alone is just a haze.
+     ⚠ COUNT DERIVED (2026-08-02), same reason as the coarse ring's: it was a
+     hard 29 across `a0…a1`, and the terrace's sweep now follows the crescent's
+     arc, so a typed count silently changes the SPACING instead of the length. */
+  const finN = Math.max(12, Math.round((a1 - a0) * 90.18 / 3.86));
+  for (let i = 0; i <= finN; i++) {
+    const th = a0 + (a1 - a0) * (i / finN);
     inst('rtCopperI', UNIT_BOX, MAT.copper,
       mat4(WX(th, 90.18), DY + R.parapetH / 2, WZ(th, 90.18), .07, R.parapetH, .12, th));
   }
@@ -2120,17 +2151,19 @@ function buildHotelRoof(G, g, acx, acz) {
   /* ── underwater niche lights along the back wall + a wash into the trough:
         the only COOL emissives on the campus, which is exactly why the roof
         still reads once the rest of the resort goes warm and orange ── */
-  for (let i = 0; i < 15; i++) {
-    const th = p0 + (p1 - p0) * ((i + .5) / 15);
+  const nicheN = Math.max(8, Math.round((p1 - p0) * 96.33 / 7.38));
+  for (let i = 0; i < nicheN; i++) {
+    const th = p0 + (p1 - p0) * ((i + .5) / nicheN);
     inst('rtLitI', UNIT_BOX, MAT.poolGlow,
       mat4(WX(th, R.poolOut - .07), WY - .3, WZ(th, R.poolOut - .07), .9, .14, .07, th));
     inst('rtLitI', UNIT_BOX, MAT.poolGlow,
       mat4(WX(th, R.troughR + .18), TROUGH_Y + .06, WZ(th, R.troughR + .18), .8, .05, .16, th));
   }
 
-  /* ── 16 loungers on the teak, feet toward the drop ── */
-  for (let i = 0; i < 16; i++) {
-    const th = C - .335 + (i / 15) * .67;
+  /* ── loungers on the teak, feet toward the drop — two runs on the outer
+        stretches; see loungerRow(), which roofColliders() also reads ── */
+  const LG = loungerRow(R);
+  LG.th.forEach((th, i) => {
     const x = WX(th, R.loungeR), z = WZ(th, R.loungeR);
     inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + .17, z, .82, .34, 2.05, th));
     inst('rtMarbleI', UNIT_BOX, MAT.marble, mat4(x, DY + .40, z, .74, .13, 1.9, th));
@@ -2141,19 +2174,20 @@ function buildHotelRoof(G, g, acx, acz) {
       inst('rtSlatI', UNIT_BOX, MAT.slat,
         mat4(WX(tth, R.loungeR - 1.3), DY + .22, WZ(tth, R.loungeR - 1.3), .5, .44, .5, tth));
     }
-  }
+    /* a parasol standing between every other pair, half a pitch along — same
+       list, so a parasol can never end up over open water or off the deck */
+    if (i % 2 === 0 && i + 1 < LG.th.length && Math.abs(LG.th[i + 1] - th) < LG.pitch * 1.5) {
+      const pth = th + (LG.th[i + 1] - th) / 2;
+      const px = WX(pth, R.loungeR + 1.35), pz = WZ(pth, R.loungeR + 1.35);
+      inst('poleI', UNIT_CYL, MAT.dark, mat4(px, DY + 1.25, pz, .11, 2.5, .11));
+      inst('rtUmbI', UNIT_CONE, MAT.umbrella, mat4(px, DY + 2.72, pz, 3.5, .8, 3.5));
+    }
+  });
 
-  /* ── 8 parasols between the pairs ── */
-  for (let i = 0; i < 8; i++) {
-    const th = C - .30 + (i / 7) * .60;
-    const x = WX(th, R.loungeR + 1.35), z = WZ(th, R.loungeR + 1.35);
-    inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + 1.25, z, .11, 2.5, .11));
-    inst('rtUmbI', UNIT_CONE, MAT.umbrella, mat4(x, DY + 2.72, z, 3.5, .8, 3.5));
-  }
-
-  /* ── deck lanterns along the back of the teak ── */
-  for (let i = 0; i < 15; i++) {
-    const th = a0 + (a1 - a0) * ((i + .5) / 15);
+  /* ── deck lanterns along the back of the teak, ~8 m apart ── */
+  const lantN = Math.max(8, Math.round((a1 - a0) * 99.9 / 8.26));
+  for (let i = 0; i < lantN; i++) {
+    const th = a0 + (a1 - a0) * ((i + .5) / lantN);
     const x = WX(th, 99.9), z = WZ(th, 99.9);
     inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .55, z, .1, 1.1, .1));
     inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + 1.24, z, .26, .38, .26, th));
@@ -2361,9 +2395,15 @@ function buildHotelRoof(G, g, acx, acz) {
     inst('bougain', UNIT_BLOB, MAT.bougain,
       mat4(WX(bth, GR + .35), DY + 1.10, WZ(bth, GR + .35), 1.5, 1.3, 1.1));
   });
-  /* and a soft green rim on the green-roof cap outside the terrace */
-  for (let i = 0; i < 22; i++) {
-    const th = (C - .74) + (i / 21) * 1.48;
+  /* and a soft green rim on the green-roof cap outside the terrace. Its sweep
+     overhangs the terrace by 0.12 rad at each end so the planting carries on
+     past the glazed ends onto the bare cap — which is what the ±0.74 literal
+     did against the old ±0.62, and stops being true the moment the terrace
+     grows. Clamped inside the crescent's own arc. */
+  const rimHalf = Math.min(R.arcHalf + .12, SITE.HOTEL.arc / 2 - .01);
+  const rimN = Math.max(12, Math.round(2 * rimHalf * 104.4 / 7.36) + 1);
+  for (let i = 0; i < rimN; i++) {
+    const th = (C - rimHalf) + (i / (rimN - 1)) * rimHalf * 2;
     inst('hedgeI', UNIT_BLOB, MAT.hedge,
       mat4(WX(th, 104.4), RY + .55, WZ(th, 104.4), 3.0, 1.1, 1.7));
   }
@@ -2573,8 +2613,10 @@ function roofColliders(G, acx, acz) {
   /* (the 26 planters at r 102.5 are gone with their geometry — see the note in
      buildHotelRoof. The outer rail chain above now guards that band on its
      own, and the daybeds' pots sit inside the daybed footprint.) */
-  for (let i = 0; i < 16; i++) {                                            // loungers
-    const th = C - .335 + (i / 15) * .67;
+  /* loungers — the SAME row buildHotelRoof() builds, from the same helper, so
+     a lounger and its collider can never disagree (they each held a literal 16
+     and a literal ±0.335 before the terrace's arc became derived) */
+  for (const th of loungerRow(R).th) {
     L.push({ x: WX(th, R.loungeR), z: WZ(th, R.loungeR), r: .85, ...ROOF });
   }
 

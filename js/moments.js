@@ -295,11 +295,23 @@ export function initMoments(G) {
       cols.brunch.push({ ...pt(eth, 102.2), r: .6, y0: DY - .6, __world: true });
     }
 
-    /* ── parasols get a second row over the four-top aprons ── */
+    /* ── a pair of parasols on each END APRON — the paving between the last of
+          the water and the terrace's glazed end, which is the only deck seaward
+          of the pool's back wall.
+          ⚠ These used to be placed at `poolArcHalf + .062 + k * .11`, i.e. by
+          adding a typed angle to the water's own half-angle. That put them
+          PAST the terrace (arcHalf was only 0.045 rad further out than
+          poolArcHalf), standing on the bare green roof cap with their poles
+          1.35 m in the air — and the moment both angles became derived from
+          the crescent's arc it would have thrown them further still. They are
+          now positioned as a FRACTION OF THE APRON, so they stay on it however
+          long the building gets. ── */
+    const apron = RF.arcHalf - RF.poolArcHalf;
     for (const s of [-1, 1]) for (let k = 0; k < 2; k++) {
-      const th = C + s * (RF.poolArcHalf + .062 + k * .11);
-      rcyl(.05, 2.7, th, 91.9, DY + 1.35, timber, 8);
-      const p = pt(th, 91.9);
+      const th = C + s * (RF.poolArcHalf + apron * (.32 + k * .36));
+      const r = 92.6 + k * 2.9;                       // staggered radially, not along the arc
+      rcyl(.05, 2.7, th, r, DY + 1.35, timber, 8);
+      const p = pt(th, r);
       const um = new THREE.Mesh(new THREE.ConeGeometry(1.55, .62, 12), linen);
       um.position.set(p.x, DY + 2.86, p.z); g.add(um);
     }

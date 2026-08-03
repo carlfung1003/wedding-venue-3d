@@ -61,6 +61,39 @@
    holding the 9 that suited a 142 m building. See the note there.            */
 const HOTEL_CX = 251, HOTEL_CZ = 10, HOTEL_R = 95, HOTEL_ARC = 2.35;
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE ROOFTOP'S ARC IS DERIVED FROM THE CRESCENT'S — 2026-08-02
+   ═══════════════════════════════════════════════════════════════════════════
+   Carl, looking at the proportion pass: *"the top floor pool is not infinity
+   anymore, but I love that the hotel is now a lot more accurate in size."*
+
+   THE CAUSE. `arcHalf` (the terrace) and `poolArcHalf` (the water) were TYPED,
+   as 0.62 and 0.575, and they were typed when `HOTEL_ARC` was 1.5 — a half-arc
+   of 0.75. The terrace therefore covered 83 % of the building and the water
+   77 % of it: the pool ran essentially the length of the facade, which is the
+   whole read of an infinity pool from any distance. The proportion pass grew
+   `HOTEL_ARC` to 2.35 and did not touch these two, so the same absolute angles
+   suddenly covered 53 % and 49 %. The section was still right — `poolIn` 90.10
+   is still on the facade line at `rIn` 90.0, the catch trough is still slung
+   under it — but the water had become a strip across the middle of a roof with
+   ~55 m of bare green cap past each end of it. Nothing "broke"; the building
+   grew out from under the pool.
+
+   THE FIX, so it cannot happen again: both are now DERIVED, in the same units
+   as the thing they follow. Change `HOTEL_ARC` and the terrace and the water
+   change with it, keeping the same metres of margin at each end.
+     · ROOF_END_M  — the terrace stops short of the crescent's tips, which is
+       where the arc tapers into the two end blocks. 12.5 m is what the typed
+       0.62 gave against a 1.5 rad building; it is preserved as a LENGTH.
+     · ROOF_PAVE_M — paving past each end of the water, so the terrace closes
+       rather than the pool running off the corner. ~4 m, as before.
+   ⚠ Both are read at the terrace's mid radius (rIn 90 → rOut 103.2), because a
+   margin quoted in radians silently changes length whenever a radius moves. */
+const ROOF_R_MID = 96.6;                                   // (rIn + rOut) / 2
+const ROOF_END_M = 12.5, ROOF_PAVE_M = 4.35;
+const ROOF_ARC_HALF = HOTEL_ARC / 2 - ROOF_END_M / ROOF_R_MID;        // 1.0456
+const ROOF_POOL_ARC_HALF = ROOF_ARC_HALF - ROOF_PAVE_M / ROOF_R_MID;  // 1.0006
+
 export const SITE = {
   // ---------------------------------------------------------------- the suite
   // Two-storey glass villa. Glass wall faces SOUTH (+Z) onto the deck and pool.
@@ -936,19 +969,22 @@ export const SITE = {
       waterY: 26.52,     // pool surface, 80 mm below the coping
       basinY: 25.32,     // pool floor → 1.20 m of water
       parapetH: 1.15,    // frameless glass balustrade, above deckY
-      arcHalf: 0.62,     // terrace half-angle (crescent itself is arc/2 = 0.75)
+      /* ⚠ DERIVED, 2026-08-02 — never type a number here again. Both of these
+         were literals chosen against a 1.5 rad crescent and both were left
+         behind when the arc grew to 2.35; see the ROOF_* block at the top of
+         this file for what that did to the infinity edge. */
+      arcHalf: ROOF_ARC_HALF,   // terrace half-angle: arc/2 less 12.5 m at each tip
       rIn: 90.0,         // terrace inner edge = top of the leaning inner facade
       rOut: 103.2,       // terrace outer edge; the green roof cap runs on to 106
       /* The water runs the FULL length of the building edge (Carl, 2026-08-02:
-         "extend the pool to the edge of the building all the way"). At 0.36 it
-         covered ~58% of the terrace and the rest of the edge was bare paving.
-         0.575 leaves ~0.045 rad — about 4 m — of paving at each end so the
-         terrace still closes rather than the water running off the corner.
+         "extend the pool to the edge of the building all the way"), so it is
+         the TERRACE less ROOF_PAVE_M of paving at each end — enough that the
+         terrace closes rather than the water running off the corner.
          ⚠ The brunch tables no longer sit past the water's angular ends (there
          is no "past" any more) — they spread ALONG the arc at r 99.2, inland
          of the pool's 96.4 back wall. Both loops that place them (campus.js
          buildHotelRoof and moments.js) must agree. */
-      poolArcHalf: 0.575, // ~108 m of water along the curve
+      poolArcHalf: ROOF_POOL_ARC_HALF, // ~187 m of water along the curve
       poolIn: 90.10,     // THE INFINITY EDGE — on the facade line, spilling west
       lipW: 0.20,        // the white coping hairline seaward of the water
       troughR: 89.42,    // catch basin, cantilevered off the facade under the lip
@@ -962,7 +998,11 @@ export const SITE = {
       screenW: 3.00,     // one blade, along the arc
       barArcHalf: 0.075, // rooftop bar, on the crescent's centreline
       barH: 3.2,         // bar pavilion clear height above deckY
-      coreArcHalf: 0.50, // the two stair/lift head-houses
+      /* the two stair/lift head-houses. Also DERIVED — they are bookends, and
+         at a typed 0.50 on a ±1.05 terrace they would have huddled in the
+         middle of the run with 100 m of unbroken daybeds outboard of them.
+         0.806 is the fraction they sat at before the crescent grew. */
+      coreArcHalf: ROOF_ARC_HALF * 0.806,
     },
   },
   ROAD: { z: -95 },          // arrival road + parking, north edge
@@ -1495,9 +1535,14 @@ const _PPX = _P.w / 2 + _P.coping, _PPZ = _P.d / 2 + _P.coping;
 const _H = SITE.HOTEL, _R = _H.ROOFTOP;
 const _RC = Math.PI / 2;                       // the crescent's centre bearing
 
-const _TW_TH = _RC + 0.575;                    // stair tower bearing: clear of the
-                                               // head-house at ±0.50 and of the
-                                               // terrace end at ±arcHalf
+/* Stair-tower bearing. A LITERAL on purpose, and it must stay one: it used to
+   equal poolArcHalf by coincidence (both 0.575), and the moment poolArcHalf
+   became derived that coincidence would have dragged the tower — its nine
+   ramps, ten landings and its whole collider cage — around the building with
+   the water. It only has to be clear of a head-house (±coreArcHalf) and inside
+   the terrace end (±arcHalf), and at 0.575 on a ±1.05 terrace it is both, with
+   the bridge landing on the back band roughly half way along the run. */
+const _TW_TH = _RC + 0.575;
 const _TW_R0 = 110.2, _TW_R1 = 118.2;          // tower footprint, radially
 const _TW_LR = _TW_R0 + 1.2;                   // inner (low-r) landing ends here
 const _TW_HR = _TW_R1 - 1.2;                   // outer (high-r) landing starts here
