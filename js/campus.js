@@ -1602,6 +1602,39 @@ function buildGrassGround(G) {
     x += w + 1.9 + rnd() * 1.4;
   }
 
+  /* ── the garden gate in the terrace edge's path gap (Carl's dinner-lawns
+        clip, 2026-08-03: f_001–003 / f_013–014 show a small LIGHT-COLOURED
+        ornamental gate set into the gap in the hedge wall — the build had
+        correctly left the gap open for the walk but nothing stood in it).
+        Two square capped posts just off the spine path's 3.4 m paving, and
+        two picket leaves STANDING OPEN, swung back onto the lawn side, so
+        the gap stays the walk it always was. Only the posts collide (r .2
+        leaves a ~3.0 m clear corridor); the leaves follow the lounger rule —
+        waist-high ornament is the wrong thing to wall a walkway with, and
+        the dinner and pool-deck walks both route through here.            ── */
+  {
+    const HINGE = 2.05;                     // post centres, just off the paving
+    for (const s of [-1, 1]) {
+      const gx = SPX + s * HINGE;
+      inst('gateI', UNIT_BOX, MAT.white, mat4(gx, .66, EZ, .16, 1.32, .16));
+      inst('gateI', UNIT_BOX, MAT.white, mat4(gx, 1.37, EZ, .26, .1, .26));  // cap
+      inst('gateI', UNIT_BOX, MAT.white, mat4(gx, 1.49, EZ, .1, .14, .1));   // finial
+      G.colliders.push({ x: gx, z: EZ, r: .2 });
+      /* the leaf, hinged at the post and swung ~90° open onto the lawn:
+         two rails + five pickets, alternating picket heights so it reads
+         ornamental garden gate rather than site fence */
+      const lx = gx - s * .1;
+      for (const ry of [.34, .98]) {
+        inst('gateI', UNIT_BOX, MAT.white, mat4(lx, ry, EZ + .92, .055, .07, 1.44));
+      }
+      for (let k = 0; k < 5; k++) {
+        const ph = k % 2 ? .92 : 1.08;
+        inst('gateI', UNIT_BOX, MAT.white,
+          mat4(lx, ph / 2 + .12, EZ + .28 + k * .32, .05, ph, .05));
+      }
+    }
+  }
+
   /* ── the fire pit set into the terrace paving beside the pool ──
         A square kerb of pale stone in a wider apron with a dark pebble
         margin, an ember bed that lights after dark. Its kerb is 0.35 m — under
@@ -1635,6 +1668,103 @@ function buildGrassGround(G) {
       inst('benchI', UNIT_BOX, MAT.deck, mat4(bx + s * .78, .21, BL.z1 - 1.6, .12, .43, .44));
     }
     G.colliders.push({ x: bx, z: BL.z1 - 1.6, r: .95 });
+  }
+
+  /* ── the sea-edge planting band (Carl's beachfront clips, 2026-08-03).
+        Both phone clips show the lawn's boundary with the beach as a groomed
+        CONTINUOUS low hedge (~1.0–1.3 m, flat-topped) running the full width
+        of the lawn, with spiky agave/yucca rosettes and warm-mottled croton
+        shrubs mixed in and a few tall wispy casuarina trees poking through —
+        not the bare palms-and-sand edge the build had. It sits just seaward
+        of BL.z1, threading nature.js's sparse fringe palms.
+        ⚠ TWO CLEAR GAPS, aligned with the corridors nature.js's seaward
+        fringe already keeps open (x −22 the ceremony aisle, x +4 the
+        cocktail lawn — its gap tests are ±9/±8 about those centres): the
+        aisle gap is the ONLY walk from the lawn onto the sand. Hedge blocks
+        carry colliders (house rule, same as the terrace edge above); the
+        gaps carry NONE. Heights cap at 1.25 m so the sea horizon stays
+        clear over the band from the arch (eye 1.7 m at z 71). Own seeded
+        stream so the terrace edge's draws upstream never reshuffle.      ── */
+  {
+    const rndB = mulberry32((CFG.SEED ^ 0xbea0) >>> 0);
+    const BAND_Z = BL.z1 + 1.3;
+    const CEREM_X = -22, COCK_X = 4;          // nature.js's two fringe corridors
+    /* the band = the lawn's full width minus the two walk gaps */
+    const spans = [
+      [BL.x0, CEREM_X - 4.8],
+      [CEREM_X + 4.8, COCK_X - 4.0],
+      [COCK_X + 4.0, BL.x1],
+    ];
+    /* builder-local materials, house style */
+    const agaveMat = tint(new THREE.MeshStandardMaterial({
+      color: 0x74936c, roughness: .9, flatShading: true }), 0x5c6b86);
+    const crotonMat = tint(new THREE.MeshStandardMaterial({
+      color: 0xffffff, roughness: .92, flatShading: true }), 0x5c6b86);
+    const casuBark = tint(new THREE.MeshStandardMaterial({
+      color: 0x4c4238, roughness: .95 }), 0x6a7286);
+    const casuNeedle = tint(new THREE.MeshStandardMaterial({
+      color: 0x3d4d38, roughness: .96, flatShading: true }), 0x59688a);
+    const CROTON = [0xa6522c, 0xc98f35, 0x86913a, 0x8f3c2c];
+
+    /* a spiky rosette: seven splayed cones round one upright */
+    const agave = (ax, az) => {
+      const h = .62 + rndB() * .3;
+      for (let k = 0; k < 7; k++) {
+        inst('agaveI', UNIT_CONE, agaveMat,
+          mat4(ax, h * .38, az, .16, h, .16, k * .897 + rndB() * .5, .62 + rndB() * .2));
+      }
+      inst('agaveI', UNIT_CONE, agaveMat, mat4(ax, h * .5, az, .14, h * 1.15, .14));
+    };
+    /* a colour-leaf shrub — per-instance warm mottle over a WHITE base
+       (a dark base crushes instance tints to black, the cocktail-bar trap) */
+    const croton = (cx, cz) => {
+      const w = 1.1 + rndB() * .6, hh = .72 + rndB() * .3;
+      const col = new THREE.Color(CROTON[(rndB() * CROTON.length) | 0])
+        .offsetHSL(0, 0, (rndB() - .5) * .08);
+      inst('crotonI', UNIT_BLOB, crotonMat, mat4(cx, hh * .55, cz, w, hh * 1.4, w * .85), col);
+    };
+    /* a casuarina: thin dark trunk, three narrow stacked needle cones —
+       deliberately a different silhouette from the coconut palms */
+    const casuarina = (tx, tz) => {
+      const th = 6.5 + rndB() * 2.5, lean = (rndB() - .5) * .1;
+      inst('casuTrunkI', UNIT_CYL, casuBark, mat4(tx, th * .5, tz, .24, th, .24, 0, 0, lean));
+      for (const [f, wf, hf] of [[.52, 2.1, 3.0], [.7, 1.6, 2.5], [.86, 1.05, 2.1]]) {
+        inst('casuLeafI', UNIT_CONE, casuNeedle,
+          mat4(tx + lean * th * f + (rndB() - .5) * .5, th * f, tz + (rndB() - .5) * .5,
+            wf, hf, wf, 0, 0, (rndB() - .5) * .16));
+      }
+      G.colliders.push({ x: tx, z: tz, r: .3 });
+    };
+
+    for (const [s0, s1] of spans) {
+      /* the clipped hedge mass. ⚠ the 'hedgeI' bucket renders BLOB geometry
+         (the bucket keeps its FIRST geometry — buildVillas registered it with
+         UNIT_BLOB), so a lens tapers to nothing at its ends: the blocks must
+         OVERLAP (step w − .55, width w + .9) or the run reads scalloped-open
+         rather than the continuous clipped band the clips show */
+      for (let x = s0; x < s1 - .6; ) {
+        const w = Math.min(3.0 + rndB() * 1.6, s1 - x + .4);
+        const h = 1.0 + rndB() * .25;
+        inst('hedgeI', UNIT_BLOB, MAT.hedge,
+          mat4(x + w / 2, h / 2, BAND_Z + (rndB() - .5) * .24, w + .9, h, 1.35 + rndB() * .35));
+        colliderLine(G.colliders, x + .4, BAND_Z, x + w - .4, BAND_Z, .5);
+        x += w - .55;
+      }
+      /* agave rosettes every several metres on the lawn shoulder */
+      for (let x = s0 + 1.6 + rndB() * 2; x < s1 - 1; x += 5.5 + rndB() * 3) {
+        agave(x, BAND_Z - 1.2 - rndB() * .3);
+      }
+      /* croton colour breaks just seaward of the hedge line */
+      for (let x = s0 + 2.5 + rndB() * 2.5; x < s1 - 1; x += 6.5 + rndB() * 4) {
+        croton(x, BAND_Z + .9 + rndB() * .7);
+      }
+    }
+    /* the casuarinas — kept out of the fringe's own ±9/±8 view corridors so
+       the arch (and the cocktail lawn) still look at open sea */
+    for (const tx of [-39.2, -35.4, -31.8, -12.4, -9.6, -5.2, 11.6]) {
+      if (Math.abs(tx - CEREM_X) < 9 || Math.abs(tx - COCK_X) < 8) continue;
+      casuarina(tx + (rndB() - .5) * .8, BAND_Z + .8 + rndB() * 1.2);
+    }
   }
 
   /* ── the two DINNER lawns and the paved walk between them ── */
@@ -1904,27 +2034,41 @@ function buildHotel(G, root) {
      The NORTH sector gets none of the boxes: the sky-bar block already stands
      there (θ = C + arc/2, 17 m of it), which is the same silhouette job. So
      the crescent ends in a stepped mass at BOTH tips, which is what the dawn
-     frames show. */
+     frames show.
+
+     ⚠ 2026-08-03 — NOTHING TALL STANDS SEAWARD OF r ≈ 98.5 ON THESE SECTORS.
+     Carl, over the infinity pool: "this infinity pool view is being blocked by
+     these umbrella and extra building blocks — guests should be able to enjoy
+     an unobstructed view while swimming at the edge of the infinity pool."
+     The first clamp put the attic band at r 91.4 and the plant boxes at
+     93/97.9, up to 5.1 m tall — angularly clear of the terrace, but a swimmer
+     looking ALONG the arc past the glazed south end stared straight at them
+     where the sea horizon should be (the end sector starts 2 m past the
+     glass). The silhouette job survives — same sectors, same stepped masses —
+     pushed INLAND onto the cap's back band (r ≥ ~99, the band the head-houses
+     and screen wall already occupy on the terrace itself) and cut down, so the
+     along-arc frame from water level past the glazed end is sky and sea. */
   const RA = SITE.HOTEL.ROOFTOP.arcHalf;
   const CAP_ENDS = [[th0 + .05, Math.PI / 2 - RA - .02],
     [Math.PI / 2 + RA + .02, th0 + tl - .05]];
   for (const [s, e] of CAP_ENDS) {
     if (e - s < .015) continue;
     const attic = new THREE.Mesh(
-      new THREE.CylinderGeometry(rIn + 7.4, rIn + 7.4, 2.6, 12, 1, true, s, e - s),
+      new THREE.CylinderGeometry(rIn + 15.0, rIn + 15.0, 2.2, 12, 1, true, s, e - s),
       MAT.hotelEnd);
-    attic.position.y = HT + 1.3; g.add(attic);
+    attic.position.y = HT + 1.1; g.add(attic);
   }
   {
     /* the south sector, inboard of the 2 m end wall and outboard of the
-       terrace's glazed end: two radial ranks, two boxes each */
+       terrace's glazed end: two radial ranks, two boxes each — on the back
+       band (98.9…105.1 across both ranks, inside the cap rail at 105.4) */
     const [s0, s1] = CAP_ENDS[0];
     const lo = s0 + .022, hi = s1 - .012;
     for (let i = 0; i < 4; i++) {
       const th = lo + (hi - lo) * (.22 + .56 * ((i >> 1) & 1));
-      const r = rIn + 9 + (i & 1) * 4.9, hgt = 2.4 + (i % 4) * .9;
+      const r = rIn + 16.6 + (i & 1) * 2.8, hgt = 1.8 + (i % 4) * .5;
       inst('hotelBoxI', UNIT_BOX, MAT.hotelEnd,
-        mat4(WX(th, r), HT + hgt / 2, WZ(th, r), 3.4 + (i % 3), hgt, 4.6, th));
+        mat4(WX(th, r), HT + hgt / 2, WZ(th, r), 3.4 + (i % 3), hgt, 3.4, th));
     }
   }
 
@@ -2332,6 +2476,12 @@ function buildHotelRoof(G, g, acx, acz) {
   const finN = Math.max(12, Math.round((a1 - a0) * 90.18 / 3.86));
   for (let i = 0; i <= finN; i++) {
     const th = a0 + (a1 - a0) * (i / finN);
+    /* ⚠ BROKEN over the pool's sweep like the glass runs above (2026-08-03).
+       The glass was already broken there — a rail along the water would stand
+       IN it — but the fins still ran the full terrace and a swimmer at the
+       infinity edge looked down 65 m of open horizon through a picket of
+       copper posts standing in the pool. No glass there = no posts. */
+    if (th > p0 - .004 && th < p1 + .004) continue;
     inst('rtCopperI', UNIT_BOX, MAT.copper,
       mat4(WX(th, 90.18), DY + R.parapetH / 2, WZ(th, 90.18), .07, R.parapetH, .12, th));
   }
@@ -2656,25 +2806,63 @@ function buildHotelRoof(G, g, acx, acz) {
       mat4(WX(th, 99.88), DY + 2.15, WZ(th, 99.88), 2.2, .09, .12, th));
   }
 
-  /* ── dining: dark-timber rounds + squares, rattan chairs, white cushions,
-        a candle on every top (emissive — lights itself at night for free) ── */
+  /* ── dining: REAL furniture (Carl, 2026-08-03: "the table and chairs are
+        very very low fidelity on the deck, lets improve them"), rebuilt
+        against rooftop-bar-dusk.png — woven-toned frames, white cushions,
+        dark timber tops. Same BL.tables list, same table centres, so the
+        collider circles in roofColliders() did not move.
+          · round tables: pedestal — foot disc, column, a timber edge band
+            with the dark top surface sitting proud of it (the rim reads).
+          · square tables: four timber legs under the same band + top.
+          · chairs: four legs, a timber seat frame under a white cushion, and
+            a framed backrest (two uprights + top rail) holding an inset woven
+            panel — the cross-back precedent: many scalings of one unit box,
+            still the same instance buckets, one draw call per bucket.
+          · a place-setting hint: one white plate per cover on the table edge.
+        Per-seat yaw/pull jitter is SEEDED (mulberry32, house rule — never
+        Math.random) so the room never shuffles between loads. The candles
+        stay; zero lights added; the only new bucket is the round tables'
+        slat-toned cylinder (rtSlatCylI), +1 draw call for the whole room. ── */
+  const rndSeat = mulberry32(83017);
   for (const t of BL.tables) {
     const x = WX(t.th, t.r), z = WZ(t.th, t.r);
     if (t.round) {
-      inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .36, z, .16, .72, .16));
-      inst('rtDkTopI', UNIT_CYL, MAT.rtDarkTeak, mat4(x, DY + .75, z, 1.3, .06, 1.3));
+      inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .035, z, .60, .07, .60));        // foot disc
+      inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .38, z, .13, .62, .13));         // column
+      inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(x, DY + .715, z, 1.34, .07, 1.34)); // edge band
+      inst('rtDkTopI', UNIT_CYL, MAT.rtDarkTeak, mat4(x, DY + .768, z, 1.26, .036, 1.26));
     } else {
-      inst('darkI', UNIT_BOX, MAT.dark, mat4(x, DY + .36, z, .14, .72, .14, t.th));
-      inst('rtDkI', UNIT_BOX, MAT.rtDarkTeak, mat4(x, DY + .75, z, 1.15, .06, 1.15, t.th));
+      for (const [u, v] of [[-.48, -.48], [-.48, .48], [.48, -.48], [.48, .48]]) {
+        inst('rtSlatI', UNIT_BOX, MAT.slat,
+          mat4(TX(t.th, t.r + u, v), DY + .34, TZ(t.th, t.r + u, v), .07, .68, .07, t.th));
+      }
+      inst('rtSlatI', UNIT_BOX, MAT.slat, mat4(x, DY + .715, z, 1.19, .07, 1.19, t.th));
+      inst('rtDkI', UNIT_BOX, MAT.rtDarkTeak, mat4(x, DY + .768, z, 1.13, .036, 1.13, t.th));
     }
-    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + .84, z, .1, .12, .1));  // candle
+    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + .85, z, .1, .12, .1));  // candle
     for (let c = 0; c < 4; c++) {
-      const ca = c * Math.PI / 2 + (t.round ? .79 : .4) + t.th;
-      const cx1 = x + Math.cos(ca) * 1.02, cz1 = z - Math.sin(ca) * 1.02;
-      inst('rtRattanI', UNIT_BOX, MAT.rattan, mat4(cx1, DY + .23, cz1, .5, .46, .5, ca));
-      inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(cx1, DY + .50, cz1, .46, .08, .46, ca));
-      inst('rtRattanI', UNIT_BOX, MAT.rattan,
-        mat4(x + Math.cos(ca) * 1.25, DY + .62, z - Math.sin(ca) * 1.25, .5, .52, .08, ca));
+      const ca = c * Math.PI / 2 + (t.round ? .79 : .4) + t.th + (rndSeat() - .5) * .24;
+      const cd = 1.02 + (rndSeat() - .5) * .08;
+      /* chair-local frame under mat4's ry = ca: +X is outward (away from the
+         table, behind the sitter), +Z runs across the seat */
+      const ux = Math.cos(ca), uz = -Math.sin(ca);
+      const vx = Math.sin(ca), vz = Math.cos(ca);
+      const cx1 = x + ux * cd, cz1 = z + uz * cd;
+      const at = (lx, lz, y, sx, sy, sz, key, mat) =>
+        inst(key, UNIT_BOX, mat,
+          mat4(cx1 + ux * lx + vx * lz, y, cz1 + uz * lx + vz * lz, sx, sy, sz, ca));
+      for (const [lx, lz] of [[-.19, -.18], [-.19, .18], [.20, -.18], [.20, .18]]) {
+        at(lx, lz, DY + .22, .05, .44, .05, 'rtSlatI', MAT.slat);            // four legs
+      }
+      at(0, 0, DY + .465, .48, .05, .46, 'rtSlatI', MAT.slat);               // seat frame
+      at(0, 0, DY + .535, .44, .09, .42, 'rtWhiteI', MAT.white);             // white cushion
+      for (const lz of [-.18, .18]) {
+        at(.20, lz, DY + .75, .05, .55, .05, 'rtSlatI', MAT.slat);           // back uprights
+      }
+      at(.20, 0, DY + 1.045, .05, .06, .41, 'rtSlatI', MAT.slat);            // top rail
+      at(.21, 0, DY + .77, .035, .40, .30, 'rtRattanI', MAT.rattan);         // woven inset panel
+      inst('rtWhiteCylI', UNIT_CYL, MAT.white,                               // the plate
+        mat4(x + ux * .42, DY + .795, z + uz * .42, .27, .018, .27));
     }
   }
 

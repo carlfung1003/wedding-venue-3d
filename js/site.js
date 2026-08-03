@@ -870,13 +870,30 @@ export const SITE = {
       [[-31, 1], [-20, 6], [-8, 10], [4, 13], [16, 15], [28, 16], [40, 15],
        [52, 16], [64, 18], [76, 17], [88, 12], [100, 9], [112, 3], [124, 5],
        [134, 28], [146, 33], [160, 33], [174, 32], [188, 30], [198, 28]],
-      /* THE NORTHERN LOOP — north of the channel and north of the lagoon's rim
-         all the way, which is the side the aerial keeps clear. It threads
-         between the water (z −7.6 at its northern extreme, the lagoon's deck at
-         z −6.4) and the NORTH villa field, whose southern row stands at z −28. */
-      [[46, -13], [58, -15], [70, -16], [84, -15], [98, -16], [112, -16],
+      /* THE NORTHERN BANK WALK — the second of the two river walks, one per
+         bank. ⚠ COMPLETED 2026-08-03. Carl, with the aerial: *"we need to make
+         sure there are two walkable pathway from hotel to club house … the
+         other pathway looks unfinished."* It used to START at (46, −13) — a
+         path that died in the middle of the campus — and its middle ran a
+         detached straight line 20 m off the water. It is now a complete route:
+         it leaves the beach pool's NORTH-EAST deck (the mirror of PATHS[0]'s
+         own terminus on the south-east deck, so the two walks meet at the
+         pool), follows the north bank at the same 9…12 m offset PATHS[0] holds
+         on the south side, threads the verified pinch between the river's
+         northern extreme (z −7.6 at x 110) and the NORTH villa field's z −28
+         row — the (112, −16)…(196, −5) tail is the water-position pass's line,
+         untouched — and carries on past the lagoon into the crescent's crook,
+         ending at (212, 2) between EAST2 and the podium, where a guest walking
+         out of the hotel actually arrives. It NEVER crosses the channel, so it
+         needs no bridge, and every point (plus the smoothed 2.4 m resample)
+         was machine-checked against all eight basin outlines (exact seeded
+         fr(θ), not the ellipse), both channel polylines with their
+         half-widths, and every RESORT_VILLAS footprint. */
+      [[-33, -30], [-24, -26], [-14, -20], [-4, -14], [7, -7], [18, -6],
+       [30, -5], [40, -8], [48, -6], [56, -4], [68, -2], [80, -5], [92, -7],
+       [102, -14], [112, -16],
        [124, -15], [136, -13], [148, -11], [160, -10], [172, -11], [184, -9],
-       [196, -5]],
+       [196, -5], [204, -2], [212, 2]],
     ],
     PATH_W: 1.3,          // half-width of a path
     LAMPS: 30,            // path lanterns — the night silhouette. 22 over the

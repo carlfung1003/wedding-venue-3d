@@ -212,6 +212,82 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE CORRECTIONS PASS — DONE 2026-08-03 (same day, after the bar deployed)
+
+Carl walked the deployed build and sent five corrections plus four new phone
+videos. All five are in; the videos are imported and distilled. Files touched:
+`main.js` + `player.js` (fly-land), `moments.js` (parasols), `campus.js`
+(sightline, furniture, sea-edge band, gate), `site.js` (north path),
+`water.js` (turf strip).
+
+1. **Fly → land dropped through the rooftop.** `setMode('walk')` and the fly
+   altitude clamp called `floorY` with NO `fromY`, which by contract answers
+   bare ground — landing over the terrace teleported feet to grade. Both now
+   pass `pos.y − CFG.STEP_UP` ("anything at or below eye level is under you").
+   ⚠ The exact argument matters, both wrong values were tried: FEET-based
+   re-falls through a hovered surface (the clamp holds feet below it); EYE-based
+   teleports you UP through a slab overhead (proved on the suite's 2F balcony).
+2. **The infinity pool's sightline is clear from the water.** Three separate
+   obstructions: the brunch apron parasols (deleted — see the rule in
+   moments.js: nothing tall on the aprons seaward of the coping, ever), the
+   CAP_ENDS attic/plant boxes (moved inland onto the cap's back band, r ≥ 98.9;
+   the silhouette job survives at both tips), and — found by raycast, also in
+   Carl's screenshot — the copper FIN POSTS still ran the full sweep after the
+   glass rail was broken over the water: a picket standing IN the pool. The fin
+   loop now skips (p0, p1) like the glass.
+3. **The bar room's dining furniture is real furniture** — legged/pedestal
+   tables, framed rattan-panel chair backs, cushions, plates, per-seat seeded
+   jitter — same `barLayout` centres so colliders did not move. +1 draw call.
+4. **Both river banks now carry a complete hotel↔clubhouse walk.**
+   `SITE.RIVER.PATHS[1]` grew 13 → 24 points (152 → 259 m): beach pool's NE
+   deck → north bank at 9–12 m offset → the verified villa-row pinch → ends in
+   the crescent's crook. No crossing, so BRIDGES/LAMPS untouched. Every point
+   + the smoothed resample clearance-checked against every basin/deck/channel
+   (worst margin 0.89 m, on a pre-existing pair).
+5. **The dinner-lawns + beachfront videos say the SPACING IS RIGHT** — the
+   brief found zero coordinate deltas. Three dressing gaps were built instead:
+   the continuous low sea-edge hedge band with agave/croton/casuarina accents
+   at BEACH_LAWN (gaps kept at the aisle x −22 ± 9 and cocktail x +4 ± 8
+   corridors — ⚠ the sea-fringe gaps are NOT the palm-belt's x −2 spine gap),
+   the 1.5 m turf strip with drain covers between the hero pool's trough and
+   the WEST lounger flank (`water.js buildDeckAndTurf` — the +X flank has no
+   ground for it, the cabanas sit against the trough), and the white garden
+   gate standing open in the terrace-edge gap (posts collide, the gap does not).
+
+**New reference material (2026-08-03):** `reference/video/`
+`clubhouse-entrance-parking.mp4` (+32 frames), `dinner-lawns-spacing.mp4`
+(+23), `beachfront-lawn-{1,2}.mp4` (+30) — masters gitignored. Committed
+briefs: **`reference/entrance-arrival-brief.md`** (the entrance is a DARK
+corten-clad volume with a stone stair, canopy, frangipani/cordyline/ixora
+beds — nothing like the built paver forecourt; 9 deltas) and
+**`reference/dinner-lawns-spacing-brief.md`** (the no-coordinate-deltas
+finding + the three dressing gaps above).
+
+**Verified** (headless Playwright, Metal ANGLE, zero errors/warnings): the
+full walk suite from the bar pass re-run green; fly-land suite (bar deck
+26.600 / pool 25.320 / lawn 0 / stable hover / no 2F teleport); ceremony
+aisle + arch with the new band, horizon clear; beach access through the aisle
+gap onto the sand (feet follow the slope to −0.567); pool-deck walk over the
+turf strip; gate pass-through; 34 lights in every moment, both sides.
+
+### QUEUED from the entrance brief — needs Carl's decisions first
+
+The entrance rebuild is real modeling work (facade, stair, canopy, planting,
+paver parking) and carries TWO decisions the video cannot settle:
+1. **The palette conflict**: the filmed entrance is dark weathered corten —
+   the opposite of the documented white-stucco clubhouse. Build it dark as
+   filmed, or reconcile?
+2. **The water-crossing conflict**: the filmed parking→door walk crosses NO
+   water, but the model's river runs between the parking apron and the
+   enclave (guests "walk in from inland"). Resolving this against the site
+   map may move the river's west reach or the parking — not a dressing fix.
+
+Also queued small: the bar counter STOOLS are still the old crude pole+slab
+(the furniture pass covered Carl's screenshot, which was the tables);
+two pre-existing nature.js understory shrubs stand oddly (one seaward of the
+aisle head at local (−20, 76), one overlapping the spine path at z ≈ 40);
+a pre-existing coplanar paver overlap south of `pz1` on the pool's west flank.
+
 ## THE ROOFTOP BAR + THE COCKTAIL REDRESS — DONE 2026-08-03
 
 The pass a dropped connection killed on 2026-08-02 is finished. All three of

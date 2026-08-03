@@ -1378,31 +1378,17 @@ export function initMoments(G) {
       cols.brunch.push({ ...pt(eth, er), r: .6, y0: DY - .6, __world: true });
     }
 
-    /* ── TWO pairs of parasols, both on the SOUTH apron — the only apron the
-          pool still reaches. These were `C ± (poolArcHalf + apron·f)`, one
-          pair per end — but the pool's NORTH end stops at the cross-walk now
-          and faces the bar room, so a pair out there would dress the wrong
-          room's doorway. Both pairs are keyed off the pool's OWN south end
-          (poolTc − poolTh, which equals C − poolArcHalf by construction) as a
-          FRACTION OF THE APRON, so they stay on the paving however long the
-          building gets. The second pair takes the opposite diagonal of the
-          same 2 × 2, lower and smaller, so the four canopies layer instead of
-          colliding. No colliders, as before — they are poles. ── */
-    const apron = RF.arcHalf - RF.poolArcHalf;
-    const poolS = RF.poolTc - RF.poolTh;              // the pool's south end
-    for (let k = 0; k < 2; k++) {
-      const th = poolS - apron * (.32 + k * .36);
-      const r1 = 92.6 + k * 2.9;                      // staggered radially, not along the arc
-      rcyl(.05, 2.7, th, r1, DY + 1.35, timber, 8);
-      const p1 = pt(th, r1);
-      const um1 = new THREE.Mesh(new THREE.ConeGeometry(1.55, .62, 12), linen);
-      um1.position.set(p1.x, DY + 2.86, p1.z); g.add(um1);
-      const r2 = 95.5 - k * 2.9;                      // the opposite diagonal
-      rcyl(.05, 2.35, th, r2, DY + 1.175, timber, 8);
-      const p2 = pt(th, r2);
-      const um2 = new THREE.Mesh(new THREE.ConeGeometry(1.35, .55, 12), linen);
-      um2.position.set(p2.x, DY + 2.49, p2.z); g.add(um2);
-    }
+    /* ── NO parasols on the apron — deliberately (Carl, 2026-08-03). ─────────
+          The old design stood a 2 × 2 of linen parasols on the seaward apron
+          past the pool's south end (r 92.6…95.5); Carl's screenshot showed
+          them standing straight across the along-the-arc sightline from the
+          water: "guests should be able to enjoy an unobstructed view while
+          swimming at the edge of the infinity pool." Everything seaward of the
+          pool's back wall (r < ~97) on either apron stays CLEAR — the glass
+          end walls and the sea are the whole composition. Shade near the water
+          is already provided inland of the back wall: the lounger runs carry
+          parasols between pairs (campus.js) and the daybeds have canopies. Do
+          not reinstate anything tall on the aprons seaward of the coping. ── */
   }
 
   /* ── 1 · PREWEDDING — the suite deck at night, lanterns on the water ── */

@@ -1054,9 +1054,38 @@ function buildDeckAndTurf(G) {
   /* flanks beside the turf band, then the pool surround */
   pv(-APRON, TU.z0, -ox, TU.z1);
   pv(ox, TU.z0, APRON, TU.z1);
-  pv(-APRON, pz0, px0, SOUTH);
+  /* ── the lounger-flank turf strip (Carl's dinner-lawns clip, 2026-08-03).
+     The video shows a narrow band of mown grass, dotted with flush drain
+     covers, running the LENGTH of the pool's near (lounger) long edge
+     between the coping and the paved terrace — the build paved that flank
+     solid. The strip lives on the WEST (−X) flank: the chairs are on the
+     west long side (Carl on site — see SITE.CABANAS/LOUNGERS), and the east
+     flank has no coping→terrace ground at all (the cabana masses stand hard
+     against the pebble trough — buildPavilions' FRONT note, x 6.39/6.70).
+     Surface only: same ground level, no collider, nothing moves — the
+     terrace paving simply starts TSW further out. It runs TU.z1→pz1 so it
+     meets the WESTIN letters' turf band at the pool's NW corner; south of
+     pz1 the full-width apron already paves. */
+  const TSW = 1.5;
+  pv(-APRON, pz0, px0 - TSW, SOUTH);
   pv(px1, pz0, APRON, SOUTH);
   pv(-APRON, pz1, APRON, SOUTH);
+  slab(g, px0 - TSW, TU.z1, px0, pz1, 0, new THREE.MeshStandardMaterial({
+    map: turf(TSW / 2, (pz1 - TU.z1) / 2), roughness: .95,
+  }), .1);
+  {  /* flush dark drain covers — the same fixture family as the big lawn's */
+    const drains = new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(.17, .17, .028, 12), MAT.pebbleRock, 6);
+    const dm = new THREE.Matrix4();
+    for (let i = 0; i < 6; i++) {
+      dm.setPosition(px0 - TSW / 2, .012, pz0 + 2.2 + i * (pz1 - pz0 - 4.4) / 5);
+      drains.setMatrixAt(i, dm);
+    }
+    drains.instanceMatrix.needsUpdate = true;
+    drains.computeBoundingSphere();
+    drains.name = 'poolTurfDrains';
+    g.add(drains);
+  }
 
   /* the 2.5 m turf band that carries the letters */
   slab(g, px0 - .55, TU.z0, px1 + .55, TU.z1, 0, new THREE.MeshStandardMaterial({
