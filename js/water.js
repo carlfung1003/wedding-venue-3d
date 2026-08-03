@@ -25,6 +25,12 @@ import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { SITE } from './site.js';
 import { mulberry32 } from './materials.js';
+/* nature.js owns the ONE coconut palm this campus uses. The river cannot
+   plant through nature's own scatter (it avoids G.colliders, and the channel's
+   colliders are exactly what would reject a palm leaning over the water), so
+   it hands nature explicit positions instead and gets the real model back —
+   in nature's instanced buckets, for no extra draw calls. See requestPalms(). */
+import { requestPalms } from './nature.js';
 
 /* ─────────────────────────────── constants ─────────────────────────────── */
 
@@ -2532,34 +2538,53 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
      fronds, and a 2.6 m channel with nothing over it reads as a drainage ditch
      from the air, not as a lazy river.
 
-     nature.js cannot do this — it plants against G.colliders, and every collider
-     on this channel exists precisely to keep it clear of the water. So the
-     river plants its own bank palms, deliberately close (0.9…2.4 m past the
-     coping) with 5–6 m crowns that meet over the middle. Trunks and fronds are
-     two instanced meshes for the whole 150 m system. */
-  const palmTrunks = [], palmFronds = [];
+     nature.js's own scatter cannot do this — it plants against G.colliders, and
+     every collider on this channel exists precisely to keep planting clear of
+     the water. So the river names the positions and nature.js plants them:
+     requestPalms() hands back the REAL coconut palm (tapering ring-scarred
+     trunk, a full crown of arching, drooping fronds, coconuts) in nature's own
+     instanced buckets, which is why this whole 150 m fringe costs zero draw
+     calls. It used to build its own — a bare 6-sided pole under nine flat
+     boxes — and from the air the river read as a cheaper resort than the ground
+     either side of it (Carl, 2026-08-02: "these trees are very very low
+     fidelity compared to the other trees").
+
+     Sampled every THIRD centreline point rather than every fourth. The old
+     flat-box crown was a ~2.5 m star and 35 of them still left long naked
+     runs; nature's crown is a real 4–5 m one and closing the canopy is the
+     stated intent (lazy-river-closeup.png), so the extra dozen palms are the
+     point rather than a cost — they are instances in a bucket that already
+     exists, i.e. no draw call and ~300 triangles each.
+
+     ⚠ The three rnd() draws per candidate are unconditional (nature.js's
+     pattern) so a rejected candidate never shifts the stream for the rest. */
+  const bankPalms = [];
   for (const key of ['spine', 'spur']) {
     const pts = lines[key];
-    for (let i = 3; i < pts.length - 3; i += 4) {
+    for (let i = 3; i < pts.length - 3; i += 3) {
       const s = pts[i];
       for (const sgn of [1, -1]) {
         const keep = rnd() < .82, off = R.COPING + R.BANK + .9 + rnd() * 1.5;
         const h = 6.4 + rnd() * 3.4, lean = (rnd() - .5) * .30;
         const [x, z] = lat(s, sgn, off);
         if (!keep || inWater(x, z)) continue;
-        palmTrunks.push([x, z, h, lean * sgn]);
-        /* the crown leans BACK over the water — sgn is the bank it stands on */
-        const cx = x - s.nx * sgn * h * .13, cz = z - s.nz * sgn * h * .13;
-        /* nine fronds in two tiers — a seven-frond single ring read as a flat
-           green starfish from directly above, which is the angle that matters */
-        for (let f = 0; f < 9; f++) {
-          const tier = f % 2;
-          palmFronds.push([cx, cz, h * (tier ? .90 : .97), f / 9 * TAU + rnd() * .35,
-            (tier ? 1.7 : 2.5) + rnd() * .8, -.14 - tier * .22 - rnd() * .14]);
-        }
+        /* lean BACK over the water: `sgn` is the bank it stands on, so the
+           channel is at −normal from here. A real coconut leans out over open
+           water and that is what closes the canopy across a 2.6 m channel. */
+        bankPalms.push({
+          x, z, h,
+          dir: [-s.nx * sgn, -s.nz * sgn],
+          tilt: .06 + Math.abs(lean) * .30,
+          /* no collider: these stand within a metre or two of the channel,
+             whose bank chain already blocks the walker, and the towpath and
+             the five footbridges run through this same strip. 35 new trunk
+             circles there would only pinch a route the river just opened. */
+          collide: false,
+        });
       }
     }
   }
+  requestPalms(bankPalms);
 
   /* path lanterns — the river's night silhouette from the air */
   const pPts = centreline(R.PATHS[0].map(([x, z]) => [x, z, R.PATH_W]), 2.4);
@@ -2636,28 +2661,10 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
     if (plantMesh.instanceColor) plantMesh.instanceColor.needsUpdate = true;
   }
 
-  /* the bank palms. A frond is one flattened, tapered box — from the only two
-     angles this planting is read from (straight down, and from the far bank at
-     ground level) that is a frond, and 7 of them are a crown. */
-  const trunkM = new THREE.MeshStandardMaterial({ color: 0x6d5a44, roughness: .92 });
-  const frondM = new THREE.MeshStandardMaterial({
-    color: 0x2e6b31, roughness: .92, side: THREE.DoubleSide });
-  nightBits.push(on => {
-    trunkM.color.setHex(on ? 0x2a2620 : 0x6d5a44);
-    frondM.color.setHex(on ? 0x152e1b : 0x2e6b31);
-  });
-  inst(new THREE.CylinderGeometry(.13, .24, 1, 6), trunkM, palmTrunks, (i, d) => {
-    const [x, z, h, lean] = palmTrunks[i];
-    d.position.set(x, h / 2, z);
-    d.scale.set(1, h, 1);
-    d.rotation.set(lean, i * .7, 0);
-  });
-  inst(new THREE.BoxGeometry(1, .05, .46), frondM, palmFronds, (i, d) => {
-    const [x, z, y, a, len, droop] = palmFronds[i];
-    d.position.set(x + Math.cos(a) * len * .48, y + droop * len * .30, z + Math.sin(a) * len * .48);
-    d.rotation.set(0, -a, droop);
-    d.scale.set(len, 1, .92 + (i % 3) * .16);
-  });
+  /* (the bank palms used to be instanced here — two meshes, a bare pole and a
+     star of flat boxes. They are nature.js's coconut palm now; see the
+     requestPalms() call above. Their day↔night is nature's MAT.bark / MAT.frond
+     through setNatureNight, so nothing about them belongs in `nightBits`.) */
 
   const lampM = new THREE.MeshStandardMaterial({
     color: 0xf4e6cf, roughness: .5, emissive: RC.lampWarm, emissiveIntensity: 0,

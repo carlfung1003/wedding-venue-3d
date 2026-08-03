@@ -940,6 +940,68 @@ function palmVariants(rnd) {
   return specs.map(s => ({ trunk: trunkGeo(s), crown: crownGeo(rnd, s), spec: s }));
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   PALMS ANOTHER BUILDER ASKS FOR — the one palm model, planted anywhere
+   ═══════════════════════════════════════════════════════════════════════
+   nature.js owns the only coconut palm on this campus, and world.js builds it
+   LAST (sky → water → campus → atrium → suite → nature) precisely so its
+   scatter can avoid everything already standing. That avoidance is also the
+   reason it could never plant the lazy river's banks: EVERY collider on that
+   channel exists to keep planting out of the water, clearOfWorld() honours all
+   of them, and a palm whose crown is supposed to hang over the water has to
+   stand inside them. So water.js grew a second, far cruder palm of its own —
+   a bare 6-sided pole under nine flat boxes — and the river read as a
+   different, worse resort than the ground 40 m either side of it.
+
+   This is the seam that fixes it. Any builder that runs before nature (i.e.
+   any of them) declares the palms it wants; they are planted with nature's
+   trunk and nature's crown, in nature's materials, into nature's InstancedMesh
+   buckets, and they sway on nature's ticker. The caller supplies the position,
+   so NONE of the keep-out logic applies — keeping them clear of its own water
+   is the caller's job, which is the one thing the caller knows and nature
+   does not.
+
+   The instancing is the point: a requested palm joins the SAME three
+   InstancedMesh pairs the scatter uses, so an entire 150 m bank fringe costs
+   ZERO extra draw calls.
+
+     requestPalms([{ x, z, h, dir, tilt, collide }, …])   → total requested
+
+       x, z     WORLD metres. The palm population is global and is never
+                re-parented (world.js skips DynamicDrawUsage instances), so an
+                enclave-local caller must map through enclaveToWorld() itself.
+       h        wanted trunk height, metres. nature picks the variant closest
+                in height and scales it, so "give me a 7 m palm" costs no new
+                geometry. Omit for the scatter's own random sizing.
+       dir      [dx, dz] the crown should lean TOWARD, world XZ, need not be
+                normalised. Each variant's lean is baked into its trunk, so
+                this is resolved as a Y rotation — also free.
+       tilt     extra whole-palm tilt toward `dir`, radians (default .05).
+       collide  push a trunk collider (default FALSE). A caller planting a
+                dense fringe along a path it just laid rarely wants 60 new
+                obstacles on it; pass true for a specimen tree.
+
+   ⚠ Must be called BEFORE buildNature() — after that the buckets are sized. */
+const REQUESTS = [];
+
+export function requestPalms(list) {
+  for (const q of list || []) {
+    if (q && Number.isFinite(q.x) && Number.isFinite(q.z)) REQUESTS.push(q);
+  }
+  return REQUESTS.length;
+}
+
+/* the variant whose natural height is closest to `h`, compared as a ratio so
+   an 8 m ask picks the 8.6 m palm rather than the 11.5 m one */
+function variantForHeight(variants, h) {
+  let best = 0, bestD = Infinity;
+  variants.forEach((V, i) => {
+    const d = Math.abs(Math.log(h / V.spec.h));
+    if (d < bestD) { bestD = d; best = i; }
+  });
+  return best;
+}
+
 /* seeded placement: the grove band as a jittered grid (planted, like the
    reference), then dart-thrown scatter through the campus, then a ring
    around the ceremony lawn. */
@@ -1056,6 +1118,21 @@ function placePalms(G, blocked, preColliders) {
     const D = SITE.DINNER_LAWNS[1];
     lp(D.x0 - 2.4 - rnd() * 1.6, D.z0 + 1 + (i + .5) * ((D.z1 - D.z0 - 2) / 6));
   }
+
+  /* 5 — THE REQUESTS (see requestPalms above). Tested against nothing: no
+     blocked(), no clearOfWorld(), no farEnough(). Every one of those tests
+     would reject exactly the ground a caller is asking for — the river's bank
+     palms stand 0.9…2.4 m from water whose colliders exist to keep planting
+     away from it, which is the whole reason this hatch exists.
+
+     Appended LAST, and that is load-bearing rather than tidy: `rnd` here and
+     `rnd` in buildPalms are two seeded streams consumed strictly in spot
+     order, so adding spots at the END leaves all 264 scatter palms bit-for-bit
+     where and how they were. Interleave them and the entire population
+     reshuffles. */
+  for (const q of REQUESTS) {
+    out.push({ x: q.x, z: q.z, y: siteFloorY(q.x, q.z) - .18, req: q });
+  }
   return out;
 }
 
@@ -1072,21 +1149,47 @@ function buildPalms(G, blocked, preColliders) {
   const spots = placePalms(G, blocked, preColliders);
   const buckets = variants.map(() => []);
   for (const s of spots) {
-    /* bias: tall palms in the grove and along the beach, stocky ones inland */
+    /* bias: tall palms in the grove and along the beach, stocky ones inland.
+       ⚠ All eight rnd() draws below stay UNCONDITIONAL and in this order — a
+       request overrides the VALUES afterwards, never the sequence, so the
+       scatter's own palms are unaffected by anything a caller asks for. */
     const roll = rnd();
-    const v = s.x < SITE.BEACH.x1 + 12 ? (roll < .62 ? 0 : roll < .9 ? 1 : 2)
-                                       : (roll < .34 ? 0 : roll < .78 ? 1 : 2);
-    s.v = v;
-    s.s = (v === 0 ? .82 : .86) + rnd() * .36;
-    s.rotY = rnd() * Math.PI * 2;
-    s.leanX = (rnd() - .5) * .1;
-    s.leanZ = (rnd() - .5) * .1;
+    let v = s.x < SITE.BEACH.x1 + 12 ? (roll < .62 ? 0 : roll < .9 ? 1 : 2)
+                                     : (roll < .34 ? 0 : roll < .78 ? 1 : 2);
+    let sc = (v === 0 ? .82 : .86) + rnd() * .36;
+    let rotY = rnd() * Math.PI * 2;
+    let leanX = (rnd() - .5) * .1;
+    let leanZ = (rnd() - .5) * .1;
+    const q = s.req;
+    if (q) {
+      if (q.h > 0) {
+        v = variantForHeight(variants, q.h);
+        sc = Math.max(.5, Math.min(1.6, q.h / variants[v].spec.h));
+      }
+      if (q.dir && (q.dir[0] || q.dir[1])) {
+        /* The lean is BAKED into each trunk (spec.bendX/bendZ), so aiming it
+           is a Y rotation and costs no geometry. rotation.y = y takes a local
+           (bx,bz) to world (bx·cos y + bz·sin y, −bx·sin y + bz·cos y), i.e.
+           the world bend angle is atan2(bz,bx) − y. Solve for y. */
+        const sp = variants[v].spec;
+        rotY = Math.atan2(sp.bendZ, sp.bendX) - Math.atan2(q.dir[1], q.dir[0]);
+        /* and tip the whole palm the same way. In three's default XYZ Euler
+           order the up axis goes to ≈(−leanZ, 1, leanX) for small angles, so a
+           tilt toward (dx,dz) is leanZ = −t·dx, leanX = +t·dz. */
+        const t = q.tilt === undefined ? .05 : q.tilt;
+        const L = Math.hypot(q.dir[0], q.dir[1]) || 1;
+        leanX = q.dir[1] / L * t;
+        leanZ = -q.dir[0] / L * t;
+      }
+    }
+    s.v = v; s.s = sc; s.rotY = rotY; s.leanX = leanX; s.leanZ = leanZ;
     s.ph = rnd() * Math.PI * 2;
     s.f = .55 + rnd() * .45;
     s.amp = NAT.SWAY * (.55 + rnd() * .9);
     s.i = buckets[v].length;
     buckets[v].push(s);
-    G.colliders.push({ x: s.x, z: s.z, r: NAT.TRUNK_R });
+    /* a requested palm is collider-free unless it asks — see requestPalms */
+    if (!q || q.collide) G.colliders.push({ x: s.x, z: s.z, r: NAT.TRUNK_R });
   }
 
   const dummy = new THREE.Object3D();
@@ -1120,15 +1223,39 @@ function buildPalms(G, blocked, preColliders) {
    understory — clipped hedges, shrub masses, bougainvillea, ground cover
    ═══════════════════════════════════════════════════════════════════════ */
 
-/* a low-poly blob with noise-scaled vertices; reads as a foliage mass */
+/* a low-poly blob with noise-scaled vertices; reads as a foliage mass.
+
+   ⚠ The displacement is a function of WHERE the vertex is, never an
+   independent draw per vertex, and that is a correctness requirement rather
+   than a style choice. THREE.IcosahedronGeometry is NON-INDEXED — it comes off
+   PolyhedronGeometry with three separate vertices per face, 240 of them at
+   detail 1 for 80 faces — so scaling each vertex by its own random number
+   pulls the three copies of every shared corner in three different directions
+   and the "blob" is delivered as 80 disconnected, randomly sized triangles
+   floating near a sphere. That is precisely what the shrub masses were, and
+   what Carl saw from the air on 2026-08-02: "shrub/bush clumps that read as
+   flat dark-green cards". Three low-frequency lobes sampled at the vertex
+   position move every copy of a corner by the same amount, so the surface
+   stays closed, and the bumps come out bigger than the facets — which is what
+   makes it read as a bush and not as crumpled foil. Same vertex count, same
+   triangle count, same single draw call.
+
+   No computeVertexNormals() either: the displacement is purely RADIAL, so
+   PolyhedronGeometry's own normals (the normalised direction — smooth) still
+   point the right way, and recomputing them only replaces that with hard
+   per-face normals, i.e. re-facets the thing we just un-facetted. The river's
+   own planting has always looked rounder than this for exactly that reason. */
 function blobGeo(rnd, detail, rough) {
   const g = new THREE.IcosahedronGeometry(1, detail);
   const p = g.attributes.position;
+  const f1 = 2.0 + rnd() * 1.8, f2 = 1.7 + rnd() * 1.8, f3 = 2.3 + rnd() * 1.6;
+  const a1 = rnd() * 6.2832, a2 = rnd() * 6.2832, a3 = rnd() * 6.2832;
   for (let i = 0; i < p.count; i++) {
-    const k = 1 + (rnd() - .5) * rough;
-    p.setXYZ(i, p.getX(i) * k, p.getY(i) * k, p.getZ(i) * k);
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+    const n = (Math.sin(x * f1 + a1) + Math.sin(y * f2 + a2) + Math.sin(z * f3 + a3)) / 3;
+    const k = 1 + n * rough * .62;
+    p.setXYZ(i, x * k, y * k, z * k);
   }
-  g.computeVertexNormals();
   return g;
 }
 
