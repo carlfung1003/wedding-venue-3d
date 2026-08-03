@@ -731,6 +731,144 @@ function beverageCart(K, g, C, F) {
   colLineFrame(C, F, -.8, 0, .8, 0, .5);
 }
 
+/* ═══ THE ROUND TIMBER-PLANK COCKTAIL BAR — `decor-cocktail-bar.jpg` ═════════
+   Carl (ask #3): "the real cocktail bar is a ROUND timber-plank bar, not the
+   white counter." A drum of VERTICAL light-pine boards — the plank rhythm IS
+   the look; a smooth cylinder reads as a concrete planter — under a round
+   plank top overhanging a hand's width. On it: the back-bar bottle cluster, a
+   shaker, two strainers, and rows of the four wedding cocktails from
+   `decor-cocktail-menu.jpg` in their real colours and glassware. Beside it: a
+   white menu easel leaning like the render's, grounded in a lavender/lilac +
+   white cluster — the PAL table has no lilac, so those hues are local.
+   Authored at the origin facing −Z (the arriving guests) and dropped through
+   frame(); every instanced part goes through the curried iput (trap 1). The
+   liquids are OPAQUE tinted instances inside transparent glass — opaque
+   renders first, so the colour reads through the glass, never behind it. */
+function roundBar(K, g, C, F) {
+  /* every instanced part of a prop goes through the prop's own frame — miss
+     this and the part is built at the enclave origin instead (it happened) */
+  const iput = (b, x, y, z, sc, rot, col) => put(b, x, y, z, sc, rot, col, F);
+  const PINE = [0xe0cba4, 0xd6bd92, 0xdcc59c, 0xd0b788];
+  const N = 30, BRR = 1.05;                        // 30 boards on a 1.05 m ring
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    iput(K.oak, Math.sin(a) * BRR, .52, Math.cos(a) * BRR,
+      [.215, 1.04, .045], [0, a, 0], PINE[i % 4]);
+  }
+  /* the top: a plank disc overhanging the drum, a darker shadow ring under
+     its rim, and thin dark seams so it reads as boards, not a slab */
+  iput(K.disc, 0, 1.045, 0, [1.16, .025, 1.16], null, 0xb59a6c);
+  iput(K.disc, 0, 1.10, 0, [1.24, .06, 1.24], null, 0xe3cfa6);
+  for (const sx of [-.86, -.44, 0, .44, .86]) {
+    const chord = 2 * Math.sqrt(Math.max(.05, 1.19 * 1.19 - sx * sx));
+    iput(K.oak, sx, 1.133, 0, [.018, .004, chord * .96], null, 0xb59a6c);
+  }
+  const Y = 1.13;                                  // the top's working surface
+
+  /* ── the back-bar: eleven bottles in a loose arc at the rear of the top ──
+     ⚠ NOT the K.dark bucket: tints MULTIPLY the material color and bronzeD's
+     0x2e2a26 base crushes every bottle to black. K.rod's linen base is near
+     white, so the glass colours actually read. */
+  const BOT = [0x3d5c3f, 0x8a5a28, 0xcdd6da, 0x7c3a2d, 0x33506e, 0x9c8144];
+  for (let i = 0; i < 11; i++) {
+    const a = -1.1 + i * .22;
+    const bx = Math.sin(a) * .72, bz = .38 + Math.cos(a) * .34 + (i % 3) * .07;
+    const h = .30 + (i % 4) * .035;
+    iput(K.rod, bx, Y + h / 2, bz, [.046, h, .046], null, BOT[i % 6]);
+    iput(K.rod, bx, Y + h + .05, bz, [.016, .11, .016], null, BOT[(i + 3) % 6]);
+  }
+  /* the shaker and two hawthorne strainers, right of the bottles */
+  iput(K.rod, .82, Y + .12, .18, [.082, .24, .082], null, 0xc6ccd1);
+  iput(K.rod, .82, Y + .27, .18, [.055, .07, .055], null, 0xb7bdc2);
+  for (const s of [0, 1]) {
+    iput(K.rod, .58 + s * .18, Y + .03, .52 + s * .08,
+      [.07, .012, .07], [.5, s * .8, .25], 0xb7bdc2);
+    iput(K.rod, .70 + s * .18, Y + .09, .60 + s * .08,
+      [.012, .16, .012], [1.2, s * .8, 0], 0xb7bdc2);
+  }
+
+  /* ── the four wedding cocktails, a row of each like the photo ──
+     与我常在 — orange Aperol spritz, stemmed wine glass, grapefruit + rosemary
+     心动的旋律 — pink cranberry-coconut (non-alc), tall stemmed glass, foam
+     翠露晨光 — yellow rum highball, straight faceted glass, mint
+     荔枝尼格罗尼 — amber lychee negroni, rocks tumbler, orange-peel twist */
+  for (let i = 0; i < 4; i++) {                    // amber rocks tumblers, far left
+    const x = -.92 + (i % 2) * .17, z = -.30 - Math.floor(i / 2) * .19 + (i % 2) * .06;
+    iput(K.glass, x, Y + .062, z, [.054, .124, .054]);
+    iput(K.rod, x, Y + .055, z, [.046, .1, .046], null, 0xb35a1a);
+    iput(K.flor, x + .025, Y + .128, z, [.03, .012, .014], [0, .7, .5], 0xe8923a);
+  }
+  for (let i = 0; i < 4; i++) {                    // yellow faceted highballs
+    const x = -.42 + (i % 2) * .16, z = -.42 - Math.floor(i / 2) * .2 + (i % 2) * .05;
+    iput(K.flute, x, Y + .095, z, [.04, .19, .04], null, 0xe6cf52);
+    iput(K.flor, x, Y + .205, z, [.024, .02, .024], null, 0x3e7a44);
+  }
+  for (let i = 0; i < 4; i++) {                    // orange spritz, stemmed wine
+    const x = .12 + (i % 2) * .17, z = -.34 - Math.floor(i / 2) * .21 + (i % 2) * .07;
+    iput(K.glass, x, Y + .004, z, [.038, .008, .038]);
+    iput(K.glass, x, Y + .055, z, [.009, .10, .009]);
+    iput(K.glass, x, Y + .145, z, [.048, .105, .048]);
+    iput(K.flor, x, Y + .135, z, [.041, .048, .041], null, 0xe8722c);
+    iput(K.flor, x + .03, Y + .185, z, [.028, .02, .011], [0, 0, .95], 0xf29079);
+    iput(K.flor, x - .012, Y + .225, z + .01, [.006, .052, .006], [.35, 0, -.25], 0x4a6b45);
+  }
+  for (let i = 0; i < 3; i++) {                    // pink talls, right, behind
+    const x = .66 + (i % 2) * .17, z = -.18 - i * .14;
+    iput(K.glass, x, Y + .004, z, [.036, .008, .036]);
+    iput(K.glass, x, Y + .07, z, [.008, .13, .008]);
+    iput(K.glass, x, Y + .20, z, [.041, .13, .041]);
+    iput(K.rod, x, Y + .185, z, [.034, .095, .034], null, 0xf09fb6);
+    iput(K.rod, x, Y + .25, z, [.03, .022, .03], null, 0xfdfbf6);
+    iput(K.white, x + .012, Y + .272, z, [.018, .016, .018], null, 0xfdfbf6);
+  }
+
+  /* ── the white menu easel, leaning beside the bar like the render ── */
+  {
+    const lean = new THREE.Euler(.16, .42, 0);
+    const n = new THREE.Vector3(0, 0, -1).applyEuler(lean);
+    const mb = new THREE.Mesh(new THREE.PlaneGeometry(.78, 1.10), menuMat());
+    mb.position.set(-1.78 + n.x * .03, .88 + n.y * .03, -.55 + n.z * .03);
+    mb.rotation.set(.16, .42 + Math.PI, 0);        // flush on the board's face
+    mb.applyMatrix4(F);
+    g.add(mb);
+  }
+  iput(K.white, -1.78, .88, -.55, [.9, 1.26, .045], [.16, .42, 0], 0xfdfcf8);
+  iput(K.oak, -2.0, .55, -.40, [.04, 1.24, .04], [-.2, .42, .12], 0xd6c09a);
+  iput(K.oak, -1.55, .55, -.48, [.04, 1.24, .04], [-.2, .42, -.12], 0xd6c09a);
+  iput(K.oak, -1.79, .5, -.02, [.04, 1.1, .04], [.3, .42, 0], 0xd6c09a);   // prop leg, BEHIND the board
+
+  /* ── the lavender/lilac + white cluster at its base — delphinium-purple
+        roses, lilac and white stock over pale sage, per the render ── */
+  const LIL = [0x8f6fb5, 0xb391cc, 0xcbb4de, 0x9a7fc0, PAL.WHITE, 0xf1eef6,
+    PAL.CREAM, PAL.LEAF, PAL.LEAF_D];
+  for (let i = 0; i < 55; i++) {
+    const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd());
+    const x = -1.55 + Math.cos(a) * .75 * rr - .35 * rnd();
+    const z = -.15 + Math.sin(a) * .55 * rr;
+    const s = .05 + rnd() * .05;
+    iput(K.flor, x, .10 + rnd() * .5 * (1 - rr * .7), z,
+      [s, s * (.85 + rnd() * .3), s], null, LIL[Math.floor(rnd() * LIL.length)]);
+  }
+  for (let i = 0; i < 6; i++) {                    // the white stock spikes
+    const x = -2.05 + rnd() * .8, z = -.35 + rnd() * .55;
+    const h = .55 + rnd() * .45;
+    iput(K.rod, x, h / 2, z, [.008, h, .008], null, 0x9aa77f);
+    for (let k = 0; k < 4; k++) {
+      iput(K.flor, x + (rnd() - .5) * .04, h - .05 - k * .07, z + (rnd() - .5) * .04,
+        [.028, .026, .028], null, k ? 0xf6f3ec : 0xcbb4de);
+    }
+  }
+
+  /* the bar blocks as a CIRCLE now, not a line — ten circles around the drum
+     stop the walker ~1.85 m out (1.0 + r .5 + PLAYER_R), still comfortably
+     inside the interactable's 2.2 m reach */
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2;
+    colAt(C, F, Math.sin(a) * 1.0, Math.cos(a) * 1.0, .5);
+  }
+  colAt(C, F, -1.78, -.45, .55);                   // the easel + its florals
+}
+
 /* ── prop frames ────────────────────────────────────────────────────────────
    A dressing prop is authored ONCE at the origin facing −Z (which is how you
    look at it in the render) and then dropped somewhere on the lawn turned by
@@ -847,7 +985,7 @@ function texWord(word, col = '#5d7fa8') {
 
 /* Lazily built so the CanvasTextures are only paid for when a moment that
    needs them is dressed, and so nothing touches `document` at import time. */
-let _scriptMat = null, _bevMat = null;
+let _scriptMat = null, _bevMat = null, _signMats = null, _menuMat = null;
 function scriptMat() {
   return (_scriptMat ||= new THREE.MeshStandardMaterial({
     map: texScript('Fung &', 'Cheng'), transparent: true, depthWrite: false, roughness: .9,
@@ -857,6 +995,190 @@ function bevMat() {
   return (_bevMat ||= new THREE.MeshStandardMaterial({
     map: texWord('Beverage'), transparent: true, roughness: .92, side: THREE.DoubleSide,
   }));
+}
+/* the welcome board's two materials, cached — the ceremony decor is emitted
+   TWICE since the cocktail share (see dressCeremonyDecor) and the second
+   emission must not pay for (or re-randomise) a second CanvasTexture */
+function signMats() {
+  return (_signMats ||= [
+    new THREE.MeshStandardMaterial({ map: texWelcomeSign(), roughness: .82 }),
+    new THREE.MeshStandardMaterial({ color: PAL.STONE, roughness: .86 }),
+  ]);
+}
+/* the round bar's menu — `decor-cocktail-menu.jpg`, the four wedding cocktails.
+   The drink NAMES are the planner's own copy and are correct as written; only
+   the surnames on that sheet were mis-romanised (see LETTERING above). */
+function texCocktailMenu() {
+  const c = document.createElement('canvas');
+  c.width = 320; c.height = 448;
+  const x = c.getContext('2d');
+  x.fillStyle = '#fdfbf4'; x.fillRect(0, 0, 320, 448);
+  x.textAlign = 'center';
+  x.fillStyle = '#e07b28';
+  x.font = '600 44px "Songti SC", Georgia, serif';
+  x.fillText('鸡尾酒', 160, 64);
+  x.font = 'italic 600 26px Georgia, serif';
+  x.fillText('Wedding Cocktails', 160, 102);
+  const rows = [
+    ['#e8722c', '与我常在'],
+    ['#f0a0b8', '心动的旋律'],
+    ['#e3c93e', '翠露晨光'],
+    ['#c47a2e', '荔枝尼格罗尼'],
+  ];
+  x.font = '500 30px "Songti SC", Georgia, serif';
+  rows.forEach(([col, name], i) => {
+    const y = 168 + i * 72;
+    x.fillStyle = col;
+    x.beginPath(); x.arc(56, y - 10, 13, 0, 6.3); x.fill();
+    x.fillStyle = '#5a5148';
+    x.fillText(name, 186, y);
+  });
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  return t;
+}
+function menuMat() {
+  return (_menuMat ||= new THREE.MeshStandardMaterial({
+    map: texCocktailMenu(), roughness: .9,
+  }));
+}
+
+/* ═══ THE CEREMONY DECOR, AS A FUNCTION — because it dresses TWO moments ════
+   Carl (ask #3, 2026-08-02): "Cocktail hour keeps the ceremony decor — same
+   lawn, an hour apart; only the seating would be cleared."
+   The moment system toggles ONE prop group per moment, so sharing means
+   EMITTING TWICE: once into groups.ceremony (seated = true) and once into
+   groups.cocktail (seated = false). Each moment's kit bakes its own
+   InstancedMeshes — the instance tables duplicate, the geometry and the
+   materials are shared, and that is the cheap, correct way to do it. The
+   sixty cross-back chairs and their drapes are the only thing gated: the
+   seating is struck between the two events, everything else stands.
+   Colliders land in the CALLER'S list (CC), so each moment carries its own
+   copy of the installation/arch/board/extras colliders and the swap in
+   setMoment keeps working unchanged.
+   ⚠ The body below is the 2026-08-02 decor pass MOVED, not rewritten — same
+   props, same positions, same colliders, same rnd draw order, so the ceremony
+   emission is exactly what it was before the share. */
+function dressCeremonyDecor(K, g, CC, seated) {
+  const AX = -22, AZ = 71.4;                     // aisle centre-line, its head
+  const ROW0 = 62, ROWS = 5, PER = 6;
+
+  /* ── sixty wooden cross-back chairs, each with its white chiffon drape ──
+     Eleven timber members apiece and two cones of chiffon, all instanced:
+     the whole seating block is TWO draw calls where it used to be 360
+     meshes. 0.62 m of pitch leaves the drapes just touching, which is how
+     the render reads. */
+  for (const side of [-1, 1]) {
+    for (let row = 0; row < ROWS; row++) {
+      const rz = ROW0 + row * 1.0;
+      /* the chairs draw NO rnd, so clearing them (seated = false) cannot
+         shift the seeded stream — the row-end posies stay either way */
+      if (seated) for (let i = 0; i < PER; i++) {
+        xbackChair(K.oak, K.chiffon, AX + side * (1.6 + i * .62), rz, 0, true);
+      }
+      bloomMass(K.flor, AX + side * 1.36, .95, rz - .1, .18, .13, .15, 10, .85);
+    }
+  }
+
+  /* ── the aisle is GRASS STREWN WITH PETALS. The render has no runner and
+        the old 3 × 12.4 m linen slab was the single most wrong thing in the
+        frame — it read as a carpet showroom against a lawn. ── */
+  for (let i = 0; i < 330; i++) {
+    const s = .034 + rnd() * .032;
+    put(K.petal, AX + (rnd() - .5) * 2.9, .026 + rnd() * .008, 58.6 + rnd() * 13.8,
+      [s, s, 1], [-Math.PI / 2, 0, rnd() * 6.283]);
+  }
+
+  /* ── low floral clusters lining both sides, thickening toward the head ── */
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 11; i++) {
+      const t = i / 10;
+      const cz = 58.8 + t * 13.4;
+      if (cz > 61.3 && cz < 67.0) continue;      // the seating's own frontage
+      const big = .82 + t * .75;
+      bloomMass(K.flor, AX + side * (1.6 + rnd() * .6), .26 * big, cz,
+        .6 * big, .28 * big, .48 * big, Math.round(20 + t * 16), big);
+    }
+    for (let i = 0; i < 5; i++) {                // the run right under the towers
+      bloomMass(K.flor, AX + side * (1.5 + rnd() * 2.5), .3, 68.2 + i * .95,
+        .68, .32, .54, 25, 1.05);
+    }
+  }
+
+  /* ── the two tall asymmetric floral installations, and the fabric flower ── */
+  installation(K, AX - 3.10, AZ + .30, 3.30, .62, true);
+  installation(K, AX + 3.10, AZ + .10, 2.95, -.58, false);
+  CC.push({ x: AX - 3.10, z: AZ + .30, r: 1.05 }, { x: AX + 3.10, z: AZ + .10, r: 1.05 });
+  /* the fabric flower sits AGAINST the +X tower, not floating between the two
+     — in the render the two masses overlap and read as one installation */
+  fabricFlower(K, AX + 1.35, 2.35, AZ + .28);
+
+  /* ── the two white arch frames, each hanging a crystal / pearl chandelier.
+        Outboard of the seating and forward of the last row, so no post ever
+        stands in the walk. ── */
+  const ARC_R = 1.12, ARC_POST = 2.30, ARC_Z = 69.0;
+  for (const s of [-1, 1]) {
+    const ax = AX + s * 4.55;
+    for (const p of [-1, 1]) {
+      put(K.rod, ax + p * ARC_R, ARC_POST / 2, ARC_Z, [.048, ARC_POST, .048], null, 0xfcfbf7);
+      CC.push({ x: ax + p * ARC_R, z: ARC_Z, r: .3 });
+    }
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(ARC_R, .048, 5, 20, Math.PI), frameW);
+    arc.position.set(ax, ARC_POST, ARC_Z);       // NO rotation.y — spans X
+    g.add(arc);
+    /* −.60 because beadShade's drop rod spans y … y + .60: the shade hangs
+       FROM the apex, it does not poke through it */
+    beadShade(K, ax, ARC_POST + ARC_R - .60, ARC_Z, .60, 5);
+  }
+
+  /* ── the welcome board ── an arched slab of pale stone at the head of the
+        seating, exactly where the render stands it. The Shape is authored in
+        0…1 so ExtrudeGeometry's own UV generator hands the canvas straight
+        onto the front cap; it is scaled to metres afterwards and re-centred
+        so `rotation.y` turns it about itself and not about its left edge. */
+  {
+    /* At the mouth of the aisle, 2.9 m off its centre-line: far enough out
+       ⚠ Its position is a FRAMING constraint, not a taste one. Anything
+       within a couple of metres of the CEREMONY spawn and off to the side is
+       outside a 44.6° half-FOV and is never seen — the first two tries put it
+       at the aisle mouth and it was simply not in the shot. At 5.45 m off the
+       centre-line it has to be ≥ 5.5 m up the aisle to be in frame, so it
+       stands just past the last row (z 66) beside the block, angled back at
+       the guests — which is also where the render has it. */
+    const SW = 1.14, SH = 2.02, sx = AX + 5.45, sz = 66.8;
+    const sh = new THREE.Shape();
+    sh.moveTo(.10, 0);
+    sh.lineTo(.90, 0);
+    sh.lineTo(.925, .47);
+    sh.bezierCurveTo(.955, .845, .745, 1.0, .49, 1.0);
+    sh.bezierCurveTo(.245, 1.0, .05, .85, .075, .47);
+    sh.closePath();
+    const sgeo = new THREE.ExtrudeGeometry(sh, {
+      depth: .055, bevelEnabled: false, curveSegments: 12,
+    });
+    sgeo.scale(SW, SH, 1);
+    sgeo.translate(-SW / 2, 0, 0);
+    const board = new THREE.Mesh(sgeo, signMats());
+    board.position.set(sx, 0, sz);
+    board.rotation.y = -2.44;                    // faces back down the aisle
+    g.add(board);
+    CC.push({ x: sx, z: sz, r: .55 });
+    bloomMass(K.flor, sx + .45, .3, sz - .3, .55, .3, .45, 34, 1.1);
+    bloomMass(K.flor, sx - .5, .28, sz + .35, .48, .26, .4, 26, 1.0);
+  }
+
+  /* ── THE EXTRAS ── on the −X flank of BEACH_LAWN (x −40…12, z 58…75),
+        behind and to the side of the seating so the aisle and the spawn at
+        (−22, 59) stay clear. Every one faces +X, i.e. back at the ceremony,
+        which is yaw = −π/2 for a prop authored facing −Z. ── */
+  const IN = -Math.PI / 2;
+  hatRack(K, g, CC, frame(-34.6, 60.2, IN));
+  plinthPair(K, g, CC, frame(-30.8, 63.6, IN));
+  dessertBar(K, g, CC, frame(-35.8, 67.2, IN));
+  wheelbarrow(K, g, CC, frame(-35.2, 71.2, IN));
+  coconutStand(K, g, CC, frame(-32.6, 73.0, IN + .5));
+  beverageCart(K, g, CC, frame(-35.6, 73.4, IN + .3));
 }
 
 export function initMoments(G) {
@@ -885,15 +1207,21 @@ export function initMoments(G) {
   const D = SITE.DECK;
 
   /* ── 0 · WELCOME BRUNCH — the Westin rooftop, 18 March, two days out ───────
-     campus.js already stands eight four-tops and eight parasols on the paved
-     aprons at either end of the water; those are the ROOM. This moment is the
-     COVER: linen over the marble, settings, low blooms, a champagne service and
-     a buffet on the teak, and a menu easel where the bridge arrives. Nothing
-     here duplicates a table that is already up there — dress it, don't rebuild
-     it. Everything is WORLD space, in HOTEL_ROOF's polar frame. */
+     THE ROOFTOP IS TWO ROOMS NOW (site.js): the infinity pool keeps the SOUTH
+     half of the terrace (poolTc ± poolTh) and the north half is the venue's own
+     rooftop bar. The brunch lives ENTIRELY in the pool room. campus.js stands
+     the eight four-tops — the list is HOTEL_ROOF.brunchTables, published once
+     so the two files can no longer disagree — and this moment is the COVER:
+     linen over the marble, settings, low blooms, a champagne service and a
+     buffet on the pool half's teak, and a menu easel greeting arrivals at the
+     cross-walk. Nothing here duplicates a table that is already up there —
+     dress it, don't rebuild it. Everything is WORLD space, in HOTEL_ROOF's
+     polar frame, and everything registered carries __world (miss one and it
+     lands 90° around the map, silently). */
+  let champPt;               // the champagne service — "Pour a glass" shares it
   {
     const g = groups.brunch;
-    const RF = SITE.HOTEL.ROOFTOP, DY = RF.deckY, C = Math.PI / 2;
+    const RF = SITE.HOTEL.ROOFTOP, DY = RF.deckY;
     const pt = (th, r) => HOTEL_ROOF.pt(th, r);
     /* a box laid flat on the terrace, turned to face the arc centre */
     const rbox = (w, h, d, th, r, y, m) => {
@@ -912,11 +1240,13 @@ export function initMoments(G) {
       return c;
     };
 
-    /* ── the eight existing four-tops, dressed ── */
-    for (const s of [-1, 1]) for (let k = 0; k < 4; k++) {
-      /* must match campus.js buildHotelRoof — spread along the arc */
-      const th = C + s * (.075 + k * .145);
-      const r = 99.2 + (k % 2) * 1.6;   // must match campus.js buildHotelRoof — these dress ITS tables
+    /* ── the eight existing four-tops, dressed ──
+       HOTEL_ROOF.brunchTables IS the table list — campus.js stands them up and
+       this loop dresses them, and neither holds a literal any more (both used
+       to carry `C + s * (.075 + k * .145)` / `99.2 + (k % 2) * 1.6`, half of
+       which is in the BAR room since the split — dressed tables that no longer
+       exist there). */
+    for (const { th, r } of HOTEL_ROOF.brunchTables) {
       const p = pt(th, r);
       /* ⚠ campus.js sizes these tables through mat4() SCALE on a unit cylinder
          of radius 0.5, so `1.35` there is a 1.35 m DIAMETER — a 0.675 m top,
@@ -956,8 +1286,15 @@ export function initMoments(G) {
       cols.brunch.push({ x: p.x, z: p.z, r: 1.35, y0: DY - .6, __world: true });
     }
 
-    /* ── the buffet: a 7 m draped run on the teak, east of the water ── */
-    const BTH = C + .455, BR = 98.4;
+    /* ── the buffet: a 7 m draped run on the pool half's teak ──
+       The old bearing, C + .455, is in the BAR room since the split. It now
+       stands on the outer stretch of the pool room, BGAP metres of clear teak
+       past the outermost four-top (derived from the published list, quoted in
+       METRES at the buffet's own radius — never as a typed fraction of the
+       arc). At r 98.4 it sits between the coping and the lounger row's back,
+       clear of the tables, the loungers and the spawn. */
+    const BR = 98.4, BGAP = 5.7;
+    const BTH = Math.min(...HOTEL_ROOF.brunchTables.map(t => t.th)) - BGAP / BR;
     for (let i = 0; i < 5; i++) {
       const th = BTH - .028 + i * .014;
       rbox(1.55, .74, 1.02, th, BR, DY + .37, linen);      // drape
@@ -983,12 +1320,18 @@ export function initMoments(G) {
     }
     colLineY(cols.brunch, pt(BTH - .032, BR), pt(BTH + .032, BR), .62, DY - .6);
 
-    /* ── champagne service, on the pool side of the buffet ── */
-    const CTH = C + .383, CR = 97.9;
+    /* ── champagne service — at the pool room's cross-walk seam, greeting
+          arrivals off the bridge (the old C + .383 is in the bar room now).
+          1.4 m inside the seam, quoted in metres at its own radius. The
+          "Pour a glass" interactable is DERIVED from this same point below —
+          one source of truth, they can never drift apart again. ── */
+    const CR = 97.9;
+    const CTH = RF.poolTc + RF.poolTh - 1.4 / CR;
     rcyl(.54, .80, CTH, CR, DY + .40, linen, 18);
     rcyl(.58, .05, CTH, CR, DY + .82, linen, 18);
     {
       const p = pt(CTH, CR);
+      champPt = p;
       for (let row = 0; row < 3; row++) {
         const n = 4 - row;
         for (let i = 0; i < n; i++) {
@@ -1003,44 +1346,62 @@ export function initMoments(G) {
       cols.brunch.push({ x: p.x, z: p.z, r: .95, y0: DY - .6, __world: true });
     }
 
-    /* ── a linen runner + a hedge of blooms along the pool coping, so the water
-          reads as part of the table setting rather than a lap pool ── */
+    /* ── a hedge of blooms along the pool coping, so the water reads as part
+          of the table setting rather than a lap pool. Re-keyed to the POOL'S
+          OWN span — the old C ± .33 straddled the crescent's centre, which put
+          half the run on the cross-walk and in the bar room. Same 22 blooms at
+          the same 2.9 m spacing (⚠ the count is load-bearing: every moment
+          after this block shares the one seeded stream, so changing the draw
+          count here re-jitters the ceremony), laid along the .66 rad of coping
+          fronting the tables and the service. ── */
+    const HEDGE_END = RF.poolTc + RF.poolTh - .02;    // 1.9 m shy of the seam
     for (let i = 0; i < 22; i++) {
-      const th = C - .33 + (i / 21) * .66;
+      const th = HEDGE_END - .66 + (i / 21) * .66;
       const p = pt(th, 96.9);
       const f = new THREE.Mesh(new THREE.SphereGeometry(.13 + rnd() * .07, 7, 6),
         rnd() > .5 ? blush : foliage);
       f.position.set(p.x, DY + .16, p.z); g.add(f);
     }
 
-    /* ── the menu easel, where the bridge lands ── */
+    /* ── the menu easel — at the pool room's threshold, beside the champagne.
+          It used to stand where the bridge lands (the tower bearing), but that
+          is the middle of the BAR room's dining deck now; a walker off the
+          bridge crosses the bar half and the cross-walk, and the brunch greets
+          them HERE, at its own doorway. Turned +90° to face along the arc at
+          the arrivals rather than out to sea. ── */
     {
-      const T = HOTEL_ROOF.tower;
-      const eth = T.th - .012;
-      rbox(.92, 1.24, .05, eth, 102.2, DY + 1.02, linen);
-      rbox(.07, 1.02, .07, eth, 102.3, DY + .51, timber);
-      cols.brunch.push({ ...pt(eth, 102.2), r: .6, y0: DY - .6, __world: true });
+      const eth = RF.poolTc + RF.poolTh - .006, er = 98.9;
+      const ebd = rbox(.92, 1.24, .05, eth, er, DY + 1.02, linen);
+      ebd.rotation.y = eth + Math.PI / 2;
+      const elg = rbox(.07, 1.02, .07, eth - .12 / er, er, DY + .51, timber);
+      elg.rotation.y = eth + Math.PI / 2;
+      cols.brunch.push({ ...pt(eth, er), r: .6, y0: DY - .6, __world: true });
     }
 
-    /* ── a pair of parasols on each END APRON — the paving between the last of
-          the water and the terrace's glazed end, which is the only deck seaward
-          of the pool's back wall.
-          ⚠ These used to be placed at `poolArcHalf + .062 + k * .11`, i.e. by
-          adding a typed angle to the water's own half-angle. That put them
-          PAST the terrace (arcHalf was only 0.045 rad further out than
-          poolArcHalf), standing on the bare green roof cap with their poles
-          1.35 m in the air — and the moment both angles became derived from
-          the crescent's arc it would have thrown them further still. They are
-          now positioned as a FRACTION OF THE APRON, so they stay on it however
-          long the building gets. ── */
+    /* ── TWO pairs of parasols, both on the SOUTH apron — the only apron the
+          pool still reaches. These were `C ± (poolArcHalf + apron·f)`, one
+          pair per end — but the pool's NORTH end stops at the cross-walk now
+          and faces the bar room, so a pair out there would dress the wrong
+          room's doorway. Both pairs are keyed off the pool's OWN south end
+          (poolTc − poolTh, which equals C − poolArcHalf by construction) as a
+          FRACTION OF THE APRON, so they stay on the paving however long the
+          building gets. The second pair takes the opposite diagonal of the
+          same 2 × 2, lower and smaller, so the four canopies layer instead of
+          colliding. No colliders, as before — they are poles. ── */
     const apron = RF.arcHalf - RF.poolArcHalf;
-    for (const s of [-1, 1]) for (let k = 0; k < 2; k++) {
-      const th = C + s * (RF.poolArcHalf + apron * (.32 + k * .36));
-      const r = 92.6 + k * 2.9;                       // staggered radially, not along the arc
-      rcyl(.05, 2.7, th, r, DY + 1.35, timber, 8);
-      const p = pt(th, r);
-      const um = new THREE.Mesh(new THREE.ConeGeometry(1.55, .62, 12), linen);
-      um.position.set(p.x, DY + 2.86, p.z); g.add(um);
+    const poolS = RF.poolTc - RF.poolTh;              // the pool's south end
+    for (let k = 0; k < 2; k++) {
+      const th = poolS - apron * (.32 + k * .36);
+      const r1 = 92.6 + k * 2.9;                      // staggered radially, not along the arc
+      rcyl(.05, 2.7, th, r1, DY + 1.35, timber, 8);
+      const p1 = pt(th, r1);
+      const um1 = new THREE.Mesh(new THREE.ConeGeometry(1.55, .62, 12), linen);
+      um1.position.set(p1.x, DY + 2.86, p1.z); g.add(um1);
+      const r2 = 95.5 - k * 2.9;                      // the opposite diagonal
+      rcyl(.05, 2.35, th, r2, DY + 1.175, timber, 8);
+      const p2 = pt(th, r2);
+      const um2 = new THREE.Mesh(new THREE.ConeGeometry(1.35, .55, 12), linen);
+      um2.position.set(p2.x, DY + 2.49, p2.z); g.add(um2);
     }
   }
 
@@ -1112,130 +1473,14 @@ export function initMoments(G) {
      ⚠ NAMES. The render letters the board "Feng jiaheng & Zheng". The couple
      are Carl FUNG and Rachel CHENG — see the LETTERING note at the top. ── */
   {
-    const g = groups.ceremony;
+    /* the authoring MOVED to dressCeremonyDecor (module scope, above) on
+       2026-08-03 so the cocktail hour can emit the same decor — same props,
+       same positions, same colliders, same rnd order, so this emission is
+       byte-for-byte the ceremony the decor pass verified. `true` = seated:
+       the sixty chairs and their drapes belong to the ceremony alone. */
     const K = kit();
-    const CC = cols.ceremony;
-    const AX = -22, AZ = 71.4;                     // aisle centre-line, its head
-    const ROW0 = 62, ROWS = 5, PER = 6;
-
-    /* ── sixty wooden cross-back chairs, each with its white chiffon drape ──
-       Eleven timber members apiece and two cones of chiffon, all instanced:
-       the whole seating block is TWO draw calls where it used to be 360
-       meshes. 0.62 m of pitch leaves the drapes just touching, which is how
-       the render reads. */
-    for (const side of [-1, 1]) {
-      for (let row = 0; row < ROWS; row++) {
-        const rz = ROW0 + row * 1.0;
-        for (let i = 0; i < PER; i++) {
-          xbackChair(K.oak, K.chiffon, AX + side * (1.6 + i * .62), rz, 0, true);
-        }
-        bloomMass(K.flor, AX + side * 1.36, .95, rz - .1, .18, .13, .15, 10, .85);
-      }
-    }
-
-    /* ── the aisle is GRASS STREWN WITH PETALS. The render has no runner and
-          the old 3 × 12.4 m linen slab was the single most wrong thing in the
-          frame — it read as a carpet showroom against a lawn. ── */
-    for (let i = 0; i < 330; i++) {
-      const s = .034 + rnd() * .032;
-      put(K.petal, AX + (rnd() - .5) * 2.9, .026 + rnd() * .008, 58.6 + rnd() * 13.8,
-        [s, s, 1], [-Math.PI / 2, 0, rnd() * 6.283]);
-    }
-
-    /* ── low floral clusters lining both sides, thickening toward the head ── */
-    for (const side of [-1, 1]) {
-      for (let i = 0; i < 11; i++) {
-        const t = i / 10;
-        const cz = 58.8 + t * 13.4;
-        if (cz > 61.3 && cz < 67.0) continue;      // the seating's own frontage
-        const big = .82 + t * .75;
-        bloomMass(K.flor, AX + side * (1.6 + rnd() * .6), .26 * big, cz,
-          .6 * big, .28 * big, .48 * big, Math.round(20 + t * 16), big);
-      }
-      for (let i = 0; i < 5; i++) {                // the run right under the towers
-        bloomMass(K.flor, AX + side * (1.5 + rnd() * 2.5), .3, 68.2 + i * .95,
-          .68, .32, .54, 25, 1.05);
-      }
-    }
-
-    /* ── the two tall asymmetric floral installations, and the fabric flower ── */
-    installation(K, AX - 3.10, AZ + .30, 3.30, .62, true);
-    installation(K, AX + 3.10, AZ + .10, 2.95, -.58, false);
-    CC.push({ x: AX - 3.10, z: AZ + .30, r: 1.05 }, { x: AX + 3.10, z: AZ + .10, r: 1.05 });
-    /* the fabric flower sits AGAINST the +X tower, not floating between the two
-       — in the render the two masses overlap and read as one installation */
-    fabricFlower(K, AX + 1.35, 2.35, AZ + .28);
-
-    /* ── the two white arch frames, each hanging a crystal / pearl chandelier.
-          Outboard of the seating and forward of the last row, so no post ever
-          stands in the walk. ── */
-    const ARC_R = 1.12, ARC_POST = 2.30, ARC_Z = 69.0;
-    for (const s of [-1, 1]) {
-      const ax = AX + s * 4.55;
-      for (const p of [-1, 1]) {
-        put(K.rod, ax + p * ARC_R, ARC_POST / 2, ARC_Z, [.048, ARC_POST, .048], null, 0xfcfbf7);
-        CC.push({ x: ax + p * ARC_R, z: ARC_Z, r: .3 });
-      }
-      const arc = new THREE.Mesh(new THREE.TorusGeometry(ARC_R, .048, 5, 20, Math.PI), frameW);
-      arc.position.set(ax, ARC_POST, ARC_Z);       // NO rotation.y — spans X
-      g.add(arc);
-      /* −.60 because beadShade's drop rod spans y … y + .60: the shade hangs
-         FROM the apex, it does not poke through it */
-      beadShade(K, ax, ARC_POST + ARC_R - .60, ARC_Z, .60, 5);
-    }
-
-    /* ── the welcome board ── an arched slab of pale stone at the head of the
-          seating, exactly where the render stands it. The Shape is authored in
-          0…1 so ExtrudeGeometry's own UV generator hands the canvas straight
-          onto the front cap; it is scaled to metres afterwards and re-centred
-          so `rotation.y` turns it about itself and not about its left edge. */
-    {
-      /* At the mouth of the aisle, 2.9 m off its centre-line: far enough out
-         ⚠ Its position is a FRAMING constraint, not a taste one. Anything
-         within a couple of metres of the CEREMONY spawn and off to the side is
-         outside a 44.6° half-FOV and is never seen — the first two tries put it
-         at the aisle mouth and it was simply not in the shot. At 5.45 m off the
-         centre-line it has to be ≥ 5.5 m up the aisle to be in frame, so it
-         stands just past the last row (z 66) beside the block, angled back at
-         the guests — which is also where the render has it. */
-      const SW = 1.14, SH = 2.02, sx = AX + 5.45, sz = 66.8;
-      const sh = new THREE.Shape();
-      sh.moveTo(.10, 0);
-      sh.lineTo(.90, 0);
-      sh.lineTo(.925, .47);
-      sh.bezierCurveTo(.955, .845, .745, 1.0, .49, 1.0);
-      sh.bezierCurveTo(.245, 1.0, .05, .85, .075, .47);
-      sh.closePath();
-      const sgeo = new THREE.ExtrudeGeometry(sh, {
-        depth: .055, bevelEnabled: false, curveSegments: 12,
-      });
-      sgeo.scale(SW, SH, 1);
-      sgeo.translate(-SW / 2, 0, 0);
-      const board = new THREE.Mesh(sgeo, [
-        new THREE.MeshStandardMaterial({ map: texWelcomeSign(), roughness: .82 }),
-        new THREE.MeshStandardMaterial({ color: PAL.STONE, roughness: .86 }),
-      ]);
-      board.position.set(sx, 0, sz);
-      board.rotation.y = -2.44;                    // faces back down the aisle
-      g.add(board);
-      CC.push({ x: sx, z: sz, r: .55 });
-      bloomMass(K.flor, sx + .45, .3, sz - .3, .55, .3, .45, 34, 1.1);
-      bloomMass(K.flor, sx - .5, .28, sz + .35, .48, .26, .4, 26, 1.0);
-    }
-
-    /* ── THE EXTRAS ── on the −X flank of BEACH_LAWN (x −40…12, z 58…75),
-          behind and to the side of the seating so the aisle and the spawn at
-          (−22, 59) stay clear. Every one faces +X, i.e. back at the ceremony,
-          which is yaw = −π/2 for a prop authored facing −Z. ── */
-    const IN = -Math.PI / 2;
-    hatRack(K, g, CC, frame(-34.6, 60.2, IN));
-    plinthPair(K, g, CC, frame(-30.8, 63.6, IN));
-    dessertBar(K, g, CC, frame(-35.8, 67.2, IN));
-    wheelbarrow(K, g, CC, frame(-35.2, 71.2, IN));
-    coconutStand(K, g, CC, frame(-32.6, 73.0, IN + .5));
-    beverageCart(K, g, CC, frame(-35.6, 73.4, IN + .3));
-
-    bakeKit(K, g);
+    dressCeremonyDecor(K, groups.ceremony, cols.ceremony, true);
+    bakeKit(K, groups.ceremony);
   }
 
   /* ── 3 · COCKTAIL — the SAME beachfront lawn, 26 m along it ────────────────
@@ -1243,27 +1488,19 @@ export function initMoments(G) {
      terrace pool, so the two share a lawn and are separated within it: the
      ceremony holds the −X half around x −22, the bar and the high-tops the +X
      half around x +4. 14 m of clear grass between the chair block's edge and
-     the nearest high-top, which is what keeps them reading as two rooms. ── */
+     the nearest high-top, which is what keeps them reading as two rooms.
+     TWO THINGS ARE NOT IN THIS BLOCK, on purpose (Carl's ask #3, 2026-08-03):
+     the CEREMONY DECOR carries over (same lawn, an hour apart — only the
+     seating is cleared) and the bar is a ROUND TIMBER-PLANK bar, not the old
+     6 m counter. Both are authored in the "COCKTAIL, the redress" block AFTER
+     the other five moments — everything shares one seeded stream, and putting
+     the new draws at the tail is what keeps the other moments' dressing
+     byte-for-byte identical. This block keeps only what it always had minus
+     the straight bar: the high-tops, the teal parasols, the canapé table and
+     the festoon poles. ── */
   {
     const g = groups.cocktail;
-    const CX = 4, BARZ = 68;
-    // the bar, facing back down the lawn at the arriving guests
-    const bar = box(6.0, 1.1, .9, timber);
-    bar.position.set(CX, .55, BARZ); g.add(bar);
-    const barTop = box(6.3, .08, 1.1, linen);
-    barTop.position.set(CX, 1.14, BARZ); g.add(barTop);
-    const backBar = box(2.6, 1.5, .45, timber);
-    backBar.position.set(CX, .75, BARZ + 1.5); g.add(backBar);
-    colLine(cols.cocktail, CX - 3.0, BARZ, CX + 3.0, BARZ, .6);
-    colLine(cols.cocktail, CX - 1.3, BARZ + 1.5, CX + 1.3, BARZ + 1.5, .5);
-    for (let i = 0; i < 16; i++) {
-      const fl = cyl(.035, .18, glassy, 8);
-      fl.position.set(CX - 2.7 + i * .36, 1.27, BARZ - .2); g.add(fl);
-    }
-    for (let i = 0; i < 7; i++) {                  // bottles on the back bar
-      const b = cyl(.045, .3, glassy, 7);
-      b.position.set(CX - .9 + i * .3, 1.65, BARZ + 1.5); g.add(b);
-    }
+    const CX = 4;
     /* Eight high-tops. Nothing sits closer than 3 m to the COCKTAIL spawn at
        (4, 58.5) and nothing with a PARASOL closer than 6.5: a 1.7 m canopy at
        2.7 m up, three metres away, is the entire frame on the first render. */
@@ -1455,15 +1692,40 @@ export function initMoments(G) {
     }
   }
 
+  /* ── 3b · COCKTAIL, the redress — Carl's ask #3, authored LAST on purpose ──
+     "Cocktail hour keeps the ceremony decor — same lawn, an hour apart; only
+     the seating would be cleared. And the real cocktail bar is a ROUND
+     timber-plank bar, not the white counter."
+     · The ceremony decor is emitted a SECOND time, into the cocktail group —
+       one prop group per moment means sharing = duplicating the instances,
+       which is cheap and correct: geometry and materials are shared, only the
+       instance tables double (see dressCeremonyDecor). seated = false clears
+       the sixty chairs; the decor's colliders land in cols.cocktail, so the
+       installations block during cocktail exactly as they do an hour earlier.
+     · The round plank bar stands where the straight counter stood (x 4, z 68),
+       so the spawn sightline and "Order from the bar" are untouched.
+     ⚠ This block sits AFTER all six moments' own authoring because everything
+     shares the one seeded stream — its draws go at the TAIL, which is what
+     keeps the other five moments (the ceremony emission included) rendering
+     byte-for-byte as they did before this pass. Do not move it earlier. */
+  {
+    const g = groups.cocktail;
+    const K = kit();
+    dressCeremonyDecor(K, g, cols.cocktail, false);
+    roundBar(K, g, cols.cocktail, frame(4, 68, 0));
+    bakeKit(K, g);
+  }
+
   /* ── interactables: one per moment ──
      `when(id)` resolves by MOMENT id, not by index: inserting the Welcome Brunch
      at 0 shifted all five of the originals, and a hard-coded index here fails
      silently (the prompt simply stops appearing on the right moment). */
   const idx = Object.fromEntries(CFG.MOMENTS.map((m, i) => [m.id, i]));
   const when = id => () => G.momentIndex === idx[id];
-  const champ = HOTEL_ROOF.pt(Math.PI / 2 + .383, 97.9);
+  /* champPt is the champagne service the brunch block just placed — the prompt
+     rides the prop, so moving one can never strand the other again */
   G.interactables.push(
-    { x: champ.x, z: champ.z, r: 1.4, __world: true,
+    { x: champPt.x, z: champPt.z, r: 1.4, __world: true,
       label: () => 'Pour a glass',
       use: () => G.ui.toast('🥂 To the two of you — and to whoever booked the roof.', 3.4),
       enabled: when('brunch') },
@@ -1477,8 +1739,11 @@ export function initMoments(G) {
     { x: -22, z: 71, r: 2.4, label: () => 'Stand at the arch',
       use: () => G.ui.toast('This is where the “I do” happens — with the sea right behind you. 💍', 3.4),
       enabled: when('ceremony') },
+    /* the drink is on the REAL menu — decor-cocktail-menu.jpg; the old
+       "Yuzu 75" was not one of the four wedding cocktails */
     { x: 4, z: 68, r: 2.2, label: () => 'Order from the bar',
-      use: () => G.ui.toast('🥂 One Yuzu 75, coming right up.', 3), enabled: when('cocktail') },
+      use: () => G.ui.toast('🍸 One 荔枝尼格罗尼 — lychee negroni, amber, with the orange twist.', 3.2),
+      enabled: when('cocktail') },
     { x: (SITE.DINNER_WALK.x0 + SITE.DINNER_WALK.x1) / 2, z: 3, r: 2.2,
       label: () => 'Step onto the dance floor',
       use: () => G.ui.toast('The floor is yours — everyone joins after the second song.', 3.2),

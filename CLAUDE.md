@@ -143,10 +143,10 @@ teleport to the moment's spawn.
 
 | # | Moment | Space | Date | Dressing |
 |---|--------|-------|------|----------|
-| 1 | Welcome Brunch | The Westin Rooftop | 03-18 | the eight existing four-tops dressed (linen, settings, blooms, chair slips + sashes), a buffet run and a champagne service on the teak, a menu easel at the bridge |
+| 1 | Welcome Brunch | The Westin Rooftop | 03-18 | the eight four-tops (from `HOTEL_ROOF.brunchTables`) dressed (linen, settings, blooms, chair slips + sashes), a buffet run and a champagne service on the pool half's teak, a menu easel at the pool room's threshold — all inside the POOL half; the north half is the rooftop bar |
 | 2 | Prewedding Setup | Presidential Suite | 03-19 | high-tops on the deck, festoon runs, welcome easel, champagne tower |
 | 3 | Ceremony | The Beachfront Lawn | 03-20 | **from the planner's renders** — 60 wooden cross-back chairs each tied with a white chiffon drape, a petal-strewn GRASS aisle lined with blue-and-cream clusters, two 3 m asymmetric floral installations at its head with a pale-blue fabric flower between them, two slim white arch frames each hanging a crystal chandelier, a pale arched welcome board, and six extras on the −X flank (dessert bar, favour wheelbarrow, hat rack, plinth pair, coconut rack, beverage cart) |
-| 4 | Cocktail Hour | The Beachfront Lawn | 03-20 | same lawn 26 m east: a 6 m bar, eight high-tops, three teal parasols, festoon on poles |
+| 4 | Cocktail Hour | The Beachfront Lawn | 03-20 | **the ceremony decor still standing** (only the seating cleared) + a ROUND timber-plank bar with the four real menu drinks, menu easel, lilac florals; eight high-tops, three teal parasols, festoon on poles |
 | 5 | Wedding Dinner | The Pool Lawns | 03-20 | **from the planner's renders** — 64 covers as SIX rounds of eight + TWO bare-timber longs of eight, all on wooden cross-back chairs; strung festoon (real cable, not floating bulbs) criss-crossing both lawns; four crystal candelabra on tall curved poles; head table + dance floor on the walk between them |
 | 6 | After Party | Suite Pool Deck | 03-20 | DJ booth, speakers, mirror ball, lounges, string lights |
 
@@ -212,34 +212,103 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
-## ⏸ IN PROGRESS, NOT DEPLOYED — the rooftop bar (2026-08-02)
+## THE ROOFTOP BAR + THE COCKTAIL REDRESS — DONE 2026-08-03
 
-An agent was killed mid-edit building the rooftop bar. **The working tree is
-committed but production is deliberately one commit behind.** State:
+The pass a dropped connection killed on 2026-08-02 is finished. All three of
+Carl's asks are in: the stray white boxes (fixed in the WIP commit — attic band
++ plant boxes clamped to the bare end sectors, derived from `ROOFTOP.arcHalf`),
+**the rooftop is two rooms**, and **cocktail hour keeps the ceremony decor**
+with the real round bar. Two agents, strict file ownership: one owned
+`js/campus.js`, one owned `js/moments.js`; site.js was already done and was not
+touched.
 
-- ✅ **Verified safe.** Syntax clean, page loads, zero console errors, and the
-  rooftop walk passes: the pool now occupies only ONE half of the arc
-  (feet 25.32) and the other half is deck (26.60). No fall-through where the
-  polar hole was re-cut. That was the dangerous part and it landed correctly.
-- ⚠️ **The bar itself is incomplete** — the agent died on "the caustic texture
-  and the bar's materials". Expect missing/unfinished geometry on the deck
-  half. **Look at it before deploying.**
+### The roof is two rooms (`campus.js`)
 
-**The three asks it was mid-way through** (Carl, with references):
-1. **Stray white boxes** littering the terrace — `reference/photos/bug-rooftop-white-boxes.png`.
-   Trace them to their emitter in `campus.js buildHotelRoof`; do not hide them.
-2. **The left half of the roof is a BAR, not pool** — refs
-   `rooftop-bar-night.png` / `rooftop-bar-dusk.png`: a blue-lit perforated cube
-   on splayed columns, dark timber decking, rattan dining chairs, a
-   cantilevered planted canopy, a bar counter, plus a **live-band stage**.
-   ⚠️ This NARROWS the pool that was widened earlier the same day — that is
-   intended, not a regression. Keep both spans DERIVED from `arcHalf`.
-3. **Cocktail hour keeps the ceremony decor** — same lawn, an hour apart; only
-   the seating would be cleared. And the real cocktail bar is a **ROUND
-   timber-plank** bar, not the white counter: refs `decor-cocktail-bar.jpg`
-   (+ menu easel, lavender/lilac florals) and `decor-cocktail-menu.jpg` (four
-   drinks — orange Aperol spritz, pink non-alcoholic, yellow rum highball,
-   amber lychee negroni — build them in their real colours and glassware).
+The infinity pool keeps the SOUTH half `(poolTc ± poolTh)`, the **rooftop bar**
+takes the NORTH half `(barTc ± barTh)`, a 9 m paved cross-walk between them —
+all read from the site.js contract, nothing typed. What the bar room is, from
+`rooftop-bar-night/dusk.png`: dark timber decking, the elevated volume on
+flared tree-columns clad in perforated panels whose water-caustic blue is an
+**emissive CanvasTexture** (`texBarCaustic`, seeded, wired through the same
+night registry as `MAT.rtScreen` — **zero new lights, the campus holds at 34**),
+a deck-level counter with stools and lit back-bar, two arcs of dark-timber
+dining tables with rattan chairs and candle emissives, planted beds with warm
+strips, the cantilevered planted canopy on one flared pedestal at the bridge
+bearing, and the **live-band stage** past the north head-house. The old central
+bar pavilion straddled the cross-walk and is deleted; its point light moved to
+the counter. Screen wall, daybeds, loungers and lanterns are clamped to the
+pool half; `loungerRow`'s inner limit is DERIVED from the outermost
+`HOTEL_ROOF.brunchTables` entry, and the four-tops iterate that list directly —
+build loops and collider loops read the same lists (`daybedRow`, `barLayout`),
+never duplicated literals.
+
+⚠ **The room seam is guarded by the SWIM radials** at `poolTc ± poolTh ± .006`.
+In the half-finished state a swimmer crossing the seam fell 26 m through the
+roof (the basin hole ended where the old visuals kept going); with the visuals
+and colliders re-keyed together the swim is blocked 7 cm short of the seam,
+verified by an 8 s scripted swim that never left feet 25.32.
+
+### Brunch dressing moved with its room (`moments.js`)
+
+Everything re-keyed into the pool half, all still `__world`: the four-top
+dressing iterates `HOTEL_ROOF.brunchTables`; the buffet sits off the list's own
+outer end; the champagne service is at the cross-walk seam and the **"Pour a
+glass" interactable derives from its stored point** (one source of truth); the
+coping bloom run follows the pool's real span; both parasol pairs are on the
+south apron; the menu easel moved from the tower bearing (now the bar's dining
+deck) to the pool room's threshold.
+
+### Cocktail keeps the ceremony decor (`moments.js`)
+
+Ceremony authoring is now module-scope `dressCeremonyDecor(K, g, CC, seated)`.
+The ceremony emits with `seated = true`; a new block emits the SAME decor into
+the cocktail group with `seated = false` — installations, fabric flower, arch
+frames + chandeliers, welcome board, aisle petals, ground clusters and all six
+flank extras stand through cocktail hour; only the 60 chairs are cleared.
+Colliders are duplicated into `cols.cocktail`. **Ceremony is byte-identical
+after the refactor** — 50 draw calls / 369,606 tris / 8,454 colliders, the
+decor pass's exact numbers. Cocktail pays +292,616 tris (713,312 in frame)
+and its draw calls FELL 209 → 196 (the old straight bar was unbatched).
+
+The straight white bar is replaced by the **round timber-plank bar** from
+`decor-cocktail-bar.jpg`: 30 vertical pine boards on a 1.05 m ring, overhanging
+plank top, bottles/shaker/strainers, a leaning menu easel with a
+`texCocktailMenu` CanvasTexture, lavender/lilac + white florals at the base,
+and rows of the four menu drinks in their real colours and glassware (orange
+Aperol spritz + grapefruit/rosemary in stems; pink coconut-foam talls; yellow
+faceted highballs + mint; amber lychee-negroni rocks tumblers — opaque tinted
+liquid inside transparent glass so the colour reads). The toast now orders the
+荔枝尼格罗尼 (the old "Yuzu 75" was not on the menu). ⚠ Tinted glass/bottle props
+must ride a WHITE-based bucket — the `dark` bucket's base crushes instance
+tints to black.
+
+### Verified — headless Playwright, Metal ANGLE, zero page errors, zero console errors or warnings
+
+- All six moments switch, dress, night-flip (F/T/F/F/T/T) and spawn flat with
+  zero drift; **34 lights in every moment**; colliders 8,093–8,130 by moment.
+- floorY at derived polar points: pool basin **25.320**; pool teak, cross-walk,
+  bar-mid, bar back band, north apron all **26.600**.
+- Walks with real key input: brunch spawn (feet 26.600) → "Pour a glass" fires;
+  deck → pool **25.320** → seam swim BLOCKED (min feet 25.320) → out via the
+  south submerged steps → **26.600**; cross-walk → bar room, feet 26.600 the
+  whole way, stopped only by dining furniture (its colliders working).
+  Ceremony spawn → aisle → "Stand at the arch". Cocktail spawn → round bar
+  (0.86 m) → "Order from the bar"; the arch prompt correctly does NOT fire
+  during cocktail; the cleared seating block walks freely; the −X installation
+  holds the walker at exactly 1.40 m. Dinner dance floor + after-party prompts
+  fire.
+- Cost vs the last deployed build: brunch-in-frame 1,629 calls / 347,934 tris;
+  the whole-scene rooftop delta is +5 draw calls / +6.1k tris for the entire
+  bar room (instanced), colliders 8,443 → 8,093 (−350).
+- Side-by-sides in `reference/photos/`:
+  `compare-rooftop-bar-2026-08-03.jpg`, `compare-cocktail-round-bar-2026-08-03.jpg`,
+  plus `build-cocktail-keeps-ceremony-decor-2026-08-03.png` and the brunch
+  pool-half shots.
+
+**Testing note for every future rooftop/walk pass:** default Playwright
+headless uses SwiftShader at ~0.5–3 fps and key-input walks silently do
+nothing useful; launch Chromium with `--use-angle=metal` (120 fps, and the GL
+driver console warnings disappear).
 
 ## SESSION HANDOFF — read this if you are picking the project up cold
 
