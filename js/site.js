@@ -581,6 +581,33 @@ export const SITE = {
        which is the real change — it drops the pool onto the same east–west line
        as the river so the two can be joined by a channel instead of a detour.
 
+       ⚠ RE-MEASURED 2026-08-02, THE WATER POSITION PASS. Carl, with the aerial
+       beside the build: *"the water feature is a lot closer to the actual one,
+       but you can see that it still needs some fine tuning in terms of the
+       position."* The ruler this time is resort-true-proportions-2.png, which
+       SIFT-registers to westin-site-map.jpeg as a pure 2× zoom (2795/2848
+       RANSAC inliers, zero rotation) — so it is the same photograph at twice
+       the resolution and the old calibration carries over exactly. Anchored on
+       the sand's inland edge (u 89 ↔ SITE.BEACH.x1 = −136) and on the
+       crescent's concave face at its centre bearing (u 1801 ↔ 156 + rIn 84),
+       the scale is 0.21957 m/px — 2.4 % off the 0.225 the pure 2× would give,
+       which is the campus being 2.4 % narrower here than in the photograph.
+
+       On that ruler the real beach pool's water is a circle at world
+       (−45.5, +11.6), r 17.0 m. Ours was at (−84, −28): 38.5 m too far WEST
+       and 39.6 m too far NORTH. Water-edge-to-sand was 37 m against the
+       aerial's 73 — the pool was ON the beach, not at the head of the grove.
+
+       Applied: cx −46 (dead on the measurement — the belt is now 74.8 m
+       against the aerial's 73), cz −14. ⚠ The z is 25.6 m NORTH of the
+       measurement and that is a CLEARANCE, not a guess: SITE.LOUNGE_POOL sits
+       at world x −54.5…−30.4, z 9…24.4, and a 20.8 m deck centred on z +11.6
+       would be built straight through it. The residual is exactly the
+       clubhouse's own error — the presidential pool measures (−39.2, +96.2) in
+       the aerial against our (−34, 74), i.e. the whole enclave sits ~22 m north
+       of where the photograph puts it. Move ENCLAVE.oz south and this pool can
+       follow it; until then 2.2 m is all the clearance there is.
+
        ⚠ THE RIVER FLOWS OUT OF THIS POOL AGAIN. It did until 2026-08-02, when
        the pool moved to the beach and the connection was cut on the strength of
        beach-pool-near-beach-aerial.png, which shows the two as separate systems.
@@ -590,7 +617,7 @@ export const SITE = {
        ends at x 601 px and the river's west tip starts at 637 px — 36 px, 16 m,
        one path's width. From the air they read as one system. SPINE now begins
        as an outfall cut into this pool's east rim. */
-    WEST: { cx: -84, cz: -28, r: 15.2, deck: 5.6, umbrellas: 12,
+    WEST: { cx: -46, cz: -14, r: 15.2, deck: 5.6, umbrellas: 12,
       RINGS: [                      // [dx, dz, r] as a fraction of the pool's r
         [-.30, -.26, .30], [.16, -.34, .22], [.34, .10, .27],
         [-.06, .30, .34], [-.42, .16, .18], [.02, -.02, .46],
@@ -599,7 +626,7 @@ export const SITE = {
     },
     /* the round bar keeps its offset from the pool's centre (−11.5, +13.5) —
        the south-west rim, as in the reference */
-    BAR:  { cx: -95.5, cz: -14.5, r: 5.6, h: 3.4 },
+    BAR:  { cx: -57.5, cz: -0.5, r: 5.6, h: 3.4 },
 
     /* ── THE LAZY RIVER. ~148 m of centreline over 70 m of ground: five full
        reversals, three of them proper hairpins, exactly the scribble the
@@ -617,21 +644,41 @@ export const SITE = {
 
        ⚠ THE RIVER RUNS OUT OF THE BEACH POOL AGAIN (2026-08-02, the proportion
        pass) — Carl: *"the water feature now is broken … doesn't connect to the
-       last beach pool at all."* The 16 points below the marker are the WEST
-       REACH, ~140 m of centreline over 133 m of ground from an outfall cut into
-       the pool's east rim at (−71, −24) to what used to be the river's head at
-       (54, 19). Nothing east of that point has changed.
+       last beach pool at all."* It still does: SPINE[0] is an outfall cut into
+       the beach pool's east rim.
+
+       ⚠ RE-LAID ON THE PHOTOGRAPH, 2026-08-02 (the water POSITION pass).
+       The old line ran from (−71, −24) to (131, 33.5): it SLOPED SOUTH as it
+       went east, +57 m of z across the campus. Traced off
+       resort-true-proportions-2.png at 0.21957 m/px (see THE BEACH POOL above
+       for how that ruler is anchored), the real river does the opposite — it
+       leaves the beach pool at z ≈ +2, holds z +4…+9 for 80 m, then climbs
+       NORTH to z −7.6 by x 110 before opening into the crook basins. −24 m of
+       z, not +57. The whole system was rotated the wrong way about its middle,
+       which is the "position" Carl is pointing at.
+
+       Every z below with a metre-precise value is a tracked point off that
+       photograph (the tracker walks the water mask west→east one column at a
+       time and follows the nearest run). They are quoted in the comments so
+       nobody has to re-derive them:
+         x  -0.5 → z  1.9   |  x  60.1 → z  8.2
+         x   7.4 → z  4.3   |  x  73.3 → z  8.9   (the southern extreme)
+         x  20.6 → z  5.4   |  x  78.5 → z  3.8
+         x  31.1 → z  6.2   |  x  86.4 → z  1.6
+         x  36.4 → z  3.2   |  x 102.2 → z -3.9
+         x  44.3 → z  6.9   |  x 110.1 → z -7.6   (the northern extreme)
+         x  49.5 → z  3.6   |  x 120.7 → z -4.1
+         x  54.8 → z  5.8   |  x 128.6 → z -3.6 → into the basins
 
        Three things it is routed around, none of which may move:
-         · the clubhouse in its NEW position — the lounge pool (world x
-           −47.5…−34.5, z 8…28) and the 酒廊 lounge (x −25…−11, z 20…40). The
-           channel holds z ≈ −22 across the first and z ≈ −16 across the second,
-           29 m and 36 m clear.
-         · the grass ground — GRAND_LAWN reaches world z 34 at its northern
-           edge and the channel is 54 m north of it at the same x.
-         · PATHS[0], which used to run down exactly this corridor and now runs
-           8…11 m SOUTH of the water, on the clubhouse side. That is the aerial's
-           arrangement too: the resort's spine walk follows the river's bank.
+         · the clubhouse — the lounge pool (world x −54.5…−30.4, z 9…24.4) and
+           the 酒廊 lounge. The channel leaves the beach pool at z −14 and is
+           still 23 m north of the lounge pool's rim where it passes it.
+         · the grass ground — GRAND_LAWN's northern edge is world z 34 and the
+           channel is 28 m north of it at the same x.
+         · PATHS[0], which follows the bank 8…11 m SOUTH of the water the whole
+           way. That is the aerial's arrangement: the resort's spine walk runs
+           on the clubhouse side of the river.
 
        The meander is five lazy reversals rather than the three hairpins of the
        eastern half. That is what the site map shows out here — the tight
@@ -648,51 +695,50 @@ export const SITE = {
        reason it matters here and not there: this reach is the one that has to
        carry the eye from the beach pool to the rest of the resort in a top-down,
        and at 2.3 m under a palm canopy that job simply does not get done — the
-       first cut of it read as a hedge. The east half is Carl-verified against
-       that photo and is NOT touched.                                          */
+       first cut of it read as a hedge. The channel WIDTHS below are unchanged
+       from that Carl-verified pass — only the line they are laid along moved. */
     SPINE: [
-      [-71.0, -24.0, 2.15],  // ── THE OUTFALL, cut into the beach pool's east rim
-      [-62.5, -21.0, 1.80],
-      [-54.0, -20.0, 1.62],
-      [-46.0, -22.5, 1.50],  // reversal 1 — north
-      [-38.0, -21.5, 1.56],
-      [-30.5, -17.0, 1.68],
-      [-22.0, -15.0, 1.56],
-      [-14.0, -16.5, 1.44],  // reversal 2 — south
-      [ -6.0, -13.5, 1.50],
-      [  2.5,  -9.0, 1.62],
-      [ 11.0,  -9.5, 1.50],  // reversal 3
-      [ 19.5,  -6.0, 1.56],
-      [ 28.0,  -1.5, 1.62],
-      [ 36.0,   1.5, 1.50],
-      [ 43.5,   6.5, 1.40],
-      [ 49.5,  12.5, 1.25],
-      [ 54.0, 19.0, 1.15],  // ── the old head; the eastern half is untouched
-      [ 61.0, 23.5, 1.45],
-      [ 68.5, 28.5, 1.50],
-      [ 75.5, 32.0, 1.35],
-      [ 82.0, 33.2, 1.30],
-      [ 88.0, 30.5, 1.25],
-      [ 90.5, 24.0, 1.30],
-      [ 87.5, 18.5, 1.20],  // hairpin 1 — the river turns back on itself
-      [ 90.5, 13.5, 1.15],
-      [ 96.0, 11.5, 1.20],  // the northern extreme
-      [100.5, 14.0, 1.30],
-      [102.0, 20.0, 1.40],
-      [100.0, 26.0, 1.25],  // hairpin 2
-      [101.5, 31.5, 1.30],
-      [107.0, 34.5, 1.45],  // the southern extreme
-      [111.5, 33.0, 1.40],
-      [115.0, 26.5, 1.55],  // …through the MID basin
-      [113.0, 20.5, 1.30],  // hairpin 3
-      [115.5, 15.0, 1.25],
-      [120.0, 14.5, 1.45],
-      [124.5, 19.0, 1.75],
-      [126.5, 24.0, 2.30],
-      [128.0, 30.0, 3.10],
-      [131.0, 33.5, 4.10],  // …and it is inside LAGOON by here
+      /* ── THE WEST REACH — outfall in the beach pool's east rim, then the
+         photographed line. 198 m of centreline over 178 m of ground. */
+      [-31.0, -14.0, 2.15],  // ── THE OUTFALL, cut into the beach pool's east rim
+      [-23.5, -11.6, 1.80],
+      [-16.0,  -8.2, 1.62],
+      [ -8.0,  -3.6, 1.50],
+      [  0.0,   1.9, 1.56],  // aerial   -0.5 / +1.9 — out of the grove, onto the line
+      [  7.5,   4.3, 1.68],  // aerial    7.4 / +4.3
+      [ 15.0,   4.5, 1.56],  // aerial   12.6 / +4.5
+      [ 22.5,   5.4, 1.44],  // aerial   20.6 / +5.4
+      [ 31.0,   6.2, 1.50],  // aerial   31.1 / +6.2 — reversal 1, south
+      [ 38.0,   3.4, 1.62],  // aerial   36.4 / +3.2 — reversal 2, north
+      [ 45.0,   6.6, 1.50],  // aerial   44.3 / +6.9 — reversal 3, south
+      [ 51.0,   3.8, 1.56],  // aerial   49.5 / +3.6 — reversal 4, north
+      [ 56.0,   6.0, 1.40],  // aerial   54.8 / +5.8 — reversal 5, south
+      /* ── THE EASTERN MEANDER. Same three-hairpin character as before, laid on
+         the photographed line: the river runs out to its southern extreme at
+         x 74 and then climbs steadily NORTH into the crook. */
+      [ 62.0,   8.2, 1.45],  // aerial   60.1 / +8.2
+      [ 69.0,   8.7, 1.50],  // aerial   68.0 / +8.7
+      [ 74.0,   8.9, 1.35],  // aerial   73.3 / +8.9 — the southern extreme
+      [ 79.0,   4.0, 1.30],  // aerial   78.5 / +3.8 — hairpin 1
+      [ 84.0,   1.8, 1.25],
+      [ 88.0,   1.6, 1.30],  // aerial   86.4 / +1.6
+      [ 93.0,   2.4, 1.20],  // aerial   91.7 / +1.6
+      [ 97.0,   3.2, 1.15],  // aerial   97.0 / +3.2
+      [101.0,  -1.5, 1.20],  // hairpin 2
+      [104.0,  -5.4, 1.30],  // aerial  104.9 / −5.4
+      [110.0,  -7.6, 1.40],  // aerial  110.1 / −7.6 — the northern extreme
+      [115.0,  -4.3, 1.25],  // aerial  115.4 / −4.3 — hairpin 3
+      [121.0,  -4.1, 1.30],  // aerial  120.7 / −4.1
+      [127.0,  -3.4, 1.45],  // aerial  128.6 / −3.6
+      [133.0,   0.5, 1.75],  // the mouth opens
+      [138.0,   5.0, 2.30],
+      [143.0,   9.0, 3.10],
+      [147.0,  11.0, 4.10],  // …and it is inside LAGOON by here
     ],
-    MID: { cx: 115.0, cz: 26.0, r: 4.4, deck: 2.0 },
+    /* the mid-river basin, re-registered onto the new line — it sits in the
+       river's northern extreme, which is where the aerial's channel is at its
+       widest (half-width 6…7 m of water at x 102…110) */
+    MID: { cx: 106.0, cz: -6.0, r: 4.4, deck: 2.0 },
 
     /* ── the hairpin out of the lagoon's north rim, and then THE RUN TO THE
        HOTEL (2026-08-02, the proportion pass).
@@ -711,83 +757,95 @@ export const SITE = {
        code in that file: the same two centrelines it always built.
        In the aerial this is exactly the arrangement — the lazy river opens into
        the lagoon, doubles back through the round pools and runs up to the
-       hotel's terraces without a break. */
+       hotel's terraces without a break.
+
+       ⚠ RE-LAID 2026-08-02 (the water POSITION pass) because everything it
+       threads moved: LAGOON went (134, 33) → (152, 12), EAST (147, 13) → the
+       round pool the photograph actually has at (184, 13), EAST2 out to (208,
+       20) and HOTEL_POOLS south around the crook. The shape is the same — out
+       of the lagoon's north-east rim, a short hairpin, then a steady run
+       south-east through both round pools and into HOTEL_POOLS[0]. */
     SPUR: [
-      [136.0, 24.0, 2.40],
-      [135.0, 18.0, 1.55],
-      [137.0, 12.0, 1.35],
-      [141.0,  9.0, 1.45],
-      [145.5, 11.5, 2.00],  // …into EAST
-      [152.5, 17.5, 1.70],
-      [157.5, 23.0, 1.90],  // …into EAST2
-      [166.0, 27.0, 1.55],  // ── THE RUN TO THE CRESCENT
-      [174.5, 23.5, 1.40],
-      [183.0, 22.5, 1.35],
-      [191.5, 18.5, 1.45],
-      [200.0, 15.5, 1.55],
-      [208.5, 12.5, 1.90],
-      [216.5, 10.5, 3.20],  // …into HOTEL_POOLS[1], 10.5 m off its centre
+      [158.0,  -1.0, 2.40],  // out of the lagoon's north-east rim
+      [163.0,  -6.0, 1.55],
+      [169.0,  -5.5, 1.35],  // the hairpin
+      [175.0,  -1.5, 1.45],
+      [182.0,   8.0, 2.00],  // …into EAST
+      [189.0,  12.5, 1.70],
+      [196.0,  16.0, 1.90],  // ── THE RUN TO THE CRESCENT
+      [203.0,  19.0, 1.55],  // …into EAST2
+      [211.0,  20.5, 1.40],
+      [218.0,  21.0, 2.20],
+      [224.0,  21.0, 3.20],  // …into HOTEL_POOLS[0], on its centre
     ],
 
-    EAST: { cx: 147, cz: 13, r: 7.8, deck: 3.2, islandR: 3.1, umbrellas: 7 },
+    /* ── the big round pool with the dark drum in it. MEASURED 2026-08-02: in
+       resort-true-proportions-2.png it is a 13.2 × 13.6 m disc of water whose
+       centre lands at world (183.6, 13.7) — it was at (147, 13), which is now
+       inside the lagoon. */
+    EAST: { cx: 184, cz: 13, r: 7.8, deck: 3.2, islandR: 3.1, umbrellas: 7 },
 
     /* ── the second, smaller circular pool by the hotel (the general pass,
        2026-08-02). In resort-water-features.jpeg there are TWO round pools at
        the east end, not one: the big drum-centred circle EAST already builds,
        and a smaller one north-east of it with a dark round island in the
-       middle. This is that one. */
-    EAST2: { cx: 160.5, cz: 26.5, r: 5.4, deck: 2.6, islandR: 1.9, umbrellas: 4 },
+       middle. This is that one.
+       ⚠ 2026-08-02, the water POSITION pass: the aerial puts it at (213.8,
+       16.6). It is authored at (208, 20) instead — 6 m short — because at
+       213.8 its deck would drive into HOTEL_POOLS[0]'s, and two BASIN_Y
+       surfaces at the same y z-fight. At 208 the two decks just touch, which
+       is the arrangement EAST/EAST2 always had. */
+    EAST2: { cx: 208, cz: 20, r: 5.4, deck: 2.6, islandR: 1.9, umbrellas: 4 },
 
     // the lagoon's planted island, as a fraction of LAGOON.rx / .rz
     ISLAND: { dx: .24, dz: .18, r: 3.4 },
 
     /* footbridges, as [which centreline, t along it 0…1]. t is arc-length
        fraction (water.js resamples both centrelines at a fixed 1.6 m step
-       before indexing), so these had to be retuned when the spine roughly
-       doubled and the spur nearly quadrupled: the four old spine crossings sat
-       at 19/55/90/126 m along a 148 m line and are now at .55/.68/.80/.92 of a
-       ~288 m one. Two new crossings serve the west reach and two the run to the
-       hotel — a bridge is also the only GAP in the collider chain, so a reach
-       without one is a wall across the campus. */
+       before indexing), so these have to be retuned whenever a centreline's
+       LENGTH changes — a bridge is also the only GAP in the collider chain, so
+       a reach without one is a wall across the campus.
+       ⚠ 2026-08-02 (the water POSITION pass): the spine is 198 m now (it was
+       ~288 m — it no longer detours 130 m west to the old beach-pool position)
+       and the spur is 77 m. Every t below was solved against the new polylines
+       and checked to land on OPEN CHANNEL, not inside a basin: the six spine
+       crossings are at (−9, −4), (20, 5), (50, 4), (76, 7), (98, 3), (124, −4)
+       and the three spur crossings at (167, −6), (177, 2), (198, 17). */
     BRIDGES: [
-      ['spine', .12], ['spine', .31], ['spine', .55], ['spine', .68],
-      ['spine', .80], ['spine', .92],
-      ['spur', .13], ['spur', .45], ['spur', .72],
+      ['spine', .12], ['spine', .28], ['spine', .44], ['spine', .58],
+      ['spine', .70], ['spine', .86],
+      ['spur', .15], ['spur', .32], ['spur', .66],
     ],
 
     /* pale walking paths — control points only, water.js smooths them.
-       PATHS[0] is the resort's spine walk and it now runs all the way out to
-       the beach pool's east deck (−70, −31), which is where the pool went. It
-       keeps NORTH of world z −6 for its whole western leg: that is the north
-       edge of the enclave's grass ground (GRAND_LAWN / BEACH_LAWN start there),
-       and a resort path across the ceremony lawn would be exactly the kind of
-       thing nobody notices until the aisle is dressed. It also clears the
-       enclave's own world footprint, whose east-most point is x 16 at z 20…64.
-       The path lanterns (LAMPS, laid along this line) are what draws the walk
-       from the clubhouse to the water at night.
-       PATHS[1] was pushed 3–5 m south of the lagoon's rim — at PATH_Y .060 it
-       would otherwise have drawn OVER the basin water at .045. */
+       ⚠ BOTH RE-LAID 2026-08-02 (the water POSITION pass). They follow the
+       water, so when the water rotated about its middle they had to. At
+       PATH_Y .060 against BASIN_Y .045 a path that strays over a basin DRAWS
+       OVER THE WATER, so every control point below was checked against the new
+       basin ellipses (plus their decks) before it was written down. */
     PATHS: [
-      /* THE RESORT'S SPINE WALK. It used to run down the corridor the west
-         reach now occupies, so it has moved 8…11 m SOUTH of the water — the
-         clubhouse side — and follows the bank the whole way, which is how the
-         aerial has it. It then carries on past the lagoon and into the
-         crescent's crook, ending 11 m short of the hotel pools' deck. The
-         LAMPS are laid along this line and are what draws the walk from the
-         clubhouse to the water at night. */
-      [[-66, -12], [-52, -11], [-38, -10], [-24, -8], [-10, -7], [2, -6],
-       [14, -5], [26, -4], [38, -3], [50, 0], [62, 5.5], [78, 4], [92, 5.5],
-       [104, 3.5], [118, 5.5], [130, 3.0], [142, 2.0], [156, 3.0], [170, 4.5],
-       [184, 5.5], [196, 4.0]],
-      /* the northern loop. Pushed 3–5 m south of the lagoon's rim (at PATH_Y
-         .060 it would otherwise draw OVER the basin water at .045), and now
-         carried east around the north hotel pool, stopping 5 m off its deck. */
-      [[46, 44], [58, 45], [68, 47], [82, 44], [96, 46], [110, 43], [122, 47],
-       [134, 49], [145, 45], [156, 42], [168, 44], [180, 46], [192, 44], [202, 40]],
+      /* THE RESORT'S SPINE WALK — the clubhouse side of the river, 8…11 m south
+         of the channel the whole way, which is how the aerial has it: the
+         resort's spine walk follows the river's bank. It starts on the beach
+         pool's south-east deck, runs the length of the west reach and the
+         eastern meander, then swings SOUTH around the lagoon (which now sits
+         where the old path ran) and ends between the lagoon and the hotel
+         pools. The LAMPS are laid along this line and are what draws the walk
+         from the clubhouse to the water at night. */
+      [[-31, 1], [-20, 6], [-8, 10], [4, 13], [16, 15], [28, 16], [40, 15],
+       [52, 16], [64, 18], [76, 17], [88, 12], [100, 9], [112, 3], [124, 5],
+       [134, 28], [146, 33], [160, 33], [174, 32], [188, 30], [198, 28]],
+      /* THE NORTHERN LOOP — north of the channel and north of the lagoon's rim
+         all the way, which is the side the aerial keeps clear. It threads
+         between the water (z −7.6 at its northern extreme, the lagoon's deck at
+         z −6.4) and the NORTH villa field, whose southern row stands at z −28. */
+      [[46, -13], [58, -15], [70, -16], [84, -15], [98, -16], [112, -16],
+       [124, -15], [136, -13], [148, -11], [160, -10], [172, -11], [184, -9],
+       [196, -5]],
     ],
     PATH_W: 1.3,          // half-width of a path
     LAMPS: 30,            // path lanterns — the night silhouette. 22 over the
-                          // old 190 m walk; the walk is ~280 m now.
+                          // old 190 m walk; the walk is ~250 m now.
   },
 
   // LAGOON is the river's big eastern basin. It KEEPS ITS NAME because
@@ -811,8 +869,17 @@ export const SITE = {
      Deliberately conservative: the aerial's number would nearly double this
      basin, and the failure Carl actually saw is "the pools dominate", so this
      moves toward the measurement rather than to it. The river's width, the
-     beach pool and the hotel's own pools are NOT changed. */
-  LAGOON: { cx: 134, cz: 33, rx: 19.5, rz: 15.5, deck: 3.2, umbrellas: 11 },
+     beach pool and the hotel's own pools are NOT changed.
+     ⚠ 2026-08-02, the water POSITION pass — MOVED, not resized: (134, 33) →
+     (152, 12). Measured on resort-true-proportions-2.png at 0.21957 m/px, the
+     real crook mass (all water in x 118…215, z −45…58) has its centroid at
+     world (153.8, 13.6) and spans x 118…190, z −36.5…+49.8 — 1635 m². Ours sat
+     20 m west and 21 m SOUTH of that, which is why the basins read as sliding
+     out of the crescent's crook toward the villas instead of gathering in it.
+     The crook's centre is also, by construction, the crescent's own arc centre
+     z (SITE.HOTEL.cz = 10) — the building curves around this water. Size is
+     untouched: Carl's note this round was position, not scale. */
+  LAGOON: { cx: 152, cz: 12, rx: 19.5, rz: 15.5, deck: 3.2, umbrellas: 11 },
 
   /* ── the hotel's own pools, in the crook of the crescent ───────────────────
      The gap the general pass was asked to close. resort-water-features.jpeg
@@ -826,10 +893,34 @@ export const SITE = {
      is at r = HOTEL.r − 22/2 − 4 = 80 (campus.js's `rIn - 4`). These sit at
      r ≈ 69, i.e. ~11 m off the podium, and inside the coarse collider ring
      (r 81…109) is the BUILDING, not these — a walker reaches them from the
-     campus side without meeting the ring at all. */
+     campus side without meeting the ring at all.
+
+     ⚠ 2026-08-02, the water POSITION pass — SWUNG SOUTH ALONG THE FACE.
+     The radius is right and is NOT changed; the BEARINGS were wrong. Measured
+     on resort-true-proportions-2.png (0.21957 m/px, anchored on the sand and
+     on the crescent's concave face — see SITE.RIVER.WEST), every square metre
+     of water hugging the real crescent sits at POSITIVE bearing about the arc
+     centre, i.e. SOUTH of the building's centre line:
+
+       bearing   +8.6°  +17°  +26°  +34°  +43°  +52°  +60°   −43°
+       water     12 m²  32    36    37    55    54    66      3
+
+     The north crook is EMPTY in the photograph — it is garden and the villa
+     grid — and the resort's big podium pool complex (1078 m², world x 107…200,
+     z 60…88) is in the SOUTHERN crook, which is exactly where we had nothing.
+     We had the three lobes symmetric about the centre bearing (−0.345, 0,
+     +0.345 → z 33, 10, −13), so one of them stood in the empty half.
+
+     ⚠ SIGN: `cz = acz + cos(C + d) * r` with C = π/2 is `acz − sin(d) * r`, so
+     a NEGATIVE d is SOUTH. The three below are bearings +9.2° / +28.6° / +48.1°
+     south of centre → world (224.1, 21.0), (218.3, 44.0), (201.9, 61.4).
+     Deliberately short of the measured centroid (~+40°): it keeps water in the
+     middle of the crook, which is where Carl reads it, and the lobes are
+     elongated along Z by water.js, which only stays true while they are near
+     the centre bearing. */
   HOTEL_POOLS: (() => {
     const acx = HOTEL_CX - HOTEL_R, acz = HOTEL_CZ, C = Math.PI / 2;
-    return [[-0.345, 69, 10.5, 3.4], [0, 71, 12.5, 3.8], [0.345, 69, 10.5, 3.4]]
+    return [[-0.16, 69, 10.5, 3.4], [-0.50, 71, 12.5, 3.8], [-0.84, 69, 10.5, 3.4]]
       .map(([d, r, rad, deck]) => ({
         cx: acx + Math.sin(C + d) * r, cz: acz + Math.cos(C + d) * r,
         r: rad, deck, umbrellas: 6,
@@ -884,8 +975,13 @@ export const SITE = {
     const out = [];
     const acx = HOTEL_CX - HOTEL_R, acz = HOTEL_CZ;
     const skip = (x, z) => {
-      // the river's east basins, the lagoon and their decks
-      if (x > 84 && x < 175 && z > -8 && z < 46) return true;
+      /* the river's east basins, the lagoon and their decks. ⚠ the z band
+         moved with the water on 2026-08-02 (the position pass): the system now
+         runs z −14…+40 through here, not −8…+46. Neither villa field reaches
+         into it (NORTH stops at z −28, SOUTH-EAST starts at z 66), so this
+         removes no boxes — it is here so a future move of either field can't
+         quietly drop one in the lagoon. */
+      if (x > 84 && x < 200 && z > -14 && z < 40) return true;
       // Carl's own enclave envelope, in WORLD coords, padded
       if (x < 46 && z > -78 && z < 126) return true;
       // the crescent itself, its podium and its pools — polar, not radial

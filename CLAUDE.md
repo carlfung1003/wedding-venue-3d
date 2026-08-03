@@ -232,6 +232,165 @@ commit**, and never trust a "done" report without its evidence attached.
 project URL rather than the domain — **always curl `venue.carlfung.dev` and
 confirm it serves the new build.**
 
+## THE WATER POSITION PASS — DONE 2026-08-02
+
+> *"referencing to the bird's-eye view map, the water feature is a lot closer to
+> the actual one, but you can see that it still needs some fine tuning in terms
+> of the position."* — Carl, with `reference/photos/resort-true-proportions-2.png`
+> beside `build-after-proportion-night.png`
+
+**`js/site.js` only** — `SITE.RIVER.{WEST,BAR,SPINE,MID,SPUR,EAST,EAST2,BRIDGES,PATHS}`,
+`SITE.LAGOON`, `SITE.HOTEL_POOLS`, and the villa `skip()` z-band. Nothing else was
+touched: no builder, no geometry, no villa moved or deleted, the crescent
+untouched (`arc` 2.35 / `r` 95), `SITE.BEACH` untouched.
+
+The deliverable is **`reference/photos/compare-water-position-2026-08-02.png`** —
+reality, before and after stacked at an IDENTICAL world rectangle, pixel for pixel.
+Also `build-water-position-topdown-2026-08-02.png` (+ `-night`) and
+`build-river-unbroken-water-position-2026-08-02.png`.
+
+### The ruler, and why it is trustworthy this time
+
+`resort-true-proportions-2.png` **is `westin-site-map.jpeg` at 2× zoom** — SIFT +
+RANSAC over the pair returns a pure similarity `A = 0.5·B + (298.878, 226.879)`,
+**2795 of 2848 matches inlying, rotation 1.5 × 10⁻⁵ °**. Same photograph, twice
+the resolution, so the old 0.45 m/px calibration carries straight over.
+
+Anchored on **two** things instead of one:
+- the sand's inland edge (aerial u 89 ↔ `SITE.BEACH.x1` = −136), and
+- the crescent's concave face at its centre bearing (aerial u 1801 ↔ 156 + `rIn` 84).
+
+That gives **0.21957 m/px**, 2.4 % off the 0.225 a pure 2× would give — the model's
+campus is 2.4 % narrower than the photograph across a 376 m baseline. Two
+independent checks came out inside a metre of the model: the sand edge lands at
+world **−138.6** against `BEACH.x1` −136, and the presidential pool measures
+**22.8 × 9.7 m** against the built 25.3 × 11.0.
+
+⚠ **The previous pass's crescent circle fit does NOT reproduce.** Re-fitting on
+the 2× frame — RANSAC over 61k white perimeter pixels, 6194 inliers — puts the
+arc centre at aerial (1481.4, 289.6) with the building's OUTER white edge at
+**474.7 px = 106.8 m**, against the model's outer radius of `r + DEP/2` = 106.
+**The radius and the depth are right; the CENTRE is ~19 m east of where the model
+puts it**, and a radial profile about that centre finds the guest-room mass at
+72…94.5 m rather than the model's 84…106. This is why the ruler is anchored on
+the FACE and not on the centre — and it is a real, unresolved discrepancy in the
+crescent, left alone here because `r` is load-bearing (see the proportion pass).
+
+### What was wrong, measured
+
+| | reality (world) | build before | build after |
+|---|---|---|---|
+| beach pool centre | **(−45.2, +11.5)**, water r 17.0 | (−83.2, −28.2) — **55.4 m off** | (−46, −14) — **25.6 m off**, all of it z |
+| water-edge → sand | 73 m | 37 m (it was ON the beach) | 74.8 m |
+| crook basin mass centroid | **(153.8, +13.6)**, 1635 m² over x 118…190, z −36…+50 | (135.1, +28.6) — **24.3 m off** | (157.7, +11.9) — **4.4 m off** |
+| the band's slope W→E | z +2 at x 0 → **−7.6** at x 110 (**−24 m, NORTH**) | z −24 → **+33** (**+57 m, SOUTH**) | z +1.9 → −7.6 (on the measurement) |
+| water hugging the face | **all of it at +9°…+60° bearing** (south of centre); the north crook is 3 m² | three lobes at −20°/0°/+20° — one stood in the empty half | +9.2° / +28.6° / +48.1° |
+
+**The headline finding: the system was rotated the wrong way about its own
+middle.** The real river leaves the beach pool at z ≈ +2, holds z +4…+9 for 80 m
+and then climbs NORTH to −7.6 before opening into the crook. Ours sloped SOUTH
+by 57 m over the same ground. That, and not any single feature's offset, is what
+Carl was looking at.
+
+### What moved
+
+- **`RIVER.WEST` (−84, −28) → (−46, −14)**, `BAR` with it (same rim offset).
+- **`RIVER.SPINE` re-laid on the photograph**, 40 pts / ~288 m → 31 pts / 198 m.
+  Sixteen of the new z values are tracked points off the aerial and are quoted
+  in the source beside the line they set. The channel WIDTHS are unchanged —
+  Carl verified those against `lazy-river-closeup.png` and only the line moved.
+- **`RIVER.MID` (115, 26) → (106, −6)** — the river's northern extreme, which is
+  where the aerial's channel is genuinely widest (6…7 m half-width).
+- **`SITE.LAGOON` (134, 33) → (152, 12)**, size untouched. (152, 12) is also, by
+  construction, the crescent's own arc-centre z — the building curves around it.
+- **`RIVER.EAST` (147, 13) → (184, 13)** — the aerial's round drum pool measures
+  13.2 × 13.6 m centred on (183.6, 13.7). At 147 it would now be inside the lagoon.
+- **`RIVER.EAST2` (160.5, 26.5) → (208, 20)**. The aerial says (213.8, 16.6); 208
+  is 6 m short so its sand deck only just touches `HOTEL_POOLS[0]`'s instead of
+  driving into it — two `DECK_Y`/`BASIN_Y` surfaces at one y z-fight.
+- **`SITE.HOTEL_POOLS` swung SOUTH along the face**, bearings −0.345/0/+0.345 →
+  **−0.16/−0.50/−0.84 rad**. Radii unchanged (69/71/69), so they still hug the
+  podium. ⚠ **SIGN:** `cz = acz + cos(π/2 + d)·r` is `acz − sin(d)·r`, so a
+  NEGATIVE `d` is SOUTH. Getting this backwards puts all three in the empty half.
+- **`RIVER.SPUR` re-laid** (14 → 11 pts, 77 m) — it threads the same four basins.
+- **`BRIDGES` re-solved** against the new arc lengths and each `t` checked to land
+  on OPEN CHANNEL, not inside a basin: spine .12/.28/.44/.58/.70/.86, spur
+  .15/.32/.66. **A bridge is the only GAP in the collider chain** — a reach
+  without one is a wall across the campus.
+- **`PATHS` both re-laid.** [0] follows the bank 8…11 m south of the water and
+  then swings SOUTH around the lagoon (which now sits where the old path ran);
+  [1] is genuinely the northern loop again, threaded between the water's northern
+  extreme and the NORTH villa field's z −28 row. At `PATH_Y` .060 against
+  `BASIN_Y` .045 a stray control point DRAWS OVER the water, so every one was
+  checked against the new basin ellipses plus their decks.
+- **`RESORT_VILLAS.skip()`** z band −8…46 → −14…40 (and x < 175 → 200) to track
+  the water. **It removes no villas** — NORTH stops at z −28, SOUTH-EAST starts at
+  z 66 — it is there so a future move of either field can't drop one in the lagoon.
+
+**No villa was moved or deleted, and none needed to be.** Both fields already
+frame the new water; the crescent-polar `skip` test is untouched.
+
+### The 25.6 m that is left in the beach pool, and whose fault it is
+
+The pool's x is dead on the measurement. Its z is **25.6 m north** of it, and that
+is a clearance, not a compromise on the reading: `SITE.LOUNGE_POOL` sits at world
+x −54.5…−30.4, z 9…24.4, and a 20.8 m deck centred on the measured z +11.6 is
+built straight through it. At cz −14 there are 2.2 m to spare.
+
+**The residual is exactly the clubhouse's own error.** Measured on the same
+frame, the presidential pool is at **(−39.2, +96.2)** against our (−34, 74) — the
+whole enclave sits **~22 m north** of where the photograph puts it. `ENCLAVE.oz`
+74 → ~96 would release this pool and close the last visible gap in the top-down.
+It was not done here: the enclave move is not what Carl asked for, he approved
+the current position, and it re-opens every spawn and walk test.
+
+### Verified — headless Playwright, zero page errors, zero console errors or warnings
+
+- **Rooftop, exact.** Brunch spawn feet **26.600**; walk west, feet **25.320**;
+  strafe both ways, still 25.320; walk back, "Pour a glass" fires. `floorY` at
+  DERIVED polar points (never literals) at five bearings θ = −0.9 / −0.45 / 0 /
+  +0.34 / +0.9: deck **26.600**, pool basin **25.320**, infinity lip **25.320**,
+  inland deck **26.600**, stair-tower ground **0.000**.
+- **All six moments** switch, dress, night-flip and spawn flat with **zero
+  first-frame drift**: brunch 26.600, the other five 0.000.
+- **Suite spawn → out through the folding glass** onto the turf, feet 0.000 the
+  whole way (x −16 → −29.1).
+- **Ceremony** spawn → up the aisle → "Stand at the arch". **Cocktail** → "Order
+  from the bar". **After party** → "Request a song" already in reach. **Dinner**
+  → up the lawn, feet 0.000.
+- **The river is unbroken**, checked structurally rather than by eye: `SPINE[0]`
+  resolves inside the `west` basin, `SPINE.at(-1)` inside `lagoon`, `SPUR[0]`
+  inside `lagoon`, `SPUR.at(-1)` inside `hotel0`; max step between control points
+  9.7 m against water.js's 1.6 m resample.
+- **The hero pool is still the only pool visible from the great room**, and the
+  margin got BETTER, not worse. Against a 44.6° half-FOV: hero pool 0.0° off
+  axis; lounge pool 59.8°; **beach pool 50.6° → 64.0°** (it was the tightest
+  margin on the campus); MID 145.9°, lagoon 154.1°, EAST 161.3°, EAST2 165.4°.
+- **Cost** (same probe both sides, three accumulated frames so the Reflector's
+  second pass is counted): draw calls **5958 → 5898 (−60)**, triangles
+  **4,264,872 → 4,108,356 (−156,516, −3.7 %)**, colliders **8485 → 8429 (−56)**,
+  **lights unchanged (34)**, meshes / geometries / textures all unchanged. The
+  river simply has 90 m less of itself to build.
+
+### Still not matching the aerial, deliberately
+
+1. **The beach pool is 25.6 m north** — see above; it is the clubhouse's 22 m.
+2. **The crescent's arc centre is ~19 m west of the photograph's** and its
+   guest-room mass sits 12 m further out from that centre. Its consequence here
+   is that the model's crook is wider and shallower than the real one, so the
+   basins sit further off the face than the aerial's do. `r` is load-bearing.
+3. **The lagoon is smaller than reality's** (39 × 31 m against a 1635 m² crook
+   mass spanning 72 × 86 m). That is the proportion pass's deliberate call —
+   *"the failure Carl actually SAW was the pools dominate"* — and nothing this
+   round contradicted it. If he wants more water, this is still where it goes.
+4. **The resort's south-crook podium pool** (real: 1078 m², world x 107…200,
+   z 60…88) is only half-represented — `HOTEL_POOLS[2]` at (201.9, 61.4) is its
+   east end. The rest of it would sit on open ground and is a cheap win.
+5. **The beach pool no longer sits inside the palm grove.** `PALM_GROVE` ends at
+   x −66 and the pool now spans −66.8…−25.2, so it reads as sitting on lawn where
+   the aerial has it ringed by trees. `SCATTER_PALMS` half-covers it. Extending
+   the grove east is dressing, not position, and was out of scope.
+
 ## THE PROPORTION PASS — DONE 2026-08-02
 
 Carl put the real aerial beside the build (`reference/photos/resort-true-proportions.jpeg`
@@ -720,6 +879,10 @@ lawn's design is actually derived from:
    bug. See **The rooftop is walkable** below.
 8. ~~The atrium is a HALLWAY and the rooms ATTACH to it~~ — DONE 2026-08-02,
    see below.
+10. ~~THE WATER POSITION PASS~~ — DONE 2026-08-02: the whole water system
+   re-laid on `resort-true-proportions-2.png` (the beach pool 38 m east, the
+   river's band un-rotated, the lagoon into the crook, the hotel pools swung
+   south along the face). See the top of this file.
 9. ~~THE PROPORTION PASS~~ — DONE 2026-08-02: the crescent grown and pulled in,
    the water reconnected beach→hotel, the enclave moved south-east, `SITE.LAWN`
    deleted, the villa field demoted to context. See the top of this file.
