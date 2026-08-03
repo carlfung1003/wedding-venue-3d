@@ -445,32 +445,56 @@ export const SITE = {
                           // purpose: in the reference the lazy river is cut
                           // straight through planting, not through a beach
 
-    /* ── THE BEACH POOL (Carl, 2026-08-02) ─────────────────────────────────
-       reference/photos/beach-pool-circular.png. Not "the west end of the
-       river" any more — it is the resort's big circular beach pool, and Carl
-       asked for it CLOSE TO THE CLUBHOUSE, because it is the water guests see
-       when they walk out of the enclave.
+    /* ── THE BEACH POOL ────────────────────────────────────────────────────
+       reference/photos/beach-pool-circular.png (ground level) and
+       beach-pool-near-beach-aerial.png (top-down). It is the resort's big
+       circular beach pool: concentric-ring medallions on its floor, a
+       sand-coloured deck, white umbrellas, a round bar structure jutting into
+       its south-west rim and one enormous shade tree on the north-west.
 
-       Moved cx 65 → 48 and grown r 12 → 15.2, so its sand deck now starts at
-       x ≈ 24.5 instead of x ≈ 50. The enclave's WORLD footprint stops at
-       x ≈ 16 (the 2-BR courtyards on the atrium's north face are the
-       east-most thing in it: local z −74 → world x = 74 − 58), so that is ~8 m
-       of planting between the deck and the enclave rather than 34.
+       ⚠ MOVED WEST 2026-08-02 (second pass). Carl, on seeing it at cx 48:
+       *"the beach pool must sit VERY CLOSE to the beach"*. In the top-down
+       aerial there is NOTHING between the pool and the sand but a belt of
+       palms, and the clubhouse sits well inland of it and to the south. At
+       cx 48 the sand was 163 m away — the pool was a mid-campus feature, not
+       a beach one.
 
-       It also gets what the photograph shows and the old basin did not: the
-       CONCENTRIC-RING medallions on its floor, white umbrellas rather than the
-       resort's blue ones, and the big shade tree on its north rim. The round
-       bar sits on the south-west rim, jutting into the water, exactly as it
-       does in the reference — and away from the river's outfall, which is now
-       on the east rim (see SPINE below). */
-    WEST: { cx: 48, cz: 20, r: 15.2, deck: 5.6, umbrellas: 12,
+       Now (−82, −34), which is 130 m west of where it was:
+         · its deck's outer edge reaches x −102.7, so the palm belt between the
+           pool and the sand's inland edge (SITE.BEACH.x1 = −136) is 33 m and
+           there is nothing else in it. It was 163 m and half the campus.
+         · it sits NORTH of the enclave's grass ground, which occupies world
+           z −6…46 all the way out to the beachfront lawn at x −116…−133. The
+           ceremony and cocktail ground is the one thing out here that may not
+           be built over, and the pool's deck stops 17 m short of it — which is
+           also the aerial's relationship, where the clubhouse's private lawn
+           lies SOUTH of the public pool.
+         · ~100 m from the clubhouse core (world −17, 42), against 119 m from
+           the clubhouse to the sand.
+
+       ⚠ IT WANTS TO BE ~10 m FURTHER WEST AND CANNOT GO THERE YET. The site
+       plan is not what stops it — world.js's adoptWater() is. The whole river
+       system is ONE group and it is spared the enclave's 90° rotation only
+       because its bounding-box CENTRE sits east of a hard-coded x = 84; the
+       beach pool is the west end of that box. Measured 2026-08-02: the box runs
+       x0 = cx − 20.7 to x1 = 278.4, so the centre crosses 84 at cx = −89.7 and
+       at cx = −92 the ENTIRE RIVER silently swings 90° and runs north–south
+       along the beach. −82 leaves 7.7 m of headroom, which is deliberate: the
+       margin has to survive somebody widening the pool deck or extending
+       PATHS[0]. The one-line unblocker is written up in CLAUDE.md's polish
+       backlog; do that first, then this can go to cx −92.
+
+       The river no longer flows out of this pool — see SPINE. */
+    WEST: { cx: -82, cz: -34, r: 15.2, deck: 5.6, umbrellas: 12,
       RINGS: [                      // [dx, dz, r] as a fraction of the pool's r
         [-.30, -.26, .30], [.16, -.34, .22], [.34, .10, .27],
         [-.06, .30, .34], [-.42, .16, .18], [.02, -.02, .46],
       ],
       TREE: { dx: -.72, dz: -1.02, r: 8.4, h: 9.0 },  // the big shade tree
     },
-    BAR:  { cx: 36.5, cz: 33.5, r: 5.6, h: 3.4 },
+    /* the round bar keeps its offset from the pool's centre (−11.5, +13.5) —
+       the south-west rim, as in the reference */
+    BAR:  { cx: -93.5, cz: -20.5, r: 5.6, h: 3.4 },
 
     /* ── THE LAZY RIVER. ~148 m of centreline over 70 m of ground: five full
        reversals, three of them proper hairpins, exactly the scribble the
@@ -486,13 +510,21 @@ export const SITE = {
        paddleboard, no passing. It only opens up where it has a reason to: the
        outfall from the beach pool and the mouth into the lagoon.
 
-       The head also moved west with the beach pool (SITE.RIVER.WEST, cx 65 →
-       48): the outfall is now at x 62 on that pool's EAST rim, and the first
-       three control points carry the channel back out to where the old scribble
-       started. Nothing east of x 88 changed. */
+       ⚠ THE RIVER NO LONGER RUNS OUT OF THE BEACH POOL (2026-08-02, second
+       pass). It used to: the head was an outfall cut into that pool's east rim
+       at x 62. With the pool moved out to the beach at cx −92 that would have
+       meant a 155 m straight channel back across the palm grove and past the
+       enclave's north flank — which is not only unbuildable, it is not what the
+       resort has. In beach-pool-near-beach-aerial.png the circular beach pool
+       is a self-contained pool by the sand and the lazy river is a SEPARATE
+       system further inland; nothing connects them.
+       So the head is now the river's own spring basin in the palm grove at
+       (54, 19), and the channel picks up its old course by x 75. Nothing east
+       of x 88 has ever changed. */
     SPINE: [
-      [ 62.0, 24.0, 1.95],  // outfall, inside the beach pool's east rim
-      [ 68.5, 28.5, 1.55],
+      [ 54.0, 19.0, 1.15],  // the river's own head, a spring in the palm grove
+      [ 61.0, 23.5, 1.45],
+      [ 68.5, 28.5, 1.50],
       [ 75.5, 32.0, 1.35],
       [ 82.0, 33.2, 1.30],
       [ 88.0, 30.5, 1.25],
@@ -542,13 +574,20 @@ export const SITE = {
     BRIDGES: [['spine', .13], ['spine', .37], ['spine', .61], ['spine', .85], ['spur', .50]],
 
     /* pale walking paths — control points only, water.js smooths them.
-       PATHS[0] now starts at x 26, out by the enclave: with the beach pool
-       moved west there is a real walk from the clubhouse to the water, and the
-       path lanterns (LAMPS, laid along this line) are what draws it at night.
-       PATHS[1] was pushed 3–5 m south of the lagoon's new rim — at PATH_Y .060
-       it would otherwise have drawn OVER the basin water at .045. */
+       PATHS[0] is the resort's spine walk and it now runs all the way out to
+       the beach pool's east deck (−70, −31), which is where the pool went. It
+       keeps NORTH of world z −6 for its whole western leg: that is the north
+       edge of the enclave's grass ground (GRAND_LAWN / BEACH_LAWN start there),
+       and a resort path across the ceremony lawn would be exactly the kind of
+       thing nobody notices until the aisle is dressed. It also clears the
+       enclave's own world footprint, whose east-most point is x 16 at z 20…64.
+       The path lanterns (LAMPS, laid along this line) are what draws the walk
+       from the clubhouse to the water at night.
+       PATHS[1] was pushed 3–5 m south of the lagoon's rim — at PATH_Y .060 it
+       would otherwise have drawn OVER the basin water at .045. */
     PATHS: [
-      [[26, 4], [44, 2], [62, 5.5], [78, 4], [92, 5.5], [104, 3.5], [118, 5.5],
+      [[-60, -31], [-44, -27], [-28, -22], [-12, -17], [4, -11], [20, -4],
+       [32, 1], [44, 2], [62, 5.5], [78, 4], [92, 5.5], [104, 3.5], [118, 5.5],
        [130, 3.0], [142, 2.0], [152, 5.0], [157, 12], [154, 20]],
       [[40, 42], [55, 45], [68, 47], [82, 44], [96, 46], [110, 43], [122, 47],
        [134, 49], [145, 45], [152, 35], [151, 26]],

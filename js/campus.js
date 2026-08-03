@@ -272,50 +272,146 @@ function texPark() {
   }, [3, 1]);
 }
 
-/* main hotel facade: 7 terraced floors, white lattice exoskeleton (p1 aerial) */
+/* ════════════════════════════════════════════════════════════════════════
+   THE WESTIN CRESCENT'S TWO ELEVATIONS
+   Rebuilt 2026-08-02 from real photographs — see reference/hotel-facade-brief.md
+   for the frames and what each one settles. Everything before this was inferred
+   from a low-resolution aerial and Carl (who has stayed there) said so.
+
+   The building has TWO completely different faces and the old code gave both
+   of them the same diagonal white lattice, which is on neither:
+
+   · CONCAVE (west, over the gardens — THE ONE THE CAMPUS SEES): seven storeys
+     of guest balconies. Per storey, top to bottom: a bright white SLAB EDGE,
+     recessed TEAL-GREEN glazing divided by white mullions, and standing in
+     front of it the building's signature — a solid white balustrade shaped as
+     a TRIANGLE, apex up, one per bay. The whole 142 m arc reads as a field of
+     white triangles on green glass, banded by white slabs.
+   · CONVEX (east, the arrival side): a white sculptural SCREEN punched with
+     irregular, tapering, leaf-shaped slits in loose vertical columns. Nothing
+     rectilinear about it and nothing diagonal either.
+
+   One canvas tile = 4 bays; repeat 9 → 36 bays over the arc ≈ 3.96 m each,
+   which is a real guest-room module. Both maps are 1024² so a bay gets 256 px.
+   ════════════════════════════════════════════════════════════════════════ */
+const HOTEL_BAYS = 4, HOTEL_TILES = 9;
+
+/* ⚠ Both maps are drawn UPSIDE DOWN on purpose. THREE.CanvasTexture ships with
+   flipY = true, so canvas-row 0 lands at the TOP of the building — draw a
+   storey section reading downwards and every triangle comes out apex-DOWN,
+   which is exactly the wrong building. `flipRows` mirrors the canvas once so
+   the code below can be read the way an elevation is read: slab, then glazing,
+   then the balustrade standing on the floor. Both maps take the same flip, so
+   they stay registered with each other. */
+function flipRows(g, h, draw) { g.save(); g.translate(0, h); g.scale(1, -1); draw(); g.restore(); }
+
 function texHotelFacade() {
   const F = SITE.HOTEL.floors;
-  return tex(512, 512, (g, w, h) => {
-    g.fillStyle = '#cfcabe'; g.fillRect(0, 0, w, h);
-    const row = h / F, rnd = mulberry32(1237);
+  return tex(1024, 1024, (g, w, h) => flipRows(g, h, () => {
+    const row = h / F, bay = w / HOTEL_BAYS, rnd = mulberry32(20270318);
     for (let f = 0; f < F; f++) {
-      const y = h - (f + 1) * row;
-      g.fillStyle = '#2e353c'; g.fillRect(0, y + row * .18, w, row * .5);      // glazing band
-      g.fillStyle = '#e6e1d4'; g.fillRect(0, y + row * .68, w, row * .32);     // slab edge
-      g.fillStyle = 'rgba(255,255,255,.25)'; g.fillRect(0, y + row * .68, w, 3);
-      for (let x = 0; x < w; x += 64) {                                        // balcony dividers
-        g.fillStyle = `rgba(228,224,212,${.5 + rnd() * .3})`;
-        g.fillRect(x, y + row * .12, 5, row * .6);
+      const y = f * row;
+      /* ── the glazed reveal behind the balcony ── */
+      for (let b = 0; b < HOTEL_BAYS; b++) {
+        const x = b * bay;
+        const gr = g.createLinearGradient(0, y + row * .17, 0, y + row);
+        gr.addColorStop(0, '#1c414b');      // the deep top of the reveal
+        gr.addColorStop(.5, '#356a72');
+        gr.addColorStop(1, '#4d878c');      // sky landing in the lower panes
+        g.fillStyle = gr;
+        g.fillRect(x, y + row * .17, bay, row * .83);
+        g.fillStyle = '#e9e5da';            // white mullions: bay edges + centre
+        g.fillRect(x, y + row * .17, bay * .075, row * .83);
+        g.fillRect(x + bay * .4825, y + row * .17, bay * .045, row * .83);
+        g.fillRect(x + bay * .925, y + row * .17, bay * .075, row * .83);
       }
+      /* ── the slab edge: the bright horizontal that bands the whole arc ── */
+      g.fillStyle = '#f5f2e9'; g.fillRect(0, y, w, row * .17);
+      g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(0, y, w, row * .035);
+      g.fillStyle = 'rgba(52,58,56,.34)';    g.fillRect(0, y + row * .17, w, row * .035);
+      /* ── THE TRIANGLES. One solid balustrade per bay, standing on the slab
+            below and rising almost to the one above. The shaded right cheek is
+            what keeps them reading as solid volumes rather than white paint at
+            285 m, where the whole triangle is barely three pixels tall. ── */
+      for (let b = 0; b < HOTEL_BAYS; b++) {
+        const x = b * bay, base = y + row * .998, apex = y + row * .195;
+        const k = .93 + rnd() * .07;
+        /* the triangles nearly TOUCH — in the photographs the white is the
+           ground and the glass shows only as narrow wedges between apexes.
+           Leave a wide gap and the elevation inverts into teal-with-white-dots,
+           which is what the first pass rendered. */
+        g.beginPath();
+        g.moveTo(x - bay * .015, base);
+        g.lineTo(x + bay * .50, apex);
+        g.lineTo(x + bay * 1.015, base);
+        g.closePath();
+        g.fillStyle = `rgb(${245 * k | 0},${242 * k | 0},${233 * k | 0})`; g.fill();
+        g.beginPath();
+        g.moveTo(x + bay * .50, apex);
+        g.lineTo(x + bay * 1.015, base);
+        g.lineTo(x + bay * .50, base);
+        g.closePath();
+        g.fillStyle = 'rgba(140,144,140,.34)'; g.fill();
+      }
+      /* the balcony's own nosing, under the triangles */
+      g.fillStyle = 'rgba(238,234,224,.9)'; g.fillRect(0, y + row * .965, w, row * .035);
     }
-    /* white lattice exoskeleton — diagonal ribs over the whole face */
-    g.strokeStyle = 'rgba(248,246,238,.55)'; g.lineWidth = 5;
-    for (let x = -h; x < w + h; x += 74) {
-      g.beginPath(); g.moveTo(x, 0); g.lineTo(x + h, h); g.stroke();
-      g.beginPath(); g.moveTo(x + h, 0); g.lineTo(x, h); g.stroke();
-    }
-    g.strokeStyle = 'rgba(248,246,238,.75)'; g.lineWidth = 6;
-    for (let x = 0; x < w; x += 128) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
-  }, [26, 1]);
+  }), [HOTEL_TILES, 1]);
 }
 
-/* the same grid as an emissive map — hundreds of warm windows, seeded on/off */
+/* The same elevation as an emissive map. reference/video/hotel-frames/dawn_017
+   (and screenrec_010) is the night the crescent actually has: NOT a continuous
+   ribbon of light, but discrete warm slots — roughly three rooms in five lit,
+   the slabs and the concrete triangles staying dark. So the glow is painted
+   only into the glazed reveal, above the balustrade's shoulders. */
 function texHotelWindows() {
   const F = SITE.HOTEL.floors;
-  return tex(512, 512, (g, w, h) => {
+  return tex(1024, 1024, (g, w, h) => {
     g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
-    const row = h / F, rnd = mulberry32(CFG.SEED % 99991);
-    for (let f = 0; f < F; f++) {
-      const y = h - (f + 1) * row;
-      for (let x = 6; x < w; x += 32) {
-        const on = rnd();
-        if (on < .34) continue;
-        const a = .45 + on * .55;
-        g.fillStyle = `rgba(${255},${196 + rnd() * 40 | 0},${118 + rnd() * 50 | 0},${a})`;
-        g.fillRect(x, y + row * .22, 20, row * .42);
+    flipRows(g, h, () => {
+      const row = h / F, bay = w / HOTEL_BAYS, rnd = mulberry32(CFG.SEED % 99991);
+      for (let f = 0; f < F; f++) {
+        const y = f * row;
+        for (let b = 0; b < HOTEL_BAYS; b++) {
+          if (rnd() < .40) continue;                       // a dark room
+          const x = b * bay, a = .58 + rnd() * .42;
+          g.fillStyle = `rgba(255,${186 + rnd() * 46 | 0},${108 + rnd() * 56 | 0},${a})`;
+          g.fillRect(x + bay * .095, y + row * .215, bay * .35, row * .31);
+          if (rnd() > .32) g.fillRect(x + bay * .555, y + row * .215, bay * .35, row * .31);
+        }
       }
+    });
+  }, [HOTEL_TILES, 1]);
+}
+
+/* THE ARRIVAL FACE — reference/photos/hotel-westin-hotel-front.webp, and the
+   canopy crop beside it. A white sculptural screen stood off the guest rooms
+   and cut with tall, irregular, tapering slits that lean and taper like blades
+   of grass, loosely ordered into vertical columns. The rooms behind it read as
+   shadow through the openings. */
+function texHotelScreen() {
+  return tex(512, 1024, (g, w, h) => {
+    g.fillStyle = '#f0ede4'; g.fillRect(0, 0, w, h);
+    const rnd = mulberry32(7734), COLS = 6, ROWS = 13;
+    const cw = w / COLS, ch = h / ROWS;
+    for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) {
+      const x = c * cw + cw * (.14 + rnd() * .26);
+      const y = r * ch + ch * (.10 + rnd() * .16);
+      const sw = cw * (.20 + rnd() * .26), sh = ch * (.46 + rnd() * .34);
+      const lean = (rnd() - .5) * sw * 1.6;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.quadraticCurveTo(x + sw * .95, y + sh * .42, x + lean + sw * .28, y + sh);
+      g.lineTo(x + lean, y + sh);
+      g.quadraticCurveTo(x + sw * .06, y + sh * .48, x, y);
+      g.closePath();
+      g.fillStyle = `rgb(${44 + rnd() * 22 | 0},${45 + rnd() * 22 | 0},${44 + rnd() * 20 | 0})`;
+      g.fill();
     }
-  }, [26, 1]);
+    /* the shadow the screen throws on itself along every column edge */
+    g.fillStyle = 'rgba(120,118,108,.16)';
+    for (let c = 0; c < COLS; c++) g.fillRect(c * cw, 0, cw * .06, h);
+  }, [16, 1]);
 }
 
 /* pale mosaic + a soft ripple web — the rooftop pool's basin.
@@ -472,6 +568,7 @@ function makeMaterials() {
   const stucco = texStucco(), roof = texRoof(), deck = texDeck(), slat = texSlat();
   const marble = texMarble(), paver = texPaver(), stone = texStone(), turf = texTurf();
   const hotelFace = texHotelFacade(), hotelWin = texHotelWindows(), sign = texSign();
+  const hotelScreen = texHotelScreen();
   const lattice = texLatticePair(), screenGlow = texScreenGlow(), stars = texStarField();
 
   const m = {
@@ -527,7 +624,10 @@ function makeMaterials() {
     /* the crescent's podium is seen from inside its cylinder, like the facade */
     hotelPodium: tint(new THREE.MeshStandardMaterial({ map: retile(stone, 30, 1), roughness: .9,
       side: THREE.BackSide }), 0x818898),
-    waveCanopy: tint(new THREE.MeshStandardMaterial({ color: 0x2f6fa8, roughness: .5, metalness: .25,
+    /* the porte-cochère's ribs. Muted blue-STEEL, not the bright cobalt the
+       first pass used — in the reference photo the wave roof is a cool
+       gunmetal that only reads blue against the white screen behind it. */
+    waveCanopy: tint(new THREE.MeshStandardMaterial({ color: 0x6d8398, roughness: .44, metalness: .38,
       side: THREE.DoubleSide }), 0x707d96),
 
     /* glazing — warm interiors switch on after dark */
@@ -552,7 +652,29 @@ function makeMaterials() {
       map: hotelFace, emissive: 0xffb265, emissiveMap: hotelWin, emissiveIntensity: 0,
       roughness: .82, side: THREE.BackSide,
     }),
-    hotelBack: tint(new THREE.MeshStandardMaterial({ map: retile(hotelFace, 26, 1), roughness: .9 }), 0x606776),
+    /* the ARRIVAL face — the white perforated screen, seen from the east */
+    hotelBack: tint(new THREE.MeshStandardMaterial({ map: hotelScreen, roughness: .88 }), 0x5e6572),
+    /* the crescent's two blank end walls and the tall sky-bar block at its
+       north tip: plain white concrete, no screen, no glazing pattern */
+    hotelEnd: tint(new THREE.MeshStandardMaterial({ color: 0xeceadf, roughness: .84 }), 0x656c7a),
+    /* the bronze circulation cores that break the arc into segments. Warm,
+       satin, slightly proud of the facade — the only non-white vertical on the
+       whole elevation and the thing that stops 142 m of arc reading as one
+       endless band. DoubleSide: it rides the concave face, which is seen from
+       INSIDE the cylinder. */
+    hotelCore: tint(new THREE.MeshStandardMaterial({
+      color: 0x6f5238, roughness: .6, metalness: .22, side: THREE.DoubleSide }), 0x6e6a74),
+    /* the white balcony parapets, one open cylinder per floor at the slab's
+       outer edge. These are the only part of the balcony rhythm that is real
+       geometry, and they are what makes the arc read as balconies rather than
+       as a printed texture when the sun rakes across it. */
+    hotelRail: tint(new THREE.MeshStandardMaterial({
+      color: 0xf3f0e7, roughness: .76, side: THREE.DoubleSide }), 0x8f96a6),
+    /* the lobby/restaurant glazing wrapping the podium, deep in its own shadow.
+       Warm inside after dark, like every other window on the campus. */
+    hotelPodGlass: glow(new THREE.MeshStandardMaterial({
+      color: 0x22343a, roughness: .12, metalness: .2, side: THREE.BackSide,
+      emissive: 0xffbb72, emissiveIntensity: 0 }), 0, 1.15),
 
     /* ── the rooftop brunch terrace + infinity pool ─────────────────────────
        Every one of these lands on an arcBand() ribbon or an open cylinder, so
@@ -1598,9 +1720,28 @@ function buildExtStair(G, root) {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   8 · the main Westin crescent, ~175 m east — pure silhouette work.
-   Arc centre sits r metres WEST of SITE.HOTEL.cx so the concave face (with
-   its terraced balconies and lattice exoskeleton) looks back at the campus.
+   8 · the main Westin crescent, ~285 m east — the skyline of the whole venue.
+   Arc centre sits r metres WEST of SITE.HOTEL.cx so the CONCAVE face looks back
+   at the campus. That face is the one that matters and it is now modelled from
+   photographs rather than inferred from an aerial — reference/hotel-facade-brief.md
+   is the written record; read it before changing a number here.
+
+   What the elevations gave this pass, and what it costs:
+     · the balcony rhythm moved into texHotelFacade() — white slab bands, teal
+       glazing, and the building's signature white TRIANGULAR balustrades. Free:
+       one canvas, same draw call.
+     · seven white parapet rings at the balcony slabs' outer edge — the only
+       part of the rhythm that is real geometry, so the arc still reads as
+       balconies when the sun rakes it. +7 calls.
+     · three bronze circulation cores breaking the arc into segments. +3.
+     · the roofline the dawn frames show: a stepped-back attic band and a run of
+       white plant boxes. +1 (instanced) +1.
+     · the taller sky-bar block at the north tip, with its raking blade. +4.
+     · the arrival face got its own map (the white perforated screen) and the
+       porte-cochère moved to the side of the building it is actually on.
+   ⚠ The facade's 6 m batter (rIn → rIn + 6 = 90) is NOT cosmetic: 90 is
+   SITE.HOTEL.ROOFTOP.rIn, i.e. the terrace's inner edge lands exactly on the
+   top of this lean. Change the batter and the walkable rooftop shears off.
    ════════════════════════════════════════════════════════════════════════ */
 function buildHotel(G, root) {
   const H = SITE.HOTEL;
@@ -1622,14 +1763,19 @@ function buildHotel(G, root) {
   const ph0 = -tl / 2;                                   // the same sector, for rings
   const dirX = th => Math.sin(th) * 1, dirZ = th => Math.cos(th) * 1;
 
-  /* concave (campus-facing) wall — leans back as it rises = terraced section */
+  const WX = (th, r) => acx + Math.sin(th) * r;   // arc-local → WORLD, for inst()
+  const WZ = (th, r) => acz + Math.cos(th) * r;
+
+  /* concave (campus-facing) wall — leans back 6 m as it rises, landing on
+     ROOFTOP.rIn (90). The teal glazing, the white slab bands and the triangular
+     balustrades all live in this one map. */
   const inner = new THREE.Mesh(
     new THREE.CylinderGeometry(rIn + 6, rIn, HT, 96, 1, true, th0, tl),
     MAT.hotelFacade);
   inner.position.y = HT / 2;
   g.add(inner);
 
-  /* outer wall + roof cap */
+  /* the arrival face: the white perforated screen */
   const outer = new THREE.Mesh(
     new THREE.CylinderGeometry(rOut, rOut, HT, 96, 1, true, th0, tl), MAT.hotelBack);
   outer.position.y = HT / 2; g.add(outer);
@@ -1640,40 +1786,122 @@ function buildHotel(G, root) {
     new THREE.CylinderGeometry(rOut + .3, rOut + .3, 1.2, 96, 1, true, th0, tl), MAT.white);
   capLip.position.y = HT - .3; g.add(capLip);
 
-  /* terraced balcony bands on the inner face, one per floor */
+  /* ── the balcony slabs and their parapets ─────────────────────────────────
+     One slab per storey, projecting 1.5 m in over the storey below (a real
+     balcony depth), with a 1.05 m white parapet standing on its outer edge.
+     In every reference frame the parapet is the LIT edge — it catches the sun
+     while the reveal behind it stays in shadow — so it is what draws the seven
+     horizontals across the arc. Two meshes per floor, both 96-segment sectors:
+     ~380 triangles each, and the pair is worth more than any texture trick. */
   for (let f = 1; f < H.floors; f++) {
     const r = rIn + 6 * (f / H.floors);
-    const band = new THREE.Mesh(new THREE.RingGeometry(r - 1.8, r + .2, 96, 1, ph0, tl), MAT.white);
-    band.rotation.x = -Math.PI / 2;
-    band.position.y = f * H.floorH;
-    g.add(band);
+    const slabEdge = new THREE.Mesh(new THREE.RingGeometry(r - 1.5, r + .18, 96, 1, ph0, tl), MAT.white);
+    slabEdge.rotation.x = -Math.PI / 2;
+    slabEdge.position.y = f * H.floorH;
+    g.add(slabEdge);
+    const rail = new THREE.Mesh(
+      new THREE.CylinderGeometry(r - 1.5, r - 1.5, 1.05, 96, 1, true, th0, tl), MAT.hotelRail);
+    rail.position.y = f * H.floorH + .525;
+    g.add(rail);
   }
 
-  /* podium (in front, campus side) + the two end walls that close the sector */
+  /* ── the three bronze circulation cores ───────────────────────────────────
+     Full height, slightly proud of the lean on both faces, at the segment
+     joints the photographs show. Without them 142 m of identical balcony reads
+     as one endless band; with them the crescent has the three-part composition
+     it actually has.
+     ⚠ They must stand PROUD OF THE BALCONY LINE, not of the facade. The
+     parapets are 1.5 m in front of the wall, so a core that projects the 0.4 m
+     a real one does is hidden behind them and shows only as orange flecks in
+     the gaps between floors — which is what the first attempt rendered. These
+     run 2.4 m in front of the wall at grade, i.e. ~0.9 m clear of the rails. */
+  for (const d of [-.42, 0, .46]) {
+    const th = Math.PI / 2 + d, dth = .040;
+    const core = new THREE.Mesh(
+      new THREE.CylinderGeometry(rIn + 4.3, rIn - 1.7, HT + .9, 8, 1, true, th - dth / 2, dth),
+      MAT.hotelCore);
+    core.position.y = (HT + .9) / 2;
+    g.add(core);
+  }
+
+  /* ── the roofline ─────────────────────────────────────────────────────────
+     reference/video/hotel-frames/trim1_002 + dawn_001: the crescent does NOT
+     end in a clean parapet. It ends in a stepped-back attic band and a run of
+     white plant/lift boxes standing proud of it, and that broken skyline is
+     most of what the building reads as in silhouette at dusk. */
+  const attic = new THREE.Mesh(
+    new THREE.CylinderGeometry(rIn + 7.4, rIn + 7.4, 2.6, 96, 1, true, th0 + .05, tl - .10),
+    MAT.hotelEnd);
+  attic.position.y = HT + 1.3; g.add(attic);
+  for (let i = 0; i < 11; i++) {
+    const th = th0 + tl * (.045 + .91 * (i / 10));
+    const r = rIn + 9 + (i % 3) * 2.4, hgt = 2.4 + (i % 4) * .9;
+    inst('hotelBoxI', UNIT_BOX, MAT.hotelEnd,
+      mat4(WX(th, r), HT + hgt / 2, WZ(th, r), 3.4 + (i % 3), hgt, 5.2, th));
+  }
+
+  /* podium (in front, campus side) + the two end walls that close the sector.
+     The podium is the resort's lobby/restaurant storey and in every reference
+     frame it is mostly GLASS under a deep shadow — 142 m of blank pale stone,
+     which is what it was, is the one thing on this building you never see. */
   const pod = new THREE.Mesh(
     new THREE.CylinderGeometry(rIn - 4, rIn - 4, 6.4, 96, 1, true, th0, tl), MAT.hotelPodium);
   pod.position.y = 3.2; g.add(pod);
+  const podGlass = new THREE.Mesh(
+    new THREE.CylinderGeometry(rIn - 4.25, rIn - 4.25, 3.9, 96, 1, true, th0 + .02, tl - .04),
+    MAT.hotelPodGlass);
+  podGlass.position.y = 3.0; g.add(podGlass);
   const podCap = new THREE.Mesh(new THREE.RingGeometry(rIn - 4, rOut + 4, 96, 1, ph0, tl), MAT.paver);
   podCap.rotation.x = -Math.PI / 2; podCap.position.y = 6.45; g.add(podCap);
 
   for (const s of [-1, 1]) {
     const th = Math.PI / 2 + s * tl / 2;
-    const end = box(g, DEP, HT, 2.0, dirX(th) * H.r, HT / 2, dirZ(th) * H.r, MAT.hotelBack);
+    const end = box(g, DEP, HT, 2.0, dirX(th) * H.r, HT / 2, dirZ(th) * H.r, MAT.hotelEnd);
     end.rotation.y = th - Math.PI / 2;
   }
 
-  /* blue wave-form entry canopy on the concave face (deck p1) */
-  const wave = [], rc = rIn - 5;
-  for (let i = 0; i <= 26; i++) {
-    const th = Math.PI / 2 - .30 + (i / 26) * .60;
-    wave.push({
-      x: dirX(th) * rc, y: 9.5 + Math.sin(i / 26 * Math.PI * 3) * 1.9, z: dirZ(th) * rc,
-    });
+  /* ── the sky-bar block at the north tip ───────────────────────────────────
+     Every wide frame of this building (trim1_002, dawn_001, dawn_017) has the
+     same silhouette: a long low arc that rises at ONE end into a taller block
+     carrying the rooftop bar. Three boxes and a parapet — kept RESTRAINED on
+     purpose. The first attempt gave it 12.6 m and a raking blade and at 285 m
+     it read as a monolith parked beside the hotel; the building's whole
+     character is the long horizontal, and the tip should lift it, not fight it.
+     It sits at θ = C + .75, outside the walkable terrace's ±.62 sweep, so it
+     adds nothing to the height field and needs no collider — the terrace's own
+     glazed end already closes the deck 0.13 rad short of it. */
+  {
+    const th = Math.PI / 2 + tl / 2, TH = HT + 5.4;
+    const bx = dirX(th) * H.r, bz = dirZ(th) * H.r, ry = th - Math.PI / 2;
+    box(g, DEP, TH, 17.0, bx, TH / 2, bz, MAT.hotelEnd, ry);
+    /* the band of sea-facing glazing across its upper floors, inset so it reads
+       as a glazed core rather than a grey panel stuck on the end */
+    box(g, .4, 15.4, 14.0, bx - Math.sin(th) * (DEP / 2 - .35), 4.2 + 15.4 / 2,
+      bz - Math.cos(th) * (DEP / 2 - .35), MAT.glass, ry);
+    /* the bar pavilion on its cap, set back off the parapet */
+    box(g, 12.4, 3.0, 8.6, bx, TH + 1.5, bz, MAT.hotelEnd, ry);
   }
-  const canopy = new THREE.Mesh(ribbon(wave, 7, 10), MAT.waveCanopy);
-  g.add(canopy);
-  for (let i = 2; i < 26; i += 6) {
-    box(g, .5, 9.5, .5, wave[i].x, 4.75, wave[i].z, MAT.white);
+
+  /* ── the porte-cochère ────────────────────────────────────────────────────
+     MOVED to the arrival (convex, east) face, which is where the reference
+     photograph puts it — it was on the concave face, where it read from the
+     campus as a blue ribbon floating in front of the guest rooms with nothing
+     behind it. Three undulating steel ribs sweeping down off the screen wall
+     to a row of posts, per reference/photos/hotel-westin-hotel-front.webp. */
+  for (let k = 0; k < 3; k++) {
+    const wave = [], rc = rOut + 7 + k * 3.6;
+    for (let i = 0; i <= 22; i++) {
+      const th = Math.PI / 2 - .22 + (i / 22) * .44;
+      wave.push({
+        x: dirX(th) * rc,
+        y: 11.4 - k * 1.9 + Math.sin(i / 22 * Math.PI * 3 + k * .7) * 1.5,
+        z: dirZ(th) * rc,
+      });
+    }
+    g.add(new THREE.Mesh(ribbon(wave, 1.9, 10), MAT.waveCanopy));
+    if (k === 2) for (let i = 2; i < 22; i += 5) {
+      box(g, .45, wave[i].y, .45, wave[i].x, wave[i].y / 2, wave[i].z, MAT.white);
+    }
   }
 
   /* wave-roofed conference / spa building with green roofs, SW of the crescent */

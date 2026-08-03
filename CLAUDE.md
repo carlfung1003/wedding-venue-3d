@@ -66,6 +66,17 @@ video, pool videos):
   mahogany, cream marble, copper fascias.
 - `reference/suite-interior-brief.md` (committed) — modeling brief distilled
   from the walkthrough frames.
+- **`reference/photos/hotel-*.webp` + `reference/video/hotel-frames/`** —
+  imported 2026-08-02 from `~/Desktop/Wedding App/`: the main crescent's two
+  elevations (`hotel-westin-hotel-back` = the garden/concave face, the one the
+  campus sees; `hotel-westin-hotel-front` = the arrival face + porte-cochère),
+  plus 59 frames from the dawn/bar clip, the 87 MB screen recording and the
+  five drone trims. The dusk and night elevations (`trim1_002`, `dawn_001`,
+  `dawn_017`) are at roughly the distance the venue renders the hotel at.
+- **`reference/hotel-facade-brief.md` (committed)** — what those elevations
+  actually show, storey by storey, and how `buildHotel()` spends its budget.
+  The crescent had been modelled from an aerial and was wrong; this is the
+  record so it is not re-guessed.
 
 **Rebuild `world.js` + `CFG` venue dimensions from these** — room
 proportions, finishes, where the doors actually are. The moment system,
@@ -249,26 +260,90 @@ place the four-tops at matching radii). `SITE.RIVER`/`LAGOON`/`HOTEL_POOLS` and
 every moment. Do it as ONE deliberate pass with a scale rationale written down,
 not as a series of nudges.
 
-## QUEUED — hotel facade + beach pool placement (Carl, 2026-08-02)
+## The hotel facade + the beach pool — DONE 2026-08-02
 
-1. **The Westin's facade is wrong.** Reference: `reference/video/westin-day-drone.mp4`
-   (only 2.5 s — 5 frames already extracted to `reference/video/drone-frames/`).
-   **More footage of the same building is in `~/Desktop/Wedding App/`** and is
-   NOT yet imported: `Westin Dawn + bar video.mp4` (82 MB), `Screen Recording
-   2026-04-27 at 6.08.08 PM.mov` (87 MB), `Trim 1.mp4`, `trim 2.mp4`,
-   `Trim 3.mp4`, `Trim 3A.mp4`, `Trim 3B.mp4`, `Westin Pool Cool.mov`. Mine
-   those with ffmpeg for clear elevations before modelling.
-   What is built today is a white lattice exoskeleton over an emissive window
-   grid, with terraced balconies — inferred from a low-res aerial, never from
-   an elevation. Carl says it does not match.
-2. **The beach pool must sit VERY CLOSE to the beach.** References:
-   `reference/photos/beach-pool-near-beach-aerial.png` (top-down: the pool sits
-   just inland of the sand with only a palm belt between, and the clubhouse is
-   visible below-right for relative distance) and
-   `reference/photos/beach-pool-circular.png`. It was moved to `SITE.RIVER.WEST`
-   cx 48 which is still well inland — push it seaward until only the palm belt
-   separates it from the sand, and keep its distance from the enclave matching
-   the aerial.
+Both of Carl's corrections are in. `js/campus.js` + `js/site.js` only.
+
+### 1 · The Westin's facade was wrong, and now it is photographed
+
+**`reference/hotel-facade-brief.md` (committed) is the written record — read it
+before touching `buildHotel()`.** The short version:
+
+The old facade was a white **diagonal lattice exoskeleton** over a dark emissive
+window grid with deep terraced balcony bands, applied identically to BOTH faces
+of the building. It had been inferred from one low-resolution overhead photo.
+None of it is on this hotel, which is why Carl said so.
+
+**Where the elevations finally came from.** Not the drone clip — the three trims
+and `Westin Pool Cool.mov` are all under 4 s and say nothing. The two that
+settled it were STILLS nobody had imported: `~/Desktop/Wedding App/new pictures/`
+holds `westin hotel front.webp` and `westin hotel back.webp`, which are clean
+three-quarter aerials of the two faces. `Westin Dawn + bar video.mp4` and the
+87 MB screen recording gave the dusk and night elevations at roughly the
+distance the venue renders the building at. All now in `reference/photos/hotel-*.webp`
+and `reference/video/hotel-frames/` (59 frames, `ffmpeg -vf fps=1 -q:v 3`).
+
+**The building has TWO faces and the old model gave both the same map:**
+- **CONCAVE (west, over the gardens — the one the campus sees):** seven storeys,
+  each a bright white slab edge over recessed **teal-green** glazing, and
+  standing in front of that the signature — a solid white balustrade shaped as a
+  **TRIANGLE, apex up, one per bay**, the triangles nearly touching so the glass
+  shows only as narrow inverted wedges. Three full-height **bronze circulation
+  cores** break the arc into segments.
+- **CONVEX (east, the arrival side):** a white sculptural **screen punched with
+  irregular tapering leaf-shaped slits**, and the wave-form porte-cochère, which
+  was on the wrong side of the building — it used to float in front of the guest
+  rooms on the garden face with nothing behind it.
+- **Roofline:** stepped-back attic band + a run of white plant boxes; the arc
+  lifts at its north tip into the sky-bar block.
+- **Night:** discrete warm slots, ~3 rooms in 5 lit, slabs and triangles dark.
+
+**Cost, hotel group alone: 82 → 98 draw calls, 10,088 → 11,788 triangles, no new
+lights, no new colliders, +1 texture.** The rhythm is a canvas texture; only what
+changes the silhouette is geometry.
+
+⚠ Two traps, both now also in the brief:
+- **`texHotelFacade` / `texHotelWindows` are drawn upside down on purpose**
+  (`flipRows`). `CanvasTexture.flipY` is true, so a storey section drawn reading
+  downwards comes out apex-DOWN — a completely different building. Cost one pass.
+- **The 6 m batter (`rIn` 84 → 90) is load-bearing**, because 90 is
+  `SITE.HOTEL.ROOFTOP.rIn`. Flatten the lean and the walkable rooftop, its polar
+  hole in the height field and its y-ranged colliders all shear off.
+- **`CFG.WORLD_BOUND` is 300 and the convex face is at x ≈ 296**, so the arrival
+  elevation can never be reached in fly mode. It is cheap correctness, not
+  spectacle; don't spend budget there.
+
+### 2 · The beach pool moved 130 m west, to the beach
+
+`SITE.RIVER.WEST` **(48, 20) → (−82, −34)**, `BAR` with it (same rim offset).
+Its deck's outer edge is now at x −102.8, so the palm belt between it and the
+sand's inland edge (−136) is **33 m** where it was 163. It sits NORTH of the
+enclave's grass ground, clearing the ceremony/cocktail lawn by 23 m — which is
+also the aerial's relationship, where the clubhouse's private lawn lies south of
+the public pool. 100 m from the clubhouse core, against 119 m from the clubhouse
+to the sand.
+
+Two consequences, both handled **in site.js**, so `water.js` needed no edit:
+- **The river no longer flows out of the beach pool.** It used to, at x 62 on the
+  old east rim. With the pool at the beach that would have been a 155 m straight
+  channel back across the palm grove and past the enclave's north flank — and it
+  is not what the resort has: in `beach-pool-near-beach-aerial.png` the circular
+  beach pool is self-contained and the lazy river is a separate system inland.
+  `SPINE`'s head is now the river's own spring basin at (54, 19).
+- **`PATHS[0]` runs out to the pool's east deck** (−60, −31) and keeps north of
+  world z −6 the whole way, so the resort's spine walk never crosses the
+  ceremony lawn.
+
+⚠ **It wants ~10 m more and is blocked by `world.js`, not by the site plan** —
+see the polish backlog. This is item 4 of the proportion pass above; items 1–3
+(grow the crescent, re-ratio the water, close the hotel↔water gap) are untouched
+by this pass.
+
+**One thing the proportion pass must carry with it:** `texHotelFacade` fixes the
+guest-room bay at ≈3.96 m by tiling 4 bays 9 times over a 142 m arc
+(`HOTEL_TILES = 9`). Grow `SITE.HOTEL.arc` toward π or grow `r` and the bays
+stretch with the arc — a 300 m crescent would render 8 m guest rooms. Rescale
+`HOTEL_TILES` to `round(H.r * H.arc / (4 * 3.96))` when that pass lands.
 
 ## The resort's water features — DONE 2026-08-02
 
@@ -545,6 +620,35 @@ great room), and the type placement above.
 
 None of these are guesses — each was found and left by a verified pass:
 
+- **⚠ `world.js`'s `adoptWater()` is a landmine, and it is what stops the beach
+  pool going the last 10 m to the beach.** It reparents every direct child of
+  the water root whose **bounding-box centre x < 84** into the rotated enclave.
+  `buildRiver()` puts the ENTIRE river system — beach pool, lazy river, lagoon,
+  the hotel's own pools — into one group called `river`, and that group is spared
+  the rotation only because its centre happens to sit east of the threshold.
+  Measured 2026-08-02: the box runs `x0 = SITE.RIVER.WEST.cx − 20.7` to
+  `x1 = 278.4`, so the centre crosses 84 at `cx = −89.7`. **At `cx = −92` the
+  whole river silently swings 90° and runs north–south along the beach** —
+  verified, not theorised; the group's world box became x −109.6…0.9,
+  z −78.7…312.4 and `G.groups.water.children` emptied. `SITE.RIVER.WEST` is
+  therefore parked at **cx −82** (centre 87.8, 7.7 m of headroom) rather than the
+  −92 the aerial asks for, and that headroom has to survive anyone widening the
+  pool deck or extending `PATHS[0]`.
+  **The fix is one line**, and it replaces a positional guess with the fact it
+  was standing in for — the river is authored in world space and must never be
+  adopted, whatever its extent:
+  ```js
+  // world.js, adoptWater()
+  if (child.name === 'river' || _ctr.x >= 84) continue;
+  ```
+  (or, better, have `water.js` set `child.userData.worldSpace = true` on the
+  river group and test that, matching the flag `world.js` already honours for
+  the Welcome Brunch in its late-adoption pass). Then move `SITE.RIVER.WEST` to
+  `cx −92, cz −34` and `BAR` to `cx −103.5, cz −20.5`, which puts 23 m of palm
+  belt between the pool's deck and the sand — the separation
+  `beach-pool-near-beach-aerial.png` actually shows. Nothing else needs to move:
+  the river's colliders already opt out of the sibling collider-rewrite pass
+  through `water.js`'s `worldCollider()`, whose `x`/`z` setters are no-ops.
 - **`assets/og.jpg` does not exist.** `index.html` points every OG/Twitter tag
   at it, so the link currently unfurls with a broken image everywhere it's
   shared — and this link WILL be shared with guests. Render one from the
