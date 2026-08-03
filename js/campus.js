@@ -4,8 +4,9 @@
 //   · SITE.LOUNGE      — the 280 ㎡ / 60-seat 酒廊, wedding-dinner venue
 //   · SITE.VILLAS      — 10 guest keys in 3 types (5 Garden Rooms, 3 Garden Pool
 //                        2-BR with walled courtyards, 2 two-storey Garden 3-BR)
-//   · SITE.LAWN        — the formal GARDEN lawn out by the road (NOT the
-//                        ceremony ground any more): stone edge + ring path + hedge
+//   · (SITE.LAWN — the formal GARDEN lawn with its stone edge, ring path and
+//                        hedge ring — was DELETED 2026-08-02, see buildLawn's
+//                        headstone below)
 //   · SITE.GRAND_LAWN / BEACH_LAWN / DINNER_LAWNS / FIRE_PIT
 //                      — the grass ground: the big open lawn running west to the
 //                        beach, the private beachfront lawn (ceremony + cocktail)
@@ -291,10 +292,23 @@ function texPark() {
      irregular, tapering, leaf-shaped slits in loose vertical columns. Nothing
      rectilinear about it and nothing diagonal either.
 
-   One canvas tile = 4 bays; repeat 9 → 36 bays over the arc ≈ 3.96 m each,
-   which is a real guest-room module. Both maps are 1024² so a bay gets 256 px.
+   One canvas tile = HOTEL_BAYS bays, tiled HOTEL_TILES times across the whole
+   face. THE BAY WIDTH IS THEREFORE r·arc/(BAYS·TILES) AND NOTHING ENFORCES IT —
+   which is why TILES is DERIVED as of 2026-08-02 rather than typed.
+   It was 9, and 9 was right for a 1.5 rad arc at r 95: 142 m / 36 bays = 3.96 m,
+   a real guest-room module. The proportion pass grew the arc to 2.35 rad (Carl:
+   *"it's almost a half circle, but the one we have now is very small"*), and
+   with TILES pinned at 9 those same 36 bays would have stretched across 223 m —
+   6.2 m guest rooms, and at the π the spec points at, 8 m. Nothing would have
+   thrown; the building would just have looked wrong in a way that reads as
+   "the render is low-detail" rather than as a bug.
+   BAY_M is the constant here. TILES follows it, and both maps are 1024² so a
+   bay still gets 1024/HOTEL_BAYS = 256 px whatever the building does.
    ════════════════════════════════════════════════════════════════════════ */
-const HOTEL_BAYS = 4, HOTEL_TILES = 9;
+const HOTEL_BAYS = 4;
+const HOTEL_BAY_M = 3.96;              // one guest-room module, metres
+const HOTEL_TILES = Math.max(1, Math.round(
+  SITE.HOTEL.r * SITE.HOTEL.arc / (HOTEL_BAYS * HOTEL_BAY_M)));   // 14 at r 95 / arc 2.35
 
 /* ⚠ Both maps are drawn UPSIDE DOWN on purpose. THREE.CanvasTexture ships with
    flipY = true, so canvas-row 0 lands at the TOP of the building — draw a
@@ -1387,60 +1401,19 @@ function buildResortVillas(G, rnd) {
   }
 }
 
-function buildLawn(G, root) {
-  const L = SITE.LAWN;
-  const g = new THREE.Group(); g.name = 'lawn'; root.add(g);
-  g.position.set(L.cx, 0, L.cz);
-
-  /* Kept deliberately low: floorY(x,z) is flat 0 across the campus, so any
-     rise here is a rise the walker does NOT get. If floorY ever grows a lawn
-     term (inside SITE.LAWN.r → +rim) this can go back up to ~0.35. */
-  const rim = .18;
-  /* raised turf disc */
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(L.r, 72), MAT.turf);
-  disc.rotation.x = -Math.PI / 2; disc.position.y = rim;
-  g.add(disc);
-  /* stone rim + coping band */
-  const side = new THREE.Mesh(new THREE.CylinderGeometry(L.r + .02, L.r + .02, rim, 72, 1, true), MAT.stone);
-  side.position.y = rim / 2; g.add(side);
-  const coping = new THREE.Mesh(new THREE.RingGeometry(L.r, L.r + .65, 72), MAT.stone);
-  coping.rotation.x = -Math.PI / 2; coping.position.y = rim + .01; g.add(coping);
-
-  /* gravel border, hedge ring and paved ring path — all split by the aisle gap */
-  const gapHalf = 2.6 / L.hedgeR;                       // ≈ 5 m opening, at the south
-  const start = -Math.PI / 2 + gapHalf, span = Math.PI * 2 - gapHalf * 2;
-
-  const border = new THREE.Mesh(new THREE.RingGeometry(L.r + .65, L.hedgeR - .9, 48, 1, start, span), MAT.stone);
-  border.rotation.x = -Math.PI / 2; border.position.y = .05; g.add(border);
-
-  const path = new THREE.Mesh(
-    new THREE.RingGeometry(L.hedgeR + .95, L.hedgeR + 3.8, 72, 1, start, span), MAT.paver);
-  path.rotation.x = -Math.PI / 2; path.position.y = .04; g.add(path);
-
-  const hedgeGeo = new THREE.TorusGeometry(L.hedgeR, .72, 6, 96, span).rotateX(-Math.PI / 2);
-  const hedge = new THREE.Mesh(hedgeGeo, MAT.hedge);
-  hedge.rotation.y = start;                              // rotate the gap to the south
-  hedge.position.y = .85; hedge.scale.set(1, 1.6, 1);
-  g.add(hedge);
-
-  /* the aisle threshold: paving through the gap + two stone piers */
-  const tz = L.hedgeR + 1.4;
-  box(g, 5.0, .1, 5.6, 0, .06, tz, MAT.stone);
-  for (const s of [-1, 1]) {
-    box(g, .8, 1.5, .8, s * 3.0, .75, L.hedgeR + .2, MAT.stone);
-    box(g, 1.0, .16, 1.0, s * 3.0, 1.56, L.hedgeR + .2, MAT.blackstone);
-    inst('glowI', UNIT_BOX, MAT.glowLamp,
-      mat4(L.cx + s * 3.0, 1.68, L.cz + L.hedgeR + .2, .55, .1, .55));
-  }
-  /* path lights around the ring */
-  for (let i = 0; i < 20; i++) {
-    const a = start + span * (i + .5) / 20;
-    const r = L.hedgeR + 2.4;
-    inst('glowI', UNIT_BOX, MAT.glowLamp,
-      mat4(L.cx + Math.cos(a) * r, .16, L.cz - Math.sin(a) * r, .2, .12, .2));
-  }
-  return g;
-}
+/* ── buildLawn() — DELETED 2026-08-02 (the proportion pass) ────────────────
+   It built SITE.LAWN: a 44 m raised turf disc with a stone rim and coping, a
+   gravel border, a 132-segment hedge ring, a 7 m paved ring path, an aisle
+   threshold with two piers and twenty path lights. That was the ORIGINAL
+   ceremony ground; the ceremony moved to BEACH_LAWN on 2026-08-02 and the disc
+   became the striped dark-green oval Carl pointed at in his top-down — *"you
+   can probably remove this non-existent grass area just in the way of things?"*
+   Gone, together with SITE.LAWN, the 'lawn' name in world.js's
+   CAMPUS_ENCLAVE_GROUPS, nature.js's framing palm ring and hedge ring, and
+   world.js's keepOutDisc.
+   What replaced it is buildGrassGround() immediately below — and the whole
+   lesson of the reference photo is that the vocabulary above (rim, coping, ring
+   path, hedge ring) is exactly what the real ground does NOT have.           */
 
 /* ════════════════════════════════════════════════════════════════════════
    3b · THE GRASS GROUND  (Carl, 2026-08-02)
@@ -1453,8 +1426,8 @@ function buildLawn(G, root) {
    clubhouse, looking west out to sea) settles the composition, and the one
    thing it settles hardest is what NOT to build: the big lawn is flat,
    unbroken and completely empty. No hedge ring, no coping, no ring path, no
-   ornament — buildLawn()'s vocabulary above is exactly the wrong idea out
-   here. What edges it is soft: clipped hedge blocks, rounded topiary and
+   ornament — the deleted buildLawn()'s vocabulary was exactly the wrong idea
+   out here. What edges it is soft: clipped hedge blocks, rounded topiary and
    shrub masses on the terrace side, palms everywhere else (nature.js).
 
    ⚠ EVERYTHING HERE GOES THROUGH inst(), and that is not a performance
@@ -1466,7 +1439,7 @@ function buildLawn(G, root) {
    around the map at raw local coordinates, silently. Instances are relocated
    by position and cannot miss. Same reason there are no THREE.PointLights
    out here: a light needs a parent group. The lanterns and the fire bed are
-   emissive instances, like buildLawn()'s path lights.                       */
+   emissive instances, exactly as buildLawn()'s path lights used to be.      */
 const LAWN_Y = .02;          // mown turf, 20 mm proud of nature.js's ground
 const PATH_Y = .035;         // paving, proud of the turf
 
@@ -1493,7 +1466,7 @@ function buildGrassGround(G) {
   const paving = (cx, cz, w, d) =>
     inst('grassPaveI', UNIT_PLANE, MAT.stone, mat4(cx, PATH_Y, cz, w, 1, d));
   /* A path light is a pale stone block with a glowing cap, not a bare
-     MAT.glowLamp box: glowLamp's day colour is 0x1a1a1c, and buildLawn() gets
+     MAT.glowLamp box: glowLamp's day colour is 0x1a1a1c, and buildLawn() got
      away with that because its lights line a paved ring path. Out here they sit
      on open mown grass in daylight, where a dozen 0.2 m black cubes read as
      bricks dropped on the lawn. */
@@ -1904,35 +1877,57 @@ function buildHotel(G, root) {
     }
   }
 
-  /* wave-roofed conference / spa building with green roofs, SW of the crescent */
-  const conf = new THREE.Group();
-  conf.position.set(H.cx - 30, 0, H.cz + 78);            // world coords — joins root
-  root.add(conf);
-  box(conf, 46, 9, 26, 0, 4.5, 0, MAT.stuccoWall);
-  for (let k = 0; k < 3; k++) {
-    const pts = [];
-    for (let i = 0; i <= 20; i++) {
-      const x = -23 + (i / 20) * 46;
-      pts.push({ x, y: 9.4 + Math.sin(i / 20 * Math.PI * 2 + k) * 1.6, z: -9 + k * 9 });
+  /* ── the wave-roofed conference / spa building ─────────────────────────────
+     It stood at (H.cx − 30, H.cz + 78) = a 46 × 26 m block just off the
+     crescent's southern end, which was fine while the arc swept 1.5 rad and
+     stopped at θ 47°. At 2.35 rad the arc reaches θ 22.7° and its southern tip
+     lands at (192.6, 97.7) with the building mass running out to r 106 — the
+     old position is INSIDE that. Carl's steer for this pass was explicit —
+     *"I care less about any other random building blocks right now"* — so
+     rather than spend the composition on finding it a new home it moved down
+     the arc to the crescent's own south-west apron, at r 118 on the tip's
+     bearing: still reading as the resort's low back-of-house wing in a fly-by,
+     comfortably outside the podium (r 80) and the collider ring (r ≤ 109), and
+     out of the frame the top-down composes. */
+  {
+    const cth = Math.PI / 2 - tl / 2 - .10;
+    const conf = new THREE.Group();
+    conf.position.set(acx + Math.sin(cth) * 118, 0, acz + Math.cos(cth) * 118);
+    conf.rotation.y = cth;
+    root.add(conf);
+    box(conf, 46, 9, 26, 0, 4.5, 0, MAT.stuccoWall);
+    for (let k = 0; k < 3; k++) {
+      const pts = [];
+      for (let i = 0; i <= 20; i++) {
+        const x = -23 + (i / 20) * 46;
+        pts.push({ x, y: 9.4 + Math.sin(i / 20 * Math.PI * 2 + k) * 1.6, z: -9 + k * 9 });
+      }
+      conf.add(new THREE.Mesh(ribbon(pts, 4.6, 8), MAT.greenRoof));
     }
-    conf.add(new THREE.Mesh(ribbon(pts, 4.6, 8), MAT.greenRoof));
   }
 
   /* the rooftop brunch terrace — the one part of the crescent people stand in */
   buildHotelRoof(G, g, acx, acz);
 
   /* ── coarse collider ring so a walker can't stroll into the crescent ───────
-     27 circles of r 14 on the arc: together they wall off r ∈ [81, 109] across
-     the whole 1.5 rad sweep. That is the right answer at grade and was the WRONG
-     answer everywhere else — being y-agnostic it also walled off the rooftop
-     terrace 26.6 m above it, which is why the roof could never be stood on.
+     Circles of r 14 on the arc: together they wall off r ∈ [81, 109] across the
+     whole sweep. That is the right answer at grade and was the WRONG answer
+     everywhere else — being y-agnostic it also walled off the rooftop terrace
+     26.6 m above it, which is why the roof could never be stood on.
      `y1` is the fix: the ring stops existing for a walker whose feet are at or
      above the green roof cap, which is the only place there is anything to
      stand on up there. See the collider contract in player.js.
-     H.floors * H.floorH is the cap (25.2); the terrace deck is 1.4 m over it. */
+     H.floors * H.floorH is the cap (25.2); the terrace deck is 1.4 m over it.
+     ⚠ The COUNT is derived (2026-08-02). It was a hard 27, which spaced the
+     circles 5.5 m apart over a 142 m arc; the proportion pass grew the face to
+     223 m and 27 circles would have sat 8.6 m apart. They would still have
+     overlapped — 14 m circles at 8.6 m always do — but the chain's *effective*
+     inner radius rises as the spacing grows, and the point of a derived count
+     is that the next change to `arc` cannot quietly thin it out. */
   const RING_TOP = H.ROOFTOP.roofY;
-  for (let i = 0; i <= 26; i++) {
-    const th = Math.PI / 2 - tl / 2 + (i / 26) * tl;
+  const RING_N = Math.max(26, Math.round(H.r * tl / 5.5));
+  for (let i = 0; i <= RING_N; i++) {
+    const th = Math.PI / 2 - tl / 2 + (i / RING_N) * tl;
     G.colliders.push({ x: acx + dirX(th) * H.r, z: acz + dirZ(th) * H.r, r: 14, y1: RING_TOP });
   }
   return g;
@@ -2614,18 +2609,31 @@ function buildRoad(G, root, rnd) {
   }
   g.add(new THREE.Mesh(ribbon(main, 4.6, 6), MAT.asphalt));
 
-  /* the spur down to the clubhouse drop-off */
+  /* ── the arrival spur and its forecourt ────────────────────────────────────
+     ⚠ REROUTED 2026-08-02 (the proportion pass). It used to run out to a
+     drop-off circle at (40, −46) that served the clubhouse; the enclave moved
+     away in 2026-08-01's fourth pass and the spur has been ending on bare grass
+     ever since (it was in CLAUDE.md's polish backlog as "the arrival drive spur
+     is orphaned"). This pass moved the enclave 40 m further south again, and it
+     also put the lazy river straight across the ground between the road and the
+     clubhouse, so "just extend it" is not available: a drive to the front door
+     would now need a vehicular bridge over the water.
+     The honest resort answer, and the one the site map shows, is that guests
+     are dropped at an arrival forecourt inland and walk in. So the spur ends at
+     a forecourt beside the existing parking apron — the drive, the car park and
+     the head of the resort's spine walk in one place — instead of in a field.  */
+  const FC = { x: 34, z: -62 };
   const spur = [
-    { x: 4, y: .05, z: RZ + 3 }, { x: 12, y: .05, z: -80 }, { x: 22, y: .05, z: -68 },
-    { x: 32, y: .05, z: -58 }, { x: 39, y: .05, z: -50 }, { x: 40, y: .05, z: -46 },
+    { x: 4, y: .05, z: RZ + 3 }, { x: 12, y: .05, z: -84 }, { x: 21, y: .05, z: -76 },
+    { x: 29, y: .05, z: -69 }, { x: FC.x, y: .05, z: FC.z + 2 }, { x: FC.x, y: .05, z: FC.z },
   ];
   g.add(new THREE.Mesh(ribbon(spur, 3.6, 6), MAT.asphalt));
   const circle = new THREE.Mesh(new THREE.CircleGeometry(6.2, 40), MAT.paver);
-  circle.rotation.x = -Math.PI / 2; circle.position.set(40, .06, -46); g.add(circle);
+  circle.rotation.x = -Math.PI / 2; circle.position.set(FC.x, .06, FC.z); g.add(circle);
   const island = new THREE.Mesh(new THREE.CircleGeometry(2.4, 28), MAT.turf);
-  island.rotation.x = -Math.PI / 2; island.position.set(40, .16, -46); g.add(island);
-  box(g, 5.2, .22, 5.2, 40, .08, -46, MAT.stone);
-  inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(40, .95, -46, 3.2, 1.7, 3.2));
+  island.rotation.x = -Math.PI / 2; island.position.set(FC.x, .16, FC.z); g.add(island);
+  box(g, 5.2, .22, 5.2, FC.x, .08, FC.z, MAT.stone);
+  inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(FC.x, .95, FC.z, 3.2, 1.7, 3.2));
 
   /* parking apron + parked cars, tucked against the road's campus side
      (east of the drive spur, clear of the lawn) */
@@ -2701,7 +2709,6 @@ export function buildCampus(G) {
   buildLounge(G, root);
   buildVillas(G, root, rnd);
   buildResortVillas(G, rnd);
-  buildLawn(G, root);
   buildGrassGround(G);
   buildPlaza(G, root);
   buildPergola(G, root);

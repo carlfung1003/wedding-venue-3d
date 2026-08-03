@@ -16,23 +16,25 @@
 // built exactly as before and re-parented, as a rigid body, under one group
 // carrying SITE.ENCLAVE. Three things do NOT follow a group transform and are
 // fixed up by hand here:
-//   1. campus.js has a MIXED root — the lounge/lawn/pergola/sign/stair belong to
+//   1. campus.js has a MIXED root — the lounge/pergola/sign/stair belong to
 //      the enclave, but the hotel crescent, the arrival road and the ~50
 //      backdrop RESORT_VILLAS share it, and worse, the ten guest villas share
 //      InstancedMesh buckets with the backdrop villas and the road furniture.
 //      Named enclave groups are re-parented; the instanced buckets are split
 //      per-instance and the enclave instances have the transform BAKED into
 //      their matrices (see relocateInstances).
-//   2. water.js also has a mixed root — the LAGOON is a resort feature and must
-//      stay. Water's children are classified by world position, not by index,
-//      because that file is edited independently and child order is not stable.
+//   2. water.js also has a mixed root — the whole resort river system is a
+//      backdrop feature authored in world space and must stay. It SAYS SO, via
+//      userData.worldSpace; anything unlabelled falls back to a position test,
+//      never to a child index, because that file is edited independently and
+//      its ROOT.add() order is not a contract.
 //   3. G.colliders is a flat world-space {x,z,r} list that no group transform
 //      touches. Every collider pushed by an enclave builder is rewritten
 //      through the same map, or the player is blocked by invisible walls where
 //      the buildings used to be and walks through the ones that are there now.
 import * as THREE from 'three';
 import { CFG } from './config.js';
-import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave, isEnclaveLocal } from './site.js';
+import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, isEnclaveLocal } from './site.js';
 
 import { buildSky, setSkyNight } from './sky.js';
 import { buildNature, setNatureNight } from './nature.js';
@@ -54,49 +56,20 @@ import { buildSuite, setSuiteNight } from './suite.js';
    Everything that is not the walker — prop placement, the fly-mode clamp,
    main.js's fly→walk landing — deliberately omits it, so a 3.8 m platform can
    never shove a flyer around or drop a palm tree on a balcony.
-   ONE region is not in site.js's registry — the cabana boardwalk, patched on
-   below because this change did not own that file. Read that comment before
-   adding a second one here; the registry is still where these belong. */
+   EVERY walkable surface is in site.js's registry as of 2026-08-02, including
+   the cabana boardwalk that used to be patched on here. This function adds
+   nothing but the CFG values site.js cannot import (config.js imports site.js). */
 export function floorY(x, z, fromY) {
-  const y = siteFloorY(x, z, fromY, CFG.STEP_UP, CFG.HEAD_CLEAR);
-  if (typeof fromY !== 'number') return y;   // no feet, no platforms (see above)
-  return boardwalkY(x, z, fromY, y);
+  return siteFloorY(x, z, fromY, CFG.STEP_UP, CFG.HEAD_CLEAR);
 }
 
-/* ── the cabana boardwalk, patched onto the height field ────────────────────
-   BELONGS IN site.js's WALK_REGIONS — this is a lodger, not a design. The next
-   time that file is open, add
-
-     rect('cabana-boardwalk', 11.9, -2.4, 14.4, 21.4, 0.30)
-
-   to the registry (the numbers below are already in its enclave-local frame,
-   which is what rect() wants) and delete everything down to the end of
-   boardwalkY. It lives here only because this change did not own site.js.
-
-   What it fixes: water.js's buildPavilions lays a timber deck with its top at
-   y 0.30 behind the cabana run — local x ±(HALF + 1.4), z −0.1…2.4 — inside a
-   group rotated +π/2 and parked at (CABANAS.x, (z0 + z1) / 2), so local (x,z)
-   maps to enclave (CB.x + z, cz − x). No region covered it, so floorY answered
-   0 and a walker crossing the planks sank to the shins in them. The two stone
-   steps off the suite end are below 0.30 and inside STEP_UP of the deck, so
-   they need no entry of their own — the lip is climbable from anywhere. */
-const _CB = SITE.CABANAS;
-const _BW_CZ = (_CB.z0 + _CB.z1) / 2;
-const _BW_HALF = (_CB.z1 - _CB.z0) / 2 + 1.4;
-const BOARDWALK = {
-  y: 0.30,
-  x0: _CB.x - 0.1, x1: _CB.x + 2.4,          // enclave x 11.9 … 14.4
-  z0: _BW_CZ - _BW_HALF, z1: _BW_CZ + _BW_HALF,   // enclave z −2.4 … 21.4
-};
-
-function boardwalkY(x, z, fromY, ground) {
-  const l = worldToEnclave(x, z);
-  const B = BOARDWALK;
-  if (l.x < B.x0 || l.x > B.x1 || l.z < B.z0 || l.z > B.z1) return ground;
-  /* siteFloorY's own resolution rule: the highest surface still within a
-     step-up of the feet wins. Open sky above the planks, so no headroom gate. */
-  return (B.y > ground && B.y <= fromY + CFG.STEP_UP) ? B.y : ground;
-}
+/* (The cabana boardwalk used to be patched on here, with its own
+   worldToEnclave call and its own copy of siteFloorY's resolution rule, because
+   the pass that found the bug did not own site.js. It went home on 2026-08-02 —
+   it is now `rect('cabana-boardwalk', …)` in WALK_REGIONS, derived from
+   SITE.CABANAS. floorY is a plain delegate again, which is what the contract
+   above says it is. If you are about to add a second lodger here: don't. The
+   registry is one import away.) */
 
 /* ── build phases ───────────────────────────────────────────────────────────
    buildWorld is async so that the loading card can PAINT. Each builder is one
@@ -163,8 +136,9 @@ function phaseRunner(G, onPhase) {
 
 /* campus.js root children that are enclave, by name. The rest of that root —
    'hotel', 'road', the unnamed conference block, and the shared
-   'campus:*' InstancedMeshes — is handled separately below. */
-const CAMPUS_ENCLAVE_GROUPS = new Set(['lounge', 'lawn', 'pergola', 'sign', 'extstair']);
+   'campus:*' InstancedMeshes — is handled separately below.
+   ('lawn' left this Set on 2026-08-02 with SITE.LAWN itself.) */
+const CAMPUS_ENCLAVE_GROUPS = new Set(['lounge', 'pergola', 'sign', 'extstair']);
 
 const _box = new THREE.Box3();
 const _ctr = new THREE.Vector3();
@@ -327,7 +301,11 @@ function enclaveKeepOut() {
   const vd = Math.max(V.d, V.d2, V.courtD) + 8;
   for (const [vx, vz] of S.VILLAS) rect(vx, vz, vw, vd);
 
-  keepOutDisc(out, S.LAWN.cx, S.LAWN.cz, S.LAWN.hedgeR + 1.5);
+  /* SITE.LAWN's disc used to be the last entry here, and reading it was the ONLY
+     reason the garden lawn survived the 2026-08-02 grass-ground pass — that pass
+     did not own world.js, so it could not take the reader out. Both are gone
+     now. keepOutDisc() is kept: it is the only shape this list can express
+     besides a rect, and the next round feature will want it. */
   return out;
 }
 
@@ -363,19 +341,34 @@ function cullUnderstoryInsideEnclave(root, keepOut) {
   return culled;
 }
 
-/* ── water.js: everything except the LAGOON ─────────────────────────────────
-   Classified by world position, never by child index — water.js is long, is
-   edited independently, and its ROOT.add() order is not a contract. The lagoon
-   is the only water body east of x = 84 (SITE.LAGOON spans x 92…152); the hero
-   pool, deck, turf, cabanas, loungers, lanterns, lounge pool and the ten villa
-   plunge pools all sit west of it. */
+/* ── water.js: the enclave's water, and nothing else ────────────────────────
+   water.js has a MIXED root: the hero pool, its deck and turf, the cabanas, the
+   loungers, the lanterns, the lounge pool and the ten villa plunge pools are
+   enclave-local; the whole resort river system is world space.
+
+   ⚠ 2026-08-02 — DECLARED, NOT MEASURED. This used to classify every child by
+   the x of its bounding-box CENTRE and adopt anything under 84. That worked
+   only for as long as the river's *average* x stayed east of the line: the
+   system is one group, so pushing its west end toward the beach — which is what
+   the resort actually has — dragged the centre over the threshold and rotated
+   the ENTIRE river 90° into the enclave, silently, leaving it running
+   north–south along the sand. It is why the beach pool was parked 10 m short of
+   where the aerial puts it and why the river could never be extended west to
+   meet it.
+   `userData.worldSpace` is now the primary test and water.js sets it on the
+   river group. It is the same flag adoptLateContent() already honours for the
+   Welcome Brunch, so world.js has ONE rule for "this is world space" rather
+   than two. The centroid test survives underneath it as a backstop for anything
+   in that file that has not been labelled — but a new WORLD-space feature
+   should carry the flag, not rely on where its middle happens to land. */
 function adoptWater(enclave, root) {
   if (!root) return;
   for (const child of root.children.slice()) {
+    if (child.userData && child.userData.worldSpace) continue;
     _box.setFromObject(child);
     if (_box.isEmpty()) continue;
     _box.getCenter(_ctr);
-    if (_ctr.x >= 84) continue;            // the lagoon stays exactly where it is
+    if (_ctr.x >= 84) continue;            // backstop: unlabelled backdrop water
     enclave.add(child);
   }
 }

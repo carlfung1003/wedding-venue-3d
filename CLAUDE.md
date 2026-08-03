@@ -20,14 +20,14 @@ own coordinates. Change the layout there, never in a builder.
 
 | File | Owns |
 |------|------|
-| `js/site.js` | **The master site plan.** `SITE.*` footprints for the suite, deck, pool, cabanas, atrium, lounge, the grass ground (`GRAND_LAWN` / `BEACH_LAWN` / `DINNER_LAWNS` / `DINNER_WALK` / `FIRE_PIT`), the garden lawn, lagoon, palm grove, beach, ocean, hotel crescent. The ten guest keys are DERIVED here from `ROOM_SPEC` → `ROOMS` / `SITE.VILLAS` / `ROOM_DOORS` / `VILLA_ZONES`, with `snapDoor()` putting every gallery door on the atrium's facade grid. Plus `siteFloorY(x,z)`, `MOMENT_PLACES` (spawns) and `INTRO_PATH` (the opening dive). |
+| `js/site.js` | **The master site plan.** `SITE.*` footprints for the suite, deck, pool, cabanas, atrium, lounge, the grass ground (`GRAND_LAWN` / `BEACH_LAWN` / `DINNER_LAWNS` / `DINNER_WALK` / `FIRE_PIT`), lagoon, palm grove, beach, ocean, hotel crescent. The ten guest keys are DERIVED here from `ROOM_SPEC` → `ROOMS` / `SITE.VILLAS` / `ROOM_DOORS` / `VILLA_ZONES`, with `snapDoor()` putting every gallery door on the atrium's facade grid. Plus `siteFloorY(x,z)`, `MOMENT_PLACES` (spawns) and `INTRO_PATH` (the opening dive). |
 | `js/config.js` | ALL tuning — walk + fly feel, camera, the intro orbit/dive, day-vs-night lighting levels, the `MOMENTS` table. No magic numbers elsewhere, and **no coordinates** (those are site.js). |
 | `js/main.js` | Renderer bootstrap (PMREM RoomEnvironment, sRGB, ACES), the `G` context object, `G.setMode`/`G.toggleMode` (walk ↔ fly), the begin→dive flow, N-key night toggle, resize, clock loop, `window.__game` debug hook |
 | `js/world.js` | **The integrator.** Builds nothing itself: calls each builder in order, owns `floorY(x,z)` (delegates to `siteFloorY`), owns the day↔night fan-out (`setNight`/`toggleNight`), and runs `G.tickers` each frame. |
 | `js/sky.js` | Sky dome (day + night gradients), sun/moon, stars, fog, and the whole global lighting rig |
 | `js/nature.js` | Ground, beach, animated ocean, the palm population, hedges, topiary, bougainvillea |
 | `js/water.js` | The hero pool (raised plinth, infinity edge, caustics), **the floating lanterns**, the deck + turf + "THE WESTIN" letters, cabana pavilions, loungers, lounge pool, lagoon, villa plunge pools |
-| `js/campus.js` | The 隐逸居 lounge, the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), **the grass ground** (`buildGrassGround` — the mown lawn panels, the spine + cross paths, the planted terrace edge, the fire pit), garden-lawn edging, event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
+| `js/campus.js` | The 隐逸居 lounge, the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), **the grass ground** (`buildGrassGround` — the mown lawn panels, the spine + cross paths, the planted terrace edge, the fire pit), event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
 | `js/atrium.js` | The clubhouse's central courtyard AND its corridor — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, and the **ten real guest-room doors** (`buildRoomDoor`) with their lit number plaques |
 | `js/suite.js` | The presidential suite, inside and out — folding glass wall, great room, dining, pantry, the L-stair with its chandelier, the spa, the 2F lounge and balcony |
 | `js/introcam.js` | The opening: a drone orbit of the enclave behind the title card, then a bezier dive over the pool and in through the glass wall, handing the look state to `player.js` on landing |
@@ -232,48 +232,189 @@ commit**, and never trust a "done" report without its evidence attached.
 project URL rather than the domain — **always curl `venue.carlfung.dev` and
 confirm it serves the new build.**
 
-## QUEUED — THE PROPORTION PASS (Carl, 2026-08-02) — biggest outstanding item
+## THE PROPORTION PASS — DONE 2026-08-02
 
-Carl put the real aerial beside the build. **Save both and look at them side by
-side before changing a number**: `reference/photos/resort-true-proportions.jpeg`
-(reality) vs `reference/photos/build-proportions-2026-08-02.png` (ours). His
-words:
+Carl put the real aerial beside the build (`reference/photos/resort-true-proportions.jpeg`
+vs `build-disconnected-2026-08-02.png`) and asked for four things. All four are in.
+The before/after, at an identical camera window, is
+**`reference/photos/compare-proportion-pass-2026-08-02.png`**; the after alone is
+`build-proportion-pass-2026-08-02.png` (+ `-night`), the water is
+`build-river-unbroken-2026-08-02.png` and `build-water-meets-hotel-2026-08-02.png`.
 
-> *"the hotel and the water features are very close by and it extends all the
-> way to the beach nicely. Right now there's a big disconnection between hotel
-> and water feature, and water feature to the beach … the hotel shape is
-> slightly smaller than actual — if you look at the real picture it's almost a
-> half circle, but the one we have now is very small in comparison. In contrast
-> the pool isn't that big in perspective compared to the actual hotel."*
+> *"the hotel and the water features are very close by and it extends all the way
+> to the beach nicely … the hotel shape is slightly smaller than actual — if you
+> look at the real picture it's almost a half circle"* · *"you can move the
+> entire clubhouse complex down to the free space?"* · *"the water feature now is
+> broken — doesn't connect to the hotel, doesn't connect to the last beach pool
+> at all"* · *"you can probably remove this non-existent grass area just in the
+> way of things?"* · *"the goal should highlight the club house, the hotel build
+> itself and the water features. I care less about any other random building
+> blocks right now."*
 
-Four linked corrections — **they are one job, because they are all the same
-ratio problem.** Fixing any one alone will make the others look worse:
+### The ruler — read this before changing any of these numbers again
 
-1. **The hotel crescent is far too small.** In the aerial it is **almost a half
-   circle** and it dominates the whole east side. `SITE.HOTEL.arc` is 1.5 rad;
-   a half circle is π. Grow the arc AND the radius so it reads as the anchor
-   of the resort.
-2. **The water features are too big relative to it.** Don't shrink them
-   blindly — get the RATIO right. In the aerial the lazy-river system reads
-   modest against that huge building; in the build the pools dominate.
-3. **Close the gap between the hotel and the water.** In the aerial the river
-   and the round pools run right up to the crescent's inner face; in the build
-   there is a wide empty lawn between them.
-4. **Close the gap between the water and the beach.** The system "extends all
-   the way to the beach nicely" — the west basin should sit just inland of the
-   sand behind only a palm belt (this overlaps the beach-pool placement item).
+Everything below is measured off **`westin-site-map.jpeg`**, the only reference
+that holds the beach, the clubhouse, the whole river AND the crescent in one
+frame, at **0.45 m/px**. That scale is calibrated three independent ways and
+they agree to better than 10 %: the beach pool's radius (36 px ↔ our 15.2 m), a
+villa roof (33 × 26 px ↔ a ~15 × 12 m key) and the presidential pool (52 px ↔ our
+25 m). A circle fitted to three points on the crescent's concave face lands at
+centre **(998, 373) px, inner radius 206 px**, and — this is the useful part —
+**that centre sits in the middle of the resort's main pool complex.** The
+crescent curves around the water. That is the plan.
 
-Also: **the rooftop has BOTH an infinity pool AND a rooftop bar area** — the
-bar is a distinct zone, not just a counter beside the water. See the build
-screenshot for what is there now.
+**The finding that changed the job: `r` was already right.** 206 px × 0.45 = 93 m
+against a rooftop inner edge of 90 and a guest-room facade at 84. The queued spec
+asked to grow the arc AND the radius; the radius must NOT grow, because campus.js
+derives `rIn = r − DEP/2` and leans the facade 6 m back onto `ROOFTOP.rIn = 90`.
+Touch `r` and the walkable rooftop, its polar hole in the height field, its
+y-ranged colliders, the stair tower and the brunch dressing in TWO files all
+shear off the building. What was actually wrong was the ARC (86° against the
+aerial's ≥119°) and the DISTANCE (326 m sand→arc-centre against the aerial's 292).
 
-⚠️ **This touches everything.** `SITE.HOTEL` feeds `HOTEL_ROOF`, the walkable
-rooftop annulus + its polar hole, the y-ranged rooftop colliders, the stair
-tower, and the Welcome Brunch spawn and dressing (`campus.js` AND `moments.js`
-place the four-tops at matching radii). `SITE.RIVER`/`LAGOON`/`HOTEL_POOLS` and
-`RESORT_VILLAS` all sit between them. Expect to re-walk the roof and re-check
-every moment. Do it as ONE deliberate pass with a scale rationale written down,
-not as a series of nudges.
+### What changed
+
+| | was | now | why |
+|---|---|---|---|
+| `SITE.HOTEL.arc` | 1.5 rad (86°) | **2.35 rad (134.6°)** | the aerial's crescent spans ≈ −3°…+116° before the photo runs out of building. 142 m → 223 m of face, +57 % |
+| `SITE.HOTEL.cx` | 285 | **251** | arc centre 190 → 156; sand→centre 326 m → 292 m, the aerial's ratio |
+| `SITE.HOTEL.r` | 95 | **95 — unchanged** | already correct, and load-bearing for the whole rooftop |
+| `HOTEL_TILES` | hard 9 | **derived** `round(r·arc/(4·3.96))` = 14 | at 9 the guest-room bays would have stretched to 6.2 m |
+| ring collider count | hard 27 | **derived** `round(r·arc/5.5)` = 40 | 27 over a 223 m arc spaces them 8.6 m |
+| `ENCLAVE.ox/oz` | −58, 34 | **−34, 74** | +24 m east, +40 m south |
+| `SITE.RIVER.SPINE` | head (54, 19) | **head (−71, −24)**, +16 points | the west reach: 140 m out of the beach pool's east rim |
+| `SITE.RIVER.SPUR` | 5 points, ends at EAST | **14 points**, ends inside `HOTEL_POOLS[1]` | the run to the crescent |
+| `SITE.RIVER.WEST` | (−82, −34) | **(−84, −28)** | 2 m west, 6 m south onto the river's line |
+| `SITE.LAGOON` | 16.5 × 12.5 | **19.5 × 15.5** | the ratio moved the WRONG way when the hotel grew — see below |
+| `SITE.RESORT_VILLAS` | 38, an 8 × 5 grid across the middle | **29, two fields that frame the water** | Carl's steer |
+| `SITE.LAWN` | a 48 m hedge-ringed disc | **deleted** | Carl: "this non-existent grass area" |
+| `SITE.BOUNDS` | x1 250, z1 120 | **x1 265, z1 140** | the walker was clamped inside the building |
+
+### The two blockers, both fixed properly
+
+1. **`adoptWater()` classified by bounding-box centroid.** The whole river is ONE
+   group; pushing its west end toward the beach dragged the centroid over the
+   hard-coded `x = 84` and silently swung the ENTIRE system 90° along the sand.
+   That is why the beach pool was parked at cx −82 and why the river could never
+   be extended west. `water.js` now sets `g.userData.worldSpace = true` on the
+   river group and `world.js` tests the flag FIRST — the same flag it already
+   honours for the Welcome Brunch, so there is one rule, not two. The centroid
+   test survives underneath as a backstop for anything unlabelled.
+2. **`HOTEL_TILES` is derived** from `r`, `arc` and a new `HOTEL_BAY_M = 3.96`.
+   The bay width is the constant; the tile count follows it.
+
+### How the water reconnects, west → east
+
+`WEST` beach pool → an outfall cut into its east rim at (−71, −24) → 140 m of
+new lazy river through the palm grove, five lazy reversals, holding z ≈ −22
+across the clubhouse's northern flank → the old head at (54, 19) → the eastern
+half **untouched** → `LAGOON` → `SPUR` → `EAST` → `EAST2` → 95 m of new channel →
+into `HOTEL_POOLS[1]`, hard against the podium. **One centreline threads four
+basins.** water.js trims a channel wherever it is already inside a basin, so this
+needed no new code in that file — the same two centrelines it always built.
+
+- **`BRIDGES` retuned** (5 → 9). `t` is arc-length fraction; the spine roughly
+  doubled and the spur nearly quadrupled. A bridge is also the only GAP in the
+  collider chain, so a reach without one is a wall across the campus.
+- **`PATHS[0]` moved 8…11 m SOUTH of the water** — it used to run down exactly
+  the corridor the west reach now occupies. It follows the bank the whole way,
+  which is how the aerial has it, and carries on into the crescent's crook.
+  `LAMPS` 22 → 30 for the longer walk.
+- **The west reach is WIDER than the east and that is deliberate**: half-widths
+  1.25…2.15 (a 2.5…4.3 m channel) against 1.15…1.55 east of x 54. A touring
+  paddleboard is 3.2 m so `lazy-river-closeup.png` still reads, and the site
+  map's own channel measures ~4.5 m. The reason it matters: at 2.3 m under a
+  closed palm canopy the connection Carl asked for read as a HEDGE from above.
+  The east half is Carl-verified and is not touched.
+- **The bank canopy's sampling step is now a function of channel width**
+  (`water.js`, `buildRiverDressing`): every 3rd centreline point where the water
+  is narrow, every 5th where it is wide. Two rows of palms cannot close a 4 m
+  channel anyway.
+
+### The ratio, honestly
+
+Carl's *"the pool isn't that big in perspective compared to the actual hotel"* is
+a RATIO complaint, and growing the crescent 57 % overshot it. Measured: the
+aerial's eastern lagoon is ~66 × 70 m against a 219 m hotel face = **0.30**; ours
+was 33 × 25 m against 223 m = **0.148**, i.e. half the aerial's relationship and
+on the wrong side of it. `LAGOON` grew to 39 × 31 m = **0.175** — deliberately
+short of the measurement, because the failure Carl actually SAW was "the pools
+dominate". **Nothing else in the water grew**: the river's width, the beach pool
+and the hotel's own pools are unchanged. If he wants more water, the lagoon is
+where the next 60 % goes.
+
+### The villa field is now context (Carl's steer)
+
+> *"I care less about any other random building blocks right now."*
+
+It was an 8 × 5 grid on a rigid pitch running z −124…65 — straight across the
+middle of the frame, and the band z −26…62 it occupied is exactly the ground the
+river now crosses. It is two loose fields that FRAME the water: NORTH
+(x 90…166, z −112…−28), SOUTH-EAST (x 92…147, z 66…102) and a thinned far-north
+band. 38 → 29 boxes.
+
+⚠ **TWO HARD RULES on that field, both silent when broken.**
+1. Every backdrop villa must satisfy **`x ≥ 84 || z ≤ −80`**. That is exactly
+   `isEnclaveLocal()`, and world.js runs it over every instance in the SHARED
+   buckets these villas write into — a villa that answers "local" gets the
+   enclave's 90° matrix baked onto it and lands somewhere else entirely. It is
+   why the south-east field starts at x 92 and not the x 60 the composition
+   would like.
+2. `skip()` tests the crescent in **polar** terms, radius AND bearing. A radius
+   test alone rejects villas that are nowhere near it — the arc only sweeps
+   134.6°, so r 87 at θ −6° is open ground.
+
+Two things moved out of the crescent's way and both are noted where they live:
+the **wave-roofed conference block** (it stood inside the new arc; it is now on
+the south-west apron at r 118) and the **arrival drive spur**, which had been
+ending on bare grass since the enclave first moved (polish backlog) and now ends
+at a forecourt beside the parking apron. A drive to the front door would need a
+vehicular bridge over the new river; guests are dropped inland and walk in,
+which is what the site map shows.
+
+### Verified — headless Playwright, 1440 × 810, zero page errors, zero console errors, zero warnings
+
+- **Rooftop, exact:** brunch spawn feet **26.600**; walk west into the water,
+  feet **25.320**; `floorY` at derived polar points (never at literals) —
+  deck 26.600, pool basin 25.320, the infinity lip 25.320, stair-tower ground
+  0.000, tower top 23.644. Strafing the deck fires "Pour a glass".
+- **All six moments** switch, dress, night-flip and spawn on flat ground at the
+  right height: brunch 26.60, the other five 0.000, zero first-frame drift.
+- **Suite spawn → out through the folding glass onto the turf** — walks clear.
+- **Ceremony** spawn → up the aisle → "Stand at the arch" fires.
+  **Cocktail** spawn → "Order from the bar" fires. **Dinner** spawn → up the
+  lawn. **After party** spawn → "Request a song" already in reach.
+- **Interiors:** atrium corridor → door → room B2, feet 0 → 0.22 (the threshold
+  step). Suite L-stair, BOTH flights: lower 0.178 → **1.382** (the landing),
+  upper 1.382 → **3.800** (the 2F slab).
+- **Height-field audit:** all 59 `WALK_REGIONS` probed at their own centre; two
+  "mismatches", both correct behaviour (`pool-plinth`'s centre is inside its own
+  basin hole; `lounge-step` is overlapped by the higher lounge plinth).
+- **The hero pool is still the only pool visible from the great room.** Against a
+  44.6° half-FOV: hero pool −2.1° off axis (in frame); second/lounge pool nearest
+  edge 57.2°, resort beach pool 49.5°, lagoon 157.2°, east pool 156.6° — all out.
+  The beach pool at 49.5° is the tightest margin on the campus; anything that
+  moves the enclave west or the beach pool south eats it.
+- **Cost:** draw calls **4772 → 4750 (−22)**, triangles **904,628 → 936,728
+  (+32,100, +3.5 %)**, meshes −11, **lights unchanged (34)**, colliders
+  **8464 → 7885 (−579)**, geometries −6, textures unchanged. The crescent's +57 %
+  of face costs ~+69k triangles; deleting `SITE.LAWN` (a 44 m turf disc, a stone
+  rim and coping, a 132-segment hedge ring, a ring path, an aisle threshold and
+  20 path lights) gave back 37k, and thinning the villas gave back the rest.
+
+### One thing that is NOT this pass's doing, and is worth someone's time
+
+**The suite's L-stair can only be climbed from a 0.3 m-wide entry at the foot of
+the lower flight** (enclave-local x ≈ −4.7…−5.0, inside the z band −24.25…−23.05).
+Approach it head-on down the ramp axis from local x −3 and you are stopped at
+x −3.79; approach it sideways across the z band and you arrive where the ramp is
+already 0.68 m up, which is past `CFG.STEP_UP`, so you can never step on. Same
+shape of problem on the atrium's gallery stair, which pushed a scripted walker
+off the flight entirely.
+**Both were A/B'd against the pre-move `ENCLAVE.ox/oz` and the trajectories are
+identical to the centimetre in enclave-local coordinates** — the move is exactly
+rigid and did not cause this. It is the stairs' collider geometry, and the fix is
+probably to widen the approach rather than to touch the ramps.
 
 ## The hotel facade + the beach pool — DONE 2026-08-02
 
@@ -330,6 +471,10 @@ changes the silhouette is geometry.
 
 ### 2 · The beach pool moved 130 m west, to the beach
 
+⚠ **Superseded in part by the proportion pass** (top of this file): the pool is
+at (−84, −28) now, the cx −82 cap is gone with the `adoptWater()` fix, and the
+river flows out of it again. What is still true below is WHY it is near the sand.
+
 `SITE.RIVER.WEST` **(48, 20) → (−82, −34)**, `BAR` with it (same rim offset).
 Its deck's outer edge is now at x −102.8, so the palm belt between it and the
 sand's inland edge (−136) is **33 m** where it was 163. It sits NORTH of the
@@ -344,21 +489,22 @@ Two consequences, both handled **in site.js**, so `water.js` needed no edit:
   channel back across the palm grove and past the enclave's north flank — and it
   is not what the resort has: in `beach-pool-near-beach-aerial.png` the circular
   beach pool is self-contained and the lazy river is a separate system inland.
-  `SPINE`'s head is now the river's own spring basin at (54, 19).
-- **`PATHS[0]` runs out to the pool's east deck** (−60, −31) and keeps north of
-  world z −6 the whole way, so the resort's spine walk never crosses the
-  ceremony lawn.
+  `SPINE`'s head was moved to a spring basin at (54, 19) — and moved BACK on
+  2026-08-02: Carl looked at the result and said the water was broken, so the
+  spine now starts as an outfall in the beach pool's east rim. See the
+  proportion pass.
+- **`PATHS[0]`** was rerouted again on 2026-08-02 — it now runs 8…11 m SOUTH of
+  the west reach, on the clubhouse side, because the river took its old corridor.
 
-⚠ **It wants ~10 m more and is blocked by `world.js`, not by the site plan** —
-see the polish backlog. This is item 4 of the proportion pass above; items 1–3
-(grow the crescent, re-ratio the water, close the hotel↔water gap) are untouched
-by this pass.
+⚠ ~~It wants ~10 m more and is blocked by `world.js`~~ — the block is gone
+(`adoptWater()`, 2026-08-02) and the measurement said the pool was already close
+enough to the sand: the aerial wants ~45 m of palm belt and 31 m is what it has.
+It moved 2 m west and 6 m SOUTH instead, onto the river's line, so the two can
+be joined.
 
-**One thing the proportion pass must carry with it:** `texHotelFacade` fixes the
-guest-room bay at ≈3.96 m by tiling 4 bays 9 times over a 142 m arc
-(`HOTEL_TILES = 9`). Grow `SITE.HOTEL.arc` toward π or grow `r` and the bays
-stretch with the arc — a 300 m crescent would render 8 m guest rooms. Rescale
-`HOTEL_TILES` to `round(H.r * H.arc / (4 * 3.96))` when that pass lands.
+~~One thing the proportion pass must carry with it~~ — DONE. `HOTEL_TILES` is
+derived from `SITE.HOTEL.r`, `.arc` and `HOTEL_BAY_M = 3.96`, so the bay width is
+the constant and the tile count follows the building. 9 → 14.
 
 ## The resort's water features — DONE 2026-08-02
 
@@ -429,7 +575,10 @@ had. Carl's words are below; what follows them is what is now built.
 
 **Orientation, derived (this had cost three passes — do not re-derive it by
 eye).** `ENCLAVE.rotY = −π/2`, so `cos = 0`, `sin = −1` and `enclaveToWorld`
-collapses to `world.x = −z + ox`, `world.z = x + oz`. Therefore:
+collapses to `world.x = −z + ox`, `world.z = x + oz`. ⚠ **`ox`/`oz` moved on
+2026-08-02 (−58, 34 → −34, 74), so every WORLD coordinate quoted in this section
+is stale by (+24, +40); every LOCAL one below is exactly as authored and the
+directions are unchanged.** Therefore:
 
 | enclave-local | world | also |
 |---|---|---|
@@ -480,15 +629,15 @@ ceremony spawn did and why the blurb had been lying since the rotation.
   whose AABB is exactly w × d. **water.js still builds it as a rectangle and
   that rectangle is the outline's bounding box**, so nothing is misplaced; the
   outstanding job is in the polish backlog below.
-- **`SITE.LAWN` still exists and is still built.** It is no longer the ceremony
-  ground — it is a formal garden lawn out by the arrival road. It was NOT
-  deleted because `world.js`'s `enclaveKeepOut()` reads `S.LAWN.hedgeR`
-  unconditionally and world.js was not in this pass's ownership.
+- ~~`SITE.LAWN` still exists and is still built~~ — **DELETED 2026-08-02** by the
+  proportion pass, which owned world.js. Carl: *"you can probably remove this
+  non-existent grass area just in the way of things?"*
 
 **`campus.js`'s `buildGrassGround()` builds every square metre of it through
 `inst()`, and that is a correctness requirement, not a performance one.**
 world.js re-parents campus content into the rotated enclave two ways: named
-groups listed in its `CAMPUS_ENCLAVE_GROUPS` **literal**, and InstancedMeshes,
+groups listed in its `CAMPUS_ENCLAVE_GROUPS` **literal** (`lounge`, `pergola`, `sign`, `extstair`),
+and InstancedMeshes,
 whose instances it relocates individually through `isEnclaveLocal()`. A new
 named group is not in that Set and would stand 90° around the map, silently.
 Same reason there are no `THREE.PointLight`s out there — a light needs a parent
@@ -571,6 +720,9 @@ lawn's design is actually derived from:
    bug. See **The rooftop is walkable** below.
 8. ~~The atrium is a HALLWAY and the rooms ATTACH to it~~ — DONE 2026-08-02,
    see below.
+9. ~~THE PROPORTION PASS~~ — DONE 2026-08-02: the crescent grown and pulled in,
+   the water reconnected beach→hotel, the enclave moved south-east, `SITE.LAWN`
+   deleted, the villa field demoted to context. See the top of this file.
 
 ## The rooms attach to the atrium — DONE 2026-08-02
 
@@ -635,43 +787,17 @@ great room), and the type placement above.
 
 None of these are guesses — each was found and left by a verified pass:
 
-- **⚠ `world.js`'s `adoptWater()` is a landmine, and it is what stops the beach
-  pool going the last 10 m to the beach.** It reparents every direct child of
-  the water root whose **bounding-box centre x < 84** into the rotated enclave.
-  `buildRiver()` puts the ENTIRE river system — beach pool, lazy river, lagoon,
-  the hotel's own pools — into one group called `river`, and that group is spared
-  the rotation only because its centre happens to sit east of the threshold.
-  Measured 2026-08-02: the box runs `x0 = SITE.RIVER.WEST.cx − 20.7` to
-  `x1 = 278.4`, so the centre crosses 84 at `cx = −89.7`. **At `cx = −92` the
-  whole river silently swings 90° and runs north–south along the beach** —
-  verified, not theorised; the group's world box became x −109.6…0.9,
-  z −78.7…312.4 and `G.groups.water.children` emptied. `SITE.RIVER.WEST` is
-  therefore parked at **cx −82** (centre 87.8, 7.7 m of headroom) rather than the
-  −92 the aerial asks for, and that headroom has to survive anyone widening the
-  pool deck or extending `PATHS[0]`.
-  **The fix is one line**, and it replaces a positional guess with the fact it
-  was standing in for — the river is authored in world space and must never be
-  adopted, whatever its extent:
-  ```js
-  // world.js, adoptWater()
-  if (child.name === 'river' || _ctr.x >= 84) continue;
-  ```
-  (or, better, have `water.js` set `child.userData.worldSpace = true` on the
-  river group and test that, matching the flag `world.js` already honours for
-  the Welcome Brunch in its late-adoption pass). Then move `SITE.RIVER.WEST` to
-  `cx −92, cz −34` and `BAR` to `cx −103.5, cz −20.5`, which puts 23 m of palm
-  belt between the pool's deck and the sand — the separation
-  `beach-pool-near-beach-aerial.png` actually shows. Nothing else needs to move:
-  the river's colliders already opt out of the sibling collider-rewrite pass
-  through `water.js`'s `worldCollider()`, whose `x`/`z` setters are no-ops.
+- ~~`world.js`'s `adoptWater()` is a landmine~~ — FIXED 2026-08-02 (the
+  proportion pass). `water.js` sets `userData.worldSpace = true` on the river
+  group and `world.js` tests that flag before the centroid. The beach pool's
+  position is no longer capped by it and the river runs west to meet it.
 - **`assets/og.jpg` does not exist.** `index.html` points every OG/Twitter tag
   at it, so the link currently unfurls with a broken image everywhere it's
   shared — and this link WILL be shared with guests. Render one from the
   drone orbit or the night pool and drop it in.
-- **The cabana boardwalk region is a lodger in `world.js`.** `floorY` patches
-  it on top of `siteFloorY`. Paste this into site.js's registry when that file
-  is next open and delete the patch:
-  `rect('cabana-boardwalk', 11.9, -2.4, 14.4, 21.4, 0.30)`.
+- ~~The cabana boardwalk region is a lodger in `world.js`~~ — FIXED 2026-08-02.
+  It is `rect('cabana-boardwalk', …)` in `WALK_REGIONS`, derived from
+  `SITE.CABANAS`, and `floorY` is a plain delegate again.
 - ~~The ceremony arch reads thin~~ — FIXED 2026-08-02; it was built edge-on (see
   the grass-ground section) and is now a real 4.8 m structure seen from 12 m.
 - ~~The ceremony blurb's "arch with the sea behind it" disagrees with the
@@ -692,12 +818,20 @@ None of these are guesses — each was found and left by a verified pass:
   outline's AABB is exactly `w × d`, so today's rectangle is its bounding box
   and nothing is misplaced in the meantime. The straight `v = −0.5` edge is the
   side facing the lounge's folding glass and must stay straight.
-- **The arrival drive spur is orphaned** — `campus.js`'s `buildRoad()` runs a
-  spur to a drop-off circle that used to serve the clubhouse; since the
-  enclave moved it ends on empty grass.
+- ~~The arrival drive spur is orphaned~~ — FIXED 2026-08-02. It ends at a
+  forecourt beside the parking apron. It cannot reach the clubhouse any more
+  without a vehicular bridge over the new river, and guests walking in from an
+  inland arrival court is what the site map actually shows.
 - **`world.js` still carries `enclaveKeepOut()` + `cullUnderstoryInsideEnclave()`**,
   added to compensate for a nature.js frame bug that has since been fixed
-  properly. Harmless but stale, and their comments now lie.
+  properly. Harmless but stale, and their comments now lie. (Their `S.LAWN`
+  reader went with the garden lawn on 2026-08-02; the rest is untouched.)
+- **The suite's L-stair and the atrium's gallery stair each have a ~0.3 m entry
+  and no other way on.** Proven pre-existing by an A/B against the pre-move
+  enclave offsets — see the end of the proportion-pass section. Nobody walking
+  the venue normally will find either.
+- **`SITE.LOUNGE_POOL.OUTLINE` is still drawn as a rectangle** — see below; that
+  item is unchanged by the proportion pass.
 
 ## QUEUED — loading screen (Carl, 2026-08-02)
 

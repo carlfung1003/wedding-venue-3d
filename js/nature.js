@@ -577,14 +577,15 @@ function exclusionZones() {
      the real asymmetric envelopes; read them rather than guessing a margin,
      which is the whole reason VILLA_ZONES exists. */
   for (const v of VILLA_ZONES) rect(local, v.cx, v.cz, v.w, v.d);
-  local.discs.push({ cx: S.LAWN.cx, cz: S.LAWN.cz, r: S.LAWN.hedgeR + 1.5 });
+  /* (SITE.LAWN's disc used to go in here. The garden lawn was deleted on
+     2026-08-02 — see the note where it stood in site.js.) */
 
   /* ── THE GRASS GROUND (Carl, 2026-08-02) ────────────────────────────────
      Every mown lawn is a keep-out, and this is not cosmetic: BEACH_LAWN is the
      ceremony, and SITE.PALM_GROVE's band covers exactly the ground it stands
      on (world x −134…−66 = local z 8…76), so without these the grove plants a
      palm through the aisle and the arch. The lawns want a FRINGE, not a
-     scatter — placePalms() adds it explicitly, the same way it rings SITE.LAWN.
+     scatter — placePalms() adds it explicitly (step 4 there).
      The margin is deliberately generous on the two event lawns (the rect is
      grown, not the point tested) so nothing overhangs a chair block.          */
   const lawnRect = (L, m = 0) =>
@@ -1055,19 +1056,14 @@ function placePalms(G, blocked, preColliders) {
     push(x, z); i++;
   }
 
-  /* 3 — the ring that frames the ceremony lawn (SITE.LAWN.palms).
-     The palm population is GLOBAL — one world-space InstancedMesh set whose
-     matrices the sway ticker rewrites every frame, so it cannot be parented
-     under the enclave. But SITE.LAWN is enclave-local, so this ring's positions
-     are mapped through enclaveToWorld() and the palms land around the lawn
-     WHERE IT NOW IS while staying in the global buckets. */
-  const L = SITE.LAWN;
-  for (let i = 0; i < L.palms; i++) {
-    const a = (i / L.palms) * Math.PI * 2 + rnd() * .12;
-    const r = L.hedgeR + 2.6 + rnd() * 2.4;
-    const p = enclaveToWorld(L.cx + Math.cos(a) * r, L.cz + Math.sin(a) * r);
-    push(p.x, p.z);
-  }
+  /* 3 — (was the ring of palms framing SITE.LAWN, the formal garden lawn.
+     Deleted 2026-08-02 with the lawn itself — Carl: "you can probably remove
+     this non-existent grass area just in the way of things?" The pattern it
+     established survives immediately below in step 4, which is the one that
+     matters: enclave-local positions mapped through enclaveToWorld() so the
+     palms land where the clubhouse now is while staying in the GLOBAL,
+     world-space palm buckets, whose matrices the sway ticker rewrites every
+     frame and which therefore can never be parented under the enclave.) */
 
   /* 4 — THE PALM BELT AND THE LAWN FRINGES (Carl, 2026-08-02).
      exclusionZones() now clears GRAND_LAWN / BEACH_LAWN / DINNER_LAWNS of the
@@ -1075,7 +1071,7 @@ function placePalms(G, blocked, preColliders) {
      (clubhouse-lawn-to-beach.png) shows the big lawn as flat, unbroken and
      completely empty. But an empty rectangle with a random scatter around it
      reads as a bald patch, not as a lawn, so the edges are planted DELIBERATELY
-     here, exactly like SITE.LAWN's ring above: enclave-local positions mapped
+     here: enclave-local positions mapped
      through enclaveToWorld, staying in the global (world-space) palm buckets.
 
      ⚠ Every palm carries a collider (buildPalms, r = NAT.TRUNK_R), so the belt
@@ -1324,27 +1320,17 @@ function buildUnderstory(G, blocked, enc) {
   const dummy = new THREE.Object3D();
   const H = NAT.HEDGE;
 
-  /* ── hedges — ALL FOUR RUNS ARE ENCLAVE-LOCAL ──────────────────────────
-     Every clipped hedge in the campus belongs to the clubhouse: the ceremony
-     lawn's ring, the wall behind the cabana run, the two plaza runs and the
-     lounge terrace screen. So the whole InstancedMesh goes into `enc` and
-     inherits the enclave transform exactly like the buildings do; only the
-     collider chains are mapped by hand (hedgeRun's last argument). */
+  /* ── hedges — ALL THREE RUNS ARE ENCLAVE-LOCAL ─────────────────────────
+     Every clipped hedge in the campus belongs to the clubhouse: the wall behind
+     the cabana run, the two plaza runs and the lounge terrace screen. So the
+     whole InstancedMesh goes into `enc` and inherits the enclave transform
+     exactly like the buildings do; only the collider chains are mapped by hand
+     (hedgeRun's last argument).
+     ⚠ There used to be a FOURTH run here, and it was the biggest: a 132-segment
+     hedge ring around SITE.LAWN, the formal garden lawn. Both went on
+     2026-08-02 — 132 hedge runs and their collider chains are most of what this
+     function used to cost. */
   const segs = [];
-
-  /* the ceremony lawn's hedge ring, with a 7 m entrance facing the campus */
-  const L = SITE.LAWN;
-  const openA = Math.atan2(SITE.SUITE.cz - L.cz, SITE.SUITE.cx - L.cx);
-  const half = 3.6 / L.hedgeR;                     // half-angle of the gap
-  const RING = 132;
-  for (let i = 0; i < RING; i++) {
-    const a0 = openA + half + (i / RING) * (Math.PI * 2 - half * 2);
-    const a1 = openA + half + ((i + 1) / RING) * (Math.PI * 2 - half * 2);
-    hedgeRun(G, [
-      [L.cx + Math.cos(a0) * L.hedgeR, L.cz + Math.sin(a0) * L.hedgeR],
-      [L.cx + Math.cos(a1) * L.hedgeR, L.cz + Math.sin(a1) * L.hedgeR],
-    ], H.h * (.94 + rnd() * .14), H.t, segs, true, enclaveToWorld);
-  }
 
   /* Hedge wall behind the pool cabanas. The run marches along Z at a fixed X,
      like SITE.CABANAS itself ({x, z0, z1}) — this read the pre-rotation
@@ -1476,10 +1462,19 @@ function buildUnderstory(G, blocked, enc) {
       });
     }
   }
-  /* a few along the lawn's hedge ring, well spaced */
-  for (let i = 0; i < 5; i++) {
-    const a = rnd() * Math.PI * 2, r = L.hedgeR + 1.1 + rnd() * .9;
-    bougs.push({ x: L.cx + Math.cos(a) * r, z: L.cz + Math.sin(a) * r, s: .5 + rnd() * .4 });
+  /* Five more used to be scattered along SITE.LAWN's hedge ring; both went on
+     2026-08-02 with the garden lawn. They are re-homed onto the planted terrace
+     edge above GRAND_LAWN, which is the enclave's other long soft edge and the
+     one the reference photo actually shows bougainvillea on. */
+  {
+    const GL = SITE.GRAND_LAWN;
+    for (let i = 0; i < 5; i++) {
+      bougs.push({
+        x: GL.x0 + 3 + ((i + .5) / 5) * (GL.x1 - GL.x0 - 6) + (rnd() - .5) * 2.2,
+        z: GL.z0 - 2.0 - rnd() * 1.1,
+        s: .5 + rnd() * .4,
+      });
+    }
   }
 
   MAT.boug = new THREE.MeshStandardMaterial({ map: bougTex(), roughness: .86, metalness: 0 });

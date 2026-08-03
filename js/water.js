@@ -2104,11 +2104,20 @@ function buildRiver(G) {
   const R = SITE.RIVER, L = SITE.LAGOON;
   const g = new THREE.Group();
   g.name = 'river';
-  /* ONE group for the WHOLE system. world.js's adoptWater() classifies
-     water.js's root children by bounding-box centre and leaves anything at
-     x ≥ 84 in world space; the river spans x ≈ 47…160, centre ≈ 103. Split
-     this across several ROOT children and the western half would be swept
-     into the rotated enclave. */
+  /* ONE group for the WHOLE system, and it is AUTHORED IN WORLD SPACE.
+     ⚠ 2026-08-02 (proportion pass) — `worldSpace` is the whole fix.
+     world.js's adoptWater() used to classify water.js's root children by the x
+     of their bounding-box CENTRE and sweep anything under x = 84 into the
+     rotated 隐逸居 enclave. The river was spared that only by accident: its box
+     happened to average out east of the threshold. Extend it west toward the
+     beach — which is exactly what the resort's aerial asks for — and the centre
+     crosses 84, and the ENTIRE system silently swings 90° and runs north–south
+     along the sand. That is what capped SITE.RIVER.WEST at cx −82 and stopped
+     the beach pool reaching the beach.
+     A positional guess is now a stated fact: this group is world space, whatever
+     its extent. world.js honours the same flag it already honours for the
+     Welcome Brunch's late adoption, so there is one rule, not two. */
+  g.userData.worldSpace = true;
   ROOT.add(g);
 
   const WY = R.BASIN_Y, CY = R.WATER_Y;   // basin water, channel water
@@ -2506,7 +2515,10 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
      nature.js's palm scatter is campus-wide and far too thin on its own. */
   for (const key of ['spine', 'spur']) {
     const pts = lines[key];
-    for (let i = 2; i < pts.length - 2; i += 2) {
+    /* same width rule as the bank palms below: the wide connecting reach gets
+       its clumps every 4th point rather than every 2nd, so the water is edged
+       rather than buried */
+    for (let i = 2; i < pts.length - 2; i += (pts[i].hw > 1.55 ? 4 : 2)) {
       const s = pts[i];
       for (const sgn of [1, -1]) {
         /* the three rnd() calls stay unconditional (nature.js's pattern) so
@@ -2558,10 +2570,21 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
 
      ⚠ The three rnd() draws per candidate are unconditional (nature.js's
      pattern) so a rejected candidate never shifts the stream for the rest. */
+  /* ⚠ THE SAMPLING STEP IS NOW A FUNCTION OF THE CHANNEL'S WIDTH (2026-08-02,
+     the proportion pass). Every third point at a 1.6 m resample is a palm every
+     ~2.9 m of bank, which closes the canopy over a 2.6 m channel — right, and
+     the whole point where the reference photograph applies. The proportion pass
+     added a 140 m WEST REACH carrying the eye from the beach pool to the rest
+     of the resort, and widened it to 2.5…4.3 m to do that job. At the old
+     density the same canopy simply covered it: in the first top-down of this
+     pass the connection Carl had asked for read as a hedge, not as water. Two
+     rows of palms cannot close a 4 m channel anyway, so the step opens to every
+     fifth point wherever the water is wider than 3.1 m. The narrow east half is
+     sampled exactly as before, to the palm. */
   const bankPalms = [];
   for (const key of ['spine', 'spur']) {
     const pts = lines[key];
-    for (let i = 3; i < pts.length - 3; i += 3) {
+    for (let i = 3; i < pts.length - 3; i += (pts[i].hw > 1.55 ? 5 : 3)) {
       const s = pts[i];
       for (const sgn of [1, -1]) {
         const keep = rnd() < .82, off = R.COPING + R.BANK + .9 + rnd() * 1.5;

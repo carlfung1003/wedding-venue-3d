@@ -13,6 +13,54 @@
 // two storeys · lounge 280 ㎡ / seats 60 · great room ~16 × 13 m envelope with a
 // ~14 m folding glass wall · pool ~25 × 10 m raised 0.45 m.
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE CRESCENT'S FOUR NUMBERS — hoisted out of SITE so nothing re-derives them
+   ═══════════════════════════════════════════════════════════════════════════
+   SITE.HOTEL_POOLS used to open with `const acx = 285 - 95` — the arc centre,
+   spelled out again as literals, inside the same object literal that defines
+   SITE.HOTEL twenty lines further down. That worked for exactly as long as
+   nobody moved the building. These four constants are the single copy; HOTEL
+   and HOTEL_POOLS both read them, and HOTEL_ROOF derives the arc centre from
+   SITE.HOTEL as it always has.
+
+   ── THE PROPORTION PASS, 2026-08-02 (Carl) ──────────────────────────────────
+   *"the hotel and the water features are very close by and it extends all the
+   way to the beach nicely. Right now there's a big disconnection between hotel
+   and water feature, and water feature to the beach … the hotel shape is
+   slightly smaller than actual — if you look at the real picture it's almost a
+   half circle, but the one we have now is very small in comparison."*
+
+   Measured off reference/photos/westin-site-map.jpeg, which is the only
+   reference that holds the beach, the clubhouse, the whole river and the
+   crescent in ONE frame. A circle fitted to three points on the crescent's
+   concave face lands at centre (998, 373) px with an inner radius of 206 px.
+   The scale is 0.45 m/px, calibrated three independent ways and agreeing to
+   better than 10 %: the beach pool's radius (36 px ↔ our 15.2 m), a villa roof
+   (33 × 26 px ↔ a ~15 × 12 m key) and the presidential pool (52 px ↔ our 25 m).
+
+   What that says, and it is not what was expected:
+     · R IS ALREADY RIGHT. 206 px × 0.45 = 93 m, against a rooftop inner edge of
+       90 and a guest-room facade at 84. **`r` is therefore NOT changed** — and
+       it must not be, because campus.js derives `rIn = r − DEP/2` and leans the
+       facade 6 m back onto ROOFTOP.rIn = 90. Grow `r` and the walkable rooftop,
+       its polar hole in the height field, its y-ranged colliders, the stair
+       tower and the brunch dressing in TWO files all shear off the building.
+       The radius was never the problem.
+     · THE ARC WAS. The real crescent spans ≈ −3°…+116° of its own circle before
+       the photograph runs out of building — at least 119°, against our 1.5 rad
+       = 86°. That is Carl's "almost a half circle", and it is the whole of what
+       reads small. `arc` 1.5 → 2.35 rad (134.6°): the building goes from 142 m
+       to 223 m along its face, +57 % of everything you actually see.
+     · IT WAS TOO FAR AWAY. In the aerial the sand's inland edge is 650 px from
+       the arc centre = 292 m. Ours was 326. `cx` 285 → 251 pulls the arc centre
+       from x 190 to x 156 and closes 34 m of the empty lawn Carl is pointing at
+       — the rest of that gap is closed by the water, which now runs into it.
+   ⚠ Grow the arc and the guest-room bays stretch with it: texHotelFacade tiles
+   4 bays HOTEL_TILES times across the whole face, so the bay width is
+   r·arc/(4·TILES). campus.js computes TILES from these numbers now instead of
+   holding the 9 that suited a 142 m building. See the note there.            */
+const HOTEL_CX = 251, HOTEL_CZ = 10, HOTEL_R = 95, HOTEL_ARC = 2.35;
+
 export const SITE = {
   // ---------------------------------------------------------------- the suite
   // Two-storey glass villa. Glass wall faces SOUTH (+Z) onto the deck and pool.
@@ -252,13 +300,22 @@ export const SITE = {
       [-0.46, -0.34],
     ] },
 
-  // ------------------------------------------------------- the formal garden lawn
-  // The small hedge-ringed disc on the ARRIVAL side, out by the road. It used to
-  // be the ceremony ground; it is not, and never was — see GRAND_LAWN below and
-  // reference/photos/clubhouse-lawn-to-beach.png, which shows the real one:
-  // open, unbroken, no hedge ring, no ring path. This stays as what it actually
-  // reads as, a formal garden lawn at the far end of the enclave.
-  LAWN: { cx: -75, cz: -46, r: 22, hedgeR: 24, palms: 18 },
+  /* ── SITE.LAWN — DELETED 2026-08-02 (the proportion pass) ──────────────────
+     Carl, on the striped dark-green oval in his top-down: *"you can probably
+     remove this non-existent grass area just in the way of things?"* He is
+     right, and it was already known to be wrong: a 48 m hedge-ringed disc with
+     a coping, a gravel border, a ring path and twenty path lights, standing in
+     the middle of the campus, serving no moment. It was the ORIGINAL ceremony
+     ground and lost that job on 2026-08-02 when the ceremony moved to
+     BEACH_LAWN; it survived only because world.js's enclaveKeepOut() read
+     S.LAWN.hedgeR unconditionally and that file was not in the last pass's
+     ownership. This pass owns world.js, so the reader went with the lawn.
+     Removed with it: campus.js's buildLawn() and its 'lawn' entry in world.js's
+     CAMPUS_ENCLAVE_GROUPS, nature.js's framing palm ring and its exclusion
+     disc, and world.js's keepOutDisc call.
+     The real lawns are GRAND_LAWN / BEACH_LAWN / DINNER_LAWNS below, and
+     reference/photos/clubhouse-lawn-to-beach.png is why none of them has a
+     hedge ring: the ground out here is flat, unbroken and empty.             */
 
   /* ═════════════════════════════════════════════════════════════════════════
      THE GRASS GROUND — Carl, 2026-08-02
@@ -472,20 +529,35 @@ export const SITE = {
          · ~100 m from the clubhouse core (world −17, 42), against 119 m from
            the clubhouse to the sand.
 
-       ⚠ IT WANTS TO BE ~10 m FURTHER WEST AND CANNOT GO THERE YET. The site
-       plan is not what stops it — world.js's adoptWater() is. The whole river
-       system is ONE group and it is spared the enclave's 90° rotation only
-       because its bounding-box CENTRE sits east of a hard-coded x = 84; the
-       beach pool is the west end of that box. Measured 2026-08-02: the box runs
-       x0 = cx − 20.7 to x1 = 278.4, so the centre crosses 84 at cx = −89.7 and
-       at cx = −92 the ENTIRE RIVER silently swings 90° and runs north–south
-       along the beach. −82 leaves 7.7 m of headroom, which is deliberate: the
-       margin has to survive somebody widening the pool deck or extending
-       PATHS[0]. The one-line unblocker is written up in CLAUDE.md's polish
-       backlog; do that first, then this can go to cx −92.
+       ⚠ THE cx −82 CAP IS GONE (2026-08-02, the proportion pass). It was never
+       a site-plan number: world.js's adoptWater() classified water.js's root
+       children by the x of their bounding-box CENTRE and swept anything under
+       84 into the rotated enclave, and the whole river is ONE group, so pushing
+       this pool west dragged that centre over the line and silently rotated the
+       ENTIRE system 90° along the beach. water.js now flags the river group
+       `userData.worldSpace = true` and world.js tests the flag first, so the
+       position is free and the whole system can run west to meet the sand.
 
-       The river no longer flows out of this pool — see SPINE. */
-    WEST: { cx: -82, cz: -34, r: 15.2, deck: 5.6, umbrellas: 12,
+       Where it actually belongs, measured rather than guessed. On
+       westin-site-map.jpeg at 0.45 m/px the pool's paved ring starts 103 px
+       (46 m) inland of the sand's edge and the pool's own radius is 36 px
+       (16 m) — so the model's 15.2 m radius was already right and the palm belt
+       wanted to be ~45 m, not the 33 m it had. cx −84, cz −28: 2 m further west
+       (31 m of belt, close enough that Carl's *"very close to the beach"* still
+       reads, and closer than the aerial rather than further) and 6 m SOUTH,
+       which is the real change — it drops the pool onto the same east–west line
+       as the river so the two can be joined by a channel instead of a detour.
+
+       ⚠ THE RIVER FLOWS OUT OF THIS POOL AGAIN. It did until 2026-08-02, when
+       the pool moved to the beach and the connection was cut on the strength of
+       beach-pool-near-beach-aerial.png, which shows the two as separate systems.
+       Carl looked at the result: *"the water feature now is broken — doesn't
+       connect to the hotel, doesn't connect to the last beach pool at all."*
+       He wins, and the wide site map backs him: there, the pool's ring path
+       ends at x 601 px and the river's west tip starts at 637 px — 36 px, 16 m,
+       one path's width. From the air they read as one system. SPINE now begins
+       as an outfall cut into this pool's east rim. */
+    WEST: { cx: -84, cz: -28, r: 15.2, deck: 5.6, umbrellas: 12,
       RINGS: [                      // [dx, dz, r] as a fraction of the pool's r
         [-.30, -.26, .30], [.16, -.34, .22], [.34, .10, .27],
         [-.06, .30, .34], [-.42, .16, .18], [.02, -.02, .46],
@@ -494,7 +566,7 @@ export const SITE = {
     },
     /* the round bar keeps its offset from the pool's centre (−11.5, +13.5) —
        the south-west rim, as in the reference */
-    BAR:  { cx: -93.5, cz: -20.5, r: 5.6, h: 3.4 },
+    BAR:  { cx: -95.5, cz: -14.5, r: 5.6, h: 3.4 },
 
     /* ── THE LAZY RIVER. ~148 m of centreline over 70 m of ground: five full
        reversals, three of them proper hairpins, exactly the scribble the
@@ -510,19 +582,59 @@ export const SITE = {
        paddleboard, no passing. It only opens up where it has a reason to: the
        outfall from the beach pool and the mouth into the lagoon.
 
-       ⚠ THE RIVER NO LONGER RUNS OUT OF THE BEACH POOL (2026-08-02, second
-       pass). It used to: the head was an outfall cut into that pool's east rim
-       at x 62. With the pool moved out to the beach at cx −92 that would have
-       meant a 155 m straight channel back across the palm grove and past the
-       enclave's north flank — which is not only unbuildable, it is not what the
-       resort has. In beach-pool-near-beach-aerial.png the circular beach pool
-       is a self-contained pool by the sand and the lazy river is a SEPARATE
-       system further inland; nothing connects them.
-       So the head is now the river's own spring basin in the palm grove at
-       (54, 19), and the channel picks up its old course by x 75. Nothing east
-       of x 88 has ever changed. */
+       ⚠ THE RIVER RUNS OUT OF THE BEACH POOL AGAIN (2026-08-02, the proportion
+       pass) — Carl: *"the water feature now is broken … doesn't connect to the
+       last beach pool at all."* The 16 points below the marker are the WEST
+       REACH, ~140 m of centreline over 133 m of ground from an outfall cut into
+       the pool's east rim at (−71, −24) to what used to be the river's head at
+       (54, 19). Nothing east of that point has changed.
+
+       Three things it is routed around, none of which may move:
+         · the clubhouse in its NEW position — the lounge pool (world x
+           −47.5…−34.5, z 8…28) and the 酒廊 lounge (x −25…−11, z 20…40). The
+           channel holds z ≈ −22 across the first and z ≈ −16 across the second,
+           29 m and 36 m clear.
+         · the grass ground — GRAND_LAWN reaches world z 34 at its northern
+           edge and the channel is 54 m north of it at the same x.
+         · PATHS[0], which used to run down exactly this corridor and now runs
+           8…11 m SOUTH of the water, on the clubhouse side. That is the aerial's
+           arrangement too: the resort's spine walk follows the river's bank.
+
+       The meander is five lazy reversals rather than the three hairpins of the
+       eastern half. That is what the site map shows out here — the tight
+       scribble is the mid-river; the western arm is long, open curves through
+       the palm grove.
+
+       ⚠ THE WEST REACH IS WIDER THAN THE EAST, ON PURPOSE, AND IT IS STILL
+       "one paddleboard". Half-widths 1.25…2.15 = a 2.5…4.3 m channel, against
+       1.15…1.55 (2.3…3.1 m) east of x 54. The east half was narrowed on
+       2026-08-02 against reference/photos/lazy-river-closeup.png — a drone frame
+       looking straight down on a woman on a paddleboard, the board about as long
+       as the channel is wide. A touring board IS 3.2 m, so 2.5…4.3 m is the same
+       reading, and the site map's own channel measures ~10 px = 4.5 m. The
+       reason it matters here and not there: this reach is the one that has to
+       carry the eye from the beach pool to the rest of the resort in a top-down,
+       and at 2.3 m under a palm canopy that job simply does not get done — the
+       first cut of it read as a hedge. The east half is Carl-verified against
+       that photo and is NOT touched.                                          */
     SPINE: [
-      [ 54.0, 19.0, 1.15],  // the river's own head, a spring in the palm grove
+      [-71.0, -24.0, 2.15],  // ── THE OUTFALL, cut into the beach pool's east rim
+      [-62.5, -21.0, 1.80],
+      [-54.0, -20.0, 1.62],
+      [-46.0, -22.5, 1.50],  // reversal 1 — north
+      [-38.0, -21.5, 1.56],
+      [-30.5, -17.0, 1.68],
+      [-22.0, -15.0, 1.56],
+      [-14.0, -16.5, 1.44],  // reversal 2 — south
+      [ -6.0, -13.5, 1.50],
+      [  2.5,  -9.0, 1.62],
+      [ 11.0,  -9.5, 1.50],  // reversal 3
+      [ 19.5,  -6.0, 1.56],
+      [ 28.0,  -1.5, 1.62],
+      [ 36.0,   1.5, 1.50],
+      [ 43.5,   6.5, 1.40],
+      [ 49.5,  12.5, 1.25],
+      [ 54.0, 19.0, 1.15],  // ── the old head; the eastern half is untouched
       [ 61.0, 23.5, 1.45],
       [ 68.5, 28.5, 1.50],
       [ 75.5, 32.0, 1.35],
@@ -549,13 +661,39 @@ export const SITE = {
     ],
     MID: { cx: 115.0, cz: 26.0, r: 4.4, deck: 2.0 },
 
-    // ── the hairpin back out of the lagoon's north rim to the east pool
+    /* ── the hairpin out of the lagoon's north rim, and then THE RUN TO THE
+       HOTEL (2026-08-02, the proportion pass).
+       Carl: *"the water feature … doesn't connect to the hotel."* It didn't:
+       the system stopped at EAST2's deck (x 168.5) and the crescent's own pools
+       began at x 245 — 77 m of blank lawn, which is item 3 of the proportion
+       spec ("close the gap between the hotel and the water"). Half of that gap
+       closed when the crescent came 34 m west; the other half is these seven
+       new points, which carry the channel on THROUGH both circular pools and
+       into the westernmost of SITE.HOTEL_POOLS, hard against the podium.
+
+       One centreline now threads four basins — EAST, EAST2 and the hotel's
+       middle pool, plus the lagoon it leaves. water.js trims the channel
+       wherever it is already inside a basin, so this reads as one continuous
+       body of water rather than as pools joined by pipes, and it needs no new
+       code in that file: the same two centrelines it always built.
+       In the aerial this is exactly the arrangement — the lazy river opens into
+       the lagoon, doubles back through the round pools and runs up to the
+       hotel's terraces without a break. */
     SPUR: [
       [136.0, 24.0, 2.40],
       [135.0, 18.0, 1.55],
       [137.0, 12.0, 1.35],
       [141.0,  9.0, 1.45],
-      [145.5, 11.5, 2.00],  // …into the east pool
+      [145.5, 11.5, 2.00],  // …into EAST
+      [152.5, 17.5, 1.70],
+      [157.5, 23.0, 1.90],  // …into EAST2
+      [166.0, 27.0, 1.55],  // ── THE RUN TO THE CRESCENT
+      [174.5, 23.5, 1.40],
+      [183.0, 22.5, 1.35],
+      [191.5, 18.5, 1.45],
+      [200.0, 15.5, 1.55],
+      [208.5, 12.5, 1.90],
+      [216.5, 10.5, 3.20],  // …into HOTEL_POOLS[1], 10.5 m off its centre
     ],
 
     EAST: { cx: 147, cz: 13, r: 7.8, deck: 3.2, islandR: 3.1, umbrellas: 7 },
@@ -570,8 +708,19 @@ export const SITE = {
     // the lagoon's planted island, as a fraction of LAGOON.rx / .rz
     ISLAND: { dx: .24, dz: .18, r: 3.4 },
 
-    // footbridges, as [which centreline, t along it 0…1]
-    BRIDGES: [['spine', .13], ['spine', .37], ['spine', .61], ['spine', .85], ['spur', .50]],
+    /* footbridges, as [which centreline, t along it 0…1]. t is arc-length
+       fraction (water.js resamples both centrelines at a fixed 1.6 m step
+       before indexing), so these had to be retuned when the spine roughly
+       doubled and the spur nearly quadrupled: the four old spine crossings sat
+       at 19/55/90/126 m along a 148 m line and are now at .55/.68/.80/.92 of a
+       ~288 m one. Two new crossings serve the west reach and two the run to the
+       hotel — a bridge is also the only GAP in the collider chain, so a reach
+       without one is a wall across the campus. */
+    BRIDGES: [
+      ['spine', .12], ['spine', .31], ['spine', .55], ['spine', .68],
+      ['spine', .80], ['spine', .92],
+      ['spur', .13], ['spur', .45], ['spur', .72],
+    ],
 
     /* pale walking paths — control points only, water.js smooths them.
        PATHS[0] is the resort's spine walk and it now runs all the way out to
@@ -586,14 +735,26 @@ export const SITE = {
        PATHS[1] was pushed 3–5 m south of the lagoon's rim — at PATH_Y .060 it
        would otherwise have drawn OVER the basin water at .045. */
     PATHS: [
-      [[-60, -31], [-44, -27], [-28, -22], [-12, -17], [4, -11], [20, -4],
-       [32, 1], [44, 2], [62, 5.5], [78, 4], [92, 5.5], [104, 3.5], [118, 5.5],
-       [130, 3.0], [142, 2.0], [152, 5.0], [157, 12], [154, 20]],
-      [[40, 42], [55, 45], [68, 47], [82, 44], [96, 46], [110, 43], [122, 47],
-       [134, 49], [145, 45], [152, 35], [151, 26]],
+      /* THE RESORT'S SPINE WALK. It used to run down the corridor the west
+         reach now occupies, so it has moved 8…11 m SOUTH of the water — the
+         clubhouse side — and follows the bank the whole way, which is how the
+         aerial has it. It then carries on past the lagoon and into the
+         crescent's crook, ending 11 m short of the hotel pools' deck. The
+         LAMPS are laid along this line and are what draws the walk from the
+         clubhouse to the water at night. */
+      [[-66, -12], [-52, -11], [-38, -10], [-24, -8], [-10, -7], [2, -6],
+       [14, -5], [26, -4], [38, -3], [50, 0], [62, 5.5], [78, 4], [92, 5.5],
+       [104, 3.5], [118, 5.5], [130, 3.0], [142, 2.0], [156, 3.0], [170, 4.5],
+       [184, 5.5], [196, 4.0]],
+      /* the northern loop. Pushed 3–5 m south of the lagoon's rim (at PATH_Y
+         .060 it would otherwise draw OVER the basin water at .045), and now
+         carried east around the north hotel pool, stopping 5 m off its deck. */
+      [[46, 44], [58, 45], [68, 47], [82, 44], [96, 46], [110, 43], [122, 47],
+       [134, 49], [145, 45], [156, 42], [168, 44], [180, 46], [192, 44], [202, 40]],
     ],
     PATH_W: 1.3,          // half-width of a path
-    LAMPS: 22,            // path lanterns — the night silhouette
+    LAMPS: 30,            // path lanterns — the night silhouette. 22 over the
+                          // old 190 m walk; the walk is ~280 m now.
   },
 
   // LAGOON is the river's big eastern basin. It KEEPS ITS NAME because
@@ -605,7 +766,20 @@ export const SITE = {
   // the eastern lagoon is the LARGEST sheet of water in the resort — bigger
   // than the beach pool — with a planted island in it and lobes running off in
   // three directions. At 12 × 9.5 it read as another bulge in the river.
-  LAGOON: { cx: 134, cz: 33, rx: 16.5, rz: 12.5, deck: 3.2, umbrellas: 11 },
+  /* ⚠ 2026-08-02, the proportion pass — grown again, 16.5 × 12.5 → 19.5 × 15.5.
+     This is the ONE water feature that got bigger, and it is a measurement, not
+     a nudge. Carl's complaint was a RATIO: *"the pool isn't that big in
+     perspective compared to the actual hotel"*, i.e. our water was reading too
+     large against a crescent that was too small. Growing the crescent's arc by
+     57 % fixed the numerator and overshot: on the site map the eastern lagoon
+     measures ~66 × 70 m against a 219 m hotel face (0.30 of it), and at
+     33 × 25 m against our new 223 m face we were at 0.148 — half the aerial's
+     relationship, the wrong side of it. 39 × 31 m takes it to 0.175.
+     Deliberately conservative: the aerial's number would nearly double this
+     basin, and the failure Carl actually saw is "the pools dominate", so this
+     moves toward the measurement rather than to it. The river's width, the
+     beach pool and the hotel's own pools are NOT changed. */
+  LAGOON: { cx: 134, cz: 33, rx: 19.5, rz: 15.5, deck: 3.2, umbrellas: 11 },
 
   /* ── the hotel's own pools, in the crook of the crescent ───────────────────
      The gap the general pass was asked to close. resort-water-features.jpeg
@@ -621,7 +795,7 @@ export const SITE = {
      (r 81…109) is the BUILDING, not these — a walker reaches them from the
      campus side without meeting the ring at all. */
   HOTEL_POOLS: (() => {
-    const acx = 285 - 95, acz = 10, C = Math.PI / 2;
+    const acx = HOTEL_CX - HOTEL_R, acz = HOTEL_CZ, C = Math.PI / 2;
     return [[-0.345, 69, 10.5, 3.4], [0, 71, 12.5, 3.8], [0.345, 69, 10.5, 3.4]]
       .map(([d, r, rad, deck]) => ({
         cx: acx + Math.sin(C + d) * r, cz: acz + Math.cos(C + d) * r,
@@ -641,24 +815,69 @@ export const SITE = {
   // x −90…30, z −70…118, which the grid (x ≥ 88) and the northern band
   // (z ≤ −128) already clear — the test is kept so a future move of ox/oz or a
   // wider field can't quietly drop villas on top of the clubhouse.
+  /* ── REBUILT 2026-08-02, the proportion pass ────────────────────────────────
+     Carl: *"my take is the goal should highlight the club house, the hotel
+     build itself and the water features. I care less about any other random
+     building blocks right now."* So this field stopped being a constraint and
+     became what it always claimed to be — context.
+
+     What it was: an 8 × 5 grid on a rigid 20 × 27 m pitch running z −124…65,
+     i.e. straight ACROSS the middle of the frame, plus a six-box band further
+     north. Thirty-eight identical grey rectangles in ruled rows were the first
+     thing the top-down read, and the band z −26…62 they occupied is exactly the
+     ground the river now has to cross to reach the crescent.
+
+     What it is: two loose fields that FRAME the water instead of sitting on it,
+     with the whole central band left clear.
+       · NORTH  x 90…166, z −112…−28 — the aerial's main villa grid, which lies
+         north of the resort's east–west water band. Staggered rows.
+       · SOUTH-EAST x 92…147, z 66…102 — the smaller cluster between the
+         clubhouse and the crescent's southern arm.
+       · a thinned far-north band toward the beach, as on the site map.
+     26 boxes, down from 38.
+
+     ⚠ TWO HARD RULES, both silent when broken:
+       1. Every backdrop villa must satisfy `x ≥ 84 || z ≤ −80`. That is exactly
+          isEnclaveLocal()'s test, and world.js runs it over every instance in
+          the SHARED buckets these villas write into: a villa that answers
+          "local" gets the enclave's 90° matrix baked onto it and lands
+          somewhere else entirely. It is why the south-east field starts at
+          x 92 and not at the x 60 the composition would otherwise like.
+       2. Nothing may stand in the crescent. `skip` tests the hotel in POLAR
+          terms — radius AND bearing about the arc centre — because a radius
+          test alone rejects villas that are nowhere near the building (the arc
+          only sweeps 134.6°, so r 87 at θ −6° is open ground). */
   RESORT_VILLAS: (() => {
     const out = [];
-    const skip = (x, z) =>
-      // keep clear of the lagoon basin and its deck
-      (x > 84 && x < 160 && z > -6 && z < 42) ||
-      // ...and of Carl's own enclave envelope, in WORLD coords (padded)
-      (x < 40 && z > -80 && z < 128);
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 5; c++) {     // capped so the field stops short of HOTEL
-        const x = 88 + c * 20 + (r % 2) * 9;
-        const z = -124 + r * 27;
-        if (skip(x, z)) continue;
-        out.push([x, z, ((r * 5 + c * 3) % 7) * 0.05 - 0.15]);
-      }
+    const acx = HOTEL_CX - HOTEL_R, acz = HOTEL_CZ;
+    const skip = (x, z) => {
+      // the river's east basins, the lagoon and their decks
+      if (x > 84 && x < 175 && z > -8 && z < 46) return true;
+      // Carl's own enclave envelope, in WORLD coords, padded
+      if (x < 46 && z > -78 && z < 126) return true;
+      // the crescent itself, its podium and its pools — polar, not radial
+      const rr = Math.hypot(x - acx, z - acz);
+      const th = Math.atan2(x - acx, z - acz);
+      let d = th - Math.PI / 2;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      return rr > 52 && Math.abs(d) < HOTEL_ARC / 2 + 0.22;
+    };
+    const push = (x, z, seed) => {
+      if (skip(x, z)) return;
+      out.push([x, z, (seed % 7) * 0.05 - 0.15]);
+    };
+    // NORTH — the main grid, north of the water band
+    for (let r = 0; r < 4; r++) {
+      for (let c = 0; c < 4; c++) push(90 + c * 22 + (r % 2) * 10, -112 + r * 28, r * 5 + c * 3);
     }
-    // a northern band running back toward the beach, as on the map
-    for (let c = 0; c < 6; c++) {
-      out.push([-40 + c * 24, -128 - (c % 2) * 16, ((c * 4) % 5) * 0.06 - 0.12]);
+    // SOUTH-EAST — the smaller cluster between the clubhouse and the crescent
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < 4; c++) push(92 + c * 18 + (r % 2) * 9, 66 + r * 36, r * 3 + c * 4 + 1);
+    }
+    // the far-north band running back toward the beach, as on the site map
+    for (let c = 0; c < 5; c++) {
+      out.push([-36 + c * 28, -126 - (c % 2) * 15, ((c * 4) % 5) * 0.06 - 0.12]);
     }
     return out;
   })(),
@@ -676,10 +895,15 @@ export const SITE = {
      the strip in reference/photos/clubhouse-lawn-to-beach.png anyway. */
   BEACH: { x0: -160, x1: -136 },       // sand
   OCEAN: { x1: -160, size: 900, y: -0.55 },
-  // main Westin crescent, far east — backdrop for fly mode
-  // pushed east so its 95 m arc clears the RESORT_VILLAS field (which stops at
-  // x ≈ 177) — the crescent is the skyline you fly toward, not a neighbour
-  HOTEL: { cx: 285, cz: 10, r: 95, arc: 1.5, floors: 7, floorH: 3.6,
+  /* The main Westin crescent. NOT just a fly-mode backdrop any more — it is one
+     of the three things the whole top-down composes around (the clubhouse, the
+     crescent, the water), and the Welcome Brunch is on its roof.
+     cx / cz / r / arc are the hoisted constants at the top of this file; the
+     rationale for the 2026-08-02 numbers is written out there. Short version:
+     the RADIUS was already right (93 m measured), the ARC was half what it
+     should be, and the building sat 34 m too far east with an empty lawn in
+     front of it. */
+  HOTEL: { cx: HOTEL_CX, cz: HOTEL_CZ, r: HOTEL_R, arc: HOTEL_ARC, floors: 7, floorH: 3.6,
     // ── the rooftop infinity pool + brunch terrace (Carl & Rachel, 2027-03-18)
     // Radii are measured from the crescent's ARC CENTRE (cx − r, cz) = (190, 10),
     // the frame buildHotel()/buildHotelRoof() work in; angles are half-widths in
@@ -746,8 +970,13 @@ export const SITE = {
   GROUND: { size: 700 },     // lawn/ground plane extent
 
   // ------------------------------------------------------------------ limits
-  // Soft world bounds for the walker (fly mode is clamped by CFG.FLY_MAX_ALT).
-  BOUNDS: { x0: -150, x1: 250, z0: -130, z1: 120 },
+  /* Soft world bounds for the walker (fly mode is clamped by CFG.FLY_MAX_ALT),
+     and the box nature.js scatters its loose palms inside.
+     Grown 2026-08-02: x1 250 → 265 because the crescent's podium face is now at
+     x 236 and its outer wall at 262 — at 250 the walker was clamped INSIDE the
+     building. z1 120 → 140 because the enclave moved 40 m south and its
+     southern villa arm reaches z ≈ 114. */
+  BOUNDS: { x0: -150, x1: 265, z0: -130, z1: 140 },
 };
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -993,14 +1222,45 @@ export const VILLA_ZONES = ROOMS.map(r => {
    lands at x ≈ −85, so ~33 m of PALM_GROVE screens the pool from the sand, and
    SITE.BOUNDS.z1 = 120 — the southern villa arm stops at z ≈ 112.
 
-   The resulting hero geometry: suite centre (−38, 34), pool centre (−67, 34)
-   due west of it, atrium east at (−17, 42), 酒廊 lounge south at (−28, 80),
-   ceremony lawn north at (−12, −41).
+   ── MOVED 2026-08-02, THE PROPORTION PASS (Carl) ────────────────────────────
+   *"you can move the entire clubhouse complex down to the free space?"* — the
+   enclave sat in the top-left of his top-down with a large empty area under it,
+   and the campus read as a corner rather than as one resort.
+
+   ox −58 → −34, oz 34 → 74. That is +24 m EAST and +40 m SOUTH, and both halves
+   are measured off westin-site-map.jpeg rather than nudged (0.45 m/px, the
+   crescent's arc centre and the sand's inland edge as the two anchors):
+
+     · SOUTH +40. In the aerial the clubhouse sits 32…102 m south of the arc
+       centre's latitude, tucked UNDER the resort's east–west water band, which
+       runs level with that centre. Ours straddled the band at z −32…74. It now
+       occupies z ≈ 8…114 against an arc centre at z 10 — the aerial's
+       relationship, and the empty ground Carl was pointing at.
+     · EAST +24. The aerial puts ~46 m of palm between the sand and the
+       clubhouse's own lawn; BEACH_LAWN's seaward edge was 3 m off the sand, so
+       the ceremony was effectively on the beach with no grove behind it. It is
+       27 m now, which is what reference/photos/clubhouse-lawn-to-beach.png
+       shows — "a huge flat lawn running to a DENSE PALM GROVE, then beach, then
+       open sea". It also pulls the clubhouse toward the water system, so the
+       campus composes as one place.
+
+   ⚠ This is a rigid-body move and the architecture is built for it: geometry
+   follows the group, colliders are rewritten through enclaveToWorld, the
+   walkable height field maps its query point rather than its regions, and
+   MOMENT_PLACES / INTRO_PATH are derived. Three things are NOT derived and were
+   checked by hand: SITE.RESORT_VILLAS' `skip()` envelope (world coords),
+   SITE.BOUNDS, and the fact that isEnclaveLocal() is stated in LOCAL
+   coordinates and is therefore invariant under ox/oz — which is the only reason
+   this is a two-number change and not a hunt.
+
+   The resulting hero geometry: suite centre (−38, 74), pool centre (−43, 74)
+   with its long axis running west, atrium east at (7, 82), 酒廊 lounge north at
+   (−18, 30), beachfront ceremony lawn west at (−100, 52).
    ═══════════════════════════════════════════════════════════════════════════ */
 export const ENCLAVE = {
   rotY: -Math.PI / 2,       // 90° CLOCKWISE seen from above
-  ox: -58,                  // …then west toward the beach
-  oz: 34,                   // …and south toward the bottom of the map
+  ox: -34,                  // …then west toward the beach
+  oz: 74,                   // …and south toward the bottom of the map
 };
 
 const _EC = Math.cos(ENCLAVE.rotY), _XS = Math.sin(ENCLAVE.rotY);
@@ -1327,6 +1587,26 @@ export const WALK_REGIONS = [
   rect('pool-plinth', _P.cx - _PPX, _P.cz - _PPZ, _P.cx + _PPX, _P.cz + _PPZ, _P.plinth,
     { holes: [{ x0: _P.cx - _P.w / 2, x1: _P.cx + _P.w / 2,
       z0: _P.cz - _P.d / 2, z1: _P.cz + _P.d / 2 }] }),
+
+  /* ══ the cabana boardwalk ═════════════════════════════════════════════════
+     CAME HOME 2026-08-02. This lived in world.js as `boardwalkY()`, a hand
+     patch bolted on top of siteFloorY with its own worldToEnclave call and its
+     own copy of the resolution rule — put there only because the pass that
+     found the bug did not own site.js. It was flagged in CLAUDE.md's polish
+     backlog as a lodger, with the exact rect to paste. This is that rect,
+     derived rather than typed.
+     What it fixes: water.js's buildPavilions lays a timber deck with its top at
+     y 0.30 behind the cabana run — local x ±(HALF + 1.4), z −0.1…2.4 — inside a
+     group rotated +π/2 and parked at (CABANAS.x, (z0 + z1)/2), so the group's
+     local (x, z) maps to enclave (CB.x + z, cz − x). Nothing covered it, floorY
+     answered 0, and a walker crossing the planks sank to the shins.
+     The two stone steps off the suite end are below 0.30 and inside CFG.STEP_UP
+     of the deck, so they need no entry of their own — the lip is climbable from
+     anywhere, which is why this is one rect and not three. */
+  rect('cabana-boardwalk',
+    SITE.CABANAS.x - 0.1, (SITE.CABANAS.z0 + SITE.CABANAS.z1) / 2 - ((SITE.CABANAS.z1 - SITE.CABANAS.z0) / 2 + 1.4),
+    SITE.CABANAS.x + 2.4, (SITE.CABANAS.z0 + SITE.CABANAS.z1) / 2 + ((SITE.CABANAS.z1 - SITE.CABANAS.z0) / 2 + 1.4),
+    0.30),
 
   /* ══ the atrium's upper gallery ══════════════════════════════════════════
      The ring (envelope minus court) at 3.6 m, minus the stairwell void — which
