@@ -38,7 +38,7 @@
 //           setNatureNight(on)  — instant day/night material swap
 
 import * as THREE from 'three';
-import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave, VILLA_ZONES } from './site.js';
+import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave, VILLA_ZONES, MOMENT_PLACES } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
 
@@ -1385,6 +1385,35 @@ function buildUnderstory(G, blocked, enc) {
      Dart-thrown over the whole campus in WORLD coordinates and kept out of the
      buildings by blocked(), which now tests the enclave rects in the enclave's
      own frame. They stay on the nature root at scene origin. */
+
+  /* ── THE TWO STRAY CLUMPS (fix queue, 2026-08-03) ──────────────────────
+     The dart-throw consults exclusionZones() only — never colliders, never
+     paving — and two clumps landed badly: one on the sand dead ahead of the
+     ceremony aisle head (it poked above the horizon just right of the arch's
+     centre-line in the ceremony view), one overlapping the grand lawn's
+     spine path. Culled by POST-FILTER only: every rnd() draw stays
+     unconditional, and a culled member KEEPS ITS SLOT in `shrubs` so the
+     bake loop below draws the identical jitter sequence — reordering or
+     shortening either loop reshuffles every downstream placement on the
+     campus. The rects are enclave-LOCAL (the throw is in WORLD space, so
+     the member is mapped back through worldToEnclave), derived from SITE:
+       A — the aisle-head sea window: the CEREMONY spawn's aisle x ± 4.5
+           over the strip from BEACH_LAWN's seaward edge to the surf;
+       B — the spine path (campus.js buildGrassGround: 3.4 m paving at
+           local x −2, the same gap placePalms keeps) across the palm belt,
+           GRAND_LAWN.z1 → BEACH_LAWN.z0. */
+  const _aisleX = worldToEnclave(MOMENT_PLACES.CEREMONY.x, MOMENT_PLACES.CEREMONY.z).x;
+  const SHRUB_CULLS = [
+    { x0: _aisleX - 4.5, x1: _aisleX + 4.5,
+      z0: SITE.BEACH_LAWN.z1, z1: SITE.BEACH_LAWN.z1 + 12 },
+    { x0: -5.5, x1: 1.5,
+      z0: SITE.GRAND_LAWN.z1 - 1, z1: SITE.BEACH_LAWN.z0 },
+  ];
+  const shrubCulled = (wx, wz) => {
+    const l = worldToEnclave(wx, wz);
+    return SHRUB_CULLS.some(r => l.x > r.x0 && l.x < r.x1 && l.z > r.z0 && l.z < r.z1);
+  };
+
   const shrubs = [];
   const B = SITE.BOUNDS;
   for (let i = 0, tries = 0; i < 210 && tries < 9000; tries++) {
@@ -1399,7 +1428,7 @@ function buildUnderstory(G, blocked, enc) {
          2.4 m out, so test the member too — the three rnd() calls above stay
          unconditional, so skipping one never shifts the seeded sequence */
       if (blocked(sx, sz, .6)) continue;
-      shrubs.push({ x: sx, z: sz, s: ss });
+      shrubs.push({ x: sx, z: sz, s: ss, off: shrubCulled(sx, sz) });
     }
     i++;
   }
@@ -1419,6 +1448,11 @@ function buildUnderstory(G, blocked, enc) {
     dummy.position.set(s.x, y + s.s * .52, s.z);
     dummy.rotation.set((rnd() - .5) * .3, rnd() * 6.28, (rnd() - .5) * .3);
     dummy.scale.set(s.s * (.9 + rnd() * .5), s.s * (.7 + rnd() * .5), s.s * (.9 + rnd() * .5));
+    /* culled stray (see SHRUB_CULLS above): every rnd() above has been drawn
+       exactly as before — only now is the member collapsed, scale-to-zero
+       with its translation kept (world.js's pattern), so every OTHER
+       instance in this mesh is byte-identical to the pre-cull build */
+    if (s.off) dummy.scale.setScalar(0);
     dummy.updateMatrix();
     shrub.setMatrixAt(i, dummy.matrix);
     col.setHSL(s.dune ? .21 + rnd() * .04 : .25 + (rnd() - .5) * .07,

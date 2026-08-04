@@ -2389,6 +2389,40 @@ function buildArrival(G, g, rnd) {
     }
   }
 
+  /* ── the estate gate: the lane's boundary crossing (fix queue, 2026-08-03).
+        The asphalt ribbon runs off the map's south edge (LANE[0] sits past
+        BOUNDS on purpose) but from the air it read as a road dying on open
+        lawn — nothing marked where the estate begins. Two low corten piers
+        with lit markers and short clipped hedge returns now stand where the
+        lane crosses the boundary line (world z 140 = local x 66, the same
+        derivation as AR.LANE's banner), in the entrance pavilion's own
+        palette (MAT.corten / glowLamp / hedge). Everything is derived from
+        AR.LANE — move the lane and the gate follows. NO new lights: the
+        markers are the bollards' emissive family. Only the two piers
+        collide (local coords — world.js maps enclave-local colliders). */
+  {
+    const a = AR.LANE[1], b = AR.LANE[2];                   // the segment crossing x 66
+    const t = (66 - a[0]) / (b[0] - a[0]);
+    const gx = 66, gz = a[1] + (b[1] - a[1]) * t;
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    const nx = dz / L, nz = -dx / L;                        // across the lane
+    const gry = Math.atan2(nx, nz) + Math.PI / 2;           // box X along (nx, nz)
+    for (const s of [-1, 1]) {
+      const px = gx + s * nx * (AR.laneHalfW + .85), pz = gz + s * nz * (AR.laneHalfW + .85);
+      inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(px, .80, pz, .85, 1.60, .85, gry)); // pier
+      inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(px, 1.66, pz, .99, .12, .99, gry)); // cap
+      /* lit marker strip on the lane-facing inner face */
+      inst('glowI', UNIT_BOX, MAT.glowLamp,
+        mat4(px - s * nx * .46, 1.12, pz - s * nz * .46, .12, .5, .12, gry));
+      /* short clipped hedge return running outward along the boundary line */
+      for (const [d, w] of [[1.9, 2.6], [3.9, 1.9]]) {
+        inst('hedgeI', UNIT_BOX, MAT.hedge,
+          mat4(px + s * nx * d, .42, pz + s * nz * d, w, .84, 1.05, gry));
+      }
+      G.colliders.push({ x: px, z: pz, r: .62 });
+    }
+  }
+
   /* ── palm keep-out: phantom colliders at feet-height 80 m ──────────────────
      nature.js's placePalms rejects any throw within (collider.r + 1.4) but
      ignores y-ranges, while the walker skips these entirely (feet never at
@@ -3391,10 +3425,20 @@ function buildHotelRoof(G, g, acx, acz) {
     inst('rtDkI', UNIT_BOX, MAT.rtDarkTeak, mat4(x, DY + .53, z, 1.5, 1.06, .9, th));
     inst('rtMarbleI', UNIT_BOX, MAT.marble, mat4(x, DY + 1.09, z, 1.62, .1, 1.02, th));
     inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + .18, z, 1.35, .1, .12, th));
+    /* a proper barstool in the dining furniture's language (same pass:
+       pedestal, timber band, white cushion) — foot disc, column, a timber
+       footrest ring and seat band with the round white cushion on top.
+       Seat top DY + .82 against the DY + 1.14 counter top. Same position
+       (sth, r 98.55) and count as the old pole+slab; every part rides an
+       existing bucket (poleI / rtSlatCylI / rtWhiteCylI) so the room's
+       draw calls and colliders do not move. */
     const sth = th + ctD * .25;                                             // a stool
-    inst('poleI', UNIT_CYL, MAT.dark, mat4(WX(sth, 98.55), DY + .33, WZ(sth, 98.55), .1, .66, .1));
-    inst('rtRattanI', UNIT_BOX, MAT.rattan,
-      mat4(WX(sth, 98.55), DY + .70, WZ(sth, 98.55), .48, .12, .48, sth));
+    const stx = WX(sth, 98.55), stz = WZ(sth, 98.55);
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(stx, DY + .025, stz, .44, .05, .44));       // foot disc
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(stx, DY + .36, stz, .11, .62, .11));        // pedestal
+    inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(stx, DY + .26, stz, .34, .045, .34));  // footrest ring
+    inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(stx, DY + .70, stz, .46, .06, .46));   // seat band
+    inst('rtWhiteCylI', UNIT_CYL, MAT.white, mat4(stx, DY + .775, stz, .42, .09, .42)); // cushion
   }
   for (let k = 0; k < 3; k++) {               // the lit back-bar shelves, 150 mm
     const th = CT.tc + (k - 1) * ctD * 1.6;   // proud of the panel plane

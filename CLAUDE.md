@@ -308,13 +308,31 @@ min distance from the whole route to ANY water = 13.5 m (river ≥ 114.6 m);
 all six moments regression-clean, 34 lights. Side-by-side vs the video:
 `reference/photos/compare-entrance-2026-08-03.jpg`.
 
-**Found while building, pre-existing, NOT fixed:** `suite.js buildColliders()`
-runs an unbroken collider across the suite's north wall, so the documented
-suite→atrium portal cannot actually be walked (the doors are decorative) —
-suite.js was read-only for this pass. Also still queued small: bar counter
-stools (crude pole+slab), the lane's ribbon ending on open lawn at the south
-boundary, two odd understory shrubs elsewhere, the coplanar paver overlap on
-the pool's west flank.
+**The fix queue above was CLOSED 2026-08-03 (the same day, fifth pass):**
+- **The suite's north portal WALKS now.** The real bug was richer than the
+  queue said: `doubleDoor()`'s open branch drew the closed state's full
+  frame+head slab, filling the doorway — an "open" door read shut (this also
+  silently fixed the spa-corridor door). Entry doors stand open, marble sill,
+  collider chain split with a 1.36 m passable band. A/B: the old build stalls
+  at x −8.25; the fix walks suite → portal → gallery door no. 9 and back,
+  feet 0.000 throughout.
+- Bar counter stools rebuilt in the dining furniture's language.
+- The lane ends at an estate gate on the boundary (corten piers + hedge
+  returns, derived from `SITE.ARRIVAL.LANE`).
+- The two stray shrubs are culled by `SHRUB_CULLS` in `buildUnderstory` — a
+  post-filter that keeps the rnd() stream untouched (proof: exactly 7 of 847
+  instances changed, all others byte-equal; note the queue's coordinates were
+  ~6–14 m off — the real spots were local (−23.4, 82) and (−4.6, 53.8)).
+- The coplanar paver overlap fixed on BOTH flanks (piece 5/6 east had the
+  same bug as 4/6 west).
+- **`assets/og.jpg` exists** — 1200×630, the prewedding night pool.
+- fps measured across all six moments (Metal, M-series): ceremony 68.5,
+  cocktail 62, dinner 59, afterparty 70–75, brunch 35–37, setup 31.5 (the
+  Reflector's second pass — the signature shot, worth its cost). Verdict: no
+  optimization warranted; these are the knobs if Carl's hardware ever lags.
+
+Still open, tiny: `doubleDoor`'s CLOSED branch draws its leaves coplanar with
+the sapeleDark backing slab (z-fight at close range, pre-existing).
 
 ## THE ROOFTOP BAR + THE COCKTAIL REDRESS — DONE 2026-08-03
 

@@ -817,8 +817,18 @@ function buildGreatRoom(root) {
   slab(g, MT.brass, P_X1, X1, 0, .09, nz - .09, nz + .07);          // 80 mm skirting
   slab(g, MT.brass, P_X1, X1, H1 - .06, H1, nz - .08, nz + .06);    // cornice reveal
 
-  /* the entry double doors themselves */
-  doubleDoor(g, 'x', nz - .02, -3.4, -1.6, 2.4);
+  /* the entry double doors themselves — STANDING OPEN onto the atrium portal
+     (site.js: "EVERY villa entry opens off it, including the presidential
+     suite's north double doors"). The gallery rule from atrium.js applies:
+     an open door reads as a way through, a closed one reads as decoration.
+     dir +1 swings the leaves into the great room, clear of the portal slot.
+     buildColliders breaks the north chain over this same span. */
+  doubleDoor(g, 'x', nz - .02, -3.4, -1.6, 2.4, true, 1);
+  /* marble sill through the exterior wall depth — same recipe as the folding
+     glass wall's threshold strip (buildShell). The route is grade-to-grade:
+     suite marble tops at y 0, the portal slot and the atrium gallery answer
+     0 too, so this is dressing, not a WALK_REGION. */
+  slab(g, MT.marble, -3.4, -1.6, -.04, .01, ZN - .22, ZN + .18);
 
   /* ── west wall lining (dining end) ── */
   const wx = X0 + EWT / 2 + .06;
@@ -957,8 +967,16 @@ function doubleDoor(parent, axis, fixed, a0, a1, h, open = false, dir = 1) {
     if (axis === 'x') slab(parent, m, b0, b1, y0, y1, fixed - t, fixed + t);
     else slab(parent, m, fixed - t, fixed + t, y0, y1, b0, b1);
   };
-  put(a0 - .09, a1 + .09, 0, h + .09, MT.sapeleDark);      // frame + head
   if (open) {
+    /* a real cased opening — jambs + head only. The old branch drew the
+       closed state's full "frame + head" slab first, which FILLS the
+       doorway: an "open" door read as a shut dark panel from both sides,
+       and wherever the collider chain had a matching gap the walker could
+       ghost straight through the panel — exactly the "gap behind closed
+       door geometry" state CLAUDE.md warns is worse than either. */
+    put(a0 - .09, a0, 0, h + .09, MT.sapeleDark);           // west/near jamb
+    put(a1, a1 + .09, 0, h + .09, MT.sapeleDark);           // east/far jamb
+    put(a0, a1, h, h + .09, MT.sapeleDark);                 // head
     const lw = (a1 - a0) / 2 - .03;
     for (const a of [a0, a1]) {
       if (axis === 'x') slab(parent, MT.maroon, a - .035, a + .035, 0, h,
@@ -968,6 +986,7 @@ function doubleDoor(parent, axis, fixed, a0, a1, h, open = false, dir = 1) {
     }
     return;
   }
+  put(a0 - .09, a1 + .09, 0, h + .09, MT.sapeleDark);      // frame + head
   put(a0, mid - .015, 0, h, MT.maroon);
   put(mid + .015, a1, 0, h, MT.maroon);
   put(mid - .32, mid - .28, .95, 1.15, MT.brass);          // handles
@@ -1395,7 +1414,16 @@ function buildColliders() {
   const nz = ZN + EWT / 2, wx = X0 + EWT / 2, ex = X1 - EWT / 2;
 
   /* ── main envelope ── */
-  colLine(X0, nz, X1, nz, WR);                       // north
+  /* north: BROKEN at the entry double doors (authoring x −3.4…−1.6, SITE
+     x 1.6…3.4 after mx()) — the documented way out to the atrium portal.
+     Each run stops 0.35 past its jamb (the atrium's SKIP_PAD): the passable
+     band for the player's CENTRE is (−3.75 + WR + .35) … (−1.25 − WR − .35)
+     = 1.36 m clear — over the 1.2 m house minimum, and still narrower than
+     the 1.73 m the open leaves show, so the collider stays stricter than
+     the geometry, never looser. The pantry service door (−7.4…−6.0) stays
+     drawn closed and stays sealed. */
+  colLine(X0, nz, -3.75, nz, WR);                    // north, W of the entry
+  colLine(-1.25, nz, X1, nz, WR);                    // north, E of the entry
   colLine(wx, ZN, wx, ZS, WR);                       // west
   colLine(ex, ZN, ex, -26.3, WR);                    // east, north of the opening
   colLine(ex, -24.45, ex, -19.3, WR);                // east, between the two doors

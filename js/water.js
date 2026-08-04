@@ -1067,8 +1067,13 @@ function buildDeckAndTurf(G) {
      meets the WESTIN letters' turf band at the pool's NW corner; south of
      pz1 the full-width apron already paves. */
   const TSW = 1.5;
-  pv(-APRON, pz0, px0 - TSW, SOUTH);
-  pv(px1, pz0, APRON, SOUTH);
+  /* the two flank pieces STOP at pz1 — the full-width apron below covers
+     everything south of it. They used to run on to SOUTH, which laid each
+     flank's pavers coplanar over the apron's (same PY) south of pz1 —
+     z-fight at distance. Campus rule: bands/slabs edge-to-edge, never
+     stacked. Coverage is unchanged: flank z pz0…pz1, apron z pz1…SOUTH. */
+  pv(-APRON, pz0, px0 - TSW, pz1);
+  pv(px1, pz0, APRON, pz1);
   pv(-APRON, pz1, APRON, SOUTH);
   slab(g, px0 - TSW, TU.z1, px0, pz1, 0, new THREE.MeshStandardMaterial({
     map: turf(TSW / 2, (pz1 - TU.z1) / 2), roughness: .95,
