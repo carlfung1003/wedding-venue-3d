@@ -28,7 +28,7 @@
 // Everything repeated is an InstancedMesh (see the bucket system) — the whole
 // campus lands in well under a hundred draw calls.
 import * as THREE from 'three';
-import { SITE, HOTEL_ROOF, ROOMS } from './site.js';
+import { SITE, HOTEL_ROOF, ROOMS, worldToEnclave } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
 
@@ -271,6 +271,168 @@ function texPark() {
     g.fillStyle = 'rgba(230,226,212,.6)';
     for (let x = 0; x < w; x += 64) g.fillRect(x, h * .18, 3, h * .64);
   }, [3, 1]);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   THE ARRIVAL PAVILION'S MAPS — reference/entrance-arrival-brief.md +
+   frames f_001–f_013. Dark oxidised corten with vertical battens, banded
+   curtain-wall piers, jointed paver setts, large-format forecourt paving,
+   the 隐逸居 plaque and the fluted brass sconces. All seeded (mulberry32).
+   ════════════════════════════════════════════════════════════════════════ */
+/* vertical-batten weathered corten: streaked browns/near-blacks with
+   occasional orange bleed, a batten seam every 21 px (~0.55 m at the wall's
+   repeat) — frames f_001/f_005: the streaks run VERTICALLY down each batten */
+function texCorten() {
+  return tex(256, 256, (g, w, h) => {
+    g.fillStyle = '#3d2a1e'; g.fillRect(0, 0, w, h);
+    const rnd = mulberry32(7331);
+    /* long vertical weather streaks, batten by batten */
+    for (let x = 0; x < w; x += 21) {
+      for (let i = 0; i < 14; i++) {
+        const t = rnd();
+        g.fillStyle = t < .3 ? `rgba(${20 + rnd() * 22 | 0},${16 + rnd() * 14 | 0},${12 + rnd() * 10 | 0},.55)`
+          : t < .75 ? `rgba(${86 + rnd() * 40 | 0},${48 + rnd() * 22 | 0},${26 + rnd() * 14 | 0},.4)`
+          : `rgba(${150 + rnd() * 60 | 0},${76 + rnd() * 30 | 0},${22 + rnd() * 16 | 0},.28)`;   // orange bleed
+        const sx = x + 2 + rnd() * 16, sy = rnd() * h;
+        g.fillRect(sx, sy, 2 + rnd() * 5, 18 + rnd() * 90);
+      }
+      /* the batten seam: dark gap + a thin lit edge */
+      g.fillStyle = 'rgba(12,8,6,.85)'; g.fillRect(x - 1.5, 0, 3, h);
+      g.fillStyle = 'rgba(190,140,96,.10)'; g.fillRect(x + 1.8, 0, 1.2, h);
+    }
+    /* mottled patina blotches over everything */
+    for (let i = 0; i < 260; i++) {
+      g.fillStyle = `rgba(${40 + rnd() * 90 | 0},${28 + rnd() * 40 | 0},${18 + rnd() * 20 | 0},${.10 + rnd() * .14})`;
+      g.beginPath();
+      g.ellipse(rnd() * w, rnd() * h, 3 + rnd() * 14, 2 + rnd() * 8, rnd() * 3.2, 0, 6.3);
+      g.fill();
+    }
+  }, [3, 1]);
+}
+
+/* the entry piers: alternating horizontal bands — near-black glossy panel /
+   lighter taupe-grey stone (frames f_011/f_013) */
+function texBands() {
+  return tex(128, 256, (g, w, h) => {
+    const rnd = mulberry32(9151);
+    /* dark-dominant, as f_011/f_013: a wide near-black glossy band, then a
+       THIN taupe stone band — the piers read dark with light striping */
+    const dark = 40, pale = 18, pitch = dark + pale;
+    for (let y = 0; y < h; y += pitch) {
+      g.fillStyle = '#141619'; g.fillRect(0, y, w, dark);
+      g.fillStyle = 'rgba(110,120,132,.12)'; g.fillRect(0, y + 2, w, 3);     // sheen
+      g.fillStyle = '#655f55'; g.fillRect(0, y + dark, w, pale);
+      for (let i = 0; i < 26; i++) {
+        g.fillStyle = `rgba(${86 + rnd() * 40 | 0},${80 + rnd() * 36 | 0},${70 + rnd() * 30 | 0},.4)`;
+        g.fillRect(rnd() * w, y + dark + rnd() * pale, 2 + rnd() * 5, 1 + rnd() * 2.5);
+      }
+      g.fillStyle = 'rgba(8,8,8,.6)'; g.fillRect(0, y + dark - 1.5, w, 1.5);
+      g.fillStyle = 'rgba(8,8,8,.6)'; g.fillRect(0, y + pitch - 1.5, w, 1.5);
+    }
+  }, [1, 1]);
+}
+
+/* the court: jointed rectangular stone setts in staggered courses — NOT the
+   flat painted texPark slab (brief delta #2). One tile = 4 courses of ~5 */
+function texSett() {
+  return tex(256, 256, (g, w, h) => {
+    g.fillStyle = '#2e2f33'; g.fillRect(0, 0, w, h);
+    const rnd = mulberry32(5519);
+    const ch = 64, cw = 52;
+    for (let row = 0; row < 4; row++) {
+      const off = (row % 2) * cw * .5;
+      for (let x = -1; x < 6; x++) {
+        const px = x * cw + off, py = row * ch;
+        g.fillStyle = `rgb(${68 + rnd() * 26 | 0},${69 + rnd() * 24 | 0},${72 + rnd() * 24 | 0})`;
+        g.fillRect(px + 2, py + 2, cw - 4, ch - 4);
+        for (let i = 0; i < 20; i++) {
+          g.fillStyle = `rgba(${40 + rnd() * 60 | 0},${40 + rnd() * 58 | 0},${42 + rnd() * 56 | 0},.4)`;
+          g.fillRect(px + 3 + rnd() * (cw - 8), py + 3 + rnd() * (ch - 8), 2 + rnd() * 5, 1.5 + rnd() * 4);
+        }
+      }
+    }
+  }, [1, 1]);
+}
+
+/* the forecourt: light grey matte large-format (~600 mm) paving, straight
+   joints (frames f_004–f_009) */
+function texForePave() {
+  return tex(256, 256, (g, w, h) => {
+    g.fillStyle = '#a9abaa'; g.fillRect(0, 0, w, h);
+    const rnd = mulberry32(6673);
+    for (let i = 0; i < 1500; i++) {
+      g.fillStyle = `rgba(${140 + rnd() * 60 | 0},${142 + rnd() * 58 | 0},${140 + rnd() * 56 | 0},.25)`;
+      g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 4, 1 + rnd() * 3);
+    }
+    /* light wear clouds */
+    for (let i = 0; i < 26; i++) {
+      g.fillStyle = `rgba(${170 + rnd() * 40 | 0},${172 + rnd() * 38 | 0},${168 + rnd() * 36 | 0},.10)`;
+      g.beginPath();
+      g.ellipse(rnd() * w, rnd() * h, 12 + rnd() * 34, 8 + rnd() * 20, rnd() * 3.2, 0, 6.3);
+      g.fill();
+    }
+    g.strokeStyle = 'rgba(88,90,90,.55)'; g.lineWidth = 2.5;
+    for (let k = 0; k <= w; k += 128) {
+      g.beginPath(); g.moveTo(k, 0); g.lineTo(k, h); g.moveTo(0, k); g.lineTo(w, k); g.stroke();
+    }
+  }, [1, 1]);
+}
+
+/* the tan/sand circular paving inlay set into the court (frame f_001) */
+function texInlay() {
+  return tex(256, 256, (g, w, h) => {
+    const rnd = mulberry32(2917);
+    const cx = w / 2, cy = h / 2;
+    for (let r = 128; r > 0; r -= 16) {
+      g.fillStyle = `rgb(${168 + rnd() * 24 | 0},${140 + rnd() * 20 | 0},${100 + rnd() * 18 | 0})`;
+      g.beginPath(); g.arc(cx, cy, r, 0, 6.3); g.fill();
+      g.strokeStyle = 'rgba(90,72,50,.5)'; g.lineWidth = 2;
+      g.beginPath(); g.arc(cx, cy, r, 0, 6.3); g.stroke();
+    }
+    for (let i = 0; i < 500; i++) {
+      const a = rnd() * 6.3, rr = rnd() * 126;
+      g.fillStyle = `rgba(${120 + rnd() * 70 | 0},${100 + rnd() * 50 | 0},${70 + rnd() * 40 | 0},.3)`;
+      g.fillRect(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr, 2 + rnd() * 3, 1 + rnd() * 3);
+    }
+  });
+}
+
+/* fluted brass — vertical gold ribs with dark valleys; doubles as its own
+   emissiveMap so the sconce glows along its ribs */
+function texFlute() {
+  return tex(64, 64, (g, w, h) => {
+    for (let x = 0; x < w; x += 8) {
+      const grd = g.createLinearGradient(x, 0, x + 8, 0);
+      grd.addColorStop(0, '#3a2a12'); grd.addColorStop(.45, '#e8b76a');
+      grd.addColorStop(.6, '#f6d896'); grd.addColorStop(1, '#4a3416');
+      g.fillStyle = grd; g.fillRect(x, 0, 8, h);
+    }
+  }, [4, 1]);
+}
+
+/* the flush white plaque: 隐逸居 over THE SERENE RETREAT (the documented
+   real name — the filmed plaque is illegible; the name is from Rachel's
+   photos via CLAUDE.md). Dark characters on white, mounted on the corten. */
+function texPlaque() {
+  return tex(512, 224, (g, w, h) => {
+    g.fillStyle = '#f2efe7'; g.fillRect(0, 0, w, h);
+    const rnd = mulberry32(4111);
+    for (let i = 0; i < 300; i++) {
+      g.fillStyle = `rgba(${210 + rnd() * 30 | 0},${208 + rnd() * 28 | 0},${198 + rnd() * 26 | 0},.35)`;
+      g.fillRect(rnd() * w, rnd() * h, 2 + rnd() * 5, 1 + rnd() * 3);
+    }
+    g.fillStyle = '#26221c';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = '600 104px "Songti SC", "STSong", "PingFang SC", serif';
+    g.fillText('隐逸居', w / 2, 84);
+    g.font = '600 30px "Georgia", serif';
+    /* letterspace THE SERENE RETREAT by hand */
+    const sub = 'THE SERENE RETREAT';
+    let tot = 0;
+    const adv = [...sub].map(c => { const a = g.measureText(c).width + 7; tot += a; return a; });
+    let px = w / 2 - tot / 2;
+    for (let i = 0; i < sub.length; i++) { g.fillText(sub[i], px + adv[i] / 2, 178); px += adv[i]; }
+  });
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -834,7 +996,36 @@ function makeMaterials() {
       map: retile(deck, 2.2, 1), color: 0x6a4c33, roughness: .84 }), 0x8a879a),
     /* woven/rattan-toned dining chairs (white cushions ride MAT.white) */
     rattan: tint(new THREE.MeshStandardMaterial({ color: 0xb08a5c, roughness: .93 }), 0x8a8194),
+
+    /* ── THE ARRIVAL PAVILION (entrance-arrival-brief.md) ───────────────────
+       Dark corten AS FILMED — Carl settled the palette conflict: this volume
+       is an intentional dark accent against the white clubhouse. */
+    corten: tint(new THREE.MeshStandardMaterial({ map: texCorten(), roughness: .62, metalness: .34 }), 0x707784),
+    bands: tint(new THREE.MeshStandardMaterial({ map: texBands(), roughness: .44, metalness: .12 }), 0x7d8494),
+    /* near-black polished stone — the stair, landing, vestibule, plinths */
+    blackPolish: tint(new THREE.MeshStandardMaterial({
+      color: 0x1b1e21, roughness: .18, metalness: .1, envMapIntensity: 1.25 }), 0x99a1b2),
+    forePave: tint(new THREE.MeshStandardMaterial({ map: texForePave(), roughness: .94 }), 0x767d8c),
+    sett: tint(new THREE.MeshStandardMaterial({ map: texSett(), roughness: .93 }), 0x6f7684),
+    settInlay: tint(new THREE.MeshStandardMaterial({ map: texInlay(), roughness: .92 }), 0x8a8494),
+    /* white-based flat-shaded planting bucket — instance colours carry the
+       species (frangipani greens, cordyline maroon, ixora red, dracaena).
+       ⚠ WHITE base on purpose: a dark base crushes instance tints to black
+       (the cocktail-bar gotcha). */
+    plantFlat: tint(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .95, flatShading: true }), 0x5c6b86),
+    arrTrunk: tint(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .9 }), 0x6f7688),
   };
+  /* the arrival's emissives — canopy downlights + fluted brass sconces read
+     WARM even in daylight in the video (f_007–f_009), so day intensity > 0 */
+  const flute = texFlute();
+  m.brassFlute = glow(new THREE.MeshStandardMaterial({
+    map: flute, emissive: 0xffc06a, emissiveMap: flute,
+    roughness: .35, metalness: .55 }), .5, 2.2);
+  m.arrDown = glow(new THREE.MeshStandardMaterial({
+    color: 0x14110c, emissive: 0xffd9a0 }), .9, 2.6);
+  const plaque = texPlaque();
+  m.plaque = glow(new THREE.MeshStandardMaterial({
+    map: plaque, emissive: 0xffffff, emissiveMap: plaque, roughness: .5 }), .1, 1.0);
   glow(m.rtScreen, 0, 1.45);
   tint(m.rtScreen, 0xa9b6cc);
   glow(m.rtBarPanel, 0, 1.8);
@@ -1862,6 +2053,413 @@ function buildSign(G, root) {
   pointLight(g, S.x, .55, S.z + .9, 0, 9, 7, 0xffd9a6);
   G.colliders.push({ x: S.x, z: S.z, r: .75 });
   return g;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   6b · THE ARRIVAL — the clubhouse's real front door
+   reference/entrance-arrival-brief.md + frames f_001–f_013. Dark corten
+   pavilion (Carl: as filmed — a deliberate dark accent), 6-riser near-black
+   stone stair, deep slatted canopy with downlights, banded piers, fluted
+   brass sconces, the 隐逸居 plaque, frangipani/cordyline/ixora beds, a
+   sett-paved arrival court with a tan inlay + modest stalls, and a lane in
+   from the map's south edge. The arrival is DRY — no water anywhere near it.
+
+   ⚠ FRAME CHOICE (option a): EVERYTHING here is ENCLAVE-LOCAL. Unique
+   meshes parent under the adopted 'sign' group (g), repeats ride the shared
+   inst() buckets — every instance position satisfies isEnclaveLocal(), so
+   world.js's relocateInstances() bakes the enclave matrix onto all of them,
+   and the collider rewrite maps every collider pushed here. Authoring the
+   court/lane WORLD-space through the shared buckets would be silently
+   captured by the same test (world x −37…−16, z 110…141 answers "local") —
+   that is the trap, and local-everywhere is how this builder avoids it.
+
+   Walkability: site.js WALK_REGIONS 'arrival-stair' / 'arrival-landing' /
+   'arrival-vestibule' / 'arrival-stair-in', derived from SITE.ARRIVAL.
+   Zero new THREE.PointLights — sconces/downlights/plaque are emissive.
+   ════════════════════════════════════════════════════════════════════════ */
+function buildArrival(G, g, rnd) {
+  const AR = SITE.ARRIVAL;
+  const bayC = (AR.bay.z0 + AR.bay.z1) / 2;                 // the axis, −8
+  const bayW = AR.bay.z1 - AR.bay.z0;                       // 9 m
+  const vestC = (AR.vest.z0 + AR.vest.z1) / 2;
+  const vestW = AR.vest.z1 - AR.vest.z0;                    // 7.8 m
+  const rise = AR.rise, rh = rise / AR.risers;              // 0.1583 m risers
+
+  /* per-surface texture tiling (materials are this builder's own) */
+  MAT.forePave.map.repeat.set((AR.fore.x1 - AR.fore.x0) / 1.2, (AR.fore.z1 - AR.fore.z0) / 1.2);
+  MAT.sett.map.repeat.set((AR.court.x1 - AR.court.x0) / 1.3, (AR.court.z1 - AR.court.z0) / 1.3);
+
+  /* ── the podium: landing + vestibule floor at rise height ── */
+  inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+    mat4((AR.vest.x0 + AR.stair.x0) / 2, rise / 2, bayC,
+      AR.stair.x0 - AR.vest.x0, rise, bayW));
+
+  /* ── the exterior stair: 6 solid near-black polished treads, full bay ── */
+  for (let i = 0; i < AR.risers; i++) {
+    inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+      mat4(AR.stair.x1 - (i + .5) * AR.tread, (i + 1) * rh / 2, bayC,
+        AR.tread, (i + 1) * rh, bayW));
+  }
+  /* …and the interior stair back down to plaza grade, vestibule-wide */
+  const trIn = (AR.vest.x0 - AR.stairIn.x0) / AR.risers;
+  for (let i = 0; i < AR.risers; i++) {
+    inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+      mat4(AR.stairIn.x0 + (i + .5) * trIn, (i + 1) * rh / 2, vestC,
+        trIn, (i + 1) * rh, vestW));
+  }
+
+  /* ── side plinths flanking the stair bay (guard the open sides) ── */
+  for (const s of [0, 1]) {
+    const pz = s ? AR.bay.z1 + .45 : AR.bay.z0 - .45;
+    inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+      mat4((AR.doorX + 46.7) / 2, rise / 2 + .03, pz, 46.7 - AR.doorX, rise + .06, .9));
+    rectCollider(G.colliders, (AR.doorX + 46.7) / 2, pz, 46.7 - AR.doorX, .9, 0, .3);
+  }
+
+  /* ── the two corten wings — the building runs on past the entry bay ── */
+  const wingCX = (AR.backX + AR.faceX) / 2, wingD = AR.faceX - AR.backX;
+  for (const w of AR.wings) {
+    const cz = (w.z0 + w.z1) / 2;
+    inst('arrCortenI', UNIT_BOX, MAT.corten,
+      mat4(wingCX, AR.wingH / 2, cz, wingD, AR.wingH, w.z1 - w.z0));
+    rectCollider(G.colliders, wingCX, cz, wingD, w.z1 - w.z0, 0, .4);
+  }
+
+  /* ── the folded mono-pitch roof: ridge over wings[1] (screen-LEFT from the
+     court) falling to the eave over wings[0] — the video's slope (f_001).
+     rotation.x = a sends local +z to (0, −sin a, cos a), so a NEGATIVE angle
+     makes y RISE along +z, which is what puts the ridge at z1. ── */
+  const run = AR.wings[1].z1 - AR.wings[0].z0;              // 20.4 m
+  const drop = AR.ridgeH - AR.eaveH;
+  const ang = -Math.atan2(drop, run);
+  const roofC = (AR.ridgeH + AR.eaveH) / 2;
+  const roofZ = (AR.wings[0].z0 + AR.wings[1].z1) / 2;
+  inst('arrCortenI', UNIT_BOX, MAT.corten,
+    mat4(wingCX, roofC, roofZ, wingD + .8, .3, run + .2, 0, ang, 0));
+  /* deep corten fascia along the front top edge */
+  inst('arrCortenI', UNIT_BOX, MAT.corten,
+    mat4(AR.faceX + .38, roofC - .38, roofZ, .16, 1.05, run + .15, 0, ang, 0));
+  /* THE FOLD — the angular origami line over the entry (frame f_001):
+     a raking corten band dropping from the ridge-side corner across the bay
+     toward the plaque wall (wings[0]) — descending as z falls */
+  const foldA = -Math.atan2(1.6, bayW + .2);
+  inst('arrCortenI', UNIT_BOX, MAT.corten,
+    mat4(AR.faceX + .42, 4.75, bayC - .1, .14, .8, bayW + .9, 0, foldA, 0));
+  /* corten band over the bay, canopy → roof underside (follows the pitch) */
+  inst('arrCortenI', UNIT_BOX, MAT.corten,
+    mat4(AR.faceX - .35, 4.56, bayC, .7, 1.32, bayW, 0, ang, 0));
+
+  /* ── the deep flat entry canopy with slatted soffit + downlights ── */
+  const canC = (AR.canopy.x0 + AR.canopy.x1) / 2, canW = AR.canopy.x1 - AR.canopy.x0;
+  inst('arrCortenI', UNIT_BOX, MAT.corten,
+    mat4(canC, AR.canopy.topY - .16, bayC, canW, .32, bayW));
+  const soff = box(g, canW - .2, .05, bayW - .2, canC, AR.canopy.soffitY + .025, bayC, MAT.slatCeil);
+  soff.name = 'arr-soffit';
+  for (let k = 0; k < 6; k++) {
+    inst('arrDownI', UNIT_BOX, MAT.arrDown,
+      mat4(canC + .55, AR.canopy.soffitY - .005, AR.bay.z0 + 1.6 + k * 1.16, .16, .05, .16));
+  }
+
+  /* ── the banded piers flanking the recessed door bay ── */
+  for (const s of [0, 1]) {
+    const z0 = s ? AR.doorGap.z1 : AR.bay.z0, z1 = s ? AR.bay.z1 : AR.doorGap.z0;
+    const cz = (z0 + z1) / 2;
+    inst('arrBandI', UNIT_BOX, MAT.bands,
+      mat4((AR.doorX - .1 + 44.2) / 2, rise + (AR.canopy.topY - rise) / 2, cz,
+        44.2 - AR.doorX + .1, AR.canopy.topY - rise, z1 - z0));
+    rectCollider(G.colliders, (AR.doorX - .1 + 44.2) / 2, cz, 44.2 - AR.doorX + .1, z1 - z0, 0, .35);
+  }
+
+  /* ── the door bay: dark-framed glass, STANDING OPEN (gap walkable) ── */
+  const gapC = (AR.doorGap.z0 + AR.doorGap.z1) / 2, gapW = AR.doorGap.z1 - AR.doorGap.z0;
+  inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, 3.5, gapC, .18, .55, gapW + .3));  // header
+  inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, 3.2, gapC, .12, .07, gapW));       // track
+  for (const s of [-1, 1]) {                                                          // jambs
+    inst('darkI', UNIT_BOX, MAT.dark,
+      mat4(AR.doorX, rise + 1.15, gapC + s * gapW / 2, .14, 2.3, .12));
+  }
+  /* the slid-open leaves, parked behind the piers */
+  for (const s of [-1, 1]) {
+    const lz = gapC + s * (gapW / 2 + .5);
+    inst('glass', UNIT_BOX, MAT.glass, mat4(AR.doorX - .25, rise + 1.13, lz, .05, 2.2, .95));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX - .25, rise + 2.26, lz, .07, .06, .98));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX - .25, rise + .02, lz, .07, .06, .98));
+  }
+  /* door-plane colliders — the GAP stays open */
+  colliderLine(G.colliders, AR.doorX, AR.bay.z0, AR.doorX, AR.doorGap.z0, .4);
+  colliderLine(G.colliders, AR.doorX, AR.doorGap.z1, AR.doorX, AR.bay.z1, .4);
+
+  /* ── one pair of fluted brass cylinder sconces flanking the doors ── */
+  for (const s of [-1, 1]) {
+    const sz = gapC + s * (gapW / 2 + .35);
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(44.22, 2.3, sz, .08, .55, .3));
+    inst('arrSconceI', UNIT_CYL, MAT.brassFlute, mat4(44.34, 2.3, sz, .22, 1.2, .22));
+  }
+
+  /* ── the plaque wall: wings[0] (screen-RIGHT approaching, as in f_001–f_003)
+     gets a banded front panel inside the corten frame, carrying the flush
+     white plaque — 隐逸居 / THE SERENE RETREAT ── */
+  const plWallZ = (AR.wings[0].z0 + AR.wings[0].z1) / 2;
+  inst('arrBandI', UNIT_BOX, MAT.bands,
+    mat4(AR.faceX + .06, 2.5, plWallZ, .12, 2.9, AR.wings[0].z1 - AR.wings[0].z0 - .3));
+  const pl = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.12), MAT.plaque);
+  pl.position.set(AR.faceX + .15, 3.05, plWallZ);
+  pl.rotation.y = Math.PI / 2;
+  g.add(pl);
+
+  /* ── the vestibule: glass side walls over a black upstand, corten band
+     above, interior planters — f_013 ── */
+  const vwCX = (AR.stairIn.x0 + AR.doorX) / 2, vwW = AR.doorX - AR.stairIn.x0;
+  for (const s of [0, 1]) {
+    const wz = s ? AR.vest.z1 : AR.vest.z0;
+    inst('arrBlackI', UNIT_BOX, MAT.blackPolish, mat4(vwCX, rise + .125, wz, vwW, .25, .14));
+    inst('glass', UNIT_BOX, MAT.glass, mat4(vwCX, rise + .25 + 1.18, wz, vwW, 2.36, .07));
+    for (const mx of [AR.stairIn.x0 + .1, vwCX, AR.doorX - .1]) {
+      inst('darkI', UNIT_BOX, MAT.dark, mat4(mx, rise + 1.45, wz, .09, 2.85, .11));
+    }
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(vwCX, rise + 2.68, wz, vwW, .1, .12));
+    inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(vwCX, 4.55, wz, vwW, 1.9, .3));
+    colliderLine(G.colliders, AR.stairIn.x0, wz, AR.doorX, wz, .3);
+    /* stair-mouth flank wall closing the strip to the bay edge */
+    const fz = s ? (AR.vest.z1 + AR.bay.z1) / 2 : (AR.vest.z0 + AR.bay.z0) / 2;
+    inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+      mat4(37.6, 1.6, fz, 2.1, 3.2, AR.vest.z0 - AR.bay.z0));
+    rectCollider(G.colliders, 37.6, fz, 2.1, AR.vest.z0 - AR.bay.z0, 0, .3);
+    /* interior planter in each far corner of the vestibule */
+    const pz2 = s ? AR.vest.z1 - .8 : AR.vest.z0 + .8;
+    inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(39.4, rise + .26, pz2, .52, .52, .52));
+    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+      mat4(39.4, rise + .85, pz2, .95, .85, .95), new THREE.Color(0x4f7a3c));
+    G.colliders.push({ x: 39.4, z: pz2, r: .35 });
+  }
+
+  /* ── the forecourt: light-grey large-format paving, dead on axis ── */
+  box(g, AR.fore.x1 - AR.fore.x0, .1, AR.fore.z1 - AR.fore.z0,
+    (AR.fore.x0 + AR.fore.x1) / 2, 0, (AR.fore.z0 + AR.fore.z1) / 2, MAT.forePave);
+  /* the stair-foot aprons carrying the bowl planters (edge-to-edge with the
+     forecourt slab, never stacked on it) */
+  for (const b of AR.beds) {
+    box(g, AR.bedX0 - AR.fore.x0, .1, b.z1 - b.z0,
+      (AR.fore.x0 + AR.bedX0) / 2, 0, (b.z0 + b.z1) / 2, MAT.forePave);
+  }
+
+  /* ── the symmetric kerbed beds: frangipani + hedge + cordyline + ixora ── */
+  const kerb = (x1, z1, x2, z2, coll) => {
+    const len = Math.hypot(x2 - x1, z2 - z1), n = Math.max(1, Math.round(len / 1.9));
+    const kry = Math.atan2(x2 - x1, z2 - z1);
+    for (let i = 0; i < n; i++) {
+      const t = (i + .5) / n;
+      inst('arrKerbI', UNIT_BOX, MAT.stone,
+        mat4(x1 + (x2 - x1) * t, .1, z1 + (z2 - z1) * t, .24, .2, len / n - .05, kry));
+    }
+    if (coll) colliderLine(G.colliders, x1, z1, x2, z2, .3);
+  };
+  /* ⚠ hex palettes, not setHSL: Color.setHSL fills in the LINEAR working
+     space (no sRGB conversion, unlike setHex), so an HSL "dark maroon"
+     renders two stops lighter — the first cut's cordyline came out pink. */
+  const TRUNKS = [0x4f3b2b, 0x5a4433, 0x453529];
+  const CORDY = [0x5e2531, 0x6b2c38, 0x4f1f28];
+  const frangipani = (fx, fz) => {
+    for (let t = 0; t < 3; t++) {                           // 2–3 leaning trunks
+      inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk,
+        mat4(fx + (rnd() - .5) * .7, 1.15, fz + (rnd() - .5) * .7, .13 + rnd() * .05, 2.3, .13 + rnd() * .05,
+          0, (rnd() - .5) * .42, (rnd() - .5) * .42),
+        new THREE.Color(TRUNKS[Math.floor(rnd() * TRUNKS.length)]));
+    }
+    const greens = [0x49703a, 0x557f42, 0x3f6532, 0x5d8a4a];
+    for (let c = 0; c < 5; c++) {                           // broad sparse canopy
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(fx + (rnd() - .5) * 2.6, 2.9 + rnd() * .8, fz + (rnd() - .5) * 2.2,
+          2.0 + rnd() * 1.2, 1.1 + rnd() * .5, 2.0 + rnd() * 1.2),
+        new THREE.Color(greens[Math.floor(rnd() * greens.length)]));
+    }
+    for (let p = 0; p < 7; p++) {                           // sparse pink flecks
+      const a = rnd() * Math.PI * 2, rr = .9 + rnd() * 1.1;
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(fx + Math.cos(a) * rr, 3.3 + rnd() * .7, fz + Math.sin(a) * rr, .3, .22, .3),
+        new THREE.Color(0xe8a9bc));
+    }
+    G.colliders.push({ x: fx, z: fz, r: .5 });
+  };
+  for (const [bi, b] of AR.beds.entries()) {
+    const bc = (b.z0 + b.z1) / 2, inner = bi === 0 ? b.z1 : b.z0;
+    /* kerb ring (visual) + soil + one collider line along the bed's middle */
+    kerb(AR.bedX0, b.z0, AR.fore.x1, b.z0, false);
+    kerb(AR.bedX0, b.z1, AR.fore.x1, b.z1, false);
+    kerb(AR.bedX0, b.z0, AR.bedX0, b.z1, false);
+    kerb(AR.fore.x1, b.z0, AR.fore.x1, b.z1, false);
+    inst('darkI', UNIT_BOX, MAT.dark,
+      mat4((AR.bedX0 + AR.fore.x1) / 2, .1, bc, AR.fore.x1 - AR.bedX0 - .3, .16, b.z1 - b.z0 - .3));
+    colliderLine(G.colliders, AR.bedX0 + .5, bc, AR.fore.x1 - .3, bc, 1.05);
+    /* clipped hedge along the forecourt edge */
+    for (let hx = AR.bedX0 + .9; hx < AR.fore.x1 - .5; hx += 1.35) {
+      inst('arrHedgeI', UNIT_BOX, MAT.hedge,
+        mat4(hx + (rnd() - .5) * .1, .52, inner + (bi === 0 ? -.5 : .5),
+          1.32, .58 + rnd() * .1, .85));
+    }
+    /* dark-red cordyline clumps mid-bed */
+    for (let c = 0; c < 4; c++) {
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(AR.bedX0 + 1.2 + c * 1.7 + rnd() * .5, .78, bc + (rnd() - .5) * .7,
+          .75 + rnd() * .35, .95 + rnd() * .3, .75 + rnd() * .3),
+        new THREE.Color(CORDY[Math.floor(rnd() * CORDY.length)]));
+    }
+    /* small red ixora accents at the hedge foot */
+    for (let c = 0; c < 6; c++) {
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(AR.bedX0 + .8 + rnd() * (AR.fore.x1 - AR.bedX0 - 1.6), .34,
+          inner + (bi === 0 ? -.95 : .95) + (rnd() - .5) * .3, .3, .24, .3),
+        new THREE.Color(0xc63e1c));
+    }
+    /* two multi-trunk frangipani per bed */
+    frangipani(AR.bedX0 + 1.6, bc);
+    frangipani(AR.bedX0 + 5.6, bc);
+    /* the white bowl planter with its variegated dracaena, on the apron */
+    const px = (AR.fore.x0 + AR.bedX0) / 2, pz = bc + (bi === 0 ? .35 : -.35);
+    inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(px, .3, pz, 1.0, .6, 1.0));
+    inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk, mat4(px, 1.0, pz, .08, .9, .08),
+      new THREE.Color(0x6a5540));
+    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px, 1.6, pz, .95, .8, .95),
+      new THREE.Color(0xb4c878));
+    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px + .25, 1.42, pz - .2, .6, .55, .6),
+      new THREE.Color(0x93ab5a));
+    G.colliders.push({ x: px, z: pz, r: .55 });
+  }
+
+  /* ── the court: jointed setts, tan inlay, stall stripes, cars, kerbs ── */
+  box(g, AR.court.x1 - AR.court.x0, .09, AR.court.z1 - AR.court.z0,
+    (AR.court.x0 + AR.court.x1) / 2, 0, (AR.court.z0 + AR.court.z1) / 2, MAT.sett);
+  const inlay = new THREE.Mesh(new THREE.CircleGeometry(AR.inlay.r, 40), MAT.settInlay);
+  inlay.rotation.x = -Math.PI / 2;
+  inlay.position.set(AR.inlay.cx, .0505, AR.inlay.cz);
+  g.add(inlay);
+  for (let k = 0; k <= AR.stalls.n; k++) {                  // 7 stripes → 6 stalls
+    inst('arrStripeI', UNIT_BOX, MAT.white,
+      mat4((AR.stalls.x0 + AR.stalls.x1) / 2, .058, AR.stalls.z0 + k * AR.stalls.pitch,
+        AR.stalls.x1 - AR.stalls.x0, .012, .12));
+  }
+  /* a handful of parked cars (buildRoad's instancing pattern) in stalls
+     0/1/4/5 — the two on the approach axis stay open for the walk */
+  const carCol = new THREE.Color();
+  const palette = [0x1c1f24, 0xd8d9dc, 0x8d9299, 0x2a3a52, 0x6d1f22, 0xe4e2dc, 0x3c4046];
+  for (const k of [0, 1, 4, 5]) {
+    const cz = AR.stalls.z0 + (k + .5) * AR.stalls.pitch;
+    const cx = 62.3 + (rnd() - .5) * .3;
+    const cry = Math.PI / 2 + (rnd() - .5) * .05;
+    carCol.setHex(palette[Math.floor(rnd() * palette.length)]);
+    inst('carI', UNIT_BOX, MAT.car, mat4(cx, .62, cz, 1.85, .82, 4.4, cry), carCol.clone());
+    inst('carGlassI', UNIT_BOX, MAT.carGlass,
+      mat4(cx - .18 * Math.sin(cry), 1.24, cz - .18 * Math.cos(cry), 1.62, .62, 2.3, cry));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(cx, .3, cz, 1.95, .5, 4.1, cry));
+    for (const s of [-1, 1]) {
+      G.colliders.push({ x: cx + s * 1.15 * Math.sin(cry), z: cz + s * 1.15 * Math.cos(cry), r: 1.05 });
+    }
+  }
+  /* court kerbs, with gaps at the forecourt mouth and the lane entry */
+  kerb(AR.court.x0, AR.court.z0, AR.court.x0, AR.fore.z0, true);   // west, N of mouth
+  kerb(AR.court.x0, AR.fore.z1, AR.court.x0, AR.court.z1, true);   // west, S of mouth
+  kerb(AR.court.x0, AR.court.z0, 57.6, AR.court.z0, true);         // north, W of lane
+  kerb(63.2, AR.court.z0, AR.court.x1, AR.court.z0, true);         // north, E of lane
+  kerb(AR.court.x1, AR.court.z0, AR.court.x1, AR.court.z1, true);  // east, behind stalls
+  kerb(AR.court.x0, AR.court.z1, AR.court.x1, AR.court.z1, true);  // south
+
+  /* ── the lane: asphalt in from the map's south edge, lamps + bollards ── */
+  const lanePts = AR.LANE.map(([x, z]) => ({ x, y: .04, z }));
+  g.add(new THREE.Mesh(ribbon(lanePts, AR.laneHalfW, 6), MAT.asphalt));
+  for (let i = 0; i < 3; i++) {                             // lamp posts (existing pattern)
+    const a = AR.LANE[i], b = AR.LANE[i + 1];
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    const nx = dz / L, nz = -dx / L;
+    const px = (a[0] + b[0]) / 2 + nx * 3.4, pz = (a[1] + b[1]) / 2 + nz * 3.4;
+    const lry = Math.atan2(-nx, -nz);
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(px, 3.1, pz, .16, 6.2, .16));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(px - nx * .45, 6.3, pz - nz * .45, .3, .18, 1.2, lry));
+    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(px - nx * .9, 6.16, pz - nz * .9, .34, .12, .7, lry));
+  }
+  for (let i = 1; i < AR.LANE.length; i++) {                // low bollard glows
+    const a = AR.LANE[i - 1], b = AR.LANE[i];
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    const nx = dz / L, nz = -dx / L;
+    for (const t of [.3, .75]) {
+      const x = a[0] + dx * t, z = a[1] + dz * t;
+      for (const s of [-1, 1]) {
+        inst('glowI', UNIT_BOX, MAT.glowLamp,
+          mat4(x + s * nx * (AR.laneHalfW + .55), .5, z + s * nz * (AR.laneHalfW + .55), .15, 1.0, .15));
+      }
+    }
+  }
+
+  /* ── palm keep-out: phantom colliders at feet-height 80 m ──────────────────
+     nature.js's placePalms rejects any throw within (collider.r + 1.4) but
+     ignores y-ranges, while the walker skips these entirely (feet never at
+     80). Without them the seeded scatter can stand a palm in the middle of
+     the court/forecourt/lane — none of this ground is in exclusionZones()
+     and nature.js is not this pass's to edit. Understory shrubs do NOT
+     consult colliders; the court position was checked against the seeded
+     shrub field instead. */
+  const noPalm = (x, z, r) => G.colliders.push({ x, z, r, y0: 80, y1: 80.01 });
+  for (const [x, z, r] of [
+    [38.2, -8, 4.4], [41.8, -8, 4.4], [45.4, -8, 4.6],
+    [40.6, -15.3, 4.4], [40.6, -.7, 4.4],
+    [49.4, -8, 4.8], [52.8, -8, 4.8], [55.8, -8, 4.8],
+    [51, -12.6, 3.4], [51, -3.4, 3.4], [54.6, -12.6, 3.4], [54.6, -3.4, 3.4],
+    [58, -13.4, 4.4], [58, -2.6, 4.4], [62.2, -13.4, 4.4], [62.2, -2.6, 4.4],
+    [60.1, -8, 4.4],
+  ]) noPalm(x, z, r);
+  for (let i = 1; i < AR.LANE.length; i++) {
+    const a = AR.LANE[i - 1], b = AR.LANE[i];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 4));
+    for (let k = 0; k <= n; k++) {
+      noPalm(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, 3.4);
+    }
+  }
+
+  /* ── understory cull ────────────────────────────────────────────────────
+     nature.js's shrub scatter is placed against exclusionZones() ALONE — it
+     never consults colliders — and none of this ground is in that list, so
+     the seeded field drops clumps straight onto the forecourt and court
+     paving (it did: two clumps in the first render). nature.js is not this
+     pass's file; instead the same collapse world.js already applies to the
+     enclave's footprints (scale-to-zero, translation kept) runs here over
+     any STATIC understory instance standing on the arrival's hardscape,
+     once, on the first frame after the world is up. Palms are
+     DynamicDrawUsage and are skipped — the phantom colliders above already
+     keep them off. */
+  let culled = false;
+  const _cm = new THREE.Matrix4(), _cv = new THREE.Vector3(), _cz = new THREE.Vector3();
+  const inArrival = (wx, wz) => {
+    const l = worldToEnclave(wx, wz);
+    if (l.x > 36.3 && l.x < 64.7 && l.z > -18.3 && l.z < 2.3) return true;
+    for (let i = 1; i < AR.LANE.length; i++) {
+      const a = AR.LANE[i - 1], b = AR.LANE[i];
+      const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
+      let t = ((l.x - a[0]) * dx + (l.z - a[1]) * dz) / L2;
+      t = Math.max(0, Math.min(1, t));
+      const px = a[0] + dx * t - l.x, pz = a[1] + dz * t - l.z;
+      if (px * px + pz * pz < (AR.laneHalfW + 1.2) ** 2) return true;
+    }
+    return false;
+  };
+  (G.tickers ||= []).push(() => {
+    if (culled) return;
+    const nat = G.groups && G.groups.nature;
+    if (!nat) return;
+    culled = true;
+    for (const child of nat.children) {
+      if (!child.isInstancedMesh) continue;
+      if (child.instanceMatrix.usage === THREE.DynamicDrawUsage) continue;
+      let touched = 0;
+      for (let i = 0; i < child.count; i++) {
+        child.getMatrixAt(i, _cm);
+        _cv.setFromMatrixPosition(_cm);
+        if (!inArrival(_cv.x, _cv.z)) continue;
+        _cm.scale(_cz);
+        child.setMatrixAt(i, _cm);
+        touched++;
+      }
+      if (touched) child.instanceMatrix.needsUpdate = true;
+    }
+  });
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -3286,7 +3884,9 @@ export function buildCampus(G) {
   buildGrassGround(G);
   buildPlaza(G, root);
   buildPergola(G, root);
-  buildSign(G, root);
+  /* the arrival pavilion parents its unique meshes INSIDE the adopted 'sign'
+     group so they ride the enclave transform — see buildArrival's banner */
+  buildArrival(G, buildSign(G, root), rnd);
   buildExtStair(G, root);
   buildHotel(G, root);
   buildRoad(G, root, rnd);

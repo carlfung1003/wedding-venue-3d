@@ -270,23 +270,51 @@ aisle + arch with the new band, horizon clear; beach access through the aisle
 gap onto the sand (feet follow the slope to −0.567); pool-deck walk over the
 turf strip; gate pass-through; 34 lights in every moment, both sides.
 
-### QUEUED from the entrance brief — needs Carl's decisions first
+### THE ENTRANCE — DONE 2026-08-03 (from entrance-arrival-brief.md)
 
-The entrance rebuild is real modeling work (facade, stair, canopy, planting,
-paver parking) and carries TWO decisions the video cannot settle:
-1. **The palette conflict**: the filmed entrance is dark weathered corten —
-   the opposite of the documented white-stucco clubhouse. Build it dark as
-   filmed, or reconcile?
-2. **The water-crossing conflict**: the filmed parking→door walk crosses NO
-   water, but the model's river runs between the parking apron and the
-   enclave (guests "walk in from inland"). Resolving this against the site
-   map may move the river's west reach or the parking — not a dressing fix.
+Carl settled both flagged decisions ("go ahead and make the change"):
+**dark corten as filmed** (a deliberate accent against the white clubhouse),
+and **the arrival is DRY** — the clubhouse has its own arrival court on the
+enclave's inland/south-east side with a lane off the SOUTH map edge (the site
+map's real entry side); the river did not move; the north road/spur/parking
+stay as resort context.
 
-Also queued small: the bar counter STOOLS are still the old crude pole+slab
-(the furniture pass covered Carl's screenshot, which was the tables);
-two pre-existing nature.js understory shrubs stand oddly (one seaward of the
-aisle head at local (−20, 76), one overlapping the spine path at z ≈ 40);
-a pre-existing coplanar paver overlap south of `pz1` on the pool's west flank.
+What stands there now (`buildArrival` in campus.js, every shared number in
+`SITE.ARRIVAL`): the corten vertical-batten pavilion with the folded
+mono-pitch roof and cantilevered slatted canopy (emissive downlights), banded
+curtain-wall piers, fluted brass sconces, the flush 隐逸居 / THE SERENE
+RETREAT plaque, a REAL 6-riser polished-stone stair (rise 0.95, registered as
+`arrival-stair`/`-landing`/`-vestibule`/`-stair-in` WALK_REGIONS), a glazed
+vestibule stepping back down to the plaza, kerbed frangipani/cordyline/ixora
+beds, white bowl dracaenas, a jointed sett court with tan inlay + stall
+stripes + 4 cars, and the lane with lamps and bollards.
+
+⚠ Three things future passes must know:
+- **The arrival ground IS enclave-captured.** `isEnclaveLocal()` answers true
+  for world x −37…−16, z 110…141, so the whole arrival is authored
+  enclave-LOCAL inside the adopted `sign` group. A world-space instance
+  pushed through shared buckets there lands 90° around the map.
+- **`Color.setHSL` fills in LINEAR space** (unlike `setHex`) — it rendered
+  the corten maroons two stops light. Hex only for instance tints.
+- ~46 phantom colliders (`y0:80, y1:80.01`) keep `placePalms` off the court —
+  they repel placement but are invisible to the walker. The understory
+  shrub scatter ignores colliders entirely; a one-shot ticker culls the two
+  clumps that landed on the paving (world.js's scale-to-zero pattern).
+
+**Verified**: the full walk BOTH directions with feet logged — car → court →
+forecourt → stair up 0→.95 → doors → vestibule → interior stair down → plaza
+→ through room D2's folding glass to within reach of its atrium gallery door;
+min distance from the whole route to ANY water = 13.5 m (river ≥ 114.6 m);
+all six moments regression-clean, 34 lights. Side-by-side vs the video:
+`reference/photos/compare-entrance-2026-08-03.jpg`.
+
+**Found while building, pre-existing, NOT fixed:** `suite.js buildColliders()`
+runs an unbroken collider across the suite's north wall, so the documented
+suite→atrium portal cannot actually be walked (the doors are decorative) —
+suite.js was read-only for this pass. Also still queued small: bar counter
+stools (crude pole+slab), the lane's ribbon ending on open lawn at the south
+boundary, two odd understory shrubs elsewhere, the coplanar paver overlap on
+the pool's west flank.
 
 ## THE ROOFTOP BAR + THE COCKTAIL REDRESS — DONE 2026-08-03
 

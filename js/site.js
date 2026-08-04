@@ -262,6 +262,73 @@ export const SITE = {
   // (−24, −14). East of the cabana run is the only clear ground left.
   PLAZA: { x0: 18, x1: 38, z0: -14, z1: -2 },
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     THE ARRIVAL — the clubhouse's REAL front door (2026-08-03)
+     ═══════════════════════════════════════════════════════════════════════
+     From reference/entrance-arrival-brief.md + frames f_001–f_013 of
+     clubhouse-entrance-parking.mp4. Two decisions Carl settled:
+       1. The entrance pavilion is DARK weathered corten as filmed — an
+          intentional dark accent against the white clubhouse.
+       2. The arrival is DRY. The filmed parking→door walk crosses no water,
+          so the clubhouse gets its OWN arrival court on the enclave's
+          inland/south-east side, south of the river. The river does not move;
+          the north road/spur/parking stay as resort-scale context.
+
+     ⚠ FRAME: everything here is ENCLAVE-LOCAL, like every other SITE.* block
+     above. The court and lane sit at local x 36…67, z −46…+3, which maps to
+     world x −37…−16, z 110…141 — the map's south edge — and, crucially,
+     that ground answers TRUE to isEnclaveLocal(), so any instance authored
+     there in world coordinates through campus.js's shared buckets would be
+     silently captured by world.js's adoption pass and rotated 90°. Authoring
+     the whole arrival local (geometry inside the adopted 'sign' group,
+     repeats through the shared buckets, colliders in local coords) rides the
+     one standard transform end to end — no seam between frames at all.
+
+     The axis (local z = −8, i.e. world x = −26) runs: lane → court →
+     forecourt → 6-riser stair → doors → vestibule → down the interior stair
+     → SITE.PLAZA → the atrium precinct. Local +X = world SOUTH, so the
+     approach walks local −X. campus.js buildArrival() is the only builder;
+     WALK_REGIONS below registers the stair/landing/vestibule.               */
+  ARRIVAL: {
+    axisZ: -8,                 // the approach centreline (world x = −26)
+    rise: 0.95, risers: 6, tread: 0.34,   // ~158 mm risers — the filmed podium
+    faceX: 44.6,               // facade front plane (world z 118.6)
+    backX: 36.6,               // pavilion back — lands on SITE.PLAZA's x1 = 38 band
+    doorX: 43.1,               // the door plane, recessed 1.5 m under the canopy
+    bay: { z0: -12.5, z1: -3.5 },        // the 9 m recessed entry bay = stair width
+    /* 3.1 m clear opening: 1.6 m of real walking after 2 × (.4 collider +
+       .35 player), same arithmetic as the atrium's doors */
+    doorGap: { z0: -9.55, z1: -6.45 },
+    vest: { x0: 38.6, z0: -11.9, z1: -4.1, ceil: 4.3 },  // interior, at rise height
+    stairIn: { x0: 36.56 },    // interior stair foot — steps down onto the plaza
+    stair: { x0: 44.56, x1: 46.60 },     // exterior stair: 6 × .34 m treads
+    canopy: { x0: 42.8, x1: 47.1, soffitY: 3.55, topY: 3.9 },  // the deep flat eave
+    wings: [{ z0: -18.2, z1: -12.5 }, { z0: -3.5, z1: 2.2 }],  // corten volumes
+    /* mono-pitch: the RIDGE is over wings[1] (local z1, screen-LEFT as
+       approached from the court) falling to the eave over wings[0] — f_001's
+       fold descends left-to-right onto the plaque wall, which is wings[0]
+       (screen-RIGHT), banded, carrying the white plaque */
+    wingH: 4.6, ridgeH: 6.4, eaveH: 4.35,
+    fore: { x0: 46.6, x1: 55.6, z0: -11.1, z1: -4.9 },   // 9 × 6.2 m forecourt
+    /* the beds start past a paved apron at the stair foot (fore.x0…bedX0) —
+       the two white bowl planters stand on that apron, as in f_007/f_011 */
+    bedX0: 48.3,
+    beds: [{ z0: -13.6, z1: -11.1 }, { z0: -4.9, z1: -2.4 }],  // kerbed, planted
+    court: { x0: 55.6, x1: 64.6, z0: -17.6, z1: 1.6 },   // 9 × 19.2 m paver court
+    inlay: { cx: 57.8, cz: -8.0, r: 2.6 },               // the tan circular inlay
+    /* stalls are UNVERIFIED by the video (no wide shot) — kept modest at 6.
+       Stripes at z0 + k · pitch, k = 0…n; cars in stalls 0, 1, 4, 5 so the
+       two on the approach axis stay open for the walk. */
+    stalls: { x0: 59.8, x1: 64.4, z0: -15.9, n: 6, pitch: 2.7 },
+    laneHalfW: 2.6,
+    /* the lane: off the map's south edge (world z 140 = local x 66) sweeping
+       in from the south-east — the side the real site map's entry road runs
+       along — to the court's north-east corner. ~35 m of asphalt; the first
+       point sits past BOUNDS so the ribbon visibly runs off the edge instead
+       of dying on the grass. */
+    LANE: [[69.6, -52.5], [66.8, -46], [65.2, -35.5], [63.4, -26], [61.0, -18.8], [59.8, -15.6]],
+  },
+
   // ------------------------------------------------------------- the atrium
   // The clubhouse's central open-air courtyard — the arrival heart of 隐逸居.
   // EVERY villa entry opens off it, including the presidential suite's north
@@ -1669,6 +1736,9 @@ const _XSLX = _ES.x - Math.sign(_ES.x) * _ES.landingBack;  //   8.6  landing cen
 const _P = SITE.POOL;
 const _PPX = _P.w / 2 + _P.coping, _PPZ = _P.d / 2 + _P.coping;
 
+/* ── the arrival pavilion (enclave-local, like everything above) ── */
+const _ARV = SITE.ARRIVAL;
+
 /* ═══════════════════════════════════════════════════════════════════════════
    THE WESTIN ROOFTOP — the derived frame everything up there shares
    ═══════════════════════════════════════════════════════════════════════════
@@ -1869,6 +1939,25 @@ export const WALK_REGIONS = [
     { ceil: _LO.plinth + _LO.h }),
   rect('lounge-step', _LO.cx - (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z0,
     _LO.cx + (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z1, _LO.step2Y),
+
+  /* ══ THE ARRIVAL PAVILION — court → stair → vestibule → plaza ═════════════
+     Four surfaces, all derived from SITE.ARRIVAL and all enclave-local. The
+     exterior stair climbs local −X from the forecourt (grade) to the landing;
+     the landing and vestibule sit at ARRIVAL.rise; the interior stair drops
+     back to grade at the plaza. The ceilings are the canopy soffit outside
+     and the roof underside inside — both leave > CFG.HEAD_CLEAR over the
+     raised floor, so the headroom gate never refuses the climb.
+     ⚠ "A floorY probe is not proof that a stair works" — the colliders that
+     guard this stair live in campus.js buildArrival(); the scripted walk is
+     the only test that counts. */
+  ramp('arrival-stair', _ARV.stair.x0, _ARV.bay.z0, _ARV.stair.x1, _ARV.bay.z1, 'x',
+    _ARV.stair.x1, 0, _ARV.stair.x0, _ARV.rise, { ceil: _ARV.canopy.soffitY }),
+  rect('arrival-landing', _ARV.doorX, _ARV.bay.z0, _ARV.stair.x0, _ARV.bay.z1,
+    _ARV.rise, { ceil: _ARV.canopy.soffitY }),
+  rect('arrival-vestibule', _ARV.vest.x0, _ARV.vest.z0, _ARV.doorX, _ARV.vest.z1,
+    _ARV.rise, { ceil: _ARV.vest.ceil }),
+  ramp('arrival-stair-in', _ARV.stairIn.x0, _ARV.vest.z0, _ARV.vest.x0, _ARV.vest.z1, 'x',
+    _ARV.stairIn.x0, 0, _ARV.vest.x0, _ARV.rise, { ceil: _ARV.vest.ceil }),
 
   /* ══ THE WESTIN ROOFTOP TERRACE — WELCOME BRUNCH ═══════════════════════════
      WORLD space, and the first curved surfaces in the registry. The deck is the
