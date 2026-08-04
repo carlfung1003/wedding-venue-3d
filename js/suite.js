@@ -131,6 +131,11 @@ const ST = {
   lyY: 8 * RISE,              // 1.3818
 };
 ST.loX0 = ST.lx0 - 7 * ST.goLo;   // 4.65 — bottom nosing of the lower flight
+/* Underside of the spine wall's header over the lower flight's mouth (see
+   buildStair): the black mass keeps fronting the 2F lounge edge above this,
+   while a walker (head 1.75 + margin) boards the flight beneath it. Both the
+   slab and its y-ranged collider read this one number. */
+ST.spineHeadY = 2.35;
 
 /* --- the folding glass wall (SITE.SUITE glassWallW / leafW / leafH) --- */
 const GW = {
@@ -963,9 +968,12 @@ function curtainPanel(parent, x, z, w, h) {
  */
 function doubleDoor(parent, axis, fixed, a0, a1, h, open = false, dir = 1) {
   const mid = (a0 + a1) / 2, t = .07;
-  const put = (b0, b1, y0, y1, m) => {
-    if (axis === 'x') slab(parent, m, b0, b1, y0, y1, fixed - t, fixed + t);
-    else slab(parent, m, fixed - t, fixed + t, y0, y1, b0, b1);
+  /* `d` is the half-DEPTH of the piece being placed. It defaults to the frame's
+     t; the closed leaves and their handles pass deeper values so no two faces
+     end up coplanar (see the closed branch). */
+  const put = (b0, b1, y0, y1, m, d = t) => {
+    if (axis === 'x') slab(parent, m, b0, b1, y0, y1, fixed - d, fixed + d);
+    else slab(parent, m, fixed - d, fixed + d, y0, y1, b0, b1);
   };
   if (open) {
     /* a real cased opening — jambs + head only. The old branch drew the
@@ -986,11 +994,16 @@ function doubleDoor(parent, axis, fixed, a0, a1, h, open = false, dir = 1) {
     }
     return;
   }
+  /* CLOSED: sapele frame slab with the two maroon leaves standing 20 mm PROUD
+     of it on BOTH faces (t .07 → .09), and the handles 20 mm proud of the
+     leaves again (→ .11). Drawn at the same depth they were coplanar with the
+     backing slab and z-fought at close range — the long-standing "closed door
+     shimmers" bug from CLAUDE.md. 20 mm edge-to-edge is the house minimum. */
   put(a0 - .09, a1 + .09, 0, h + .09, MT.sapeleDark);      // frame + head
-  put(a0, mid - .015, 0, h, MT.maroon);
-  put(mid + .015, a1, 0, h, MT.maroon);
-  put(mid - .32, mid - .28, .95, 1.15, MT.brass);          // handles
-  put(mid + .28, mid + .32, .95, 1.15, MT.brass);
+  put(a0, mid - .015, 0, h, MT.maroon, t + .02);           // leaves, proud of the frame
+  put(mid + .015, a1, 0, h, MT.maroon, t + .02);
+  put(mid - .32, mid - .28, .95, 1.15, MT.brass, t + .04); // handles, proud of the leaves
+  put(mid + .28, mid + .32, .95, 1.15, MT.brass, t + .04);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1088,10 +1101,19 @@ function buildStair(root, G) {
   }
 
   /* ── the glossy black horizontal-grooved spine ────────────────────
-     A full-height slab on the living-room side (west) and a full-height
-     return across the north. Wall A stops at z = -22.0 so the double-height
-     void — and the chandelier in it — reads from the great room. */
-  slab(g, MT.blackTall, ST.x0, ST.x0 + .3, 0, Y2C, ST.zN, -21.0);
+     A black slab on the living-room side and a full-height return across the
+     north. SPLIT 2026-08-04: wall A used to run the stair zone's full z span
+     (zN … −21.0) at full height — which stood a wall directly ACROSS the
+     lower flight's mouth. The brief (suite-interior-brief.md §3, f011) says
+     the lower flight LANDS FACING THE SOFA — the mouth is open to the room —
+     so over the flight's own band (zN … lzS) the spine is now a deep black
+     HEADER from ST.spineHeadY up: the dark mass still reads from the great
+     room (f029–f031) and still fronts the 2F lounge slab edge, but a walker
+     boards the stair head-on beneath it. Full height remains beside the
+     double-height void (lzS … −21.0), where the chandelier hangs. The
+     matching collider split is in buildColliders. */
+  slab(g, MT.blackTall, ST.x0, ST.x0 + .3, 0, Y2C, ST.lzS, -21.0);
+  slab(g, MT.blackTall, ST.x0, ST.x0 + .3, ST.spineHeadY, Y2C, ST.zN, ST.lzS);
   slab(g, MT.blackTall, ST.x0, X1, 0, Y2C, ST.zN - .22, ST.zN);
   /* REMOVED 2026-08-02 — the "low base rail": a 0.5 m solid black kerb that ran
      the FULL width of the stair zone (x0 → lx0) along the lower flight's south
@@ -1467,11 +1489,33 @@ function buildColliders() {
          re-seal the landing.
        · the base rail's collider went with the base rail (see buildStair). */
   colRect(ST.lx0, ST.lzN, ST.lx1, ST.zS, .3, { y1: 0.85 });   // landing + upper flight
-  colLine(ST.x0 + .15, ST.zN, ST.x0 + .15, -21.0, .22);  // black spine wall
-  colLine(ST.x0, ST.zN - .11, X1, ST.zN - .11, .22);     // black north return
+  /* the spine wall's chain follows its 2026-08-04 split (see buildStair): the
+     full-height mass beside the void keeps an all-heights chain; over the
+     flight's mouth band the wall is now a HEADER from ST.spineHeadY up, so its
+     chain carries y0 — it still guards the 2F lounge slab edge (feet 3.8)
+     against walking off into the stair void, and no longer walls off the
+     head-on approach at grade. This chain was the mouth's main pinch: r .22 +
+     PLAYER_R .35 from x0+.15 stopped an approaching walker at 3.79 — 0.86 m
+     short of the nosing at 4.65 — over the whole band. */
+  colLine(ST.x0 + .15, ST.lzS, ST.x0 + .15, -21.0, .22);            // spine, beside the void
+  colLine(ST.x0 + .15, ST.zN, ST.x0 + .15, ST.lzS, .22, 0,
+    { y0: ST.spineHeadY - .05 });                                    // spine header over the mouth
+  /* north return: r .22 (centred .11 inside the wall) blocked .46 past the
+     visible face — with the sofa ring's old reach the two sealed the approach
+     corridor north of the sofa to ~0.01 m. At r .12 the walker's body stops
+     .01 shy of the visible face (.12 + PLAYER_R .35 − .11 half-thickness −
+     PLAYER_R = .36 block past the face, .35 of it body) — still stricter than
+     the geometry, never looser, and the corridor opens to a real lane. */
+  colLine(ST.x0, ST.zN - .11, X1, ST.zN - .11, .12);     // black north return
 
   /* ── great-room furniture ── */
-  colRect(LIVING_X - 3, -23.2, LIVING_X + 3, -19.2, .4);       // sofa island (sz ± 2)
+  /* sofa island: the plinth is LIVING_X ± 3.02 / −23.22 … −19.18 and the ring
+     used to sit ON that footprint at r .4 — a .75 block standoff whose NW
+     corner, meeting the north return's old reach, was the other half of the
+     seal across the stair approach. Pulled .15 inside the plinth at r .22 the
+     body still stops .05 clear of the espresso edge on every side, and the
+     lane between sofa and return wall is ~0.42 m of walkable centre-line. */
+  colRect(LIVING_X - 2.85, -23.05, LIVING_X + 2.85, -19.35, .22);  // sofa island (sz ± 2)
   colRect(DINING_X - 1.5, -20.1, DINING_X + 1.5, -18.9, .36);  // dining table
   colLine(-.6, ZN + .62, 4.6, ZN + .62, .32);                  // credenzas
   colLine(wx + .6, -20.7, wx + .6, -18.3, .3);                 // sideboard

@@ -928,12 +928,74 @@ export function buildAtrium(G) {
   for (const [x, z] of colPts) C.push({ x, z, r: A.colR + .18 });
   // raised pond edging — a modest r keeps the gravel walk BETWEEN the two
   // ponds (the photo's route) comfortably wide while still sealing the chain
-  for (const [pcx, pcz, pw, pd] of A.PONDS)
+  /* …except pond A's NORTH and WEST edges (2026-08-04): its NW corner stands
+     0.15 m from the stair's foot, and at r .7 those two runs reached 1.05 —
+     over the entire boardable low end of the flight and the west-gallery
+     turn-in. That reach, plus the old centreline guard, is what "pushed a
+     scripted walker off the flight entirely". At r .15 the walker's body
+     still stops ~.10 clear of the coping lip (edging outer face = the rect;
+     coping overhangs it .05), so the kerb and the water stay sealed — the
+     guard is honest instead of fat. South and east runs keep r .7 so the
+     court routes feel exactly as before. */
+  {
+    const [pcx, pcz, pw, pd] = A.PONDS[0];
+    const x0 = pcx - pw / 2, x1 = pcx + pw / 2, z0 = pcz - pd / 2, z1 = pcz + pd / 2;
+    colLine(C, x0, z0, x1, z0, .15);   // north — tight, faces the stair foot
+    colLine(C, x0, z0, x0, z1, .15);   // west — tight, faces the gallery lane
+    colLine(C, x0, z1, x1, z1, .7);    // south
+    colLine(C, x1, z0, x1, z1, .7);    // east — the between-ponds photo route
+  }
+  {
+    const [pcx, pcz, pw, pd] = A.PONDS[1];
     colRect(C, pcx - pw / 2, pcz - pd / 2, pcx + pw / 2, pcz + pd / 2, .7);
+  }
   // planters
   for (const p of planted) C.push(p);
-  // the stair's low end, so you can't walk into the underside of the flight
-  colLine(C, STAIR.x, STAIR.zFoot, STAIR.x, STAIR.zFoot - 4.1, .95);
+  /* ── the stair's guards ─────────────────────────────────────────────────
+     REWORKED 2026-08-04. The old guard was ONE y-agnostic chain of r .95
+     circles laid up the flight's own CENTRELINE (x −8, zFoot → zFoot−4.1):
+     with PLAYER_R its 1.30 reach covered the full 1.6 m flight width AND the
+     approach a metre short of the foot, at every height — the stair could not
+     be boarded at all, and a walker pressing at it slid around the chain and
+     off the flight. Replaced by guards that sit where the solids sit and
+     carry the height ranges the collider contract provides:
+
+       · EAST, the sloped glass balustrade line (court side): all heights —
+         a court walker must never ghost through the glass into the flight,
+         and a climber hugging it is pushed a step west, which is what a
+         balustrade does. Runs only to z −48.8; north of that the glass is
+         high overhead and grade traffic passes UNDER the flight.
+       · WEST, the stringer line (gallery side): y1 tracks the flight soffit
+         (ramp − .45, floored at .3) so a grade walker cannot step into the
+         risen mass sideways, while a climber ON the treads — whose feet are
+         above the soffit by construction — never feels it. Starts at −45.15
+         so the whole boardable low end (ramp ≤ STEP_UP, z ≥ −44.65) stays
+         open: that band is the stair's real mouth.
+       · a CROSS chain under the flight at z −48.8 (y1 2.0): stops grade
+         walkers walking south INTO the descending soffit; under-crossing
+         stays free north of it, where headroom is ≥ 2.45.
+       · the WELL's west edge and south end-cap at y0 3.45: the 2F glass
+         rails around the stairwell void. The old centreline chain guarded
+         these incidentally (it blocked at every height); these two make that
+         explicit without touching anyone below the deck. */
+  {
+    const rampY = z => (STAIR.zFoot - z) * (H1 / (STAIR.risers * STAIR.going));
+    const glassX = STAIR.x + STAIR.w / 2 + .12;            // −7.08, the balustrade line
+    const strX = STAIR.x - STAIR.w / 2 - .07;              // −8.87, the stringer line
+    for (let z = STAIR.zFoot; z >= -48.8; z -= .13) C.push({ x: glassX, z, r: .15 });
+    for (let z = -45.15; z >= -48.8; z -= .13) {
+      C.push({ x: strX, z, r: .15, y1: Math.max(.3, rampY(z) - .45) });
+    }
+    for (let x = STAIR.x - .7; x <= STAIR.x + .7 + 1e-6; x += .175) {
+      C.push({ x, z: -48.8, r: .2, y1: 2.0 });
+    }
+    for (let z = WELL.z0; z <= WELL.z1 + 1e-6; z += .13) {
+      C.push({ x: WELL.x0, z, r: .15, y0: 3.45 });
+    }
+    for (let x = WELL.x0; x <= WELL.x1 + 1e-6; x += .13) {
+      C.push({ x, z: WELL.z1, r: .15, y0: 3.45 });
+    }
+  }
 
   /* ──────────────────────────────────────────────────────── static batching ── */
 

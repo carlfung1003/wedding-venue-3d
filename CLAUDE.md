@@ -1370,34 +1370,54 @@ None of these are guesses — each was found and left by a verified pass:
   view~~ — FIXED 2026-08-02; the aisle now runs local +Z, which is world west.
 - ~~`MOMENT_PLACES.COCKTAIL` lands inside a terrace collider~~ — gone with the
   move; it spawns on open grass with zero first-frame drift.
-- **`SITE.LOUNGE_POOL` is still drawn as a rectangle.** Its real plan is the
-  free-form outline now published as `SITE.LOUNGE_POOL.OUTLINE` — a closed,
-  counter-clockwise polygon in normalised pool space (`u = x/w`, `v = z/d`, both
-  −0.5…+0.5, first point not repeated), traced off
-  `lawn-dinner-strips-and-2nd-pool.png`. `water.js`'s `buildLoungePool()` calls
-  `makeRectPool()` and was not in the 2026-08-02 pass's ownership. The job:
-  build a `THREE.Shape` from `OUTLINE` scaled by `w`/`d` about `(cx, cz)`, use
-  it for the water surface, the coping band (the shape offset outward ~0.45 m)
-  and the basin, and lay the collider chain along the offset outline instead of
-  four straight runs — keeping the current plinth 0.3 / waterY 0.26 / depth 1.25
-  and the single-Reflector rule (this pool must not add a mirror pass). The
-  outline's AABB is exactly `w × d`, so today's rectangle is its bounding box
-  and nothing is misplaced in the meantime. The straight `v = −0.5` edge is the
-  side facing the lounge's folding glass and must stay straight.
+- ~~`SITE.LOUNGE_POOL` is still drawn as a rectangle~~ — **ALREADY BUILT
+  (header says 2026-08-02) and this backlog entry sat stale until a 2026-08-04
+  pass went to build it and found `buildLoungePool()` free-form all along**
+  (`polyArea`/`flatShape`/`offsetPoly` + the rewritten builder in water.js).
+  Verified 2026-08-04 headless: ONE Reflector before and after, the v = −0.5
+  edge dead straight at world x −34.50 facing the lounge glass, plinth
+  .30/waterY .26/depth 1.25 kept, apron stops at local x −41.5 (2.5 m dinner
+  clearance), containment walks on 8 bearings all held out of the water by the
+  lip chain at exactly lip + 0.55 + PLAYER_R. Lesson repeated twice today:
+  **verify a backlog entry against the source before acting on it** — this one
+  invited redundant work, the world.js one invited deleting load-bearing code.
 - ~~The arrival drive spur is orphaned~~ — FIXED 2026-08-02. It ends at a
   forecourt beside the parking apron. It cannot reach the clubhouse any more
   without a vehicular bridge over the new river, and guests walking in from an
   inland arrival court is what the site map actually shows.
-- **`world.js` still carries `enclaveKeepOut()` + `cullUnderstoryInsideEnclave()`**,
-  added to compensate for a nature.js frame bug that has since been fixed
-  properly. Harmless but stale, and their comments now lie. (Their `S.LAWN`
-  reader went with the garden lawn on 2026-08-02; the rest is untouched.)
-- **The suite's L-stair and the atrium's gallery stair each have a ~0.3 m entry
-  and no other way on.** Proven pre-existing by an A/B against the pre-move
-  enclave offsets — see the end of the proportion-pass section. Nobody walking
-  the venue normally will find either.
-- **`SITE.LOUNGE_POOL.OUTLINE` is still drawn as a rectangle** — see below; that
-  item is unchanged by the proportion pass.
+- ~~`world.js`'s `enclaveKeepOut()` + `cullUnderstoryInsideEnclave()` are
+  stale~~ — **WRONG, measured 2026-08-04: they are LOAD-BEARING.** The
+  understory scatter still ignores keep-outs (proven twice on 2026-08-03),
+  and the pair currently zero-scales **61 instances** that would otherwise
+  stand inside the suite, pool, atrium, plaza and villa footprints (41/348
+  in one understory mesh + 20/847 shrubs; the shrub mesh's other 7 are
+  nature.js's own `SHRUB_CULLS`). Do NOT remove them. If the scatter ever
+  learns to respect keep-outs at placement time, retire all three culls
+  together, with this measurement repeated as the proof.
+- ~~The suite's L-stair and the atrium's gallery stair each have a ~0.3 m
+  entry~~ — **FIXED 2026-08-04**, and the diagnosis was confirmed to the
+  millimetre (the head-on stall reproduced at lx −3.789). What pinched:
+  the suite's black spine-wall chain stood across the flight's mouth (now a
+  y0 2.30 header over the mouth, full-height beside the void), the sofa ring
+  and north-return chains sealed the corridor to a 5 mm slot (both slimmed,
+  still stricter than geometry); the atrium's old "underside guard" laid r .95
+  circles up the flight's own centreline (replaced by guards where the solids
+  actually are — balustrade line, stringer line with per-circle y1 tracking
+  the ramp, under-flight cross chain, explicit y0 3.45 well-rail guards) and
+  pond A's kerb ring blocked the boardable end (slimmed on two sides only).
+  46/46 checks: both stairs board from every natural approach and climb
+  0.178→1.382→3.800 / 0→3.600; every trimmed chain's solid still blocks when
+  pushed into. +313 colliders. `doubleDoor` closed leaves now 20 mm proud of
+  the backing slab (the pantry mirror is clear).
+  Four NEW pre-existing findings from that pass, none fixed: the folded-leaf
+  stack's colRect bleeds into the 2F hall's SW corner (stall at lx −5.54);
+  1F furniture colliders carry no y1 and shadow-block the 2F lounge floor
+  above them; the rakeRails glass has no colliders (sideways boarding ghosts
+  through it — left so the sideways approach keeps working); 2F court-edge
+  balustrades outside the stairwell have no colliders.
+- ~~`SITE.LOUNGE_POOL.OUTLINE` is still drawn as a rectangle~~ — stale
+  duplicate of the entry above; the free-form build shipped 2026-08-02 and was
+  verified 2026-08-04.
 
 ## QUEUED — loading screen (Carl, 2026-08-02)
 

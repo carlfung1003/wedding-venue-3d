@@ -1931,8 +1931,9 @@ function buildLoungePool(G) {
   /* teal umbrellas along both long sides + a handful of loungers */
   const umProto = makeUmbrella(MAT.teal, 1.5, 2.45, 8);
   const loungerProto = makeLounger();
-  /* umbrellas stand well clear of the coping — MOMENT_PLACES.COCKTAIL spawns
-     at (36, -18), i.e. on the north walkway, which must stay open */
+  /* umbrellas stand well clear of the coping. (A previous comment said the
+     COCKTAIL spawn was on the north walkway — cocktail moved to the beach
+     lawn on 2026-08-02; the walkway stays open for the dinner-lawn routes.) */
   const per = Math.ceil(LP.umbrellas / 2);
   for (let i = 0; i < LP.umbrellas; i++) {
     const side = i < per ? -1 : 1;
