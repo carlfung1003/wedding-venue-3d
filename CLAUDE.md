@@ -298,17 +298,23 @@ and corridor→door walks at feet 0.000. All six moments clean, all six prompts
 fire, point lights unchanged, and five identical-camera pairs differ only by
 ticker phase. Colliders 10,332 → 11,071.
 
-⚠️ **STILL OPEN, in `campus.js` (that file was owned by another agent):** the
-check-in walkway's south balustrade `bal(SL.x0, SL.z1, LK.x1, SL.z1)` runs at
+~~STILL OPEN in `campus.js`~~ — **FIXED 2026-08-04.** The
+check-in walkway's south balustrade `bal(SL.x0, …)` ran at
 z −7.0 **straight across the exterior stair's 2F landing** (x 7.55…9.65,
 z −8.10…−5.55). Two consequences, both reproduced: the route *pool deck →
 exterior stair → clubhouse 2F* is **severed at the last step** (a walker going
 north from the landing moves 0.00 m in 2.6 s), and standing in the z −7.0 ±0.61
-band **ejects you EAST off the landing into a 3.8 m fall**. The fix is the one
-the same function already applies on the west side, where the rail deliberately
-stops short at z −8.1: the south rail should start at `SL.x1`, not `SL.x0`. The
-landing's east edge (x 9.65, z −7.0…−6.05) also wants a guard — that is where
-the ejection lands you.
+band **ejects you EAST off the landing into a 3.8 m fall**. The fix is the one the same function
+already applied on the west side (that rail deliberately stops short at z −8.1):
+the south run now starts at `SL.x1`, a short stub closes the 0.5 m between the
+landing and the slot's east side, and the landing's own east edge takes a
+COLLIDER-only guard (the flight's balustrade at x 10.0 already reads as the
+guard, so a second glass panel 0.35 m inside it would double up). The landing's
+extent is DERIVED with site.js's own arithmetic, not re-typed.
+**Verified**: walking north off the landing now reaches the walkway at feet
+3.600 (it moved 0.00 m before); all five placements across the old ejection
+band hold at 3.800; pushing east off the landing is held; and walking the other
+way carries you down the flight.
 
 ## THE CHECK-IN LOBBY + THE 酒廊 — DONE 2026-08-04
 

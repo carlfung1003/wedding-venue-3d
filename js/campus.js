@@ -3180,7 +3180,26 @@ function buildArrival(G, g, rnd) {
       mat4((x1 + x2) / 2, LY + 1.06, (z1 + z2) / 2, .07, .07, len, ry));
     colliderLine(C, x1, z1, x2, z2, .26, ABOVE);
   };
-  bal(SL.x0, SL.z1, LK.x1, SL.z1);   // the whole south edge, slot + link
+  /* ⚠ THE SOUTH RAIL MUST NOT CROSS THE EXTERIOR STAIR'S 2F LANDING.
+     It used to run from `SL.x0` (7.80), straight over the landing (SITE
+     x 7.55…9.65, z −8.10…−5.55), with two live consequences: the route
+     *pool deck → exterior stair → clubhouse 2F* was SEVERED at its last step
+     (a walker pushing north off the landing moved 0.00 m in 2.6 s), and
+     anyone standing in the z −7.0 ± 0.61 band was walked EAST along the chain
+     and ejected off the landing into a 3.8 m fall. The WEST rail already
+     stops short at z −8.1 for exactly this reason; this is the same courtesy
+     on the south side, and the landing's extent is DERIVED here with site.js's
+     own arithmetic rather than re-typed. */
+  const _XS = SITE.EXT_STAIR;
+  const _xsRun = _XS.steps * _XS.tread;
+  const _xsEast = _XS.x - Math.sign(_XS.x) * _XS.landingBack + _XS.landingW / 2;   // 9.65
+  const _xsSouth = (_XS.z + _xsRun / 2) - _xsRun + _XS.tread + .2;                 // −5.55
+  bal(SL.x1, SL.z1, LK.x1, SL.z1);       // the south edge, EAST of the landing
+  bal(_xsEast, SL.z1, SL.x1, SL.z1);     // and the stub between landing and slot
+  /* the landing's own east edge: a COLLIDER only. The stair flight's own
+     balustrade at x 10.0 already reads as the guard from every angle, and a
+     second glass panel 0.35 m inside it would double up. */
+  colliderLine(C, _xsEast, _xsSouth, _xsEast, SL.z1, .26, ABOVE);
   bal(SL.x1, LK.z0, LK.x1, LK.z0);   // the link's north edge, east of the slot
   /* the slot's EAST edge over the stretch where D1's own wall is not there */
   bal(SL.x1, -17.8, SL.x1, LK.z0);
