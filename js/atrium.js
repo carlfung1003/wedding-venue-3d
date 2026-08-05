@@ -15,7 +15,7 @@
 // is local to this module (house rule: builders own their own finishes).
 
 import * as THREE from 'three';
-import { SITE, ROOM_DOORS } from './site.js';
+import { SITE, ROOM_DOORS, ARRIVAL_ATRIUM_DOOR } from './site.js';
 import { mulberry32 } from './materials.js';
 
 /* ────────────────────────────────────────────────────────────── footprint ── */
@@ -804,6 +804,19 @@ export function buildAtrium(G) {
   const gapSpec = [[[], []], [[], []], [[], []], [[], []]];   // [wall][floor]
   gapSpec[0][0].push({ tag: 'portal', span: [PORTAL.x0 - A.cx, PORTAL.x1 - A.cx] });
   gapSpec[3][0].push({ tag: 'lounge', span: [-(LOUNGE_DOOR.z1 - A.cz), -(LOUNGE_DOOR.z0 - A.cz)] });
+  /* ── THE CHECK-IN LOBBY'S DOOR ONTO THE UPPER GALLERY (2026-08-04) ────────
+     The clubhouse's entrance is on the 2F now and Carl asked for it to reach
+     "the 2nd floor of the atrium to other rooms". This is that opening: a
+     2F-ONLY gap in the SOUTH perimeter, at the one place a walkway can reach
+     — C1/C2/C3 cover the whole east wall and D1/D2 the whole south wall east
+     of x 10.2, so the 2.2 m slot between the presidential suite and D1 is the
+     only route in. site.js snapped it to the facade module grid
+     (ARRIVAL_ATRIUM_DOOR) for the reason every guest-key door is snapped: the
+     facade drops a WHOLE bay, and a collider built to the REQUEST rather than
+     to the hole silently seals half a visible opening. */
+  gapSpec[0][1].push({ tag: 'link',
+    span: [ARRIVAL_ATRIUM_DOOR.along - A.cx - DOOR_EPS,
+      ARRIVAL_ATRIUM_DOOR.along - A.cx + DOOR_EPS] });
   for (const d of ROOM_DOORS) {
     const w = FACE_WALL[d.face], lx = wallLocal(w, d.along);
     for (let f = 0; f < Math.min(d.floors, A.floors); f++) {
@@ -811,7 +824,13 @@ export function buildAtrium(G) {
     }
   }
 
-  const holes = { south: null, east: null };
+  const holes = { south: null, east: null, link: null };
+  /* wallSkips is per WALL, and the collider chain is built once for both
+     storeys — so a 2F-only opening must NOT go in there or it punches a hole
+     through the wall at grade too, where there is no door. It is collected
+     separately and re-emitted below as a chain that blocks BELOW the gallery
+     and stops existing at it. */
+  const upperOnly = [];
   /* the along-wall spans the collider chain must NOT seal, in WORLD terms
      (x for the south/north walls, z for the west/east ones) */
   const wallSkips = [[], [], [], []];
@@ -825,9 +844,13 @@ export function buildAtrium(G) {
         const hole = cut[k];
         if (!hole) continue;
         const along = w < 2 ? [hole.x0, hole.x1] : [hole.z0, hole.z1];
-        wallSkips[w].push({ lo: along[0] - SKIP_PAD, hi: along[1] + SKIP_PAD });
+        if (spec[k].tag === 'link') {
+          holes.link = hole;
+          upperOnly.push({ w, lo: along[0] - SKIP_PAD, hi: along[1] + SKIP_PAD });
+        } else wallSkips[w].push({ lo: along[0] - SKIP_PAD, hi: along[1] + SKIP_PAD });
         if (spec[k].tag === 'portal') holes.south = hole;
         else if (spec[k].tag === 'lounge') holes.east = hole;
+        else if (spec[k].tag === 'link') buildLinkDoor(root, M, E, hole, f * H1);
         else buildRoomDoor(root, M, E, plaqueMats, plaques, hole, spec[k].no, f * H1);
       }
     }
@@ -911,7 +934,7 @@ export function buildAtrium(G) {
      collider must never be looser than the geometry. */
   const CR = .55;
   const skipper = w => {
-    const spans = wallSkips[w];
+    const spans = wallSkips[w].concat(upperOnly.filter(u => u.w === w));
     if (!spans.length) return undefined;
     const pick = w < 2 ? (x) => x : (x, z) => z;
     return (x, z) => {
@@ -924,6 +947,14 @@ export function buildAtrium(G) {
   colLine(C, X0, Z1, X1, Z1, CR, skipper(0));                        // south
   colLine(C, X0, Z0, X0, Z1, CR, skipper(2));                        // west
   colLine(C, X1, Z0, X1, Z1, CR, skipper(3));                        // east
+  /* the 2F-only openings get their ground-floor wall back, with a y1 that
+     stops it existing at gallery level — the wall IS solid down there. */
+  for (const u of upperOnly) {
+    const before2 = C.length;
+    if (u.w < 2) colLine(C, u.lo + SKIP_PAD, u.w ? Z0 : Z1, u.hi - SKIP_PAD, u.w ? Z0 : Z1, CR);
+    else colLine(C, u.w === 2 ? X0 : X1, u.lo + SKIP_PAD, u.w === 2 ? X0 : X1, u.hi - SKIP_PAD, CR);
+    for (let i = before2; i < C.length; i++) C[i].y1 = H1 - .2;
+  }
   // columns
   for (const [x, z] of colPts) C.push({ x, z, r: A.colR + .18 });
   // raised pond edging — a modest r keeps the gravel walk BETWEEN the two
@@ -1377,6 +1408,23 @@ function buildRoomDoor(parent, M, E, plaqueMats, plaques, hole, no, y0) {
     ry: hole.ry, v: (no - 1) % plaqueMats.length,
   });
   return g;
+}
+
+/* ── THE CHECK-IN LOBBY'S 2F OPENING ─────────────────────────────────────────
+   The upper gallery's own front door. Same language as buildPortal (stone
+   piers, dark header, copper reveal, a warm strip) at the gallery's storey
+   height, sized to the hole the facade ACTUALLY cut. */
+function buildLinkDoor(parent, M, E, hole, y0) {
+  const z = Z1, hh = H1 - .35, pw = .7;
+  for (const s of [-1, 1]) {
+    mkBox(parent, pw, hh, WALL_T + .42, M.column,
+      (s < 0 ? hole.x0 : hole.x1) + s * pw / 2, y0 + hh / 2, z);
+  }
+  const span = (hole.x1 - hole.x0) + pw * 2, cx = (hole.x0 + hole.x1) / 2;
+  mkBox(parent, span, H1 - hh, WALL_T + .42, M.darkWall, cx, y0 + (H1 + hh) / 2, z);
+  mkBox(parent, span, .09, WALL_T + .5, M.copper, cx, y0 + hh - .05, z);
+  mkBox(parent, span - .5, .05, .06, E.portalStrip, cx, y0 + hh - .18, z - .28);
+  mkBox(parent, hole.x1 - hole.x0 + .3, .06, WALL_T + .26, M.column, cx, y0 + .03, z);
 }
 
 /* the side door east toward the 隐逸居 lounge — a plain bronze reveal */

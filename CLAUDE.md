@@ -212,6 +212,61 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE CHECK-IN LOBBY + THE 酒廊 — DONE 2026-08-04
+
+Carl: the entrance *"is currently an open tunnel; it should be a checkin area…
+essentially club house entrance is on 2nd floor and its slightly elevated"*,
+and the floor below the balcony *"is actually the club house lounge where
+people will be having breakfast"*. Both are built; the pavilion is now TWO
+STOREYS. `site.js` + `campus.js` + `atrium.js` + `suite.js`.
+
+**How the elevation resolves** — the arrival side stands on higher ground, so
+the building is single-storey from the car park and two from the courtyard,
+exactly as photographed. `ARRIVAL.terraceY 2.65` + the filmed `rise 0.95` =
+**`ARRIVAL_LOBBY_Y = 3.60`**, asserted equal to `ATRIUM.floorH` (it warns if
+anyone breaks that). The lane climbs 0 → 2.65 over 38.4 m (6.9 %, an ordinary
+drive) with the ramps and the asphalt reading the SAME height array, so the
+road cannot float; the court sits on a retained terrace with a stone face and
+a planted batter round a derived rim.
+
+**What is there now:** the **酒廊 at grade** — 280.7 ㎡ per floor, the hotel's
+own published area, **60 covers**, folding glass standing open onto a timber
+deck, plaque **隐逸居酒廊 / SERENE RETREAT LOUNGE**; the **check-in lobby at
+3.60** with the wave-motif rug, cream sofas, slat ceiling and a cantilevered
+frameless-glass balcony over the courtyard; the **desk** with its slat front,
+white four-panel cabinet wall, monitor, lamp and flowers, **with staff**; an
+internal stair between the two floors; and an **upper walkway** that forks —
+into the atrium's upper gallery (new 2F-only door) and into the suite's 2F
+(new door, collider split so the gap exists only above 3.4).
+
+**"Check in" is a permanent interactable**, registered from campus.js during
+`buildWorld`, enclave-local with NO `__world` flag (world.js maps it through
+`enclaveToWorld` once — flagging it would land it 90° away, the mirror image
+of the Welcome Brunch's opt-out), pushed before `initMoments` snapshots so the
+moment collider swap never eats it.
+
+⚠️ **Carl's literal "left to the rooms, right to the suite" is NOT achievable
+in this plan and was not faked.** The arrival is at the enclave's +X/+Z corner
+and both the suite and the atrium lie north-west of it — everything is to the
+guest's right. The walkway forks instead, and the toast says left/right. Making
+it literal means mirroring the arrival to the enclave's west side, which
+re-opens the lane, the water clearance and the whole arrival composition.
+
+**Verified**: every floorY probe exact (lane 0.188→1.890→2.650; court 2.650;
+lobby/desk/link/atrium-2F **3.600**; suite 2F **3.800**; lounge **0.000**);
+eight logged walks including car→stair→lobby→desk (prompt fires), the fork
+both ways, the internal stair both directions, and the balcony rail holding.
+Six moments regression-clean, **lights unchanged**, zero console errors.
+Side-by-side: `reference/photos/compare-checkin-lobby-2026-08-04.jpg`.
+
+**Found, pre-existing, NOT fixed — one of them now matters more:** the
+**atrium's 2F gallery court edge has no colliders**, so walking the upper
+gallery you can step off and fall 3.6 m. It was obscure before; the new
+walkway makes that gallery a through-route. Also: the exterior stair's 2F
+landing has no west rail (it is a junction now, not a dead end), and four of
+the suite's 1F furniture chains still lack `y1` (six were fixed here, two of
+which stood invisibly in the 2F lounge where the new door opens).
+
 ## THE LIGHT BUDGET — DONE 2026-08-04 (the venue is 2–5× faster)
 
 `js/lightbudget.js` (new, self-contained) + ONE call in `main.js`. No builder

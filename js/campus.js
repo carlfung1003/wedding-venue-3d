@@ -28,7 +28,8 @@
 // Everything repeated is an InstancedMesh (see the bucket system) — the whole
 // campus lands in well under a hundred draw calls.
 import * as THREE from 'three';
-import { SITE, HOTEL_ROOF, ROOMS, worldToEnclave } from './site.js';
+import { SITE, HOTEL_ROOF, ROOMS, worldToEnclave,
+  ARRIVAL_LOBBY_Y, ARRIVAL_LOUNGE_CEIL, ARRIVAL_LANE_Y } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
 
@@ -622,6 +623,112 @@ function texRipple() {
   }, [1, 1]);
 }
 
+/* ── THE CHECK-IN LOBBY + 酒廊 LOUNGE (2026-08-04) ─────────────────────────
+   All five maps are read off reference/photos/clubhouse-lounge-checkin-balcony.jpg
+   and the three lobby stills (61/62/63.png). ⚠ Every colour here is a HEX
+   literal on purpose: Color.setHSL fills in the LINEAR working space, which
+   is what turned the corten maroons two stops light on the last pass. */
+
+/* warm orange-brown timber boards — the soffits under both overhangs, the
+   deck, the lobby's floor. One canvas, retiled per surface. */
+function texWarmTimber() {
+  return tex(256, 256, (g, w, h) => {
+    const r = mulberry32(0x77a1);
+    g.fillStyle = '#8a4a24'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 16) {
+      g.fillStyle = `rgb(${132 + r() * 34 | 0},${72 + r() * 26 | 0},${36 + r() * 18 | 0})`;
+      g.fillRect(0, y, w, 15);
+      g.strokeStyle = 'rgba(30,14,6,.55)'; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(0, y + 15.5); g.lineTo(w, y + 15.5); g.stroke();
+      for (let k = 0; k < 5; k++) {                       // grain
+        g.strokeStyle = `rgba(56,26,10,${.10 + r() * .12})`;
+        g.beginPath();
+        const yy = y + 2 + r() * 11;
+        g.moveTo(0, yy);
+        g.bezierCurveTo(w / 3, yy + r() * 3 - 1.5, 2 * w / 3, yy - r() * 3 + 1.5, w, yy);
+        g.stroke();
+      }
+    }
+  }, [1, 1]);
+}
+
+/* charcoal stone in large panels of slightly varying tone — the lounge's
+   pier and the round column that carries the overhang */
+function texCharcoal() {
+  return tex(256, 256, (g, w, h) => {
+    const r = mulberry32(0x3c11);
+    g.fillStyle = '#33363a'; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 64) {
+      for (let x = 0; x < w; x += 86) {
+        const v = 44 + r() * 22 | 0;
+        g.fillStyle = `rgb(${v},${v + 2},${v + 5})`;
+        g.fillRect(x + 1, y + 1, 84, 62);
+      }
+    }
+    g.strokeStyle = 'rgba(18,20,22,.8)'; g.lineWidth = 2;
+    for (let y = 0; y <= h; y += 64) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+    for (let x = 0; x <= w; x += 86) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
+  }, [1, 1]);
+}
+
+/* the blue-grey rug with the pale wave/ripple linework of 61.png */
+function texRugWave() {
+  return tex(512, 512, (g, w, h) => {
+    const r = mulberry32(0x9a3f);
+    g.fillStyle = '#5d7583'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 900; i++) {                        // woven noise
+      g.fillStyle = `rgba(255,255,255,${r() * .05})`;
+      g.fillRect(r() * w, r() * h, 3, 2);
+    }
+    g.lineWidth = 2.2;
+    for (let k = 0; k < 9; k++) {
+      g.strokeStyle = `rgba(214,226,231,${.30 + r() * .22})`;
+      g.beginPath();
+      const y0 = 30 + k * 52 + r() * 14;
+      g.moveTo(-10, y0);
+      for (let x = 0; x <= w + 10; x += 32) {
+        g.lineTo(x, y0 + Math.sin((x / w) * Math.PI * (1.6 + k * .25) + k) * (18 + k * 3));
+      }
+      g.stroke();
+    }
+  }, [1, 1]);
+}
+
+/* the lounge's own plaque — 隐逸居酒廊 over SERENE RETREAT LOUNGE. This is the
+   venue's OWN signage, photographed and legible in
+   reference/photos/clubhouse-lounge-checkin-balcony.jpg, so it is
+   authoritative (the project's "never letter a name off a render" rule is
+   about the planner's renders, not about the hotel's own sign). The
+   building's plaque on the arrival face stays 隐逸居 / THE SERENE RETREAT. */
+function texLoungePlaque() {
+  return tex(384, 288, (g, w, h) => {
+    g.fillStyle = '#b9b3a8'; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#a8a296'; g.fillRect(0, h - 10, w, 10);
+    g.fillStyle = '#3a3630';
+    g.textAlign = 'center';
+    g.font = '600 46px "Songti SC", "Noto Serif SC", serif';
+    g.fillText('隐逸居酒廊', w / 2, h * .44);
+    g.font = '300 25px Helvetica, Arial, sans-serif';
+    g.fillText('SERENE RETREAT', w / 2, h * .64);
+    g.fillText('LOUNGE', w / 2, h * .78);
+  }, [1, 1]);
+}
+
+/* the white four-panel cabinet wall behind the check-in desk (63.png) */
+function texCabinet() {
+  return tex(256, 256, (g, w, h) => {
+    const r = mulberry32(0x5be1);
+    g.fillStyle = '#efece3'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 700; i++) {
+      g.fillStyle = `rgba(0,0,0,${r() * .022})`;
+      g.fillRect(r() * w, r() * h, 2, 2);
+    }
+    g.strokeStyle = 'rgba(120,116,106,.55)'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(2, 0); g.lineTo(2, h); g.stroke();
+    g.beginPath(); g.moveTo(w - 2, 0); g.lineTo(w - 2, h); g.stroke();
+  }, [1, 1]);
+}
+
 /* the illuminated signage plate */
 function texSign() {
   return tex(512, 256, (g, w, h) => {
@@ -799,6 +906,7 @@ function texStarField() {
    materials — built once per buildCampus() call
    ════════════════════════════════════════════════════════════════════════ */
 function makeMaterials() {
+  const warmTimber = texWarmTimber();
   const stucco = texStucco(), roof = texRoof(), deck = texDeck(), slat = texSlat();
   const marble = texMarble(), paver = texPaver(), stone = texStone(), turf = texTurf();
   const hotelFace = texHotelFacade(), hotelWin = texHotelWindows(), sign = texSign();
@@ -1014,6 +1122,28 @@ function makeMaterials() {
        (the cocktail-bar gotcha). */
     plantFlat: tint(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .95, flatShading: true }), 0x5c6b86),
     arrTrunk: tint(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .9 }), 0x6f7688),
+    /* ── the two-storey pavilion: 酒廊 lounge below, check-in lobby above ───
+       reference/photos/clubhouse-lounge-checkin-balcony.jpg */
+    warmSoffit: tint(new THREE.MeshStandardMaterial({ map: warmTimber, roughness: .74 }), 0x7a6a68),
+    warmDeck: tint(new THREE.MeshStandardMaterial({ map: retile(warmTimber, 8, 8), roughness: .84 }), 0x776a6a),
+    loungeFloor: tint(new THREE.MeshStandardMaterial({ map: retile(warmTimber, 6, 12), roughness: .5 }), 0x7a6c6a),
+    lobbyFloor: tint(new THREE.MeshStandardMaterial({ map: retile(warmTimber, 6, 12), roughness: .42 }), 0x7a6c6a),
+    charcoal: tint(new THREE.MeshStandardMaterial({ map: texCharcoal(), roughness: .82 }), 0x656b76),
+    stoneCap: tint(new THREE.MeshStandardMaterial({ color: 0x9d968c, roughness: .78 }), 0x767d8c),
+    cabinet: tint(new THREE.MeshStandardMaterial({ map: texCabinet(), roughness: .68 }), 0x8f96a6),
+    rugWave: tint(new THREE.MeshStandardMaterial({ map: texRugWave(), roughness: .96 }), 0x5d6b86),
+    slatWarm: tint(new THREE.MeshStandardMaterial({ color: 0xb99257, roughness: .78 }), 0x8a8194),
+    ivory: tint(new THREE.MeshStandardMaterial({ color: 0xe8e2d4, roughness: .84 }), 0x8b91a2),
+    ivoryWarm: tint(new THREE.MeshStandardMaterial({ color: 0xdfd6c3, roughness: .88 }), 0x878da0),
+    /* sheer cream curtains — behind every closed bay of both glass walls */
+    sheer: new THREE.MeshStandardMaterial({
+      color: 0xf2ebda, roughness: .95, transparent: true, opacity: .42,
+      side: THREE.DoubleSide, depthWrite: false }),
+    /* the staff. No faces: a body, a head, and the venue's palette. */
+    uniform: tint(new THREE.MeshStandardMaterial({ color: 0x2b3038, roughness: .86 }), 0x71788a),
+    uniformTop: tint(new THREE.MeshStandardMaterial({ color: 0xd9cfb8, roughness: .88 }), 0x878da0),
+    skin: tint(new THREE.MeshStandardMaterial({ color: 0xc79b78, roughness: .9 }), 0x7d7f8c),
+    hair: tint(new THREE.MeshStandardMaterial({ color: 0x241c17, roughness: .92, flatShading: true }), 0x6a7080),
   };
   /* the arrival's emissives — canopy downlights + fluted brass sconces read
      WARM even in daylight in the video (f_007–f_009), so day intensity > 0 */
@@ -1023,6 +1153,11 @@ function makeMaterials() {
     roughness: .35, metalness: .55 }), .5, 2.2);
   m.arrDown = glow(new THREE.MeshStandardMaterial({
     color: 0x14110c, emissive: 0xffd9a0 }), .9, 2.6);
+  m.lampShade = glow(new THREE.MeshStandardMaterial({
+    color: 0xf3e6cd, emissive: 0xffca86, roughness: .9 }), .35, 1.9);
+  const loungePl = texLoungePlaque();
+  m.loungePlaque = glow(new THREE.MeshStandardMaterial({
+    map: loungePl, emissive: 0xffffff, emissiveMap: loungePl, roughness: .55 }), .08, .8);
   const plaque = texPlaque();
   m.plaque = glow(new THREE.MeshStandardMaterial({
     map: plaque, emissive: 0xffffff, emissiveMap: plaque, roughness: .5 }), .1, 1.0);
@@ -1131,14 +1266,14 @@ function colliderArc(list, cx, cz, rad, t0, t1, r, yr, step) {
   }
 }
 /** a rotated rectangle's four sides, in world space */
-function rectCollider(list, cx, cz, w, d, ry, r) {
+function rectCollider(list, cx, cz, w, d, ry, r, yr) {
   const c = Math.cos(ry), s = Math.sin(ry), hx = w / 2, hz = d / 2;
   const P = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
   const a = P(-hx, -hz), b = P(hx, -hz), e = P(hx, hz), f = P(-hx, hz);
-  colliderLine(list, a[0], a[1], b[0], b[1], r);
-  colliderLine(list, b[0], b[1], e[0], e[1], r);
-  colliderLine(list, e[0], e[1], f[0], f[1], r);
-  colliderLine(list, f[0], f[1], a[0], a[1], r);
+  colliderLine(list, a[0], a[1], b[0], b[1], r, yr);
+  colliderLine(list, b[0], b[1], e[0], e[1], r, yr);
+  colliderLine(list, e[0], e[1], f[0], f[1], r, yr);
+  colliderLine(list, f[0], f[1], a[0], a[1], r, yr);
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1509,7 +1644,11 @@ function buildVillas(G, root, rnd) {
       const gx = hw + .25, z0 = hd + .2, z1 = hd + 5.2;
       for (const sgn of [-1, 1]) {
         wall(sgn * gx, (z0 + z1) / 2, .24, z1 - z0, .95);
-        colL(sgn * gx, z0, sgn * gx, z1, .3);
+        /* ⚠ y1: a 0.95 m garden wall must not block at 3.6 m. The check-in
+           lobby's upper walkway runs over D1's court on its way to the
+           atrium, and an all-heights chain here stopped the walker in
+           mid-air with nothing visible in front of him. */
+        colL(sgn * gx, z0, sgn * gx, z1, .3, { y1: 1.35 });
       }
       parasol(-hw * .35, hd + 2.5);
       lounger(-hw * .35 - 1.4, hd + 2.4, 1);
@@ -2056,13 +2195,34 @@ function buildSign(G, root) {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   6b · THE ARRIVAL — the clubhouse's real front door
-   reference/entrance-arrival-brief.md + frames f_001–f_013. Dark corten
-   pavilion (Carl: as filmed — a deliberate dark accent), 6-riser near-black
-   stone stair, deep slatted canopy with downlights, banded piers, fluted
-   brass sconces, the 隐逸居 plaque, frangipani/cordyline/ixora beds, a
-   sett-paved arrival court with a tan inlay + modest stalls, and a lane in
-   from the map's south edge. The arrival is DRY — no water anywhere near it.
+   6b · THE ARRIVAL — the clubhouse's front door, its CHECK-IN LOBBY and the
+        隐逸居酒廊 LOUNGE underneath it
+   ════════════════════════════════════════════════════════════════════════
+   References, in the order they settle things:
+     · reference/photos/clubhouse-lounge-checkin-balcony.jpg — the COURTYARD
+       elevation, and the whole reason this is a two-storey building: check-in
+       lobby + cantilevered frameless-glass balcony above, 酒廊 lounge with
+       folding glass onto a warm timber deck below, warm timber soffits under
+       both overhangs, vertical standing-seam weathered metal over, a charcoal
+       stone pier carrying 隐逸居酒廊 / SERENE RETREAT LOUNGE.
+     · the three lobby stills (cream low-back sofas with square cushions, a
+       blue-grey rug with a pale wave motif, dark timber coffee tables, the
+       white four-panel cabinet wall, and the check-in desk itself — a dark
+       timber counter with a vertical slat front, a monitor, a shaded lamp and
+       a white bowl of dried flowers).
+     · reference/entrance-arrival-brief.md + frames f_001–f_013 for the arrival
+       face, which is unchanged: dark corten as filmed, the 6-riser near-black
+       stone stair, the deep slatted canopy, banded piers, fluted brass
+       sconces, the 隐逸居 plaque, frangipani/cordyline/ixora beds, the
+       sett-paved court and the lane in off the map's south edge.
+
+   THE ELEVATION. Carl: *"club house entrance is on 2nd floor and its slightly
+   elevated"*. A 6-riser stair (0.95 m) cannot lift a court at grade to a 2F
+   floor, so the ARRIVAL SIDE stands on higher ground — which is exactly what
+   the photograph shows, single-storey from the car park and two storeys from
+   the courtyard. SITE.ARRIVAL.terraceY (2.65) + rise (0.95) = 3.60 =
+   ATRIUM.floorH. The lane climbs the 2.65 m over its own 38.4 m (6.9 %) and
+   the terrace is retained on every open edge; nothing floats.
 
    ⚠ FRAME CHOICE (option a): EVERYTHING here is ENCLAVE-LOCAL. Unique
    meshes parent under the adopted 'sign' group (g), repeats ride the shared
@@ -2070,84 +2230,343 @@ function buildSign(G, root) {
    world.js's relocateInstances() bakes the enclave matrix onto all of them,
    and the collider rewrite maps every collider pushed here. Authoring the
    court/lane WORLD-space through the shared buckets would be silently
-   captured by the same test (world x −37…−16, z 110…141 answers "local") —
-   that is the trap, and local-everywhere is how this builder avoids it.
+   captured by the same test (world x −37…−16, z 107…144 answers "local") —
+   that is the trap, and local-everywhere is how this builder avoids it. The
+   'Check in' interactable rides the same road (see section H).
 
-   Walkability: site.js WALK_REGIONS 'arrival-stair' / 'arrival-landing' /
-   'arrival-vestibule' / 'arrival-stair-in', derived from SITE.ARRIVAL.
-   Zero new THREE.PointLights — sconces/downlights/plaque are emissive.
+   ⚠ COLLIDER HEIGHTS ARE LOAD-BEARING HERE, because this is the first place
+   on the campus where two walkable floors sit over each other outside a
+   building the walker can only be in one of. `BELOW = {y1: 3.28}` is the
+   lounge's level and `ABOVE = {y0: 3.28}` the lobby's; a wall that belongs to
+   one and is registered without a range seals the other. The courtyard glass
+   line carries BOTH, with different gaps.
+
+   Walkability: site.js WALK_REGIONS, all derived from SITE.ARRIVAL —
+   arrival-lane-*, -court, -fore, -stair, -landing, -lobby, -balcony,
+   -lounge, -lounge-deck, -stair-int, -link, -slot, -head.
+   Zero new THREE.PointLights — every lamp here is emissive.
    ════════════════════════════════════════════════════════════════════════ */
 function buildArrival(G, g, rnd) {
   const AR = SITE.ARRIVAL;
+  const TY = AR.terraceY;                                   // 2.65 raised ground
+  const LY = ARRIVAL_LOBBY_Y;                               // 3.60 check-in floor
+  const CY = ARRIVAL_LOUNGE_CEIL;                           // 3.28 lounge ceiling
+  const B = AR.bldg, LB = AR.LOBBY, DK = AR.DECK, BC = AR.BALC;
   const bayC = (AR.bay.z0 + AR.bay.z1) / 2;                 // the axis, −8
   const bayW = AR.bay.z1 - AR.bay.z0;                       // 9 m
-  const vestC = (AR.vest.z0 + AR.vest.z1) / 2;
-  const vestW = AR.vest.z1 - AR.vest.z0;                    // 7.8 m
   const rise = AR.rise, rh = rise / AR.risers;              // 0.1583 m risers
+  const C = G.colliders;
+  const BELOW = { y1: CY };            // blocks the lounge walker only
+  const ABOVE = { y0: CY };            // blocks the lobby/walkway walker only
 
   /* per-surface texture tiling (materials are this builder's own) */
   MAT.forePave.map.repeat.set((AR.fore.x1 - AR.fore.x0) / 1.2, (AR.fore.z1 - AR.fore.z0) / 1.2);
   MAT.sett.map.repeat.set((AR.court.x1 - AR.court.x0) / 1.3, (AR.court.z1 - AR.court.z0) / 1.3);
 
-  /* ── the podium: landing + vestibule floor at rise height ── */
-  inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
-    mat4((AR.vest.x0 + AR.stair.x0) / 2, rise / 2, bayC,
-      AR.stair.x0 - AR.vest.x0, rise, bayW));
+  /* ══════════════════════════════════════════════════════════════════════
+     A · THE RAISED TERRACE — the honest answer to "slightly elevated"
+     A 6-riser stair cannot lift a court at grade to a 2F floor, so the
+     ARRIVAL SIDE stands on higher ground: the lane climbs 2.65 m over its
+     own 38.4 m run (6.9 %) and the court sits on a retained terrace. Nothing
+     floats — the whole boundary is a stone retaining wall with a planted
+     batter falling away from it, which is what makes it read from the air.
+     ══════════════════════════════════════════════════════════════════════ */
 
-  /* ── the exterior stair: 6 solid near-black polished treads, full bay ── */
+  /* the terrace decks: forecourt paving + sett court, both at terraceY */
+  box(g, AR.fore.x1 - AR.fore.x0, .1, AR.beds[1].z1 - AR.beds[0].z0,
+    (AR.fore.x0 + AR.fore.x1) / 2, TY, (AR.beds[0].z0 + AR.beds[1].z1) / 2, MAT.forePave);
+  box(g, AR.court.x1 - AR.court.x0, .1, AR.court.z1 - AR.court.z0,
+    (AR.court.x0 + AR.court.x1) / 2, TY, (AR.court.z0 + AR.court.z1) / 2, MAT.sett);
+
+  /* THE RETAINING WALL. The boundary is derived from fore + court as one
+     closed polyline (the terrace is an L: the court is deeper in Z than the
+     forecourt), walked segment by segment. Each run gets a stone face down to
+     grade, a flush cap, and a planted batter outside it. The lane's gap in
+     the court's north edge is the only opening. */
+  const F = AR.fore, K = AR.court, bd0 = AR.beds[0].z0, bd1 = AR.beds[1].z1;
+  const RIM = [
+    [F.x0, bd0], [F.x1, bd0], [F.x1, K.z0], [K.x1, K.z0],
+    [K.x1, K.z1], [F.x1, K.z1], [F.x1, bd1], [F.x0, bd1],
+  ];
+  const retain = (x1, z1, x2, z2) => {
+    const len = Math.hypot(x2 - x1, z2 - z1);
+    if (len < .05) return;
+    const ry = Math.atan2(x2 - x1, z2 - z1);
+    const cx = (x1 + x2) / 2, cz = (z1 + z2) / 2;
+    const nx = Math.cos(ry), nz = -Math.sin(ry);          // outward normal
+    inst('arrRetainI', UNIT_BOX, MAT.stone,
+      mat4(cx + nx * .28, TY / 2, cz + nz * .28, .56, TY, len, ry));
+    inst('arrRetainI', UNIT_BOX, MAT.blackPolish,
+      mat4(cx + nx * .30, TY + .09, cz + nz * .30, .72, .18, len, ry));   // cap
+    /* the planted batter: a slope band of clipped mass falling to grade */
+    const n = Math.max(2, Math.round(len / 2.4));
+    for (let i = 0; i < n; i++) {
+      const t = (i + .5) / n;
+      const px = x1 + (x2 - x1) * t + nx * (.6 + AR.batter / 2);
+      const pz = z1 + (z2 - z1) * t + nz * (.6 + AR.batter / 2);
+      inst('arrHedgeI', UNIT_BOX, MAT.hedge,
+        mat4(px, TY * .32, pz, AR.batter, TY * .64, len / n - .1, ry));
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(px + nx * .7, TY * .62 + rnd() * .3, pz + nz * .7,
+          1.1 + rnd() * .6, .8 + rnd() * .4, 1.1 + rnd() * .6),
+        new THREE.Color([0x4f7a3c, 0x5e2531, 0x49703a][Math.floor(rnd() * 3)]));
+    }
+    colliderLine(C, x1, z1, x2, z2, .4);
+  };
+  for (let i = 0; i < RIM.length; i++) {
+    const a = RIM[i], b = RIM[(i + 1) % RIM.length];
+    if (i === RIM.length - 1) continue;                  // the pavilion closes it
+    /* the north edge of the court carries the lane's gap */
+    if (a[1] === K.z0 && b[1] === K.z0) {
+      retain(Math.min(a[0], b[0]), K.z0, AR.laneGap.x0, K.z0);
+      retain(AR.laneGap.x1, K.z0, Math.max(a[0], b[0]), K.z0);
+    } else retain(a[0], a[1], b[0], b[1]);
+  }
+
+  /* ── the lane, CLIMBING. Every y comes from ARRIVAL_LANE_Y, which is the
+     point's own arc-length fraction of terraceY — the walker's ramps in
+     site.js are built from the same array, so the asphalt is never a
+     centimetre off the ground the player is standing on. ── */
+  const lanePts = AR.LANE.map(([x, z], i) => ({ x, y: ARRIVAL_LANE_Y[i] + .04, z }));
+  g.add(new THREE.Mesh(ribbon(lanePts, AR.laneHalfW, 6), MAT.asphalt));
+  /* the lane's own embankment shoulders, both sides, following the climb */
+  for (let i = 1; i < AR.LANE.length; i++) {
+    const a = AR.LANE[i - 1], b = AR.LANE[i];
+    const ya = ARRIVAL_LANE_Y[i - 1], yb = ARRIVAL_LANE_Y[i];
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    const nx = dz / L, nz = -dx / L, ry = Math.atan2(dx, dz);
+    const n = Math.max(2, Math.round(L / 3));
+    for (let k = 0; k < n; k++) {
+      const t = (k + .5) / n, y = ya + (yb - ya) * t;
+      if (y < .15) continue;
+      for (const s of [-1, 1]) {
+        inst('arrHedgeI', UNIT_BOX, MAT.hedge,
+          mat4(a[0] + dx * t + s * nx * (AR.laneHalfW + 1.5), y * .34,
+            a[1] + dz * t + s * nz * (AR.laneHalfW + 1.5), 3.0, y * .68, L / n - .1, ry));
+      }
+    }
+  }
+  for (let i = 0; i < 3; i++) {                             // lamp posts
+    const a = AR.LANE[i], b = AR.LANE[i + 1];
+    const y = (ARRIVAL_LANE_Y[i] + ARRIVAL_LANE_Y[i + 1]) / 2;
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    const nx = dz / L, nz = -dx / L;
+    const px = (a[0] + b[0]) / 2 + nx * 3.4, pz = (a[1] + b[1]) / 2 + nz * 3.4;
+    const lry = Math.atan2(-nx, -nz);
+    inst('poleI', UNIT_CYL, MAT.dark, mat4(px, y + 3.1, pz, .16, 6.2, .16));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(px - nx * .45, y + 6.3, pz - nz * .45, .3, .18, 1.2, lry));
+    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(px - nx * .9, y + 6.16, pz - nz * .9, .34, .12, .7, lry));
+  }
+  for (let i = 1; i < AR.LANE.length; i++) {                // low bollard glows
+    const a = AR.LANE[i - 1], b = AR.LANE[i];
+    const ya = ARRIVAL_LANE_Y[i - 1], yb = ARRIVAL_LANE_Y[i];
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    const nx = dz / L, nz = -dx / L;
+    for (const t of [.3, .75]) {
+      const x = a[0] + dx * t, z = a[1] + dz * t, y = ya + (yb - ya) * t;
+      for (const s of [-1, 1]) {
+        inst('glowI', UNIT_BOX, MAT.glowLamp,
+          mat4(x + s * nx * (AR.laneHalfW + .55), y + .5, z + s * nz * (AR.laneHalfW + .55), .15, 1.0, .15));
+      }
+    }
+  }
+
+  /* ── the estate gate: the lane's boundary crossing. Everything is derived
+        from AR.LANE — move the lane and the gate follows — and it now rides
+        the lane's own height so the piers stand ON the drive, not in it. ── */
+  {
+    const a = AR.LANE[1], b = AR.LANE[2];                   // the segment crossing x 66
+    const t = (66 - a[0]) / (b[0] - a[0]);
+    const gx = 66, gz = a[1] + (b[1] - a[1]) * t;
+    const gy = ARRIVAL_LANE_Y[1] + (ARRIVAL_LANE_Y[2] - ARRIVAL_LANE_Y[1]) * t;
+    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
+    const nx = dz / L, nz = -dx / L;                        // across the lane
+    const gry = Math.atan2(nx, nz) + Math.PI / 2;           // box X along (nx, nz)
+    for (const s of [-1, 1]) {
+      const px = gx + s * nx * (AR.laneHalfW + .85), pz = gz + s * nz * (AR.laneHalfW + .85);
+      inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(px, gy + .80, pz, .85, 1.60, .85, gry));
+      inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(px, gy + 1.66, pz, .99, .12, .99, gry));
+      inst('glowI', UNIT_BOX, MAT.glowLamp,
+        mat4(px - s * nx * .46, gy + 1.12, pz - s * nz * .46, .12, .5, .12, gry));
+      for (const [d, w] of [[1.9, 2.6], [3.9, 1.9]]) {
+        inst('hedgeI', UNIT_BOX, MAT.hedge,
+          mat4(px + s * nx * d, gy + .42, pz + s * nz * d, w, .84, 1.05, gry));
+      }
+      C.push({ x: px, z: pz, r: .62 });
+    }
+  }
+
+  /* ── the court's dressing, all lifted onto the terrace ── */
+  const inlay = new THREE.Mesh(new THREE.CircleGeometry(AR.inlay.r, 40), MAT.settInlay);
+  inlay.rotation.x = -Math.PI / 2;
+  inlay.position.set(AR.inlay.cx, TY + .0505, AR.inlay.cz);
+  g.add(inlay);
+  for (let k = 0; k <= AR.stalls.n; k++) {                  // 7 stripes → 6 stalls
+    inst('arrStripeI', UNIT_BOX, MAT.white,
+      mat4((AR.stalls.x0 + AR.stalls.x1) / 2, TY + .058, AR.stalls.z0 + k * AR.stalls.pitch,
+        AR.stalls.x1 - AR.stalls.x0, .012, .12));
+  }
+  for (const k of [0, 1, 4, 5]) {
+    const cz = AR.stalls.z0 + (k + .5) * AR.stalls.pitch;
+    const cx = 62.3 + (rnd() - .5) * .3;
+    const cry = Math.PI / 2 + (rnd() - .5) * .05;
+    parkedCar(cx, cz, cry, CAR_PALETTE[Math.floor(rnd() * CAR_PALETTE.length)], TY);
+    for (const s of [-1, 1]) {
+      C.push({ x: cx + s * 1.15 * Math.sin(cry), z: cz + s * 1.15 * Math.cos(cry), r: 1.05 });
+    }
+  }
+
+  /* ── the symmetric kerbed beds: frangipani + hedge + cordyline + ixora ── */
+  const kerb = (x1, z1, x2, z2, y) => {
+    const len = Math.hypot(x2 - x1, z2 - z1), n = Math.max(1, Math.round(len / 1.9));
+    const kry = Math.atan2(x2 - x1, z2 - z1);
+    for (let i = 0; i < n; i++) {
+      const t = (i + .5) / n;
+      inst('arrKerbI', UNIT_BOX, MAT.stone,
+        mat4(x1 + (x2 - x1) * t, y + .1, z1 + (z2 - z1) * t, .24, .2, len / n - .05, kry));
+    }
+  };
+  /* ⚠ hex palettes, not setHSL: Color.setHSL fills in the LINEAR working
+     space (no sRGB conversion, unlike setHex), so an HSL "dark maroon"
+     renders two stops lighter — the first cut's cordyline came out pink. */
+  const TRUNKS = [0x4f3b2b, 0x5a4433, 0x453529];
+  const CORDY = [0x5e2531, 0x6b2c38, 0x4f1f28];
+  const frangipani = (fx, fz, fy) => {
+    for (let t = 0; t < 3; t++) {                           // 2–3 leaning trunks
+      inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk,
+        mat4(fx + (rnd() - .5) * .7, fy + 1.15, fz + (rnd() - .5) * .7,
+          .13 + rnd() * .05, 2.3, .13 + rnd() * .05,
+          0, (rnd() - .5) * .42, (rnd() - .5) * .42),
+        new THREE.Color(TRUNKS[Math.floor(rnd() * TRUNKS.length)]));
+    }
+    const greens = [0x49703a, 0x557f42, 0x3f6532, 0x5d8a4a];
+    for (let c = 0; c < 5; c++) {                           // broad sparse canopy
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(fx + (rnd() - .5) * 2.6, fy + 2.9 + rnd() * .8, fz + (rnd() - .5) * 2.2,
+          2.0 + rnd() * 1.2, 1.1 + rnd() * .5, 2.0 + rnd() * 1.2),
+        new THREE.Color(greens[Math.floor(rnd() * greens.length)]));
+    }
+    for (let p = 0; p < 7; p++) {                           // sparse pink flecks
+      const a = rnd() * Math.PI * 2, rr = .9 + rnd() * 1.1;
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(fx + Math.cos(a) * rr, fy + 3.3 + rnd() * .7, fz + Math.sin(a) * rr, .3, .22, .3),
+        new THREE.Color(0xe8a9bc));
+    }
+    C.push({ x: fx, z: fz, r: .5 });
+  };
+  for (const [bi, b] of AR.beds.entries()) {
+    const bc = (b.z0 + b.z1) / 2, inner = bi === 0 ? b.z1 : b.z0;
+    kerb(AR.bedX0, b.z0, AR.fore.x1, b.z0, TY);
+    kerb(AR.bedX0, b.z1, AR.fore.x1, b.z1, TY);
+    kerb(AR.bedX0, b.z0, AR.bedX0, b.z1, TY);
+    kerb(AR.fore.x1, b.z0, AR.fore.x1, b.z1, TY);
+    inst('darkI', UNIT_BOX, MAT.dark,
+      mat4((AR.bedX0 + AR.fore.x1) / 2, TY + .1, bc, AR.fore.x1 - AR.bedX0 - .3, .16, b.z1 - b.z0 - .3));
+    colliderLine(C, AR.bedX0 + .5, bc, AR.fore.x1 - .3, bc, 1.05);
+    for (let hx = AR.bedX0 + .9; hx < AR.fore.x1 - .5; hx += 1.35) {
+      inst('arrHedgeI', UNIT_BOX, MAT.hedge,
+        mat4(hx + (rnd() - .5) * .1, TY + .52, inner + (bi === 0 ? -.5 : .5),
+          1.32, .58 + rnd() * .1, .85));
+    }
+    for (let c = 0; c < 4; c++) {
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(AR.bedX0 + 1.2 + c * 1.7 + rnd() * .5, TY + .78, bc + (rnd() - .5) * .7,
+          .75 + rnd() * .35, .95 + rnd() * .3, .75 + rnd() * .3),
+        new THREE.Color(CORDY[Math.floor(rnd() * CORDY.length)]));
+    }
+    for (let c = 0; c < 6; c++) {
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(AR.bedX0 + .8 + rnd() * (AR.fore.x1 - AR.bedX0 - 1.6), TY + .34,
+          inner + (bi === 0 ? -.95 : .95) + (rnd() - .5) * .3, .3, .24, .3),
+        new THREE.Color(0xc63e1c));
+    }
+    frangipani(AR.bedX0 + 1.6, bc, TY);
+    frangipani(AR.bedX0 + 5.6, bc, TY);
+    /* the white bowl planter with its variegated dracaena, on the stair apron */
+    const px = AR.stair.x1 + 1.0, pz = bc + (bi === 0 ? .35 : -.35);
+    inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(px, TY + .3, pz, 1.0, .6, 1.0));
+    inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk, mat4(px, TY + 1.0, pz, .08, .9, .08),
+      new THREE.Color(0x6a5540));
+    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px, TY + 1.6, pz, .95, .8, .95),
+      new THREE.Color(0xb4c878));
+    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px + .25, TY + 1.42, pz - .2, .6, .55, .6),
+      new THREE.Color(0x93ab5a));
+    C.push({ x: px, z: pz, r: .55 });
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     B · THE FILMED STAIR — terraceY → lobbyY in the same 6 risers
+     ══════════════════════════════════════════════════════════════════════ */
   for (let i = 0; i < AR.risers; i++) {
     inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
-      mat4(AR.stair.x1 - (i + .5) * AR.tread, (i + 1) * rh / 2, bayC,
+      mat4(AR.stair.x1 - (i + .5) * AR.tread, TY + (i + 1) * rh / 2, bayC,
         AR.tread, (i + 1) * rh, bayW));
   }
-  /* …and the interior stair back down to plaza grade, vestibule-wide */
-  const trIn = (AR.vest.x0 - AR.stairIn.x0) / AR.risers;
-  for (let i = 0; i < AR.risers; i++) {
-    inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
-      mat4(AR.stairIn.x0 + (i + .5) * trIn, (i + 1) * rh / 2, vestC,
-        trIn, (i + 1) * rh, vestW));
-  }
-
-  /* ── side plinths flanking the stair bay (guard the open sides) ── */
+  /* the entry landing between the stair head and the doors */
+  inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+    mat4((AR.doorX + AR.stair.x0) / 2, LY - .09, bayC, AR.stair.x0 - AR.doorX, .18, bayW));
+  /* side plinths guarding the open flanks of the stair bay */
   for (const s of [0, 1]) {
     const pz = s ? AR.bay.z1 + .45 : AR.bay.z0 - .45;
     inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
-      mat4((AR.doorX + 46.7) / 2, rise / 2 + .03, pz, 46.7 - AR.doorX, rise + .06, .9));
-    rectCollider(G.colliders, (AR.doorX + 46.7) / 2, pz, 46.7 - AR.doorX, .9, 0, .3);
+      mat4((AR.doorX + 46.7) / 2, TY + rise / 2 + .03, pz, 46.7 - AR.doorX, rise + .06, .9));
+    rectCollider(C, (AR.doorX + 46.7) / 2, pz, 46.7 - AR.doorX, .9, 0, .3);
   }
 
-  /* ── the two corten wings — the building runs on past the entry bay ── */
-  const wingCX = (AR.backX + AR.faceX) / 2, wingD = AR.faceX - AR.backX;
+  /* ══════════════════════════════════════════════════════════════════════
+     C · THE PAVILION SHELL — two storeys, corten over stone
+     reference/photos/clubhouse-lounge-checkin-balcony.jpg is the courtyard
+     elevation: vertical standing-seam weathered metal above, warm timber
+     soffits under BOTH overhangs, a stone capping rail and fascia beam at
+     the balcony, a charcoal stone pier at the lounge, warm timber deck.
+     ══════════════════════════════════════════════════════════════════════ */
+  const bcx = (B.x0 + B.x1) / 2, bcz = (B.z0 + B.z1) / 2;
+  const bw = B.x1 - B.x0, bd = B.z1 - B.z0;
+
+  /* the ARRIVAL face: corten cladding either side of the recessed entry bay,
+     grade → wingH. The lower 2.65 m of it is buried by the terrace, which is
+     exactly why the building reads single-storey from the car park. */
   for (const w of AR.wings) {
-    const cz = (w.z0 + w.z1) / 2;
+    const cz = (w.z0 + w.z1) / 2, cd = w.z1 - w.z0;
     inst('arrCortenI', UNIT_BOX, MAT.corten,
-      mat4(wingCX, AR.wingH / 2, cz, wingD, AR.wingH, w.z1 - w.z0));
-    rectCollider(G.colliders, wingCX, cz, wingD, w.z1 - w.z0, 0, .4);
+      mat4(AR.faceX - .18, AR.wingH / 2, cz, .36, AR.wingH, cd));
+    colliderLine(C, AR.faceX - .18, w.z0, AR.faceX - .18, w.z1, .4);
   }
+  /* end walls + the buried east flank of the lounge */
+  for (const cz of [B.z0 + .18, B.z1 - .18]) {
+    inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(bcx, AR.wingH / 2, cz, bw, AR.wingH, .36));
+    colliderLine(C, B.x0, cz, B.x1, cz, .4);
+  }
+  inst('arrCortenI', UNIT_BOX, MAT.corten,
+    mat4(AR.faceX - .18, CY / 2, bcz, .36, CY, bd));            // lounge's east wall
+  colliderLine(C, AR.faceX - .18, B.z0, AR.faceX - .18, B.z1, .4, BELOW);
 
-  /* ── the folded mono-pitch roof: ridge over wings[1] (screen-LEFT from the
-     court) falling to the eave over wings[0] — the video's slope (f_001).
-     rotation.x = a sends local +z to (0, −sin a, cos a), so a NEGATIVE angle
-     makes y RISE along +z, which is what puts the ridge at z1. ── */
-  const run = AR.wings[1].z1 - AR.wings[0].z0;              // 20.4 m
+  /* the folded mono-pitch roof: ridge over wings[1] falling to the eave over
+     wings[0] — the video's slope (f_001). rotation.x = a sends local +z to
+     (0, −sin a, cos a), so a NEGATIVE angle makes y RISE along +z. */
+  const run = AR.wings[1].z1 - AR.wings[0].z0;
   const drop = AR.ridgeH - AR.eaveH;
   const ang = -Math.atan2(drop, run);
   const roofC = (AR.ridgeH + AR.eaveH) / 2;
   const roofZ = (AR.wings[0].z0 + AR.wings[1].z1) / 2;
+  const roofW = bw + 4.6;                                      // deep courtyard eave
+  const roofCX = bcx - 2.0;
   inst('arrCortenI', UNIT_BOX, MAT.corten,
-    mat4(wingCX, roofC, roofZ, wingD + .8, .3, run + .2, 0, ang, 0));
-  /* deep corten fascia along the front top edge */
-  inst('arrCortenI', UNIT_BOX, MAT.corten,
+    mat4(roofCX, roofC, roofZ, roofW, .34, run + .2, 0, ang, 0));
+  /* the WARM TIMBER SOFFIT under the overhang — the photo's signature */
+  inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
+    mat4(roofCX, roofC - .21, roofZ, roofW - .12, .1, run + .08, 0, ang, 0));
+  for (let k = 0; k < 7; k++) {                                // recessed downlights
+    inst('arrDownI', UNIT_BOX, MAT.arrDown,
+      mat4(B.x0 - 1.5, roofC - .27 + (roofZ - (B.z0 + 2.4 + k * 3.4)) * Math.tan(ang),
+        B.z0 + 2.4 + k * 3.4, .16, .05, .16));
+  }
+  inst('arrCortenI', UNIT_BOX, MAT.corten,                     // front fascia
     mat4(AR.faceX + .38, roofC - .38, roofZ, .16, 1.05, run + .15, 0, ang, 0));
-  /* THE FOLD — the angular origami line over the entry (frame f_001):
-     a raking corten band dropping from the ridge-side corner across the bay
-     toward the plaque wall (wings[0]) — descending as z falls */
+  /* THE FOLD — the angular origami line over the entry (frame f_001) */
   const foldA = -Math.atan2(1.6, bayW + .2);
   inst('arrCortenI', UNIT_BOX, MAT.corten,
-    mat4(AR.faceX + .42, 4.75, bayC - .1, .14, .8, bayW + .9, 0, foldA, 0));
-  /* corten band over the bay, canopy → roof underside (follows the pitch) */
-  inst('arrCortenI', UNIT_BOX, MAT.corten,
-    mat4(AR.faceX - .35, 4.56, bayC, .7, 1.32, bayW, 0, ang, 0));
+    mat4(AR.faceX + .42, AR.wingH + .15, bayC - .1, .14, .8, bayW + .9, 0, foldA, 0));
 
   /* ── the deep flat entry canopy with slatted soffit + downlights ── */
   const canC = (AR.canopy.x0 + AR.canopy.x1) / 2, canW = AR.canopy.x1 - AR.canopy.x0;
@@ -2165,306 +2584,568 @@ function buildArrival(G, g, rnd) {
     const z0 = s ? AR.doorGap.z1 : AR.bay.z0, z1 = s ? AR.bay.z1 : AR.doorGap.z0;
     const cz = (z0 + z1) / 2;
     inst('arrBandI', UNIT_BOX, MAT.bands,
-      mat4((AR.doorX - .1 + 44.2) / 2, rise + (AR.canopy.topY - rise) / 2, cz,
-        44.2 - AR.doorX + .1, AR.canopy.topY - rise, z1 - z0));
-    rectCollider(G.colliders, (AR.doorX - .1 + 44.2) / 2, cz, 44.2 - AR.doorX + .1, z1 - z0, 0, .35);
+      mat4((AR.doorX - .1 + 44.2) / 2, LY + (AR.canopy.topY - LY) / 2, cz,
+        44.2 - AR.doorX + .1, AR.canopy.topY - LY, z1 - z0));
+    rectCollider(C, (AR.doorX - .1 + 44.2) / 2, cz, 44.2 - AR.doorX + .1, z1 - z0, 0, .35);
   }
 
   /* ── the door bay: dark-framed glass, STANDING OPEN (gap walkable) ── */
   const gapC = (AR.doorGap.z0 + AR.doorGap.z1) / 2, gapW = AR.doorGap.z1 - AR.doorGap.z0;
-  inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, 3.5, gapC, .18, .55, gapW + .3));  // header
-  inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, 3.2, gapC, .12, .07, gapW));       // track
-  for (const s of [-1, 1]) {                                                          // jambs
-    inst('darkI', UNIT_BOX, MAT.dark,
-      mat4(AR.doorX, rise + 1.15, gapC + s * gapW / 2, .14, 2.3, .12));
-  }
-  /* the slid-open leaves, parked behind the piers */
+  inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, LY + 2.55, gapC, .18, .55, gapW + .3));
+  inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, LY + 2.25, gapC, .12, .07, gapW));
   for (const s of [-1, 1]) {
-    const lz = gapC + s * (gapW / 2 + .5);
-    inst('glass', UNIT_BOX, MAT.glass, mat4(AR.doorX - .25, rise + 1.13, lz, .05, 2.2, .95));
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX - .25, rise + 2.26, lz, .07, .06, .98));
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX - .25, rise + .02, lz, .07, .06, .98));
+    inst('darkI', UNIT_BOX, MAT.dark,
+      mat4(AR.doorX, LY + 1.15, gapC + s * gapW / 2, .14, 2.3, .12));
   }
-  /* door-plane colliders — the GAP stays open */
-  colliderLine(G.colliders, AR.doorX, AR.bay.z0, AR.doorX, AR.doorGap.z0, .4);
-  colliderLine(G.colliders, AR.doorX, AR.doorGap.z1, AR.doorX, AR.bay.z1, .4);
+  for (const s of [-1, 1]) {                                   // the slid-open leaves
+    const lz = gapC + s * (gapW / 2 + .5);
+    inst('glass', UNIT_BOX, MAT.glass, mat4(AR.doorX - .25, LY + 1.13, lz, .05, 2.2, .95));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX - .25, LY + 2.26, lz, .07, .06, .98));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX - .25, LY + .02, lz, .07, .06, .98));
+  }
+  /* door-plane colliders — the GAP stays open, and only up here: the lounge
+     below has its own east wall, so these guard the lobby's level alone */
+  colliderLine(C, AR.doorX, AR.bay.z0, AR.doorX, AR.doorGap.z0, .4, ABOVE);
+  colliderLine(C, AR.doorX, AR.doorGap.z1, AR.doorX, AR.bay.z1, .4, ABOVE);
 
   /* ── one pair of fluted brass cylinder sconces flanking the doors ── */
   for (const s of [-1, 1]) {
     const sz = gapC + s * (gapW / 2 + .35);
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(44.22, 2.3, sz, .08, .55, .3));
-    inst('arrSconceI', UNIT_CYL, MAT.brassFlute, mat4(44.34, 2.3, sz, .22, 1.2, .22));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(44.22, LY + 1.7, sz, .08, .55, .3));
+    inst('arrSconceI', UNIT_CYL, MAT.brassFlute, mat4(44.34, LY + 1.7, sz, .22, 1.2, .22));
   }
 
-  /* ── the plaque wall: wings[0] (screen-RIGHT approaching, as in f_001–f_003)
-     gets a banded front panel inside the corten frame, carrying the flush
-     white plaque — 隐逸居 / THE SERENE RETREAT ── */
-  const plWallZ = (AR.wings[0].z0 + AR.wings[0].z1) / 2;
+  /* ── the plaque wall: wings[0] gets a banded front panel inside the corten
+     frame, carrying the flush white plaque — 隐逸居 / THE SERENE RETREAT ── */
+  const plWallZ = (AR.wings[0].z0 + AR.wings[0].z1) / 2 + 2.0;
   inst('arrBandI', UNIT_BOX, MAT.bands,
-    mat4(AR.faceX + .06, 2.5, plWallZ, .12, 2.9, AR.wings[0].z1 - AR.wings[0].z0 - .3));
+    mat4(AR.faceX + .06, TY + 1.9, plWallZ, .12, 2.9, 5.2));
   const pl = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.12), MAT.plaque);
-  pl.position.set(AR.faceX + .15, 3.05, plWallZ);
+  pl.position.set(AR.faceX + .15, TY + 2.45, plWallZ);
   pl.rotation.y = Math.PI / 2;
   g.add(pl);
 
-  /* ── the vestibule: glass side walls over a black upstand, corten band
-     above, interior planters — f_013 ── */
-  const vwCX = (AR.stairIn.x0 + AR.doorX) / 2, vwW = AR.doorX - AR.stairIn.x0;
-  for (const s of [0, 1]) {
-    const wz = s ? AR.vest.z1 : AR.vest.z0;
-    inst('arrBlackI', UNIT_BOX, MAT.blackPolish, mat4(vwCX, rise + .125, wz, vwW, .25, .14));
-    inst('glass', UNIT_BOX, MAT.glass, mat4(vwCX, rise + .25 + 1.18, wz, vwW, 2.36, .07));
-    for (const mx of [AR.stairIn.x0 + .1, vwCX, AR.doorX - .1]) {
-      inst('darkI', UNIT_BOX, MAT.dark, mat4(mx, rise + 1.45, wz, .09, 2.85, .11));
+  /* ══════════════════════════════════════════════════════════════════════
+     D · THE 酒廊 LOUNGE at courtyard grade — 280 ㎡, breakfast is served
+     Carl: "the floor below is actually the club house lounge where people
+     will be having breakfast". Folding glass onto a warm timber deck, a
+     charcoal stone pier carrying 隐逸居酒廊 / SERENE RETREAT LOUNGE, a dark
+     louvre band under the balcony, sheer cream curtains behind the glass.
+     ══════════════════════════════════════════════════════════════════════ */
+  MAT.loungeFloor.map.repeat.set(bw / 2.2, bd / 2.2);
+  box(g, bw - .4, .1, bd - .4, bcx, .06, bcz, MAT.loungeFloor);
+  /* slat ceiling = the lobby slab's underside */
+  box(g, bw - .5, .1, bd - .5, bcx, CY - .06, bcz, MAT.slatCeil);
+  for (let k = 0; k < 9; k++) {
+    inst('arrDownI', UNIT_BOX, MAT.arrDown,
+      mat4(B.x0 + 2.6 + (k % 3) * 3.6, CY - .12, B.z0 + 3.4 + Math.floor(k / 3) * 7.6, .16, .05, .16));
+  }
+  /* the folding glass wall on the courtyard face, standing OPEN over
+     loungeGap; sheer cream curtains behind every closed bay */
+  const LG = AR.loungeGap;
+  for (const [z0, z1] of [[B.z0 + .4, LG.z0], [LG.z1, B.z1 - .4]]) {
+    const seg = z1 - z0;
+    if (seg < .2) continue;
+    inst('glass', UNIT_BOX, MAT.glass, mat4(B.x0, 1.5, (z0 + z1) / 2, .1, 2.9, seg));
+    const n = Math.max(2, Math.round(seg / 1.15));
+    for (let k = 0; k <= n; k++) {
+      inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0 - .02, 1.5, z0 + seg * k / n, .16, 2.94, .11));
     }
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(vwCX, rise + 2.68, wz, vwW, .1, .12));
-    inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(vwCX, 4.55, wz, vwW, 1.9, .3));
-    colliderLine(G.colliders, AR.stairIn.x0, wz, AR.doorX, wz, .3);
-    /* stair-mouth flank wall closing the strip to the bay edge */
-    const fz = s ? (AR.vest.z1 + AR.bay.z1) / 2 : (AR.vest.z0 + AR.bay.z0) / 2;
-    inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
-      mat4(37.6, 1.6, fz, 2.1, 3.2, AR.vest.z0 - AR.bay.z0));
-    rectCollider(G.colliders, 37.6, fz, 2.1, AR.vest.z0 - AR.bay.z0, 0, .3);
-    /* interior planter in each far corner of the vestibule */
-    const pz2 = s ? AR.vest.z1 - .8 : AR.vest.z0 + .8;
-    inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(39.4, rise + .26, pz2, .52, .52, .52));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0, 3.02, (z0 + z1) / 2, .2, .16, seg));
+    for (let k = 0; k < Math.max(2, Math.round(seg / 1.5)); k++) {
+      inst('arrSheerI', UNIT_BOX, MAT.sheer,
+        mat4(B.x0 + .3, 1.5, z0 + .7 + k * 1.5, .1, 2.7, 1.05));
+    }
+  }
+  /* the two folded-back leaves parked at the opening's jambs */
+  for (const lz of [LG.z0 + .5, LG.z1 - .5]) {
+    inst('glass', UNIT_BOX, MAT.glass, mat4(B.x0 + .35, 1.5, lz, .06, 2.85, .95));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0 + .35, 2.95, lz, .1, .1, .99));
+  }
+  /* the DARK LOUVRE BAND above the glass, under the balcony (the photo's line) */
+  for (let y = 3.04; y < CY - .01; y += .09) {
+    inst('arrLouvreI', UNIT_BOX, MAT.dark, mat4(B.x0 - .12, y, bcz, .1, .05, bd - .5));
+  }
+  /* the CHARCOAL STONE PIER with the lounge's own plaque */
+  const pierZ = B.z1 - 3.6, pierD = 4.6;
+  inst('arrPierI', UNIT_BOX, MAT.charcoal, mat4(B.x0 - .05, 1.62, pierZ, .3, 3.24, pierD));
+  const lpl = new THREE.Mesh(new THREE.PlaneGeometry(1.15, .88), MAT.loungePlaque);
+  lpl.position.set(B.x0 - .22, 2.15, pierZ + .5);
+  lpl.rotation.y = -Math.PI / 2;
+  g.add(lpl);
+  colliderLine(C, B.x0, pierZ - pierD / 2, B.x0, pierZ + pierD / 2, .3, BELOW);
+  /* the courtyard face's collider: solid at lounge level except the opening */
+  colliderLine(C, B.x0, B.z0, B.x0, LG.z0, .35, BELOW);
+  colliderLine(C, B.x0, LG.z1, B.x0, B.z1, .35, BELOW);
+  /* the warm timber DECK, then the dark round column carrying the overhang */
+  MAT.warmDeck.map.repeat.set((DK.x1 - DK.x0) / 1.4, bd / 1.4);
+  box(g, DK.x1 - DK.x0, .12, bd + .8, (DK.x0 + DK.x1) / 2, .06, bcz, MAT.warmDeck);
+  for (const cz of [B.z0 + 1.6, B.z1 - 1.6]) {
+    inst('arrColI', UNIT_CYL, MAT.charcoal, mat4(DK.x0 + .9, 1.72, cz, .46, 3.44, .46));
+    C.push({ x: DK.x0 + .9, z: cz, r: .3, y1: CY });
+  }
+  /* flowering red-orange shrubs at the deck's corner (the photo) */
+  for (let k = 0; k < 5; k++) {
     inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-      mat4(39.4, rise + .85, pz2, .95, .85, .95), new THREE.Color(0x4f7a3c));
-    G.colliders.push({ x: 39.4, z: pz2, r: .35 });
+      mat4(DK.x0 - .5 - rnd() * 1.2, .55 + rnd() * .3, B.z1 + .5 + rnd() * 1.6,
+        1.0 + rnd() * .5, .9 + rnd() * .4, 1.0 + rnd() * .5),
+      new THREE.Color([0x3f6532, 0xc63e1c, 0xd85a1e][Math.floor(rnd() * 3)]));
   }
 
-  /* ── the forecourt: light-grey large-format paving, dead on axis ── */
-  box(g, AR.fore.x1 - AR.fore.x0, .1, AR.fore.z1 - AR.fore.z0,
-    (AR.fore.x0 + AR.fore.x1) / 2, 0, (AR.fore.z0 + AR.fore.z1) / 2, MAT.forePave);
-  /* the stair-foot aprons carrying the bowl planters (edge-to-edge with the
-     forecourt slab, never stacked on it) */
-  for (const b of AR.beds) {
-    box(g, AR.bedX0 - AR.fore.x0, .1, b.z1 - b.z0,
-      (AR.fore.x0 + AR.bedX0) / 2, 0, (b.z0 + b.z1) / 2, MAT.forePave);
-  }
-
-  /* ── the symmetric kerbed beds: frangipani + hedge + cordyline + ixora ── */
-  const kerb = (x1, z1, x2, z2, coll) => {
-    const len = Math.hypot(x2 - x1, z2 - z1), n = Math.max(1, Math.round(len / 1.9));
-    const kry = Math.atan2(x2 - x1, z2 - z1);
-    for (let i = 0; i < n; i++) {
-      const t = (i + .5) / n;
-      inst('arrKerbI', UNIT_BOX, MAT.stone,
-        mat4(x1 + (x2 - x1) * t, .1, z1 + (z2 - z1) * t, .24, .2, len / n - .05, kry));
+  /* ── BREAKFAST: sixty covers. A banquette run down the buried east wall, a
+     grid of two- and four-tops across the room, and a buffet/service counter
+     at the north end. Everything instanced. ── */
+  const chair = (cx, cy, cz, cry) => {
+    inst('arrChairI', UNIT_BOX, MAT.rattan, mat4(cx, cy + .43, cz, .46, .07, .46, cry));
+    inst('arrChairI', UNIT_BOX, MAT.rattan, mat4(cx, cy + .68, cz - .21, .46, .5, .06, cry));
+    for (const [lx, lz] of [[-.19, -.19], [.19, -.19], [-.19, .19], [.19, .19]]) {
+      inst('arrChairI', UNIT_BOX, MAT.dark,
+        mat4(cx + lx * Math.cos(cry) + lz * Math.sin(cry), cy + .21,
+          cz - lx * Math.sin(cry) + lz * Math.cos(cry), .05, .43, .05, cry));
     }
-    if (coll) colliderLine(G.colliders, x1, z1, x2, z2, .3);
   };
-  /* ⚠ hex palettes, not setHSL: Color.setHSL fills in the LINEAR working
-     space (no sRGB conversion, unlike setHex), so an HSL "dark maroon"
-     renders two stops lighter — the first cut's cordyline came out pink. */
-  const TRUNKS = [0x4f3b2b, 0x5a4433, 0x453529];
-  const CORDY = [0x5e2531, 0x6b2c38, 0x4f1f28];
-  const frangipani = (fx, fz) => {
-    for (let t = 0; t < 3; t++) {                           // 2–3 leaning trunks
-      inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk,
-        mat4(fx + (rnd() - .5) * .7, 1.15, fz + (rnd() - .5) * .7, .13 + rnd() * .05, 2.3, .13 + rnd() * .05,
-          0, (rnd() - .5) * .42, (rnd() - .5) * .42),
-        new THREE.Color(TRUNKS[Math.floor(rnd() * TRUNKS.length)]));
-    }
-    const greens = [0x49703a, 0x557f42, 0x3f6532, 0x5d8a4a];
-    for (let c = 0; c < 5; c++) {                           // broad sparse canopy
-      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-        mat4(fx + (rnd() - .5) * 2.6, 2.9 + rnd() * .8, fz + (rnd() - .5) * 2.2,
-          2.0 + rnd() * 1.2, 1.1 + rnd() * .5, 2.0 + rnd() * 1.2),
-        new THREE.Color(greens[Math.floor(rnd() * greens.length)]));
-    }
-    for (let p = 0; p < 7; p++) {                           // sparse pink flecks
-      const a = rnd() * Math.PI * 2, rr = .9 + rnd() * 1.1;
-      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-        mat4(fx + Math.cos(a) * rr, 3.3 + rnd() * .7, fz + Math.sin(a) * rr, .3, .22, .3),
-        new THREE.Color(0xe8a9bc));
-    }
-    G.colliders.push({ x: fx, z: fz, r: .5 });
+  const setting = (cx, cy, cz) => {
+    inst('arrWareI', UNIT_CYL, MAT.white, mat4(cx, cy + .02, cz, .24, .03, .24));
+    inst('arrWareI', UNIT_CYL, MAT.white, mat4(cx + .18, cy + .05, cz - .1, .09, .09, .09));
   };
-  for (const [bi, b] of AR.beds.entries()) {
-    const bc = (b.z0 + b.z1) / 2, inner = bi === 0 ? b.z1 : b.z0;
-    /* kerb ring (visual) + soil + one collider line along the bed's middle */
-    kerb(AR.bedX0, b.z0, AR.fore.x1, b.z0, false);
-    kerb(AR.bedX0, b.z1, AR.fore.x1, b.z1, false);
-    kerb(AR.bedX0, b.z0, AR.bedX0, b.z1, false);
-    kerb(AR.fore.x1, b.z0, AR.fore.x1, b.z1, false);
-    inst('darkI', UNIT_BOX, MAT.dark,
-      mat4((AR.bedX0 + AR.fore.x1) / 2, .1, bc, AR.fore.x1 - AR.bedX0 - .3, .16, b.z1 - b.z0 - .3));
-    colliderLine(G.colliders, AR.bedX0 + .5, bc, AR.fore.x1 - .3, bc, 1.05);
-    /* clipped hedge along the forecourt edge */
-    for (let hx = AR.bedX0 + .9; hx < AR.fore.x1 - .5; hx += 1.35) {
-      inst('arrHedgeI', UNIT_BOX, MAT.hedge,
-        mat4(hx + (rnd() - .5) * .1, .52, inner + (bi === 0 ? -.5 : .5),
-          1.32, .58 + rnd() * .1, .85));
+  const table = (cx, cz, seats) => {
+    const w = seats === 4 ? 1.5 : .95, d = seats === 4 ? .95 : .95;
+    inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(cx, .74, cz, w, .07, d));
+    inst('arrTableI', UNIT_BOX, MAT.dark, mat4(cx, .37, cz, .12, .74, .12));
+    inst('arrTableI', UNIT_BOX, MAT.dark, mat4(cx, .03, cz, .7, .06, .7));
+    inst('arrWareI', UNIT_CYL, MAT.white, mat4(cx, .82, cz, .12, .12, .12));   // bud vase
+    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(cx, .95, cz, .22, .2, .22),
+      new THREE.Color(0xecd7ae));
+    const off = seats === 4 ? [[-.55, 0], [.55, 0], [0, -.62], [0, .62]] : [[-.62, 0], [.62, 0]];
+    for (const [ox, oz] of off) {
+      chair(cx + ox * 1.35, 0, cz + oz * 1.35, Math.atan2(-ox, -oz));
+      setting(cx + ox * .42, .76, cz + oz * .42);
     }
-    /* dark-red cordyline clumps mid-bed */
-    for (let c = 0; c < 4; c++) {
-      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-        mat4(AR.bedX0 + 1.2 + c * 1.7 + rnd() * .5, .78, bc + (rnd() - .5) * .7,
-          .75 + rnd() * .35, .95 + rnd() * .3, .75 + rnd() * .3),
-        new THREE.Color(CORDY[Math.floor(rnd() * CORDY.length)]));
+    /* ⚠ BELOW. Every collider in this room must carry the lounge's height
+       window: the check-in lobby's floor is 3.6 m directly overhead, and an
+       all-heights breakfast table walls off the lobby above it — which is
+       exactly how the first walk test lost the route to the desk. */
+    rectCollider(C, cx, cz, w + .4, d + .4, 0, .26, BELOW);
+  };
+  let covers = 0;
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 2; c++) {
+      const seats = (r + c) % 3 === 0 ? 2 : 4;
+      table(B.x0 + 3.6 + c * 4.2, B.z0 + 3.2 + r * 4.1, seats);
+      covers += seats;
     }
-    /* small red ixora accents at the hedge foot */
-    for (let c = 0; c < 6; c++) {
-      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-        mat4(AR.bedX0 + .8 + rnd() * (AR.fore.x1 - AR.bedX0 - 1.6), .34,
-          inner + (bi === 0 ? -.95 : .95) + (rnd() - .5) * .3, .3, .24, .3),
-        new THREE.Color(0xc63e1c));
-    }
-    /* two multi-trunk frangipani per bed */
-    frangipani(AR.bedX0 + 1.6, bc);
-    frangipani(AR.bedX0 + 5.6, bc);
-    /* the white bowl planter with its variegated dracaena, on the apron */
-    const px = (AR.fore.x0 + AR.bedX0) / 2, pz = bc + (bi === 0 ? .35 : -.35);
-    inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(px, .3, pz, 1.0, .6, 1.0));
-    inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk, mat4(px, 1.0, pz, .08, .9, .08),
-      new THREE.Color(0x6a5540));
-    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px, 1.6, pz, .95, .8, .95),
-      new THREE.Color(0xb4c878));
-    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px + .25, 1.42, pz - .2, .6, .55, .6),
-      new THREE.Color(0x93ab5a));
-    G.colliders.push({ x: px, z: pz, r: .55 });
   }
+  /* the banquette run along the buried east wall — 5 × four-tops against it */
+  for (let k = 0; k < 5; k++) {
+    const bz = B.z0 + 3.2 + k * 4.1;
+    inst('arrBanqI', UNIT_BOX, MAT.ivory, mat4(B.x1 - 1.0, .24, bz, 1.1, .48, 3.4));
+    inst('arrBanqI', UNIT_BOX, MAT.ivory, mat4(B.x1 - .55, .78, bz, .2, .62, 3.4));
+    inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(B.x1 - 2.4, .74, bz, 1.4, .07, .9));
+    inst('arrTableI', UNIT_BOX, MAT.dark, mat4(B.x1 - 2.4, .37, bz, .12, .74, .12));
+    for (const oz of [-.6, .6]) chair(B.x1 - 3.3, 0, bz + oz, -Math.PI / 2);
+    setting(B.x1 - 2.4, .76, bz - .2);
+    setting(B.x1 - 2.4, .76, bz + .2);
+    covers += 4;
+  }
+  void covers;                                  // 60 covers, per the hotel's spec
+  colliderLine(C, B.x1 - 1.6, B.z0 + 1.4, B.x1 - 1.6, B.z1 - 1.4, .3, BELOW);
+  /* the buffet / service counter, in the SOUTH-EAST corner. ⚠ It sat over the
+     internal stair's mouth in the first cut and stopped the climb dead at
+     0.80 m; AR.INTS reaches x 39.5, so the counter starts east of that. */
+  const bufX = B.x1 - 2.4, bufZ = B.z1 - 1.15;
+  inst('arrCounterI', UNIT_BOX, MAT.rtDarkTeak, mat4(bufX, .5, bufZ, 3.8, 1.0, .8));
+  inst('arrCounterI', UNIT_BOX, MAT.marble, mat4(bufX, 1.03, bufZ, 4.0, .07, .95));
+  for (let k = 0; k < 4; k++) {
+    inst('arrWareI', UNIT_CYL, MAT.white,
+      mat4(bufX - 1.4 + k * .95, 1.14, bufZ - .1, .34, .16, .34));
+  }
+  inst('glowI', UNIT_BOX, MAT.loungeGlow, mat4(bufX, 1.9, bufZ + .3, 3.6, .07, .1));
+  rectCollider(C, bufX, bufZ, 4.2, 1.1, 0, .3, BELOW);
 
-  /* ── the court: jointed setts, tan inlay, stall stripes, cars, kerbs ── */
-  box(g, AR.court.x1 - AR.court.x0, .09, AR.court.z1 - AR.court.z0,
-    (AR.court.x0 + AR.court.x1) / 2, 0, (AR.court.z0 + AR.court.z1) / 2, MAT.sett);
-  const inlay = new THREE.Mesh(new THREE.CircleGeometry(AR.inlay.r, 40), MAT.settInlay);
-  inlay.rotation.x = -Math.PI / 2;
-  inlay.position.set(AR.inlay.cx, .0505, AR.inlay.cz);
-  g.add(inlay);
-  for (let k = 0; k <= AR.stalls.n; k++) {                  // 7 stripes → 6 stalls
-    inst('arrStripeI', UNIT_BOX, MAT.white,
-      mat4((AR.stalls.x0 + AR.stalls.x1) / 2, .058, AR.stalls.z0 + k * AR.stalls.pitch,
-        AR.stalls.x1 - AR.stalls.x0, .012, .12));
-  }
-  /* a handful of parked cars (buildRoad's instancing pattern) in stalls
-     0/1/4/5 — the two on the approach axis stay open for the walk */
-  for (const k of [0, 1, 4, 5]) {
-    const cz = AR.stalls.z0 + (k + .5) * AR.stalls.pitch;
-    const cx = 62.3 + (rnd() - .5) * .3;
-    const cry = Math.PI / 2 + (rnd() - .5) * .05;
-    parkedCar(cx, cz, cry, CAR_PALETTE[Math.floor(rnd() * CAR_PALETTE.length)]);
-    for (const s of [-1, 1]) {
-      G.colliders.push({ x: cx + s * 1.15 * Math.sin(cry), z: cz + s * 1.15 * Math.cos(cry), r: 1.05 });
-    }
-  }
-  /* court kerbs, with gaps at the forecourt mouth and the lane entry */
-  kerb(AR.court.x0, AR.court.z0, AR.court.x0, AR.fore.z0, true);   // west, N of mouth
-  kerb(AR.court.x0, AR.fore.z1, AR.court.x0, AR.court.z1, true);   // west, S of mouth
-  kerb(AR.court.x0, AR.court.z0, 57.6, AR.court.z0, true);         // north, W of lane
-  kerb(63.2, AR.court.z0, AR.court.x1, AR.court.z0, true);         // north, E of lane
-  kerb(AR.court.x1, AR.court.z0, AR.court.x1, AR.court.z1, true);  // east, behind stalls
-  kerb(AR.court.x0, AR.court.z1, AR.court.x1, AR.court.z1, true);  // south
-
-  /* ── the lane: asphalt in from the map's south edge, lamps + bollards ── */
-  const lanePts = AR.LANE.map(([x, z]) => ({ x, y: .04, z }));
-  g.add(new THREE.Mesh(ribbon(lanePts, AR.laneHalfW, 6), MAT.asphalt));
-  for (let i = 0; i < 3; i++) {                             // lamp posts (existing pattern)
-    const a = AR.LANE[i], b = AR.LANE[i + 1];
-    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
-    const nx = dz / L, nz = -dx / L;
-    const px = (a[0] + b[0]) / 2 + nx * 3.4, pz = (a[1] + b[1]) / 2 + nz * 3.4;
-    const lry = Math.atan2(-nx, -nz);
-    inst('poleI', UNIT_CYL, MAT.dark, mat4(px, 3.1, pz, .16, 6.2, .16));
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(px - nx * .45, 6.3, pz - nz * .45, .3, .18, 1.2, lry));
-    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(px - nx * .9, 6.16, pz - nz * .9, .34, .12, .7, lry));
-  }
-  for (let i = 1; i < AR.LANE.length; i++) {                // low bollard glows
-    const a = AR.LANE[i - 1], b = AR.LANE[i];
-    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
-    const nx = dz / L, nz = -dx / L;
-    for (const t of [.3, .75]) {
-      const x = a[0] + dx * t, z = a[1] + dz * t;
-      for (const s of [-1, 1]) {
-        inst('glowI', UNIT_BOX, MAT.glowLamp,
-          mat4(x + s * nx * (AR.laneHalfW + .55), .5, z + s * nz * (AR.laneHalfW + .55), .15, 1.0, .15));
-      }
-    }
-  }
-
-  /* ── the estate gate: the lane's boundary crossing (fix queue, 2026-08-03).
-        The asphalt ribbon runs off the map's south edge (LANE[0] sits past
-        BOUNDS on purpose) but from the air it read as a road dying on open
-        lawn — nothing marked where the estate begins. Two low corten piers
-        with lit markers and short clipped hedge returns now stand where the
-        lane crosses the boundary line (world z 140 = local x 66, the same
-        derivation as AR.LANE's banner), in the entrance pavilion's own
-        palette (MAT.corten / glowLamp / hedge). Everything is derived from
-        AR.LANE — move the lane and the gate follows. NO new lights: the
-        markers are the bollards' emissive family. Only the two piers
-        collide (local coords — world.js maps enclave-local colliders). */
+  /* ══════════════════════════════════════════════════════════════════════
+     E · THE INTERNAL STAIR — lounge ⇄ check-in lobby
+     ══════════════════════════════════════════════════════════════════════ */
   {
-    const a = AR.LANE[1], b = AR.LANE[2];                   // the segment crossing x 66
-    const t = (66 - a[0]) / (b[0] - a[0]);
-    const gx = 66, gz = a[1] + (b[1] - a[1]) * t;
-    const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz);
-    const nx = dz / L, nz = -dx / L;                        // across the lane
-    const gry = Math.atan2(nx, nz) + Math.PI / 2;           // box X along (nx, nz)
-    for (const s of [-1, 1]) {
-      const px = gx + s * nx * (AR.laneHalfW + .85), pz = gz + s * nz * (AR.laneHalfW + .85);
-      inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(px, .80, pz, .85, 1.60, .85, gry)); // pier
-      inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(px, 1.66, pz, .99, .12, .99, gry)); // cap
-      /* lit marker strip on the lane-facing inner face */
-      inst('glowI', UNIT_BOX, MAT.glowLamp,
-        mat4(px - s * nx * .46, 1.12, pz - s * nz * .46, .12, .5, .12, gry));
-      /* short clipped hedge return running outward along the boundary line */
-      for (const [d, w] of [[1.9, 2.6], [3.9, 1.9]]) {
-        inst('hedgeI', UNIT_BOX, MAT.hedge,
-          mat4(px + s * nx * d, .42, pz + s * nz * d, w, .84, 1.05, gry));
+    const S = AR.INTS, n = 19, srun = (S.x1 - S.x0) / n, srise = LY / n;
+    const scz = (S.z0 + S.z1) / 2, sw = S.z1 - S.z0;
+    for (let i = 0; i < n; i++) {
+      inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+        mat4(S.x0 + (i + .5) * srun, (i + 1) * srise / 2, scz, srun, (i + 1) * srise, sw));
+    }
+    /* a copper handrail on the open (courtyard) side, and a wall on the other */
+    for (let i = 0; i <= n; i += 2) {
+      inst('arrRailI', UNIT_BOX, MAT.copper,
+        mat4(S.x0 + i * srun, i * srise + 1.0, S.z0 - .06, .07, .07, .07));
+    }
+    inst('arrCortenI', UNIT_BOX, MAT.corten,
+      mat4((S.x0 + S.x1) / 2, LY / 2, S.z1 + .18, S.x1 - S.x0, LY, .3));
+    colliderLine(C, S.x0, S.z1 + .18, S.x1, S.z1 + .18, .28);
+    colliderLine(C, S.x0, S.z0 - .3, S.x1, S.z0 - .3, .28, { y1: LY - .3 });
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     F · THE CHECK-IN LOBBY at lobbyY — reference 61/62/63.png
+     Warm timber floor, a blue-grey rug with a pale wave motif, cream
+     low-back sofas facing each other over dark timber tables, big leafy
+     planters, a dark timber slat ceiling, and a full-height dark-framed
+     glass wall with sheer curtains onto the balcony — which looks DOWN over
+     the courtyard, the villa roofs and the pool. That view is the payoff.
+     ══════════════════════════════════════════════════════════════════════ */
+  const LK = AR.LINK, SL = AR.SLOT, HD = AR.HEAD;
+  const lcx = (LB.x0 + LB.x1) / 2, lcz = (LB.z0 + LB.z1) / 2;
+  const lw = LB.x1 - LB.x0, ld = LB.z1 - LB.z0;
+  MAT.lobbyFloor.map.repeat.set(lw / 2.0, ld / 2.0);
+  box(g, lw, .1, ld, lcx, LY - .05, lcz, MAT.lobbyFloor);
+  box(g, lw - .3, .1, ld - .3, lcx, LY + AR.lobbyH - .06, lcz, MAT.slatCeil);
+  for (let k = 0; k < 12; k++) {
+    inst('arrDownI', UNIT_BOX, MAT.arrDown,
+      mat4(LB.x0 + 2.2 + (k % 3) * 3.2, LY + AR.lobbyH - .12,
+        LB.z0 + 2.6 + Math.floor(k / 3) * 5.4, .16, .05, .16));
+  }
+  /* the rug — a CanvasTexture, blue-grey with the pale wave lines of 61.png */
+  const rug = new THREE.Mesh(UNIT_PLANE, MAT.rugWave);
+  rug.scale.set(6.2, 1, 7.4);
+  rug.position.set(LB.x0 + 4.4, LY + .012, -13.2);
+  g.add(rug);
+  const rug2 = new THREE.Mesh(UNIT_PLANE, MAT.rugWave);
+  rug2.scale.set(5.4, 1, 5.8);
+  rug2.position.set(LB.x0 + 4.4, LY + .012, -4.6);
+  g.add(rug2);
+
+  /* the sofas: cream, low-back, square cushions, facing each other */
+  const sofa = (cx, cz, cry, len) => {
+    const c = Math.cos(cry), s = Math.sin(cry);
+    const P = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
+    const seat = P(0, 0);
+    inst('arrSofaI', UNIT_BOX, MAT.ivory, mat4(seat[0], LY + .30, seat[1], len, .30, .95, cry));
+    const back = P(0, -.42);
+    inst('arrSofaI', UNIT_BOX, MAT.ivory, mat4(back[0], LY + .62, back[1], len, .66, .18, cry));
+    for (let k = 0; k < Math.round(len / .9); k++) {
+      const px = -len / 2 + .55 + k * .9;
+      const p = P(px, -.28);
+      inst('arrCushI', UNIT_BOX, MAT.ivoryWarm,
+        mat4(p[0], LY + .68, p[1], .52, .52, .2, cry + (rnd() - .5) * .2));
+    }
+    for (const lx of [-len / 2 + .18, len / 2 - .18]) {
+      for (const lz of [-.38, .38]) {
+        const p = P(lx, lz);
+        inst('arrSofaI', UNIT_BOX, MAT.white, mat4(p[0], LY + .075, p[1], .07, .15, .07, cry));
       }
-      G.colliders.push({ x: px, z: pz, r: .62 });
+    }
+    /* ⚠ ABOVE, for the mirror-image reason the lounge's furniture is BELOW:
+       the 酒廊 is 3.6 m underneath and a sofa registered at every height is a
+       sofa standing in the middle of the breakfast room. */
+    rectCollider(C, cx, cz, len + .3, 1.1, cry, .28, ABOVE);
+  };
+  const lowTable = (cx, cz) => {
+    inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(cx, LY + .34, cz, 1.5, .1, .9));
+    inst('arrTableI', UNIT_BOX, MAT.dark, mat4(cx, LY + .16, cz, 1.3, .28, .74));
+    inst('arrWareI', UNIT_CYL, MAT.white, mat4(cx, LY + .46, cz - .2, .2, .14, .2));
+    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(cx, LY + .6, cz - .2, .3, .26, .3),
+      new THREE.Color(0xbf6f9a));
+    rectCollider(C, cx, cz, 1.7, 1.1, 0, .24, ABOVE);
+  };
+  sofa(LB.x0 + 4.4, -15.6, 0, 3.4);
+  sofa(LB.x0 + 4.4, -10.8, Math.PI, 3.4);
+  lowTable(LB.x0 + 4.4, -13.2);
+  /* the south group sits clear of AR.INTS's well (z −0.8…2.0) — its first
+     placement put a sofa across the top of the internal stair */
+  sofa(LB.x0 + 4.4, -6.2, 0, 2.8);
+  sofa(LB.x0 + 4.4, -3.0, Math.PI, 2.8);
+  lowTable(LB.x0 + 4.4, -4.6);
+
+  /* big leafy planters in the corners */
+  for (const [px, pz] of [[LB.x0 + 1.3, -18.6], [LB.x0 + 1.3, -6.4],
+    [LB.x1 - 1.4, -17.2], [LB.x1 - 1.4, 1.0]]) {
+    inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(px, LY + .3, pz, .78, .6, .78));
+    for (let k = 0; k < 6; k++) {
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(px + (rnd() - .5) * .7, LY + .78 + rnd() * .8, pz + (rnd() - .5) * .7,
+          .5 + rnd() * .3, .32 + rnd() * .2, .5 + rnd() * .3),
+        new THREE.Color([0x3f6532, 0x557f42, 0x6b8f4a][Math.floor(rnd() * 3)]));
+    }
+    C.push({ x: px, z: pz, r: .55, y0: CY });
+  }
+
+  /* ── the west glass wall + sheer curtains, with the two walkable gaps ── */
+  const gaps = AR.lobbyGaps;
+  const spans = [[LB.z0, gaps[0].z0], [gaps[0].z1, gaps[1].z0], [gaps[1].z1, LB.z1]];
+  for (const [z0, z1] of spans) {
+    const seg = z1 - z0;
+    if (seg < .2) continue;
+    inst('glass', UNIT_BOX, MAT.glass, mat4(LB.x0, LY + 1.45, (z0 + z1) / 2, .1, 2.8, seg));
+    const n = Math.max(2, Math.round(seg / 1.15));
+    for (let k = 0; k <= n; k++) {
+      inst('darkI', UNIT_BOX, MAT.dark, mat4(LB.x0 - .02, LY + 1.45, z0 + seg * k / n, .16, 2.86, .11));
+    }
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(LB.x0, LY + 2.92, (z0 + z1) / 2, .2, .16, seg));
+    /* the dark horizontal louvre/transom panel above the glass */
+    for (let y = LY + 3.0; y < LY + AR.lobbyH - .12; y += .1) {
+      inst('arrLouvreI', UNIT_BOX, MAT.dark, mat4(LB.x0 - .1, y, (z0 + z1) / 2, .1, .055, seg));
+    }
+    for (let k = 0; k < Math.max(2, Math.round(seg / 1.6)); k++) {
+      inst('arrSheerI', UNIT_BOX, MAT.sheer,
+        mat4(LB.x0 + .3, LY + 1.45, z0 + .8 + k * 1.6, .1, 2.6, 1.1));
+    }
+    colliderLine(C, LB.x0, z0, LB.x0, z1, .3, ABOVE);
+  }
+  /* one warm timber panel bay in the upper facade, beside the glass (photo) */
+  inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
+    mat4(LB.x0 - .16, LY + 1.6, LB.z1 - 3.6, .12, 3.1, 4.4));
+
+  /* ══════════════════════════════════════════════════════════════════════
+     G · THE BALCONY — cantilevered, frameless glass, flat stone capping
+     ══════════════════════════════════════════════════════════════════════ */
+  box(g, BC.x1 - BC.x0, .3, ld + .6, (BC.x0 + BC.x1) / 2, LY - .17, lcz, MAT.blackPolish);
+  /* the stone FASCIA BEAM under it, and the warm timber soffit inboard */
+  inst('arrCapI', UNIT_BOX, MAT.stoneCap,
+    mat4(BC.x0 - .06, LY - .30, lcz, .28, .56, ld + .7));
+  inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
+    mat4((BC.x0 + BC.x1) / 2, LY - .34, lcz, BC.x1 - BC.x0 - .3, .1, ld + .4));
+  /* frameless glass balustrade + the broad flat stone capping rail */
+  /* ⚠ the WEST run is broken where the upper walkway leaves the balcony —
+     AR.lobbyGaps[0] is the same span the lobby's glass wall opens on and the
+     same span AR.LINK occupies, so the three can never drift apart. A rail
+     across it is a rail across the only route to the atrium and the suite. */
+  const RAIL = [[BC.x0, LB.z0, BC.x0, LK.z0], [BC.x0, LK.z1, BC.x0, LB.z1],
+    [BC.x0, LB.z0, BC.x1, LB.z0], [BC.x0, LB.z1, BC.x1, LB.z1]];
+  for (const [x1, z1, x2, z2] of RAIL) {
+    const len = Math.hypot(x2 - x1, z2 - z1);
+    const ry = Math.atan2(x2 - x1, z2 - z1);
+    inst('arrGlassRailI', UNIT_BOX, MAT.clear,
+      mat4((x1 + x2) / 2, LY + .53, (z1 + z2) / 2, .05, 1.02, len, ry));
+    inst('arrCapI', UNIT_BOX, MAT.stoneCap,
+      mat4((x1 + x2) / 2, LY + 1.08, (z1 + z2) / 2, .26, .1, len + .1, ry));
+    colliderLine(C, x1, z1, x2, z2, .28, ABOVE);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     H · THE CHECK-IN DESK, the cabinet wall, and the staff
+     reference 63.png: a dark timber counter with a vertical slat front and a
+     solid top, the white four-panel cabinet wall behind it, a monitor, a
+     small shaded table lamp, a white bowl of dried flowers, and big leafy
+     plants at the corner.
+     ══════════════════════════════════════════════════════════════════════ */
+  const DX = LB.x0 + 5.4, DZ = LB.z0 + 1.7;            // the corner by the north wall
+  const DLEN = 3.8;
+  {
+    /* the white FOUR-PANEL cabinet wall behind the desk */
+    /* ⚠ INSIDE the end wall. LB.z0 is the room's line; the corten end wall's
+       own face is 0.36 m of it, so a panel at LB.z0 − 0.12 stands outdoors and
+       the desk backs onto bare cladding. */
+    const CABZ = LB.z0 + .42;
+    for (let k = 0; k < 4; k++) {
+      inst('arrCabI', UNIT_BOX, MAT.cabinet,
+        mat4(DX - DLEN / 2 + .05 + (k + .5) * (DLEN + .8) / 4, LY + 1.55, CABZ,
+          (DLEN + .8) / 4 - .05, 3.0, .12));
+    }
+    inst('arrCabI', UNIT_BOX, MAT.rtDarkTeak,
+      mat4(DX, LY + .04, CABZ, DLEN + .9, .08, .16));             // its dark plinth
+    /* the counter: solid dark timber top over a vertical slat front */
+    inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + 1.06, DZ, DLEN, .09, .78));
+    inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + .55, DZ - .36, DLEN, 1.02, .07));
+    inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + .55, DZ + .36, DLEN, 1.02, .07));
+    for (const s of [-1, 1]) {
+      inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak,
+        mat4(DX + s * DLEN / 2, LY + .55, DZ, .07, 1.02, .78));
+    }
+    for (let k = 0; k < Math.round(DLEN / .11); k++) {           // the bamboo slats
+      inst('arrSlatI', UNIT_BOX, MAT.slatWarm,
+        mat4(DX - DLEN / 2 + .1 + k * .11, LY + .53, DZ + .40, .045, .94, .045));
+    }
+    /* the monitor, the shaded lamp, and the white bowl of dried flowers */
+    inst('arrDeskI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.36, DZ - .1, .06, .5, .78));
+    inst('arrDeskI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.12, DZ - .1, .2, .06, .3));
+    inst('arrLampI', UNIT_CYL, MAT.dark, mat4(DX + .2, LY + 1.24, DZ - .05, .04, .28, .04));
+    inst('arrLampI', UNIT_CONE, MAT.lampShade, mat4(DX + .2, LY + 1.46, DZ - .05, .34, .3, .34));
+    inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(DX - 1.2, LY + 1.22, DZ - .05, .42, .24, .42));
+    for (let k = 0; k < 7; k++) {
+      const a = rnd() * Math.PI * 2;
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+        mat4(DX - 1.2 + Math.cos(a) * .22, LY + 1.5 + rnd() * .3, DZ - .05 + Math.sin(a) * .22,
+          .14, .12, .14), new THREE.Color(0xb9c08a));
+    }
+    /* big leafy plants at the desk's corner */
+    for (const pz of [DZ + 1.6, DZ + 2.7]) {
+      inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(DX + DLEN / 2 + 1.1, LY + .26, pz, .62, .52, .62));
+      for (let k = 0; k < 5; k++) {
+        inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+          mat4(DX + DLEN / 2 + 1.1 + (rnd() - .5) * .6, LY + .68 + rnd() * .55, pz + (rnd() - .5) * .6,
+            .46 + rnd() * .22, .3 + rnd() * .16, .46 + rnd() * .22),
+          new THREE.Color([0x3f6532, 0x6b8f4a, 0x8fae63][Math.floor(rnd() * 3)]));
+      }
+      C.push({ x: DX + DLEN / 2 + 1.1, z: pz, r: .42, y0: CY });
+    }
+    /* the desk's collider — guests walk UP to it, not through it */
+    rectCollider(C, DX, DZ, DLEN + .3, .95, 0, .26, ABOVE);
+    colliderLine(C, DX - DLEN / 2 - .2, DZ - .5, DX + DLEN / 2 + .2, DZ - .5, .26, ABOVE);
+
+    /* ── STAFF STANDING BY. Two stylised figures in the venue's palette; no
+       faces, and both stand BEHIND the counter so they never block the
+       route. Cheap: five instanced boxes each, in the buckets everything
+       else here uses. ── */
+    /* 1.90 m to the crown, which is not vanity: the counter's top is at
+       LY + 1.06, so a 1.6 m figure shows nothing but a hairline above it and
+       the desk reads unstaffed from every angle a guest actually stands at. */
+    for (const [sx, syaw] of [[DX - .95, .16], [DX + 1.0, -.12]]) {
+      const sz = DZ - .82;
+      inst('arrStaffI', UNIT_CYL, MAT.uniform, mat4(sx, LY + .48, sz, .38, .96, .3, syaw));
+      inst('arrStaffI', UNIT_BOX, MAT.uniformTop, mat4(sx, LY + 1.32, sz, .48, .62, .3, syaw));
+      inst('arrStaffI', UNIT_BOX, MAT.uniformTop,
+        mat4(sx - .28, LY + 1.28, sz + .06, .13, .56, .16, syaw));
+      inst('arrStaffI', UNIT_BOX, MAT.uniformTop,
+        mat4(sx + .28, LY + 1.28, sz + .06, .13, .56, .16, syaw));
+      inst('arrStaffI', UNIT_CYL, MAT.skin, mat4(sx, LY + 1.76, sz, .23, .28, .23, syaw));
+      inst('arrStaffI', UNIT_BLOB, MAT.hair, mat4(sx, LY + 1.86, sz - .02, .26, .22, .25, syaw));
+      C.push({ x: sx, z: sz, r: .3, y0: CY });
     }
   }
 
-  /* ── palm keep-out: phantom colliders at feet-height 80 m ──────────────────
+  /* ── THE CHECK-IN SERVICE ────────────────────────────────────────────────
+     A PERMANENT world interactable, registered HERE rather than in moments.js
+     (which owns the six-moment registry and is not this pass's file). Two
+     things make that safe:
+       · it is pushed during buildWorld, so it is in place before
+         initMoments snapshots anything, and it carries no `enabled` gate —
+         setMoment swaps COLLIDERS, never the interactable list;
+       · it is authored ENCLAVE-LOCAL with no `__world` flag, so world.js's
+         worldifyLateRecords() maps it through enclaveToWorld exactly once,
+         the same road every collider pushed here travels. Flagging it
+         `__world` here would leave it 90° around the map — the mirror image
+         of the Welcome Brunch's opt-out.                                    */
+  G.interactables.push({
+    x: DX, z: DZ + 1.05, r: 1.5,
+    label: () => 'Check in',
+    use: () => G.ui.toast('“Welcome to 隐逸居, Mr & Mrs Fung.” Rooms are LEFT along the '
+      + 'upper gallery; the presidential suite is RIGHT, across the walkway. 🔑', 4.6),
+  });
+
+  /* ══════════════════════════════════════════════════════════════════════
+     I · THE UPPER WALKWAY — the two connections, actually walkable
+     LINK crosses the courtyard from the balcony; SLOT is the 2.2 m corridor
+     between the suite's east wall and Garden Room D1's west wall (the ONLY
+     way through to the atrium's south wall from this side — C1/C2/C3 cover
+     its whole east wall and D1/D2 its south wall east of x 10.2, which is
+     why SITE.EXT_STAIR moved out of it); HEAD is the landing at the new 2F
+     door in the atrium's south perimeter.
+     ══════════════════════════════════════════════════════════════════════ */
+  const walkDeck = (R, mat) => {
+    box(g, R.x1 - R.x0, .3, R.z1 - R.z0, (R.x0 + R.x1) / 2, LY - .17, (R.z0 + R.z1) / 2, mat);
+  };
+  walkDeck(LK, MAT.blackPolish);
+  walkDeck(SL, MAT.blackPolish);
+  walkDeck(HD, MAT.blackPolish);
+  /* the LINK's columns down to the courtyard, and its planted timber soffit */
+  for (let x = LK.x0 + 2.4; x < LK.x1 - 1.0; x += 4.6) {
+    for (const cz of [LK.z0 + .35, LK.z1 - .35]) {
+      inst('arrColI', UNIT_CYL, MAT.charcoal, mat4(x, (LY - .32) / 2, cz, .32, LY - .32, .32));
+      C.push({ x, z: cz, r: .26, y1: CY });
+    }
+  }
+  inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
+    mat4((LK.x0 + LK.x1) / 2, LY - .34, (LK.z0 + LK.z1) / 2, LK.x1 - LK.x0, .08, LK.z1 - LK.z0 - .2));
+  /* a light pergola roof over the LINK so it reads as the clubhouse's own
+     covered corridor rather than as a bare bridge */
+  for (let x = LK.x0 + 1.2; x < LK.x1; x += 2.3) {
+    inst('arrRailI', UNIT_BOX, MAT.corten,
+      mat4(x, LY + 2.62, (LK.z0 + LK.z1) / 2, .12, .18, LK.z1 - LK.z0 + .5));
+  }
+  inst('arrRailI', UNIT_BOX, MAT.corten,
+    mat4((LK.x0 + LK.x1) / 2, LY + 2.74, LK.z0 + .1, LK.x1 - LK.x0, .16, .14));
+  inst('arrRailI', UNIT_BOX, MAT.corten,
+    mat4((LK.x0 + LK.x1) / 2, LY + 2.74, LK.z1 - .1, LK.x1 - LK.x0, .16, .14));
+
+  /* balustrades. Every one carries y0 so it exists only UP HERE — the
+     courtyard underneath has to stay walkable end to end. */
+  const bal = (x1, z1, x2, z2) => {
+    const len = Math.hypot(x2 - x1, z2 - z1);
+    const ry = Math.atan2(x2 - x1, z2 - z1);
+    inst('arrGlassRailI', UNIT_BOX, MAT.clear,
+      mat4((x1 + x2) / 2, LY + .53, (z1 + z2) / 2, .05, 1.02, len, ry));
+    inst('arrRailI', UNIT_BOX, MAT.copper,
+      mat4((x1 + x2) / 2, LY + 1.06, (z1 + z2) / 2, .07, .07, len, ry));
+    colliderLine(C, x1, z1, x2, z2, .26, ABOVE);
+  };
+  bal(SL.x0, SL.z1, LK.x1, SL.z1);   // the whole south edge, slot + link
+  bal(SL.x1, LK.z0, LK.x1, LK.z0);   // the link's north edge, east of the slot
+  /* the slot's EAST edge over the stretch where D1's own wall is not there */
+  bal(SL.x1, -17.8, SL.x1, LK.z0);
+  bal(SL.x1, HD.z0, SL.x1, HD.z1);
+  /* the slot's WEST edge where the suite's wall has run out (its envelope
+     stops at z −13.5) — but NOT over the exterior stair's landing, which is
+     how you get up here from the pool deck */
+  bal(SL.x0, -13.5, SL.x0, -8.1);
+  /* the head landing: its west return and the short south edge over the 1.2 m
+     gap between the atrium's south wall and the suite's north wall. NOTHING
+     guards x 7.8 for z −13.5…−10.0 on purpose — that is where the walkway
+     meets the exterior stair's landing and the suite's 2F balcony. */
+  bal(HD.x0, HD.z0 + .4, HD.x0, HD.z1);
+  bal(HD.x0, HD.z1, SL.x0, HD.z1);
+
+  /* ══════════════════════════════════════════════════════════════════════
+     J · palm keep-out: phantom colliders at feet-height 80 m
      nature.js's placePalms rejects any throw within (collider.r + 1.4) but
      ignores y-ranges, while the walker skips these entirely (feet never at
      80). Without them the seeded scatter can stand a palm in the middle of
-     the court/forecourt/lane — none of this ground is in exclusionZones()
-     and nature.js is not this pass's to edit. Understory shrubs do NOT
-     consult colliders; the court position was checked against the seeded
-     shrub field instead. */
-  const noPalm = (x, z, r) => G.colliders.push({ x, z, r, y0: 80, y1: 80.01 });
+     the court/forecourt/lane. Understory shrubs do NOT consult colliders;
+     the cull below handles those.
+     ══════════════════════════════════════════════════════════════════════ */
+  const noPalm = (x, z, r) => C.push({ x, z, r, y0: 80, y1: 80.01 });
+  for (let x = B.x0 - 4; x <= 56; x += 3.6) {
+    for (let z = B.z0 - 2; z <= B.z1 + 2; z += 4.4) noPalm(x, z, 3.4);
+  }
   for (const [x, z, r] of [
-    [38.2, -8, 4.4], [41.8, -8, 4.4], [45.4, -8, 4.6],
-    [40.6, -15.3, 4.4], [40.6, -.7, 4.4],
     [49.4, -8, 4.8], [52.8, -8, 4.8], [55.8, -8, 4.8],
     [51, -12.6, 3.4], [51, -3.4, 3.4], [54.6, -12.6, 3.4], [54.6, -3.4, 3.4],
     [58, -13.4, 4.4], [58, -2.6, 4.4], [62.2, -13.4, 4.4], [62.2, -2.6, 4.4],
-    [60.1, -8, 4.4],
+    [60.1, -8, 4.4], [60.1, -16.0, 4.4],
   ]) noPalm(x, z, r);
   for (let i = 1; i < AR.LANE.length; i++) {
     const a = AR.LANE[i - 1], b = AR.LANE[i];
     const L = Math.hypot(b[0] - a[0], b[1] - a[1]), n = Math.max(1, Math.ceil(L / 4));
     for (let k = 0; k <= n; k++) {
-      noPalm(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, 3.4);
+      noPalm(a[0] + (b[0] - a[0]) * k / n, a[1] + (b[1] - a[1]) * k / n, 4.4);
+    }
+  }
+  /* ⚠ AND ALONG THE UPPER WALKWAY. A palm's trunk collider is r 0.8 with no
+     height range, so a palm standing under the LINK walls the bridge off 3.6 m
+     above its own crown — which is exactly what the first walk test hit at
+     local x 26.8. placePalms rejects a throw within (r + 1.4), so r 2.2 keeps
+     the trunks 3.6 m off the centreline and the canopy still overhangs it. */
+  for (const R of [AR.LINK, AR.SLOT, AR.HEAD]) {
+    const along = R.x1 - R.x0 > R.z1 - R.z0;
+    const n = Math.max(1, Math.ceil((along ? R.x1 - R.x0 : R.z1 - R.z0) / 3));
+    for (let k = 0; k <= n; k++) {
+      const t = k / n;
+      noPalm(along ? R.x0 + (R.x1 - R.x0) * t : (R.x0 + R.x1) / 2,
+        along ? (R.z0 + R.z1) / 2 : R.z0 + (R.z1 - R.z0) * t, 2.2);
     }
   }
 
   /* ── understory cull ────────────────────────────────────────────────────
      nature.js's shrub scatter is placed against exclusionZones() ALONE — it
      never consults colliders — and none of this ground is in that list, so
-     the seeded field drops clumps straight onto the forecourt and court
-     paving (it did: two clumps in the first render). nature.js is not this
-     pass's file; instead the same collapse world.js already applies to the
-     enclave's footprints (scale-to-zero, translation kept) runs here over
-     any STATIC understory instance standing on the arrival's hardscape,
-     once, on the first frame after the world is up. Palms are
-     DynamicDrawUsage and are skipped — the phantom colliders above already
-     keep them off. */
+     the seeded field drops clumps straight onto the building, the deck, the
+     terrace and the lane. nature.js is not this pass's file; instead the
+     same collapse world.js already applies to the enclave's footprints
+     (scale-to-zero, translation kept) runs here, once, on the first frame
+     after the world is up. Palms are DynamicDrawUsage and are skipped. */
   let culled = false;
-  const _cm = new THREE.Matrix4(), _cv = new THREE.Vector3(), _cz = new THREE.Vector3();
+  const _cm = new THREE.Matrix4(), _cv = new THREE.Vector3(), _cz2 = new THREE.Vector3();
   const inArrival = (wx, wz) => {
     const l = worldToEnclave(wx, wz);
-    if (l.x > 36.3 && l.x < 64.7 && l.z > -18.3 && l.z < 2.3) return true;
+    if (l.x > DK.x0 - 1.2 && l.x < 64.9 && l.z > B.z0 - 1.2 && l.z < B.z1 + 1.2) return true;
+    if (l.x > 44.0 && l.x < 64.9 && l.z > -18.3 && l.z < 2.3) return true;
+    for (const R of [AR.LINK, AR.SLOT, AR.HEAD]) {
+      if (l.x > R.x0 - 1.4 && l.x < R.x1 + 1.4 && l.z > R.z0 - 1.4 && l.z < R.z1 + 1.4) return true;
+    }
     for (let i = 1; i < AR.LANE.length; i++) {
       const a = AR.LANE[i - 1], b = AR.LANE[i];
       const dx = b[0] - a[0], dz = b[1] - a[1], L2 = dx * dx + dz * dz;
       let t = ((l.x - a[0]) * dx + (l.z - a[1]) * dz) / L2;
       t = Math.max(0, Math.min(1, t));
       const px = a[0] + dx * t - l.x, pz = a[1] + dz * t - l.z;
-      if (px * px + pz * pz < (AR.laneHalfW + 1.2) ** 2) return true;
+      if (px * px + pz * pz < (AR.laneHalfW + 2.0) ** 2) return true;
     }
     return false;
   };
@@ -2481,7 +3162,7 @@ function buildArrival(G, g, rnd) {
         child.getMatrixAt(i, _cm);
         _cv.setFromMatrixPosition(_cm);
         if (!inArrival(_cv.x, _cv.z)) continue;
-        _cm.scale(_cz);
+        _cm.scale(_cz2);
         child.setMatrixAt(i, _cm);
         touched++;
       }
@@ -3823,7 +4504,7 @@ function roofColliders(G, acx, acz) {
    ════════════════════════════════════════════════════════════════════════ */
 const CAR_PALETTE = [0x1c1f24, 0xd8d9dc, 0x8d9299, 0x2a3a52, 0x6d1f22, 0xe4e2dc, 0x3c4046];
 const _carCol = new THREE.Color();
-function parkedCar(cx, cz, yaw, hex) {
+function parkedCar(cx, cz, yaw, hex, baseY = 0) {
   /* local (lx, lz) → world, for a body yawed by `yaw`: local +X is
      (cos, 0, −sin) and local +Z is (sin, 0, cos) — the same basis every
      rotated prop on this campus uses. */
@@ -3836,7 +4517,7 @@ function parkedCar(cx, cz, yaw, hex) {
   const roof = _carCol.setHex(hex).multiplyScalar(.86).clone();
   const put = (key, mat, lx, y, lz, sx, sy, sz, col = null, rz = 0) =>
     inst(key, key === 'carWheelI' ? UNIT_CYL : UNIT_BOX, mat,
-      mat4(PX(lx, lz), y, PZ(lx, lz), sx, sy, sz, yaw, 0, rz), col);
+      mat4(PX(lx, lz), baseY + y, PZ(lx, lz), sx, sy, sz, yaw, 0, rz), col);
 
   // four wheels on two axles
   for (const lz of [1.34, -1.34]) for (const lx of [.80, -.80]) {

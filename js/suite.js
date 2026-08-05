@@ -15,7 +15,7 @@
 // All textures/materials are LOCAL to this module (only mulberry32 is shared).
 
 import * as THREE from 'three';
-import { SITE, MOMENT_PLACES, worldToEnclave } from './site.js';
+import { SITE, MOMENT_PLACES, worldToEnclave, ARRIVAL_LOBBY_Y } from './site.js';
 import { mulberry32 } from './materials.js';
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -96,6 +96,15 @@ const LOUVRE_H = 0.70;                  // horizontal bronze screen band, 2F hea
 
 const WT = 0.26;                    // interior partition thickness
 const EWT = 0.36;                   // exterior wall thickness
+
+/* THE 2F DOOR ONTO THE CLUBHOUSE'S UPPER WALKWAY (2026-08-04).
+   SITE.ARRIVAL.SUITE_DOOR is stated in SITE coordinates, like everything in
+   site.js; Z is not mirrored (only X is), so it carries straight over. The
+   walkway arrives at ARRIVAL_LOBBY_Y and the 2F slab is at YF2 — a 0.20 m
+   step, comfortably inside CFG.STEP_UP, which is the whole reason the two
+   levels were allowed to differ. */
+const LINK_DOOR = SITE.ARRIVAL.SUITE_DOOR;
+void ARRIVAL_LOBBY_Y;               // documented above; the step is by design
 
 /* --- the annex: spa + corridor. SITE.SUITE.spa spans (mirrored frame) x 7..14,
    which laps 1 m inside the envelope; we clip its inner face to the envelope
@@ -658,8 +667,28 @@ function buildShell(root) {
     [-7.4, -6.0, 2.2],     // pantry service double door
     [-3.4, -1.6, 2.4],     // villa entry double doors
   ]);
-  /* West: solid to the south third, then a fixed corner glazing return. */
-  wallRun(root, MT.plaster, 'z', X0, EWT, ZN, -16.6, 0, Y2C);
+  /* West: solid to the south third, then a fixed corner glazing return.
+     ⚠ In SITE coordinates this run is the suite's EAST wall (this file
+     authors mirrored — see §1a), and since 2026-08-04 it carries the suite's
+     2F door onto the clubhouse's upper walkway. Carl asked for the check-in
+     lobby to give "access to presidential suite on second floor"; the walkway
+     runs up the 2.2 m slot between this wall and Garden Room D1 at
+     ARRIVAL_LOBBY_Y (3.60) and steps 0.20 up into the 2F lounge here. The
+     hole is cut in the RUN, not drawn over it — a door drawn on a solid wall
+     is the doubleDoor bug this project already paid for once. */
+  wallRun(root, MT.plaster, 'z', X0, EWT, ZN, -16.6, 0, Y2C, [
+    [LINK_DOOR.z0, LINK_DOOR.z1, YF2 + 2.35],
+  ]);
+  /* the reveal: a marble sill flush with the 2F floor, dark jambs, a copper
+     head — the same language the atrium's gallery doors use */
+  slab(root, MT.marble, X0 - EWT / 2 - .1, X0 + EWT / 2 + .35, YF2 - .06, YF2 + .01,
+    LINK_DOOR.z0, LINK_DOOR.z1);
+  for (const dz of [LINK_DOOR.z0, LINK_DOOR.z1]) {
+    slab(root, MT.sapeleDark, X0 - EWT / 2 - .04, X0 + EWT / 2 + .04, YF2, YF2 + 2.35,
+      dz - .07, dz + .07);
+  }
+  slab(root, MT.brass, X0 - EWT / 2 - .04, X0 + EWT / 2 + .04, YF2 + 2.30, YF2 + 2.40,
+    LINK_DOOR.z0, LINK_DOOR.z1);
   wallRun(root, MT.plaster, 'z', X0, EWT, -16.6, ZS, YF2 - .4, Y2C);
   glazedBay(root, 'z', X0, -16.6, ZS, .1, 2.9, 3);          // 1F corner glazing
   /* East: shared with the annex to z = COR_ZS, then exterior.
@@ -1433,6 +1462,8 @@ function buildColliders() {
      so keep it honest to the wall half-thickness or openings stop being
      walkable: every opening loses 2 × (r + PLAYER_R) ≈ 1.15 m of clear width. */
   const WR = .22;
+  /* the 1F-furniture height window — see the great-room block below */
+  const F1 = { y1: YF2 - .4 };
   const nz = ZN + EWT / 2, wx = X0 + EWT / 2, ex = X1 - EWT / 2;
 
   /* ── main envelope ── */
@@ -1446,7 +1477,17 @@ function buildColliders() {
      drawn closed and stays sealed. */
   colLine(X0, nz, -3.75, nz, WR);                    // north, W of the entry
   colLine(-1.25, nz, X1, nz, WR);                    // north, E of the entry
-  colLine(wx, ZN, wx, ZS, WR);                       // west
+  /* west in THIS file's frame = the suite's EAST wall in SITE terms, and it
+     now has a 2F door in it (see buildShell). The gap must exist ONLY up
+     there: at 1F this is the solid wall behind the sofa island. So the run is
+     split — full height either side of the door, and a y1-capped run across
+     it that still stops a ground-floor walker. Each half stops SKIP_PAD-style
+     0.32 past its jamb, leaving 2.0 − 2 × (.22 + .35) + 2 × .32 = 1.50 m of
+     clear walking, wider than the house 1.2 m minimum and still narrower than
+     the 2.0 m opening — stricter than the geometry, never looser. */
+  colLine(wx, ZN, wx, LINK_DOOR.z0 - .32, WR);       // west, N of the 2F door
+  colLine(wx, LINK_DOOR.z1 + .32, wx, ZS, WR);       // west, S of the 2F door
+  colLine(wx, LINK_DOOR.z0 - .32, wx, LINK_DOOR.z1 + .32, WR, 0, { y1: YF2 - .4 });
   colLine(ex, ZN, ex, -26.3, WR);                    // east, north of the opening
   colLine(ex, -24.45, ex, -19.3, WR);                // east, between the two doors
   colLine(ex, -17.3, ex, ZS, WR);                    // east, south of the doors
@@ -1464,8 +1505,8 @@ function buildColliders() {
   /* ── pantry ── */
   colLine(X0, P_ZS, -5.55, P_ZS, .28);               // red lattice screen
   colLine(P_X1, ZN, P_X1, -24.6, WR);                // partition to dining
-  colRect(-7.3, -24.75, -5.3, -23.85, .34);          // island
-  colLine(X0, nz + .62, -5.2, nz + .62, .34);        // back counter
+  colRect(-7.3, -24.75, -5.3, -23.85, .34, F1);      // island
+  colLine(X0, nz + .62, -5.2, nz + .62, .34, 0, F1);  // back counter
   colRect(-5.2, -24.05, -4.35, -23.2, .32);          // grey stone column
 
   /* ── the stair mass ─────────────────────────────────────────────────────────
@@ -1508,17 +1549,34 @@ function buildColliders() {
      the geometry, never looser, and the corridor opens to a real lane. */
   colLine(ST.x0, ST.zN - .11, X1, ST.zN - .11, .12);     // black north return
 
-  /* ── great-room furniture ── */
+  /* ── great-room furniture ─────────────────────────────────────────────────
+     ⚠ EVERY chain in this block carries y1 as of 2026-08-04. They are 1F
+     furniture under a 3.8 m slab and they were registered at every height, so
+     each one stood invisibly in the middle of the 2F lounge — CLAUDE.md's
+     backlog called this out ("1F furniture colliders carry no y1 and
+     shadow-block the 2F lounge floor above them") and the new 2F door onto the
+     clubhouse's upper walkway opens straight into two of them: the walker got
+     through the wall and was stopped 0.4 m later by a dining table one storey
+     below him. y1 = YF2 − 0.4 is the same arithmetic the stair mass uses: it
+     stops existing exactly where a walker's feet can no longer be on the
+     ground floor. */
   /* sofa island: the plinth is LIVING_X ± 3.02 / −23.22 … −19.18 and the ring
      used to sit ON that footprint at r .4 — a .75 block standoff whose NW
      corner, meeting the north return's old reach, was the other half of the
      seal across the stair approach. Pulled .15 inside the plinth at r .22 the
      body still stops .05 clear of the espresso edge on every side, and the
      lane between sofa and return wall is ~0.42 m of walkable centre-line. */
-  colRect(LIVING_X - 2.85, -23.05, LIVING_X + 2.85, -19.35, .22);  // sofa island (sz ± 2)
-  colRect(DINING_X - 1.5, -20.1, DINING_X + 1.5, -18.9, .36);  // dining table
-  colLine(-.6, ZN + .62, 4.6, ZN + .62, .32);                  // credenzas
-  colLine(wx + .6, -20.7, wx + .6, -18.3, .3);                 // sideboard
+  colRect(LIVING_X - 2.85, -23.05, LIVING_X + 2.85, -19.35, .22, F1);  // sofa island (sz ± 2)
+  colRect(DINING_X - 1.5, -20.1, DINING_X + 1.5, -18.9, .36, F1);  // dining table
+  colLine(-.6, ZN + .62, 4.6, ZN + .62, .32, 0, F1);           // credenzas
+  /* ⚠ y1. This is 1F furniture and its chain carried no height window, so it
+     stood in mid-air across the 2F lounge exactly where the new 2F door onto
+     the clubhouse's upper walkway opens — the walker got through the wall and
+     was stopped 0.4 m later by a sideboard one storey below him. (CLAUDE.md's
+     backlog already knew: "1F furniture colliders carry no y1 and shadow-block
+     the 2F lounge floor above them". This is the one that was in the way; the
+     rest are still open.) */
+  colLine(wx + .6, -20.7, wx + .6, -18.3, .3, 0, F1);          // sideboard
 
   /* ── east annex ── */
   colLine(ANX_X0, nz, ANX_X1, nz, WR);                          // annex north

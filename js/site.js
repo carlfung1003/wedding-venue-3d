@@ -242,13 +242,35 @@ export const SITE = {
   // mirror was corrected (see SUITE above): in f048/f050 the stair and the
   // pillar stand together at the far LEFT of the view out to the pool, i.e.
   // local +X, the same side as CABANAS. They were at −9.0 / −9.5.
-  SIGN_PILLAR: { x: 9.5, z: -12.0 },             // dark "THE WESTIN" / "H" pillar
+  /* ⚠ MOVED 2026-08-04 (the check-in lobby pass) from (9.5, −12.0). The
+     clubhouse's upper walkway now lands on the exterior stair's 2F landing at
+     x 7.55…9.65, z −13.05…−10.5, and the pillar stood inside it — a 2.85 m
+     mass with an all-heights collider under a 3.6 m deck is a walker stopped
+     in mid-air, and it also has to stay 1.1 m clear of the walkway itself. It
+     keeps the relationship f048/f050 actually shows (pillar and exterior stair
+     together at the FAR LEFT of the view out to the pool): it is still on
+     local +X and still standing beside the stair, which moved with it. */
+  SIGN_PILLAR: { x: 11.4, z: -3.0 },             // dark "THE WESTIN" / "H" pillar
   // exterior stair up the suite's flank. steps/tread/w/landing mirror the
   // literals campus.js's buildExtStair() still carries — the walkable height
   // field reads them from here, and campus.js should read them too the next
   // time that file is open (it was owned by another agent when this landed).
+  /* ⚠ z MOVED −16.0 → −8.15 on 2026-08-04 (the check-in lobby pass), and the
+     reason is structural, not cosmetic. The 2.2 m slot between the suite's
+     east wall (x 8) and Garden Room D1's west wall (x 10.2) is the ONLY route
+     by which anything can reach the atrium's upper gallery from the south —
+     C1/C2/C3 cover the whole east wall and D1/D2 the whole south wall east of
+     x 10.2 — and the stair stood in it, climbing z −18.55…−13.15. Moved south
+     it (a) frees the slot for the clubhouse's upper walkway and (b) lands its
+     landing (x 7.55…9.65, z −8.1…−5.55) ON that walkway, which retires the
+     "its landing is a dead end today" note this block used to carry — the
+     stair is now the way up from the pool deck to the clubhouse's 2F.
+     ⚠ It went to −8.15 first and had to come south again: its two balustrade
+     chains sit 2.0 m apart at x 8.0 / 10.0 with no height range, and 2.0 m is
+     the player's own diameter once CFG.PLAYER_R is added twice — they pinched
+     the walkway shut where the two overlapped. Same x, same 19 × 0.2 m risers. */
   EXT_STAIR: {
-    x: 9.0, z: -16.0,
+    x: 9.0, z: -3.2,
     steps: 19, tread: 0.30, w: 1.6,   // 19 × 0.2 m risers = SUITE.floorToFloor
     landingW: 2.1, landingD: 2.0, landingBack: 0.4, landingY: 3.80,
   },
@@ -260,10 +282,61 @@ export const SITE = {
   // ...and then moved EAST again in the same pass: the −X side is now the
   // 3-BR suites and their pool, and the plaza was overlapping the villa at
   // (−24, −14). East of the cabana run is the only clear ground left.
-  PLAZA: { x0: 18, x1: 38, z0: -14, z1: -2 },
+  /* ⚠ x1 38 → 29 on 2026-08-04: the entrance pavilion became a two-storey
+     building whose COURTYARD face (the 酒廊 lounge's folding glass) stands at
+     x 33 with a 3.6 m timber deck in front of it. The plaza is that lounge's
+     courtyard now, so its paving stops 0.4 m short of the deck rather than
+     running under the building. Everything that reads PLAZA (nature.js's
+     exclusion zone, world.js's keep-out disc, campus.js's buildPlaza) derives
+     from these four numbers, so this is a one-line change. */
+  PLAZA: { x0: 18, x1: 29, z0: -14, z1: -2 },
 
   /* ═══════════════════════════════════════════════════════════════════════
      THE ARRIVAL — the clubhouse's REAL front door (2026-08-03)
+     …and, since 2026-08-04, its CHECK-IN LOBBY and its 酒廊 lounge.
+     ═══════════════════════════════════════════════════════════════════════
+
+     ── WHAT CHANGED, AND WHY (2026-08-04) ────────────────────────────────────
+     Carl, on the deployed build: *"i love the entrance of the club house but
+     that's currently an open tunnel; it should be a checkin area … club house
+     entrance is on 2nd floor and its slightly elevated … to the left to other
+     rooms on the second floor, then to the right access to presidential suite
+     on second floor … this corner is a checkin desk with staff standby"*.
+     And then, with reference/photos/clubhouse-lounge-checkin-balcony.jpg:
+     *"the balcony and the floor below is actually the club house lounge where
+     people will be having breakfast"*.
+
+     So the pavilion is TWO STOREYS and the section is:
+
+        arrival court (RAISED ground, +2.65)
+          → the filmed 6-riser stair (+0.95)
+          → CHECK-IN LOBBY at +3.60  ────────────┐  = ATRIUM.floorH, the
+          → its balcony over the courtyard       │    enclave's 2F datum
+          → internal stair down                  │
+        courtyard grade (0) → 酒廊 LOUNGE ───────┘  under the whole lobby
+
+     ── THE ELEVATION, RESOLVED HONESTLY ──────────────────────────────────────
+     A 6-riser stair cannot lift a court at grade to a 2F floor, and Carl's
+     word for the entrance is "slightly elevated" — so the ARRIVAL SIDE is on
+     higher ground, which is exactly what the photograph shows (single storey
+     from the car park, two storeys from the courtyard). `terraceY` 2.65 +
+     `rise` 0.95 = `lobbyY` 3.60. The lane CLIMBS the 2.65 m over its own
+     38.4 m run (6.9 %, an ordinary resort drive) and the court sits on a
+     retained terrace — see RETAIN below; nothing floats.
+
+     `lobbyY` is ASSERTED equal to ATRIUM.floorH below the SITE literal. If
+     someone changes the atrium's storey height, the arrival must follow or
+     the left-hand connection becomes a step you cannot take.
+
+     ⚠ FRAME: everything here is ENCLAVE-LOCAL, like every other SITE.* block
+     above. The court and lane sit at local x 33…70, z −52…+3, which maps to
+     world x −37…−16, z 107…144 — the map's south edge — and, crucially,
+     that ground answers TRUE to isEnclaveLocal(), so any instance authored
+     there in world coordinates through campus.js's shared buckets would be
+     silently captured by world.js's adoption pass and rotated 90°. Authoring
+     the whole arrival local (geometry inside the adopted 'sign' group,
+     repeats through the shared buckets, colliders in local coords) rides the
+     one standard transform end to end — no seam between frames at all.
      ═══════════════════════════════════════════════════════════════════════
      From reference/entrance-arrival-brief.md + frames f_001–f_013 of
      clubhouse-entrance-parking.mp4. Two decisions Carl settled:
@@ -274,42 +347,90 @@ export const SITE = {
           inland/south-east side, south of the river. The river does not move;
           the north road/spur/parking stay as resort-scale context.
 
-     ⚠ FRAME: everything here is ENCLAVE-LOCAL, like every other SITE.* block
-     above. The court and lane sit at local x 36…67, z −46…+3, which maps to
-     world x −37…−16, z 110…141 — the map's south edge — and, crucially,
-     that ground answers TRUE to isEnclaveLocal(), so any instance authored
-     there in world coordinates through campus.js's shared buckets would be
-     silently captured by world.js's adoption pass and rotated 90°. Authoring
-     the whole arrival local (geometry inside the adopted 'sign' group,
-     repeats through the shared buckets, colliders in local coords) rides the
-     one standard transform end to end — no seam between frames at all.
-
      The axis (local z = −8, i.e. world x = −26) runs: lane → court →
-     forecourt → 6-riser stair → doors → vestibule → down the interior stair
-     → SITE.PLAZA → the atrium precinct. Local +X = world SOUTH, so the
-     approach walks local −X. campus.js buildArrival() is the only builder;
-     WALK_REGIONS below registers the stair/landing/vestibule.               */
+     forecourt → 6-riser stair → doors → CHECK-IN LOBBY → its balcony, with
+     the 酒廊 LOUNGE at grade underneath and the courtyard (SITE.PLAZA) beyond.
+     Local +X = world SOUTH, so the approach walks local −X. campus.js
+     buildArrival() is the only builder; WALK_REGIONS below registers every
+     walkable surface.                                                       */
   ARRIVAL: {
     axisZ: -8,                 // the approach centreline (world x = −26)
+    terraceY: 2.65,            // the RAISED arrival ground — see the banner
     rise: 0.95, risers: 6, tread: 0.34,   // ~158 mm risers — the filmed podium
     faceX: 44.6,               // facade front plane (world z 118.6)
-    backX: 36.6,               // pavilion back — lands on SITE.PLAZA's x1 = 38 band
+    backX: 33.0,               // COURTYARD face — the lounge's folding glass
     doorX: 43.1,               // the door plane, recessed 1.5 m under the canopy
     bay: { z0: -12.5, z1: -3.5 },        // the 9 m recessed entry bay = stair width
     /* 3.1 m clear opening: 1.6 m of real walking after 2 × (.4 collider +
        .35 player), same arithmetic as the atrium's doors */
     doorGap: { z0: -9.55, z1: -6.45 },
-    vest: { x0: 38.6, z0: -11.9, z1: -4.1, ceil: 4.3 },  // interior, at rise height
-    stairIn: { x0: 36.56 },    // interior stair foot — steps down onto the plaza
     stair: { x0: 44.56, x1: 46.60 },     // exterior stair: 6 × .34 m treads
-    canopy: { x0: 42.8, x1: 47.1, soffitY: 3.55, topY: 3.9 },  // the deep flat eave
-    wings: [{ z0: -18.2, z1: -12.5 }, { z0: -3.5, z1: 2.2 }],  // corten volumes
+    canopy: { x0: 42.8, x1: 47.1, soffitY: 5.55, topY: 5.90 },  // the deep flat eave
+    /* the building. 11.6 × 24.2 m = 280.7 ㎡ per storey, which is the hotel's
+       own published 酒廊 area (reference/clubhouse-pdf-brief.md: 280 ㎡,
+       seats 60) — the lower storey IS that room, not a token one. */
+    bldg: { x0: 33.0, x1: 44.6, z0: -22.0, z1: 2.2 },
+    wings: [{ z0: -22.0, z1: -12.5 }, { z0: -3.5, z1: 2.2 }],  // corten volumes
     /* mono-pitch: the RIDGE is over wings[1] (local z1, screen-LEFT as
        approached from the court) falling to the eave over wings[0] — f_001's
        fold descends left-to-right onto the plaque wall, which is wings[0]
-       (screen-RIGHT), banded, carrying the white plaque */
-    wingH: 4.6, ridgeH: 6.4, eaveH: 4.35,
-    fore: { x0: 46.6, x1: 55.6, z0: -11.1, z1: -4.9 },   // 9 × 6.2 m forecourt
+       (screen-RIGHT), banded, carrying the white plaque. All three heights
+       are measured from enclave GRADE, so from the raised court the walls
+       still read the 4.5 m the video shows. */
+    wingH: 7.40, ridgeH: 9.20, eaveH: 7.15,
+    /* ── the two storeys ──────────────────────────────────────────────────
+       LOBBY   the check-in floor, from the door plane back to the courtyard
+               face. Its slab is the lounge's ceiling.
+       LOUNGE  the whole footprint at grade, opening west through folding
+               glass onto a timber deck and the courtyard.
+       BALC    the cantilevered balcony over that deck — frameless glass with
+               a flat stone capping rail (clubhouse-lounge-checkin-balcony.jpg)
+       INTS    the internal stair between them, at the building's south end.  */
+    slabT: 0.32,               // lobby slab → the lounge's ceiling at 3.28
+    lobbyH: 3.40,              // lobby floor → its own ceiling
+    /* ⚠ x1 is the FACADE's inner face, not the door plane. At 43.1 there was a
+       1.3 m strip between the lobby's floor and the wall you can be pushed
+       into, and the walk test fell 3.6 m through it into the lounge. */
+    LOBBY: { x0: 33.0, x1: 44.42, z0: -22.0, z1: 2.2 },
+    DECK: { x0: 29.4, x1: 33.0 },        // warm timber deck along the courtyard face
+    BALC: { x0: 30.6, x1: 33.0 },        // cantilevered, over the deck
+    INTS: { x0: 34.0, x1: 39.5, z0: -0.6, z1: 1.8 },   // ramps along X, 0 → lobbyY
+    /* the two openings in the lobby's west glass wall — one onto the walkway,
+       one general balcony access. Both are walkable gaps in the collider. */
+    /* ⚠ ASCENDING IN Z. campus.js walks them in order to lay the glass wall's
+       closed spans, and an out-of-order pair produces a span with z0 > z1 —
+       which draws nothing and, worse, leaves the COLLIDER unbroken. The walk
+       test met a wall of glass where the walkway leaves. */
+    lobbyGaps: [{ z0: -17.6, z1: -14.8 }, { z0: -9.4, z1: -7.0 }],
+    /* the lounge's folding glass stands open over this span (courtyard face) */
+    loungeGap: { z0: -12.6, z1: -7.4 },
+    /* ── THE UPPER WALKWAY — the two connections Carl asked for ────────────
+       LINK  a covered gallery at lobbyY leaving the balcony and crossing the
+             courtyard west.
+       SLOT  the 2.2 m north–south corridor between the presidential suite's
+             east wall (x 8) and Garden Room D1's west wall (x 10.2). It is
+             the ONLY route to the atrium's upper gallery from this side:
+             C1/C2/C3 occupy the whole of the atrium's east wall and D1/D2 the
+             whole of its south wall east of x 10.2. It is why EXT_STAIR moved.
+       HEAD  the landing in front of the new 2F door in the atrium's south
+             wall; it bridges the 1.2 m gap between the atrium and the suite.
+       SUITE_DOOR  the 2F opening cut in the suite's east wall, off SLOT.     */
+    /* ⚠ THE LINK'S Z BAND IS CONSTRAINED FROM BOTH SIDES and the walk test
+       found both. NORTH: water.js's buildVillaPools puts Garden Room D2's
+       plunge pool at local x 23.4…26.8, z −11.5…−14.9, and its coping chain is
+       r 0.8 with NO height range — a walkway at 3.6 m over it is walled off by
+       a pool one storey below. SOUTH: SITE.EXT_STAIR's balustrade chains are
+       also height-agnostic and 2.0 m apart, which is exactly the player's
+       diameter. So the band sits between them, on the entry axis, and
+       EXT_STAIR moved south again to clear it. */
+    LINK: { x0: 9.85, x1: 30.6, z0: -9.4, z1: -7.0 },
+    SLOT: { x0: 7.80, x1: 10.15, z0: -26.5, z1: -7.0 },
+    HEAD: { x0: 6.30, x1: 10.15, z0: -28.0, z1: -26.4 },
+    SUITE_DOOR: { z0: -20.4, z1: -18.4 },
+    /* x0 46.6 → 44.6 on 2026-08-04: the forecourt slab now runs right up to
+       the pavilion's face so the raised terrace has no unfloored 2 m strip
+       beside the stair bay. The stair ramp overlays it inside the bay. */
+    fore: { x0: 44.6, x1: 55.6, z0: -11.1, z1: -4.9 },   // forecourt
     /* the beds start past a paved apron at the stair foot (fore.x0…bedX0) —
        the two white bowl planters stand on that apron, as in f_007/f_011 */
     bedX0: 48.3,
@@ -327,6 +448,15 @@ export const SITE = {
        point sits past BOUNDS so the ribbon visibly runs off the edge instead
        of dying on the grass. */
     LANE: [[69.6, -52.5], [66.8, -46], [65.2, -35.5], [63.4, -26], [61.0, -18.8], [59.8, -15.6]],
+    /* ── THE RETAINED TERRACE ──────────────────────────────────────────────
+       The court + forecourt stand 2.65 m over the enclave's grade, so their
+       whole outer boundary is a retaining wall with a planted batter beyond
+       it — the thing that makes the raised ground read as deliberate from the
+       air rather than as a floating slab. The boundary is DERIVED from
+       fore/court in campus.js (one closed polyline); the only gap is where
+       the lane climbs in through the court's north edge. */
+    laneGap: { x0: 57.0, x1: 62.6 },   // in the court's north edge, for the lane
+    batter: 3.2,                       // planted slope band outside the wall
   },
 
   // ------------------------------------------------------------- the atrium
@@ -1739,6 +1869,38 @@ const _PPX = _P.w / 2 + _P.coping, _PPZ = _P.d / 2 + _P.coping;
 /* ── the arrival pavilion (enclave-local, like everything above) ── */
 const _ARV = SITE.ARRIVAL;
 
+/* ── the arrival's derived levels and the lane's climb ───────────────────────
+   Nothing below is typed: the lobby floor is the terrace plus the filmed
+   stair, and the lane's height at each control point is its own arc-length
+   fraction of that terrace. campus.js reads both — the ribbon has to be drawn
+   at the same heights the walker is given, or the car park floats. */
+export const ARRIVAL_LOBBY_Y = _ARV.terraceY + _ARV.rise;      // 3.60
+export const ARRIVAL_LOUNGE_CEIL = ARRIVAL_LOBBY_Y - _ARV.slabT;   // 3.28
+
+/** Cumulative arc length, then height, at every SITE.ARRIVAL.LANE point. */
+export const ARRIVAL_LANE_Y = (() => {
+  const L = _ARV.LANE, cum = [0];
+  for (let i = 1; i < L.length; i++) {
+    cum.push(cum[i - 1] + Math.hypot(L[i][0] - L[i - 1][0], L[i][1] - L[i - 1][1]));
+  }
+  const total = cum[cum.length - 1];
+  return cum.map(c => _ARV.terraceY * (c / total));
+})();
+
+/* The left-hand connection lands on the atrium's upper gallery, so the lobby
+   floor and that gallery MUST be the same level. Say so out loud rather than
+   shipping a 20 cm step nobody authored. */
+if (Math.abs(ARRIVAL_LOBBY_Y - SITE.ATRIUM.floorH) > 1e-6) {
+  console.warn(`[site] arrival lobby ${ARRIVAL_LOBBY_Y.toFixed(3)} ≠ `
+    + `ATRIUM.floorH ${SITE.ATRIUM.floorH} — the left-hand link is a step now`);
+}
+
+/** The 2F door the lobby's walkway cuts in the atrium's SOUTH perimeter wall.
+ *  Snapped to the facade module grid exactly like every guest-key door — the
+ *  hole atrium.js actually cuts is a WHOLE bay centred here (≈2.93 m), which
+ *  is why the head landing below is 3.85 m wide. */
+export const ARRIVAL_ATRIUM_DOOR = snapDoor('south', (_ARV.SLOT.x0 + _ARV.SLOT.x1) / 2);
+
 /* ═══════════════════════════════════════════════════════════════════════════
    THE WESTIN ROOFTOP — the derived frame everything up there shares
    ═══════════════════════════════════════════════════════════════════════════
@@ -1940,24 +2102,60 @@ export const WALK_REGIONS = [
   rect('lounge-step', _LO.cx - (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z0,
     _LO.cx + (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z1, _LO.step2Y),
 
-  /* ══ THE ARRIVAL PAVILION — court → stair → vestibule → plaza ═════════════
-     Four surfaces, all derived from SITE.ARRIVAL and all enclave-local. The
-     exterior stair climbs local −X from the forecourt (grade) to the landing;
-     the landing and vestibule sit at ARRIVAL.rise; the interior stair drops
-     back to grade at the plaza. The ceilings are the canopy soffit outside
-     and the roof underside inside — both leave > CFG.HEAD_CLEAR over the
-     raised floor, so the headroom gate never refuses the climb.
+  /* ══ THE ARRIVAL — raised terrace → stair → CHECK-IN LOBBY → the walkway ══
+     Every surface is derived from SITE.ARRIVAL and all of them are
+     enclave-local. Read top to bottom, this IS the section:
+
+       lane        five ramps, one per LANE segment, climbing to terraceY
+       court/fore  the retained terrace at terraceY (2.65)
+       stair       the filmed 6 risers, terraceY → lobbyY (3.60)
+       lobby       the check-in floor, with the internal stair's well cut out
+       lounge      the 酒廊 at grade UNDER it, ceiling = the lobby's underside
+       ints        the internal stair between the two
+       balcony     cantilevered over the lounge's deck, the payoff view
+       link/slot/head   the upper walkway to the suite's 2F and the atrium's
+                        upper gallery
+
      ⚠ "A floorY probe is not proof that a stair works" — the colliders that
-     guard this stair live in campus.js buildArrival(); the scripted walk is
+     guard all of this live in campus.js buildArrival(); the scripted walk is
      the only test that counts. */
+  ..._ARV.LANE.slice(1).map((p, i) => {
+    const a = _ARV.LANE[i], hw = _ARV.laneHalfW + .6;
+    return ramp(`arrival-lane-${i}`, Math.min(a[0], p[0]) - hw, Math.min(a[1], p[1]),
+      Math.max(a[0], p[0]) + hw, Math.max(a[1], p[1]), 'z',
+      a[1], ARRIVAL_LANE_Y[i], p[1], ARRIVAL_LANE_Y[i + 1]);
+  }),
+  rect('arrival-court', _ARV.court.x0, _ARV.court.z0, _ARV.court.x1, _ARV.court.z1,
+    _ARV.terraceY),
+  rect('arrival-fore', _ARV.fore.x0, _ARV.beds[0].z0, _ARV.fore.x1, _ARV.beds[1].z1,
+    _ARV.terraceY),
   ramp('arrival-stair', _ARV.stair.x0, _ARV.bay.z0, _ARV.stair.x1, _ARV.bay.z1, 'x',
-    _ARV.stair.x1, 0, _ARV.stair.x0, _ARV.rise, { ceil: _ARV.canopy.soffitY }),
+    _ARV.stair.x1, _ARV.terraceY, _ARV.stair.x0, ARRIVAL_LOBBY_Y,
+    { ceil: _ARV.canopy.soffitY }),
   rect('arrival-landing', _ARV.doorX, _ARV.bay.z0, _ARV.stair.x0, _ARV.bay.z1,
-    _ARV.rise, { ceil: _ARV.canopy.soffitY }),
-  rect('arrival-vestibule', _ARV.vest.x0, _ARV.vest.z0, _ARV.doorX, _ARV.vest.z1,
-    _ARV.rise, { ceil: _ARV.vest.ceil }),
-  ramp('arrival-stair-in', _ARV.stairIn.x0, _ARV.vest.z0, _ARV.vest.x0, _ARV.vest.z1, 'x',
-    _ARV.stairIn.x0, 0, _ARV.vest.x0, _ARV.rise, { ceil: _ARV.vest.ceil }),
+    ARRIVAL_LOBBY_Y, { ceil: _ARV.canopy.soffitY }),
+  /* the lobby floor, with the internal stair's well punched out of it */
+  rect('arrival-lobby', _ARV.LOBBY.x0, _ARV.LOBBY.z0, _ARV.LOBBY.x1, _ARV.LOBBY.z1,
+    ARRIVAL_LOBBY_Y, { ceil: ARRIVAL_LOBBY_Y + _ARV.lobbyH, t: _ARV.slabT,
+      holes: [{ x0: _ARV.INTS.x0 - .6, x1: _ARV.INTS.x1 - .6,
+        z0: _ARV.INTS.z0 - .2, z1: _ARV.INTS.z1 + .2 }] }),
+  rect('arrival-balcony', _ARV.BALC.x0, _ARV.LOBBY.z0, _ARV.BALC.x1, _ARV.LOBBY.z1,
+    ARRIVAL_LOBBY_Y - .02, { t: _ARV.slabT }),
+  /* the 酒廊 at grade. Its ceiling is the lobby slab's underside, which the
+     headroom gate needs to know about so nobody climbs into a 0.3 m void. */
+  rect('arrival-lounge', _ARV.bldg.x0, _ARV.bldg.z0, _ARV.bldg.x1, _ARV.bldg.z1, 0,
+    { ceil: ARRIVAL_LOUNGE_CEIL }),
+  rect('arrival-lounge-deck', _ARV.DECK.x0, _ARV.bldg.z0, _ARV.DECK.x1, _ARV.bldg.z1,
+    .12),
+  ramp('arrival-stair-int', _ARV.INTS.x0, _ARV.INTS.z0, _ARV.INTS.x1, _ARV.INTS.z1, 'x',
+    _ARV.INTS.x0, 0, _ARV.INTS.x1, ARRIVAL_LOBBY_Y, { ceil: ARRIVAL_LOBBY_Y + _ARV.lobbyH }),
+  /* ── the upper walkway ── */
+  rect('arrival-link', _ARV.LINK.x0, _ARV.LINK.z0, _ARV.LINK.x1, _ARV.LINK.z1,
+    ARRIVAL_LOBBY_Y),
+  rect('arrival-slot', _ARV.SLOT.x0, _ARV.SLOT.z0, _ARV.SLOT.x1, _ARV.SLOT.z1,
+    ARRIVAL_LOBBY_Y),
+  rect('arrival-head', _ARV.HEAD.x0, _ARV.HEAD.z0, _ARV.HEAD.x1, _ARV.HEAD.z1,
+    ARRIVAL_LOBBY_Y),
 
   /* ══ THE WESTIN ROOFTOP TERRACE — WELCOME BRUNCH ═══════════════════════════
      WORLD space, and the first curved surfaces in the registry. The deck is the
