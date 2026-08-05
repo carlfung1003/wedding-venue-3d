@@ -3,3 +3,6 @@
 reference/**
 !reference/**/
 !reference/**/*.md
+
+# agent worktrees (isolation copies; never part of the site)
+.claude/
