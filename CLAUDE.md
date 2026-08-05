@@ -214,6 +214,75 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE DETAIL CULL — DONE 2026-08-05 (`js/detailcull.js` + one call in main.js)
+
+The second optimization pass, after the light budget. Same shape: a per-frame
+pass over the scene, no builder changes, one wiring line, a `?dc=off` /
+`G.detailCull.disable()` A/B hatch.
+
+**Measured first, and the measurement CORRECTED the plan.** I profiled and
+found "hide all transparent meshes = +24 fps", and briefed it as an overdraw
+problem. Decomposed in-page it was mostly something else:
+
+| at the brunch view | fps | delta |
+|---|---|---|
+| baseline | 51.4 | |
+| hide 259 transparent PLAIN meshes | 61.5 | +10.1 |
+| + 11 transparent InstancedMeshes | 65.2 | +3.7 |
+| + **the Reflector (ONE mesh)** | 104.1 | **+38.9** |
+
+So the mirror pass is the single most expensive object on the campus — and it
+must never be culled, being the signature shot. Per mesh, transparent costs
+**~6× opaque**, which is what justifies two thresholds.
+
+**Shipped: transparent < 16 px, opaque < 8 px, near-guard 70 m, dead band
+×1.25, 0.30 s hide-dwell (showing is instant).** All chosen off curves, not
+taste. The near-guard was EARNED: at 35 m the signature shot lost the
+prewedding festoon's bulb glows (9 px at 36 m, mean diff 0.0332); at 70 m the
+difference is 0.0000 with identical fps and hidden count. Free.
+
+| moment | off | on |
+|---|---|---|
+| **brunch** | 61.0 | **79.5** — draw calls **1720 → 913** |
+| setup / ceremony / cocktail / dinner / afterparty | at or above the 120 Hz cap | unchanged |
+
+**Only one moment gets faster, and that is the point** — at the other five,
+everything hidden was already outside the frustum (their draw calls do not
+move). The pass costs **0.062–0.073 ms/frame**, which shows up as a small
+regression at moments already running 40–200 % above any display's refresh.
+Priced in deliberately: brunch is index 0 in the timeline and the only view
+with the whole campus on screen.
+
+**Visual equivalence, clock frozen so the A/A control reads exactly 0.000**:
+worst pair **0.0388/255** (the high fly-over — ~30 specks of glow quad),
+brunch 0.0015 with **782 meshes hidden**, and the suite interior, the
+signature lantern shot, BOTH pool-deck mirror views, the atrium and the
+ceremony lawn all **exactly 0.0000**. I compared the brunch pair myself and
+cannot tell them apart. Worst number is 4× under the light budget's shipped
+worst.
+
+⚠️ **The Reflector renders the scene a second time from a different camera**, so
+a decision made for the direct view would otherwise cull things out of the
+reflection. The size test takes the **larger of the two apparent sizes**; both
+mirror views measure 0.0000 as a result.
+
+⚠️ **Never cull a light** — `.visible = false` on a light changes the light
+count and recompiles every material (see the light budget's 570 ms stall).
+Lights are skipped; `programs` stays 114, min = max, across all six moments
+and both lighting states.
+
+**The `.visible` ownership lock is the safety net**: moment groups and the
+night system toggle visibility themselves, so any mesh another writer touches
+is retired from the candidate list permanently. Proof: after 24 moment/night
+switches with the cull live, `disable()` restores a visibility signature over
+all 2,746 objects **bit-identical** to a cold `?dc=off` build driven through
+the same sequence, with `locked = 0`.
+
+**No pop**: 0 flips idle at every moment; 6.4 flips/s walking, 0 meshes
+oscillating. If a future pass needs the CPU back, the lever is a **stride**
+(process half the candidates per frame — the 0.30 s dwell has room), NOT a
+smaller candidate list.
+
 ## THE SECOND POOL'S PAVILION + THE SWIM-UP BAR — DONE 2026-08-04 (`campus.js`)
 
 From `reference/photos/3br-pool-area-view.jpg` (the open flat-roofed pavilion

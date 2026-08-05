@@ -28,6 +28,7 @@ import { initMoments } from './moments.js';
 import { initIntroCam, updateIntroCam, startDive } from './introcam.js';
 import { initUI } from './ui.js';
 import { initLightBudget } from './lightbudget.js';
+import { initDetailCull } from './detailcull.js';
 
 /* ── the loading card ────────────────────────────────────────────────────────
    The card is already on screen (index.html) — this only drives its copy, its
@@ -196,6 +197,22 @@ G.ui.setMode(G.mode);
    `?lb=off` skips it; `__game.G.lightBudget.disable()` is the A/B + escape
    hatch. See js/lightbudget.js. */
 initLightBudget(G);
+
+/* ── the screen-size detail cull ─────────────────────────────────────────────
+   Immediately after the light budget, and unlike it this line has NO ordering
+   constraint against the compileAsync warm-up below: hiding a MESH does not
+   change any material's program cache key (three.js keys on light counts,
+   shadow state, fog and tone mapping, not on how many objects are drawn), and
+   nothing is hidden until the first ticker run anyway — which is after both
+   warm-ups, after the warm-up render, and after world.js's enclave adoption
+   pass has re-parented the moment groups. What DOES matter is that it is here
+   rather than earlier: G.tickers runs in push order, so we make the last
+   visibility decision of the frame, on a camera updateIntroCam/updatePlayer
+   have already finalised, immediately before renderer.render.
+   `?dc=off` skips it; `?dc=16,3` boots other thresholds;
+   `__game.G.detailCull.disable()` is the A/B + escape hatch.
+   See js/detailcull.js. */
+initDetailCull(G);
 
 /* The title card plays over a drone orbit of the whole enclave — the aerial
    Carl photographed. The ceremony dressing is on the lawn below it. */
