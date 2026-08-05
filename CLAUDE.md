@@ -212,6 +212,50 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## CARL'S DECISIONS — 2026-08-04 (read before re-planning anything)
+
+**1 · The clubhouse has exactly ONE lounge, and it is under the check-in
+lobby.** Carl: *"clubhouse only have one lounge, lets build from scratch and
+let go of the old one when you are done, this should be cleaner build"*. The
+entrance pavilion is TWO STOREYS — the 酒廊 at courtyard grade, the check-in
+lobby above it with a cantilevered frameless-glass balcony. Photographed
+proof, and the room's own plaque reads **隐逸居酒廊 / SERENE RETREAT LOUNGE**:
+`reference/photos/clubhouse-lounge-checkin-balcony.jpg` (full res;
+`lounge-checkin-view.jpg` is the rotated reading copy). The old standalone
+酒廊 at enclave-local (−44, −16) is being retired once the new one is walked
+and verified — build first, demolish second, in that order.
+
+**2 · The second pool does NOT get the clubhouse across it — deliberately.**
+`reference/photos/3br-pool-area-view.jpg` (from a 3-BR terrace) shows the real
+venue's relationship: 3-BR rooms → hedge → second pool → the clubhouse lounge
+on the far side, with the venue's own wayfinding sign listing 隐逸居 / 酒廊
+LOUNGE / 大堂 LOBBY / 泳池 POOL as one precinct. **Our model cannot have that
+without re-planning the whole enclave**, because the arrival and the entrance
+pavilion sit at the opposite end from the second pool. Carl was given both
+options and chose to keep the approved layout: *"lets do 1, i want to see how
+it looks first before huge change"*. So:
+- the second pool serves the 3-BR keys and the dinner lawns, and that is
+  correct-by-decision, not an oversight;
+- ⚠️ **do not "fix" this by moving the lounge, the arrival or the pool.** If a
+  future session thinks the aerial disagrees, this is why. Re-opening it is a
+  scoped re-plan Carl must ask for.
+
+**3 · What that photo IS a spec for** — the second-pool AREA itself, which is
+richer than modelled and is queued work: a shallow curved reflecting pool, a
+timber deck, the rectangular swimming pool, an **open flat-roofed pavilion on
+slender columns** standing between them, and clipped hedge blocks throughout.
+The white curved tower on the horizon is the Regent — background, ignore it.
+
+**New reference material imported 2026-08-04** from `~/Desktop/Wedding App/Club
+House Walkthrough/` (masters gitignored, HEIC→JPG via `sips`; ⚠️ they import
+sideways — these were rotated 90° on import, so anything else pulled from that
+folder needs the same treatment): `clubhouse-lounge-checkin-balcony.jpg`,
+`3br-pool-area.jpg`, `clubhouse-outside.jpg`, `clubhouse-main-pool.jpg`,
+`atrium-water-feature.jpg`. **Still unmined in that folder** and worth a brief
+when someone needs them: the presidential-suite interior and 2F-stair stills,
+`club house atrium.jpeg`, `club house birdeye.jpeg`, the per-room villa tour
+videos, and the hotel's own `隐逸居PPT介绍.pdf`.
+
 ## THE CORRECTIONS PASS — DONE 2026-08-03 (same day, after the bar deployed)
 
 Carl walked the deployed build and sent five corrections plus four new phone
