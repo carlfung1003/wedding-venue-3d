@@ -212,6 +212,55 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE 2F FALL HAZARDS — CLOSED 2026-08-04 (`atrium.js` + `suite.js`)
+
+The check-in walkway turned the atrium's upper gallery into the venue's main
+arrival route, and the gallery had **no edge colliders at all** — its
+balustrades were visual only. Measured before the fix: **8 of 10 walks straight
+off the edge**, feet 3.600 → 0.000, a 3.6 m fall onto the courtyard gravel.
+
+Three more of the same family were found and closed in the same pass:
+
+1. ⚠️ **The worst one, and it was not in the brief: ten door gaps let a 2F
+   walker step THROUGH A VISIBLE WALL and fall.** `wallSkips` is per-WALL while
+   the perimeter chain is built once for BOTH storeys, so every GROUND-only
+   opening (eight single-storey keys, the suite portal, the 酒廊 side door) was
+   also a hole at gallery height, where the facade is solid stucco. 10/10 walks
+   went through, feet 3.600 → 0.220. Fixed as the exact mirror of the existing
+   `upperOnly` mechanism: `gapSpec` entries now carry `floors`, and one
+   `wallBack()` helper emits a `[0, H1−.2)` ground wall and a `[H1−.2, ∞)`
+   gallery wall. **This is the general lesson: a per-wall skip list is wrong
+   the moment one chain serves two storeys.**
+2. The exterior stair's 2F landing had no west rail (3 of 6 walks fell).
+3. Four suite 1F furniture chains still lacked `y1` and shadow-blocked the 2F
+   lounge above them — found empirically by enumerating every all-height
+   collider standing inside a `suite-2f-*` walk region, not by eye.
+
+**All guards are DERIVED from the geometry they guard** — the atrium's 715
+circles loop over the same `rails` array `buildBalustrade` draws from (and that
+array now carries a banner saying it is also the collider, so a new rail is
+guarded for free); this also deleted 83 hand-typed circles that were a
+re-typing of two of those runs.
+
+**Verified**: 10/10, 10/10 and 6/6 held after; a 17-probe sweep of the landing
+went from 6 escapes to 0. **The ground floor is provably untouched** — the set
+of colliders active at feet 0.000 is *removed 0, added 0* — plus courtyard laps
+and corridor→door walks at feet 0.000. All six moments clean, all six prompts
+fire, point lights unchanged, and five identical-camera pairs differ only by
+ticker phase. Colliders 10,332 → 11,071.
+
+⚠️ **STILL OPEN, in `campus.js` (that file was owned by another agent):** the
+check-in walkway's south balustrade `bal(SL.x0, SL.z1, LK.x1, SL.z1)` runs at
+z −7.0 **straight across the exterior stair's 2F landing** (x 7.55…9.65,
+z −8.10…−5.55). Two consequences, both reproduced: the route *pool deck →
+exterior stair → clubhouse 2F* is **severed at the last step** (a walker going
+north from the landing moves 0.00 m in 2.6 s), and standing in the z −7.0 ±0.61
+band **ejects you EAST off the landing into a 3.8 m fall**. The fix is the one
+the same function already applies on the west side, where the rail deliberately
+stops short at z −8.1: the south rail should start at `SL.x1`, not `SL.x0`. The
+landing's east edge (x 9.65, z −7.0…−6.05) also wants a guard — that is where
+the ejection lands you.
+
 ## THE CHECK-IN LOBBY + THE 酒廊 — DONE 2026-08-04
 
 Carl: the entrance *"is currently an open tunnel; it should be a checkin area…

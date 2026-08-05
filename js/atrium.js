@@ -801,9 +801,14 @@ export function buildAtrium(G) {
      its two originals — the portal to the presidential suite and the side door
      to the 酒廊 — and gains one per guest key on that face. The 2F only ever
      carries the two-storey keys' upper doors. */
+  /* `floors` is the number of STOREYS this opening is cut at, and the collider
+     block below reads it: an opening that exists on one floor only must have
+     the OTHER floor's wall put back with a height range, or the chain — which
+     is built once for the whole two-storey wall — leaves a hole where the
+     facade is solid. See `upperOnly` / `lowerOnly` there. */
   const gapSpec = [[[], []], [[], []], [[], []], [[], []]];   // [wall][floor]
-  gapSpec[0][0].push({ tag: 'portal', span: [PORTAL.x0 - A.cx, PORTAL.x1 - A.cx] });
-  gapSpec[3][0].push({ tag: 'lounge', span: [-(LOUNGE_DOOR.z1 - A.cz), -(LOUNGE_DOOR.z0 - A.cz)] });
+  gapSpec[0][0].push({ tag: 'portal', floors: 1, span: [PORTAL.x0 - A.cx, PORTAL.x1 - A.cx] });
+  gapSpec[3][0].push({ tag: 'lounge', floors: 1, span: [-(LOUNGE_DOOR.z1 - A.cz), -(LOUNGE_DOOR.z0 - A.cz)] });
   /* ── THE CHECK-IN LOBBY'S DOOR ONTO THE UPPER GALLERY (2026-08-04) ────────
      The clubhouse's entrance is on the 2F now and Carl asked for it to reach
      "the 2nd floor of the atrium to other rooms". This is that opening: a
@@ -819,8 +824,10 @@ export function buildAtrium(G) {
       ARRIVAL_ATRIUM_DOOR.along - A.cx + DOOR_EPS] });
   for (const d of ROOM_DOORS) {
     const w = FACE_WALL[d.face], lx = wallLocal(w, d.along);
-    for (let f = 0; f < Math.min(d.floors, A.floors); f++) {
-      gapSpec[w][f].push({ tag: 'room', no: d.no, span: [lx - DOOR_EPS, lx + DOOR_EPS] });
+    const nf = Math.min(d.floors, A.floors);
+    for (let f = 0; f < nf; f++) {
+      gapSpec[w][f].push({ tag: 'room', no: d.no, floors: nf,
+        span: [lx - DOOR_EPS, lx + DOOR_EPS] });
     }
   }
 
@@ -831,6 +838,15 @@ export function buildAtrium(G) {
      separately and re-emitted below as a chain that blocks BELOW the gallery
      and stops existing at it. */
   const upperOnly = [];
+  /* …and the MIRROR IMAGE, found 2026-08-04 by walking the upper gallery: the
+     same "one chain, two storeys" fact means a GROUND-only opening leaves the
+     chain open at gallery height too, where the facade is solid. Eight of the
+     ten guest keys are single-storey, and the suite portal and the 酒廊 side
+     door are ground-only as well — ten places where a walker on the 2F gallery
+     stepped THROUGH a wall he could see and fell into the room below (measured:
+     feet 3.600 → 0.220 at every one of them). Collected here and re-emitted as
+     a chain that blocks only AT gallery level. */
+  const lowerOnly = [];
   /* the along-wall spans the collider chain must NOT seal, in WORLD terms
      (x for the south/north walls, z for the west/east ones) */
   const wallSkips = [[], [], [], []];
@@ -844,10 +860,15 @@ export function buildAtrium(G) {
         const hole = cut[k];
         if (!hole) continue;
         const along = w < 2 ? [hole.x0, hole.x1] : [hole.z0, hole.z1];
+        const skip = { lo: along[0] - SKIP_PAD, hi: along[1] + SKIP_PAD };
         if (spec[k].tag === 'link') {
           holes.link = hole;
-          upperOnly.push({ w, lo: along[0] - SKIP_PAD, hi: along[1] + SKIP_PAD });
-        } else wallSkips[w].push({ lo: along[0] - SKIP_PAD, hi: along[1] + SKIP_PAD });
+          upperOnly.push({ w, ...skip });
+        } else {
+          wallSkips[w].push(skip);
+          /* cut at f = 0 and NOT at f = 1 → the gallery wall above it is solid */
+          if (f === 0 && spec[k].floors < A.floors) lowerOnly.push({ w, ...skip });
+        }
         if (spec[k].tag === 'portal') holes.south = hole;
         else if (spec[k].tag === 'lounge') holes.east = hole;
         else if (spec[k].tag === 'link') buildLinkDoor(root, M, E, hole, f * H1);
@@ -875,6 +896,10 @@ export function buildAtrium(G) {
 
   // NB: the west court edge between CZ0 and WELL.z1 is the stairwell void — the
   // rail steps back to the well's outer edge there instead.
+  // ⚠ THIS ARRAY IS ALSO THE COLLIDER. The block at the bottom of buildAtrium
+  // walks the same list to lay a y0-ranged guard along every run, so a rail
+  // added or moved here is guarded automatically and can never drift from its
+  // own collider. Do NOT hand-type a chain for one of these somewhere else.
   const rails = [
     [CX0, CZ1, CX1, CZ1],                  // south court edge
     [CX1, CZ1, CX1, CZ0],                  // east court edge
@@ -948,13 +973,21 @@ export function buildAtrium(G) {
   colLine(C, X0, Z0, X0, Z1, CR, skipper(2));                        // west
   colLine(C, X1, Z0, X1, Z1, CR, skipper(3));                        // east
   /* the 2F-only openings get their ground-floor wall back, with a y1 that
-     stops it existing at gallery level — the wall IS solid down there. */
-  for (const u of upperOnly) {
-    const before2 = C.length;
-    if (u.w < 2) colLine(C, u.lo + SKIP_PAD, u.w ? Z0 : Z1, u.hi - SKIP_PAD, u.w ? Z0 : Z1, CR);
-    else colLine(C, u.w === 2 ? X0 : X1, u.lo + SKIP_PAD, u.w === 2 ? X0 : X1, u.hi - SKIP_PAD, CR);
-    for (let i = before2; i < C.length; i++) C[i].y1 = H1 - .2;
-  }
+     stops it existing at gallery level — the wall IS solid down there.
+     …and the GROUND-only ones get their gallery wall back, with the matching
+     y0. The two halves tile the whole height: [0, H1−.2) is the ground wall,
+     [H1−.2, ∞) is the gallery one, so exactly one of them is in force at any
+     feet height and neither can ever seal a real doorway. */
+  const wallBack = (list, key, y) => {
+    for (const u of list) {
+      const before2 = C.length;
+      if (u.w < 2) colLine(C, u.lo + SKIP_PAD, u.w ? Z0 : Z1, u.hi - SKIP_PAD, u.w ? Z0 : Z1, CR);
+      else colLine(C, u.w === 2 ? X0 : X1, u.lo + SKIP_PAD, u.w === 2 ? X0 : X1, u.hi - SKIP_PAD, CR);
+      for (let i = before2; i < C.length; i++) C[i][key] = y;
+    }
+  };
+  wallBack(upperOnly, 'y1', H1 - .2);
+  wallBack(lowerOnly, 'y0', H1 - .2);
   // columns
   for (const [x, z] of colPts) C.push({ x, z, r: A.colR + .18 });
   // raised pond edging — a modest r keeps the gravel walk BETWEEN the two
@@ -982,6 +1015,35 @@ export function buildAtrium(G) {
   }
   // planters
   for (const p of planted) C.push(p);
+  /* ── THE UPPER GALLERY'S BALUSTRADES, AS COLLIDERS (2026-08-04) ──────────
+     `rails` above is the list buildBalustrade draws the 2F glass and copper
+     handrail from — every open edge of the gallery ring: the four court edges
+     and the stairwell void's two. It was VISUAL ONLY. A walker on the upper
+     gallery walked straight through the glass and fell 3.6 m into the
+     courtyard; measured before this chain, 8 of 10 scripted walks straight at
+     the court edge ended with feet 0.000 in the gravel. It was obscure while
+     the gallery was a dead end and became a live hazard the day the check-in
+     walkway started routing arriving guests along it.
+
+     ONE loop over the SAME array, so the guard cannot drift from the rail it
+     guards — add a rail up there and it is guarded for free.
+
+       r .15   the balustrade is 0.05 of glass in slim frames; with PLAYER_R
+               the body stops 0.15 m short of the line, which is what leaning
+               on a handrail feels like, and stricter than the geometry.
+       y0      H1 − .15 = 3.45: the deck is at H1 (3.6) so anyone standing on
+               it is caught, and NOTHING at grade is — the courtyard below
+               holds both mirror ponds, the cloud topiary and the campus's
+               most-walked ground routes, and it must stay open end to end.
+               (Half of this chain — the stairwell void's west edge and end
+               cap — used to be two hand-typed loops in the stair block below
+               at this same 3.45; they are these two `rails` entries and were
+               folded in here so there is one description, not two.) */
+  {
+    const b = C.length;
+    for (const [ax, az, bx, bz] of rails) colLine(C, ax, az, bx, bz, .15);
+    for (let i = b; i < C.length; i++) C[i].y0 = H1 - .15;
+  }
   /* ── the stair's guards ─────────────────────────────────────────────────
      REWORKED 2026-08-04. The old guard was ONE y-agnostic chain of r .95
      circles laid up the flight's own CENTRELINE (x −8, zFoot → zFoot−4.1):
@@ -1005,10 +1067,11 @@ export function buildAtrium(G) {
        · a CROSS chain under the flight at z −48.8 (y1 2.0): stops grade
          walkers walking south INTO the descending soffit; under-crossing
          stays free north of it, where headroom is ≥ 2.45.
-       · the WELL's west edge and south end-cap at y0 3.45: the 2F glass
-         rails around the stairwell void. The old centreline chain guarded
-         these incidentally (it blocked at every height); these two make that
-         explicit without touching anyone below the deck. */
+       · ~~the WELL's west edge and south end-cap at y0 3.45~~ — those two
+         hand-typed loops MOVED into the balustrade block above on
+         2026-08-04. They were `rails[5]` and `rails[6]` re-typed, at the
+         same r .15 and the same 3.45, and now come out of `rails` with the
+         other five. Nothing about their behaviour changed. */
   {
     const rampY = z => (STAIR.zFoot - z) * (H1 / (STAIR.risers * STAIR.going));
     const glassX = STAIR.x + STAIR.w / 2 + .12;            // −7.08, the balustrade line
@@ -1019,12 +1082,6 @@ export function buildAtrium(G) {
     }
     for (let x = STAIR.x - .7; x <= STAIR.x + .7 + 1e-6; x += .175) {
       C.push({ x, z: -48.8, r: .2, y1: 2.0 });
-    }
-    for (let z = WELL.z0; z <= WELL.z1 + 1e-6; z += .13) {
-      C.push({ x: WELL.x0, z, r: .15, y0: 3.45 });
-    }
-    for (let x = WELL.x0; x <= WELL.x1 + 1e-6; x += .13) {
-      C.push({ x, z: WELL.z1, r: .15, y0: 3.45 });
     }
   }
 

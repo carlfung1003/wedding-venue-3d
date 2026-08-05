@@ -104,7 +104,9 @@ const EWT = 0.36;                   // exterior wall thickness
    step, comfortably inside CFG.STEP_UP, which is the whole reason the two
    levels were allowed to differ. */
 const LINK_DOOR = SITE.ARRIVAL.SUITE_DOOR;
-void ARRIVAL_LOBBY_Y;               // documented above; the step is by design
+/* ARRIVAL_LOBBY_Y is the walkway's own level and is read for real at the
+   bottom of this file — the exterior stair's landing guard has to catch a
+   walker standing on the walkway (3.60) as well as one on the landing (3.80). */
 
 /* --- the annex: spa + corridor. SITE.SUITE.spa spans (mirrored frame) x 7..14,
    which laps 1 m inside the envelope; we clip its inner face to the envelope
@@ -247,6 +249,21 @@ function colRect(x0, z0, x1, z1, r, yr) {
   colLine(x1, z0, x1, z1, r, 0, yr);
   colLine(x1, z1, x0, z1, r, 0, yr);
   colLine(x0, z1, x0, z0, r, 0, yr);
+}
+/** ⚠ A chain authored in SITE coordinates, NOT in this file's mirrored frame.
+ *  Everything above reflects its X through mx() on the way out, because it is
+ *  authored from the (reversed) interior brief — see §1a. A few things this
+ *  file has to guard are stated in site.js in ALREADY-CORRECTED SITE
+ *  coordinates (SITE.EXT_STAIR), and reflecting one of those a second time
+ *  would put it on the far side of the building. This pushes straight through.
+ *  Use it ONLY for geometry read out of SITE.*; use colLine for everything
+ *  authored here. */
+function colSiteLine(x1, z1, x2, z2, r, yr) {
+  const dx = x2 - x1, dz = z2 - z1;
+  const n = Math.max(1, Math.ceil(Math.hypot(dx, dz) / (r * 0.9)));
+  for (let i = 0; i <= n; i++) {
+    COL.push({ x: x1 + dx * i / n, z: z1 + dz * i / n, r, ...(yr || {}) });
+  }
 }
 
 /* ── day / night registry ──────────────────────────────────────────────
@@ -1495,19 +1512,31 @@ function buildColliders() {
   /* ── south face: corner piers + the CLOSED leaves only ── */
   colLine(X0, ZS - .2, X0 + 1.0, ZS - .2, WR);
   colLine(X1 - 1.0, ZS - .2, X1, ZS - .2, WR);
+  /* ⚠ The CLOSED leaves keep an all-heights chain deliberately: the 2F is
+     glazed on this plane too, so that run is the 2F glazing's guard as well. */
   colLine(GW.x0, ZS, GW.closedX1, ZS, .26);          // closed bi-fold leaves
-  colRect(-3.95, ZS - .95, -3.3, ZS - .35, .3);      // stone pier (moves with closedX1)
-  colRect(6.15, ZS - 1.0, 7.4, ZS, .26);             // the folded leaf stack
+  /* …the pier and the leaf stack do NOT. Both are 1F-only solids under the 2F
+     slab — the pier is a slab(0 … H1) and the stack is 8 leaves of GW.leafH
+     (2.8) — and without y1 each stood invisibly in the 2F rooms above. The
+     leaf stack is CLAUDE.md's "the folded-leaf stack's colRect bleeds into the
+     2F hall's SW corner (stall at lx −5.54)"; this is the fix for it. */
+  colRect(-3.95, ZS - .95, -3.3, ZS - .35, .3, F1);  // stone pier (moves with closedX1)
+  colRect(6.15, ZS - 1.0, 7.4, ZS, .26, F1);         // the folded leaf stack
   /* THIS FILE'S FRAME x −3.2 … 6.15 at z −13.5: intentionally nothing — after
      mx() that is SITE-space x −6.15 … 3.2, the walk-in / fly-in span, with the
      PREWEDDING spawn (SITE x = 1) 1.9 m inside it. Never close this. */
 
-  /* ── pantry ── */
-  colLine(X0, P_ZS, -5.55, P_ZS, .28);               // red lattice screen
+  /* ── pantry ──
+     ⚠ y1 on the screen and the column too (2026-08-04): the lattice screen is
+     0 … 2.45 and the stone column is a slab(0 … H1). Both are 1F solids under
+     the 2F lounge and both were registered at every height. The partition wall
+     beside them keeps its all-heights chain — it is a WALL, and the 2F above it
+     is a room, not a void. */
+  colLine(X0, P_ZS, -5.55, P_ZS, .28, 0, F1);        // red lattice screen
   colLine(P_X1, ZN, P_X1, -24.6, WR);                // partition to dining
   colRect(-7.3, -24.75, -5.3, -23.85, .34, F1);      // island
   colLine(X0, nz + .62, -5.2, nz + .62, .34, 0, F1);  // back counter
-  colRect(-5.2, -24.05, -4.35, -23.2, .32);          // grey stone column
+  colRect(-5.2, -24.05, -4.35, -23.2, .32, F1);      // grey stone column
 
   /* ── the stair mass ─────────────────────────────────────────────────────────
      REWORKED 2026-08-02. site.js registers this staircase as three walkable
@@ -1574,8 +1603,12 @@ function buildColliders() {
      the clubhouse's upper walkway opens — the walker got through the wall and
      was stopped 0.4 m later by a sideboard one storey below him. (CLAUDE.md's
      backlog already knew: "1F furniture colliders carry no y1 and shadow-block
-     the 2F lounge floor above them". This is the one that was in the way; the
-     rest are still open.) */
+     the 2F lounge floor above them". This was the one in the way; the other
+     FOUR — the stone pier, the folded leaf stack, the pantry's lattice screen
+     and its stone column — were closed on 2026-08-04, and with them every
+     1F-only solid standing under a suite-2f-* walk region now carries y1.
+     The spa/corridor furniture below deliberately does not: the annex has no
+     storey over it, so a height window there would guard nothing.) */
   colLine(wx + .6, -20.7, wx + .6, -18.3, .3, 0, F1);          // sideboard
 
   /* ── east annex ── */
@@ -1590,6 +1623,38 @@ function buildColliders() {
   colRect(COR_X1 + .1, -24.3, COR_X1 + 1.0, -22.5, .3);         // spa sofa
   colLine(ANX_X0 + .1, -25.9, ANX_X0 + .9, -25.9, .3);          // corridor daybed
   colLine(ANX_X0 + .1, -23.9, ANX_X0 + .9, -23.9, .3);
+
+  /* ══ THE EXTERIOR STAIR'S 2F LANDING — ITS WEST EDGE (2026-08-04) ═════════
+     campus.js builds the flight up this building's east flank and guards it
+     with two balustrade chains at x 8.0 / 10.0 — but only over the FLIGHT
+     (z −0.35 … −6.05). The LANDING at the top runs on to z −8.10 and its west
+     edge, x 7.55, had nothing: a 3.80 m drop onto the pool deck. It was a dead
+     end until 2026-08-04, when SITE.EXT_STAIR moved south and its landing
+     became the junction between the pool deck and the clubhouse's upper
+     walkway; the walkway's own west rail (campus.js `bal(SL.x0, −13.5,
+     SL.x0, −8.1)`) deliberately stops where the landing begins, so this is the
+     one open metre on that whole edge. Measured before this chain: from
+     (9.2, −6.9), walk west → feet 3.800 → 0.000.
+
+     ⚠ Derived from SITE.EXT_STAIR by the SAME arithmetic site.js uses for
+     `rect('ext-stair-landing', …)` — the run, the top tread, the landing's
+     back-set centre. Nothing is typed; move the stair and the guard follows.
+     ⚠ SITE frame, so it goes through colSiteLine, NOT colLine (see §1a).
+       r .15  — a glass balustrade; with PLAYER_R the body stops 0.15 m short.
+       y0     — ARRIVAL_LOBBY_Y − .15 = 3.45, low enough to catch a walker on
+                the 3.60 walkway as well as one on the 3.80 landing, and far
+                above the pool deck this edge overhangs. It must NOT exist at
+                grade: the deck under it is the AFTERPARTY's ground. */
+  {
+    const E = SITE.EXT_STAIR;
+    const run = E.steps * E.tread;                       //  5.70
+    const zFoot = E.z + run / 2;                         // −0.35, bottom
+    const zTop = zFoot - run + E.tread;                  // −5.75, top tread
+    const lx = E.x - Math.sign(E.x) * E.landingBack;     //  8.60, landing centre
+    const wEdge = lx - E.landingW / 2;                   //  7.55, its WEST edge
+    colSiteLine(wEdge, zTop - E.landingD - .35, wEdge, zTop + .2, .15,
+      { y0: ARRIVAL_LOBBY_Y - .15 });
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
