@@ -27,6 +27,7 @@ import { initTouch } from './touch.js';
 import { initMoments } from './moments.js';
 import { initIntroCam, updateIntroCam, startDive } from './introcam.js';
 import { initUI } from './ui.js';
+import { initLightBudget } from './lightbudget.js';
 
 /* ── the loading card ────────────────────────────────────────────────────────
    The card is already on screen (index.html) — this only drives its copy, its
@@ -176,6 +177,25 @@ if (touchMode) initTouch(G);
 initMoments(G);
 G.ui.buildChips(CFG.MOMENTS);
 G.ui.setMode(G.mode);
+
+/* ── the point-light budget ──────────────────────────────────────────────────
+   THIS LINE'S POSITION IS THE CONTRACT. It must come:
+     · AFTER buildWorld and initMoments, so all 31 PointLights exist (the last
+       two are the Wedding Dinner's) and moments.js's dinner-intensity ticker is
+       registered before ours — G.tickers runs in push order and the budget has
+       to read this frame's intensities, not last frame's;
+     · BEFORE the two compileAsync calls below, and this is the load-bearing
+       half. The warm-up compiles every material on the campus for BOTH lighting
+       states, and three.js bakes the visible light count into every program's
+       cache key. Init after the warm-up and the count changes 31 → 12 on the
+       first budgeted frame, which recompiles the entire venue mid-dive — the
+       exact multi-second stall the warm-up exists to prevent.
+   The enclave adoption pass (world.js, first frame of updateWorld) re-parents
+   the dinner moment AFTER this, and that is fine: the budget re-reads every
+   light's matrixWorld every frame, so a change of parent is invisible to it.
+   `?lb=off` skips it; `__game.G.lightBudget.disable()` is the A/B + escape
+   hatch. See js/lightbudget.js. */
+initLightBudget(G);
 
 /* The title card plays over a drone orbit of the whole enclave — the aerial
    Carl photographed. The ceremony dressing is on the lawn below it. */

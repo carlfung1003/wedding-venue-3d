@@ -212,6 +212,68 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE LIGHT BUDGET — DONE 2026-08-04 (the venue is 2–5× faster)
+
+`js/lightbudget.js` (new, self-contained) + ONE call in `main.js`. No builder
+changed; `world.js` untouched.
+
+**The problem, measured before anything was written.** Three.js's forward
+renderer evaluates EVERY visible point light on EVERY lit fragment. The campus
+carried **31 point lights with ranges of 7–34 m spread over ~500 m** — the
+hotel's lamps were being shaded into every pixel of the suite. Profiling put
+this beyond doubt: halving the lights nearly doubled the frame rate, while
+shadows cost 2.8 fps and per-frame CPU (tickers, matrix updates) cost nothing.
+
+**The design.** The 31 lights stay exactly where they are but are set
+`.visible = false` permanently — they become pure data carriers, so every
+builder's day/night fan-out and every moment-group visibility rule keeps
+working untouched. A pool of **12 real point lights lives at the scene root**,
+always visible, and each frame the budget assigns the most relevant logical
+lights into those slots: influence spheres frustum-culled first, then scored
+`intensity / dist² × clip²`, with 0.15 margin + 0.35 s dwell hysteresis.
+
+| moment | before | after |
+|---|---|---|
+| Welcome Brunch | 19–34 | **61.5** |
+| Prewedding (night) | 16–31 | **84** |
+| Ceremony / Cocktail / Dinner | 29–75 | **120 (vsync cap)** |
+| After Party | 31–81 | **83** |
+
+**Two findings worth keeping:**
+- **It fixed a pre-existing stall nobody had diagnosed.** The Wedding Dinner's
+  two point lights took the visible count 29 → 31, recompiling every material
+  on the campus: a **570 ms blocked frame** on the first switch to that moment.
+  With a constant count it is **8–31 ms**. Max frame during the opening dive
+  went 175 ms → 33 ms.
+- **Inverse-square beat screen-area scoring, because occlusion is the term
+  none of them can see** and distance is the cheapest proxy for it. Screen-area
+  scoring gave three slots to the atrium's gallery lamps at 55 m — lighting a
+  gallery the viewer was standing in front of — and dropped a 20 m lamp whose
+  entire lit patch was on screen.
+
+**Verified**: 16 identical-camera pairs with animation frozen (the A/A control
+is exactly 0.000, so every number is lighting and not the clock) — worst mean
+absolute difference **0.163/255**, nothing above 0.6 % of pixels differing by
+more than 8/255. Program count **114, min = max**, over a 2,786-sample sweep of
+all six moments, both lighting states and a fly-through. Flicker: 0.25 material
+evictions/sec, zero oscillations, and a 360° rotation probe shows the
+frame-to-frame difference series is within 0.35 % of the un-budgeted one.
+
+⚠️ **N = 12 is the measured knee, not a guess** — 8→12 costs 3 % at the worst
+moment, 12→16 costs 22 %, 12→20 costs 36 %; and N = 8 visibly dims the suite,
+which has 8 lights in one room. Empty slots are NOT free (the point-light loop
+has no early-out), so do not raise N casually.
+
+**A/B it**: `?lb=off` or `?lb=<n>` on the URL (cold boot, no recompile), or
+`__game.G.lightBudget.disable()` / `.stats()` / `.setScore(...)` at runtime.
+
+**Known approximations, documented in the file**: the Reflector's second pass
+reuses the MAIN camera's slot assignment (measured unobservable at the two
+viewpoints where the mirror fills frame, but it is real); the budget cannot see
+occlusion; and the light-count recompile is now structurally prevented for
+POINT lights only — a future builder toggling a Spot/Directional `.visible`
+re-introduces that class of bug.
+
 ## CARL'S DECISIONS — 2026-08-04 (read before re-planning anything)
 
 **1 · The clubhouse has exactly ONE lounge, and it is under the check-in
