@@ -58,6 +58,32 @@ const UNIT_FIN = (() => {
   g.translate(0, 0, -.5);
   return g;
 })();
+/* ── the live-band stage's canopy panel ──────────────────────────────────────
+   reference/photos/rooftop-bar-live-band.webp — the alcove over the band is a
+   fan of big white perforated panels, each an elongated shield that comes to a
+   POINT at the BOTTOM, and each outlined in a continuous line of warm gold LED.
+   Same one-geometry-many-instances trick as UNIT_FIN, but two differences that
+   matter:
+     · the apex is DOWN (−Y) IN THE GEOMETRY ITSELF, because these hang rather
+       than stand — so an instance needs NO z-flip. (UNIT_FIN's apex is up; copy
+       its mat4 call and every panel points at the sky, which is a lantern
+       instead of a canopy.);
+     · the UVs are remapped to 0…1. ExtrudeGeometry takes a Shape's UVs straight
+       off its own x/y, so a shape drawn about the origin yields uv −.5…+.5 —
+       which under RepeatWrapping lands the texture's EDGE down the panel's
+       MIDDLE. The gold outline is drawn at the texture's border, so without
+       this remap every panel would wear a gold CROSS instead of a frame. */
+const UNIT_SHIELD = (() => {
+  const s = new THREE.Shape();
+  s.moveTo(-.5, .5); s.lineTo(.5, .5); s.lineTo(.5, -.18);
+  s.lineTo(0, -.5); s.lineTo(-.5, -.18); s.closePath();
+  const g = new THREE.ExtrudeGeometry(s, { depth: 1, bevelEnabled: false, curveSegments: 1 });
+  g.translate(0, 0, -.5);
+  const uv = g.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) + .5, uv.getY(i) + .5);
+  uv.needsUpdate = true;
+  return g;
+})();
 const WHITE = new THREE.Color(0xffffff);
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -883,6 +909,66 @@ function texBarCaustic() {
   });
 }
 
+/* ── THE LIVE-BAND STAGE's canopy panels, three maps ────────────────────────
+   reference/photos/rooftop-bar-live-band.webp. Each panel is a white sheet
+   punched with a CHEVRON lattice — rows of small triangles, alternating apex-up
+   and apex-down — and framed by a continuous warm-gold LED line.
+
+   ⚠ The perforation is drawn SYMMETRIC about the horizontal centre line on
+   purpose. CanvasTexture.flipY is true, so a directional row-wise drawing comes
+   out upside down (the flipRows trap that cost the hotel facade a pass); an
+   up/down triangle lattice is its own mirror image, so there is nothing to get
+   wrong. The gold frame is symmetric for the same reason.
+
+   Returns [colour, alpha, goldEdge]: the alpha map cuts the punched triangles
+   AND keeps a solid margin all round (the LED has to have something to sit on);
+   the gold edge is the emissiveMap. */
+function texStagePanelPair() {
+  const M = .085;                                    // solid margin, as a fraction
+  const holes = (g, w, h, fill) => {
+    const rows = 9, cols = 5;
+    const x0 = w * M, y0 = h * M, ww = w * (1 - 2 * M), hh = h * (1 - 2 * M);
+    const cw = ww / cols, ch = hh / rows;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      /* two triangles per cell, one apex-up one apex-down → the pattern is its
+         own vertical mirror, so flipY cannot invert it */
+      for (const up of [true, false]) {
+        const cx = x0 + c * cw + cw * (up ? .27 : .73), cy = y0 + r * ch + ch / 2;
+        const a = cw * .21, b = ch * .30;
+        g.fillStyle = fill;
+        g.beginPath();
+        if (up) { g.moveTo(cx, cy - b); g.lineTo(cx + a, cy + b); g.lineTo(cx - a, cy + b); }
+        else { g.moveTo(cx, cy + b); g.lineTo(cx + a, cy - b); g.lineTo(cx - a, cy - b); }
+        g.closePath(); g.fill();
+      }
+    }
+  };
+  const col = tex(128, 256, (g, w, h) => {
+    g.fillStyle = '#f7f3ea'; g.fillRect(0, 0, w, h);
+    holes(g, w, h, 'rgba(96,98,104,.62)');           // the punched holes read dark
+    g.strokeStyle = 'rgba(216,206,188,.9)'; g.lineWidth = 3;
+    g.strokeRect(w * .05, h * .028, w * .90, h * .944);
+  });
+  const alp = tex(128, 256, (g, w, h) => {
+    g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+    holes(g, w, h, '#000');                          // black = cut away
+  });
+  alp.colorSpace = THREE.NoColorSpace;
+  /* the LED: a warm-gold band inset from the panel's border, everything else
+     black, so only the outline lights */
+  const edge = tex(128, 256, (g, w, h) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+    const grad = ['rgba(255,150,20,.35)', 'rgba(255,196,74,1)', 'rgba(255,232,168,1)'];
+    const insets = [[.012, 5.5], [.030, 3.0], [.044, 1.4]];
+    for (let i = 0; i < 3; i++) {
+      const [ins, lw] = insets[i];
+      g.strokeStyle = grad[i]; g.lineWidth = lw * (h / 256);
+      g.strokeRect(w * (ins + .02), h * ins, w * (1 - 2 * (ins + .02)), h * (1 - 2 * ins));
+    }
+  });
+  return [col, alp, edge];
+}
+
 /* the star-points in the pool floor at night (the second half of the night
    photograph: the water is speckled with pin-lights). Alpha-tested dots on a
    sheet 20 mm over the basin, hidden entirely by day. */
@@ -913,6 +999,7 @@ function makeMaterials() {
   const hotelScreen = texHotelScreen();
   const lattice = texLatticePair(), screenGlow = texScreenGlow(), stars = texStarField();
   const barPerf = texBarPerf(), barCaustic = texBarCaustic();
+  const stagePanel = texStagePanelPair();
 
   const m = {
     stucco: tint(new THREE.MeshStandardMaterial({ map: stucco, roughness: .93 }), 0x7e8798),
@@ -1104,6 +1191,30 @@ function makeMaterials() {
       map: retile(deck, 2.2, 1), color: 0x6a4c33, roughness: .84 }), 0x8a879a),
     /* woven/rattan-toned dining chairs (white cushions ride MAT.white) */
     rattan: tint(new THREE.MeshStandardMaterial({ color: 0xb08a5c, roughness: .93 }), 0x8a8194),
+    /* ── the live-band stage's canopy panels ────────────────────────────────
+       White perforated shields outlined in warm gold LED. alphaTest (not
+       transparent) for exactly the reasons MAT.rtScreen is: the punched
+       triangles must be real holes that sort correctly against a dusk sky, and
+       one opaque draw call beats a blended pass over 20 panels.
+       ⚠ The gold is an EMISSIVE MAP, not a light. The campus's point-light
+       budget is capped (js/lightbudget.js) and two extra rooftop lights were
+       measured at 13–18 % of the frame rate in EVERY view; this whole alcove
+       costs zero lights. Its day intensity is deliberately non-zero — the
+       reference is dusk and the LED is already burning in it. */
+    rtStagePanel: new THREE.MeshStandardMaterial({
+      map: stagePanel[0], alphaMap: stagePanel[1], alphaTest: .5,
+      color: 0xffffff, roughness: .78, metalness: .03, side: THREE.DoubleSide,
+      emissive: 0xffb347, emissiveMap: stagePanel[2], emissiveIntensity: 0,
+    }),
+    /* the dense green living wall behind the band. Deeper and flatter than the
+       campus hedge so it reads as a planted WALL rather than clipped topiary. */
+    living: tint(new THREE.MeshStandardMaterial({
+      color: 0x2a5228, roughness: 1, flatShading: true }), 0x4e5d78),
+    /* the back-bar's bottles. ⚠ WHITE base on purpose — per-instance tints ride
+       this bucket and a dark base crushes them all to black (the cocktail-bar
+       gotcha, 2026-08-03). */
+    bottle: tint(new THREE.MeshStandardMaterial({
+      color: 0xffffff, roughness: .16, metalness: .06 }), 0x8b93a4),
 
     /* ── THE ARRIVAL PAVILION (entrance-arrival-brief.md) ───────────────────
        Dark corten AS FILMED — Carl settled the palette conflict: this volume
@@ -1165,6 +1276,9 @@ function makeMaterials() {
   tint(m.rtScreen, 0xa9b6cc);
   glow(m.rtBarPanel, 0, 1.8);
   tint(m.rtBarPanel, 0xa9b6cc);
+  /* the stage LED burns at dusk in the reference, so it is lit by day too */
+  glow(m.rtStagePanel, .85, 3.6);
+  tint(m.rtStagePanel, 0xb3bccc);
   glow(m.rtStars, 0, 3.4);
   glow(m.rtCove, .04, 3.0);
   glow(m.rtCoveWarm, .04, 2.6);
@@ -3574,9 +3688,22 @@ function loungerRow(R) {
    stands beds on and roofColliders() rings, so a bed and its collider can
    never disagree. Pool half only (the bar half's inland elevation is the bar
    volume, not cabanas), dodging the south head-house. */
+/* ⚠ 2026-08-04, the SHORT pool: the beds run SOUTH of the water now, not along
+   it. Two reasons and both are evidence:
+     · reference/photos/rooftop-pool-bar-daylight.webp puts the screen wall and
+       the cabanas to the LEFT of the pool — which is SOUTH, because θ > C is
+       north and standing on the terrace facing the sea puts north on your
+       right. The photograph is the plan.
+     · the pool room's inland teak is 5.1 m deep and now holds the eight brunch
+       four-tops at r 99.0. A daybed is 2.8 m deep at r 100.9; the two rows used
+       to interpenetrate (they did on the old long pool too, unnoticed, because
+       the tables and the beds shared the same 90 m half).
+   The run therefore ends 2.2 m short of the water and carries on south for the
+   ~69 m of deck the short pool released — which is exactly what the photograph
+   shows past the frame's left edge. */
 function daybedRow(R) {
   const C = Math.PI / 2, out = [];
-  const hi = R.poolTc + R.poolTh - .038;      // clear of the cross-walk's edge
+  const hi = R.poolTc - R.poolTh - .022;      // 2.2 m clear of the pool's south end
   for (let th = C - R.arcHalf + .030; th <= hi + 1e-9; th += .0486) {
     if (Math.abs(Math.abs(th - C) - R.coreArcHalf) < .045) continue;
     out.push(th);
@@ -3584,47 +3711,106 @@ function daybedRow(R) {
   return out;
 }
 
-/* ══ THE BAR ROOM's plan, in ONE place ══════════════════════════════════════
+/* ══ THE BAR ZONE + THE DINING TERRACE, in ONE place ════════════════════════
    buildHotelRoof() builds it and roofColliders() rings it from the SAME
    object — the lockstep rule that already governs loungerRow/daybedRow.
-   Everything here is derived from the room's own bounds (barTc ± barTh), the
-   bridge bearing and the head-house bearing; no typed fraction of the arc.
+   Everything here is derived from the rooms' own bounds (barTc ± barTh,
+   dineTc ± dineTh), the bridge bearing and the head-house bearing; no typed
+   fraction of the arc, and every LENGTH is quoted in metres at its own radius.
 
-   The plan, off reference/photos/rooftop-bar-night.png + rooftop-bar-dusk.png:
-     · segs    — the elevated caustic-clad bar volume, on the back band around
-                 the old screen radius. TWO runs, because the link bridge lands
-                 between them (the gap is the way in from the stair tower) and
-                 the run stops short of the north head-house.
-     · counter — the drinks counter at deck level in front of the long run
-                 (the old central pavilion's job, moved inside the room; the
-                 pavilion straddling the cross-walk is gone).
-     · canopy  — the cantilevered planted canopy on ONE flared pedestal,
-                 placed on the bridge bearing so arriving guests walk under it.
-     · stage   — the live-band stage (Carl's ask), against the back band in
-                 the north corner past the head-house.
-     · tables  — two staggered arcs of dining tables (round + square) between
-                 the inner rail and the counter.
-     · beds    — freestanding planting beds along the inner edge.            */
+   ⚠ REPLANNED 2026-08-04 for Carl's two corrections — *"the bar is very close
+   by the pool"* and *"the pool is definitely a lot shorter"*. The old bar was
+   half a 202 m terrace with the counter floating 45 m from the water; it is a
+   20 m room now, a 6 m walk from the pool's coping, and everything north of it
+   is a separate DINING TERRACE.
+
+   THE BAR, off reference/photos/rooftop-pool-bar-daylight.webp (right of
+   frame): a long counter with a dark stone top and a vertical fluted timber
+   front, stools with white cushions along the pool side, a back-bar of bottles
+   and ice wells behind it, and a cantilevered planted canopy with trailing
+   greenery on a white column above. The caustic-clad volume that used to sprawl
+   is kept as the room's BACKDROP — Carl-approved, and it is what makes the roof
+   read at night — but it now stands behind the counter and stops there.
+     · counter — 10.0 m, its south end BAR_SET metres into the room, so the walk
+                 from the pool's near coping to the first stool is ~9 m.
+     · backbar — the working line, 1.25 m behind the counter.
+     · canopy  — the planted cantilever on ONE white column, past the counter.
+     · segs    — the caustic volume, on the back band behind the counter only.
+     · lounge  — the photograph's foreground: timber-framed chairs with white
+                 cushions round low side tables, on the deck seaward of the bar.
+
+   THE DINING TERRACE, off reference/photos/rooftop-bar-live-band.webp:
+     · longTables — LONG COMMUNAL TABLES, the signature of that photograph.
+                 They run ALONG the arc, which points their length at the stage.
+     · tables  — the round/square four-tops built 2026-08-03, filling the reach
+                 south of each long table.
+     · stage   — the live-band alcove at the terrace's north end, facing SOUTH
+                 down the run of tables.
+     · beds    — freestanding planting beds along both rooms' inner edge.
+   Two things stand inside the dining terrace and both are DODGED, never built
+   around: the north head-house, and the stair bridge's landing — that gap is
+   the only way in from the tower and a table in it walls the roof off.       */
+/* the back-bar's bottle colours — spirits, wine, a couple of clear ones.
+   ⚠ hex, never Color.setHSL: setHSL fills in LINEAR space and every one of
+   these would come out two stops light (the arrival's corten, 2026-08-03). */
+const BOTTLE_TINT = [0x2f5a2c, 0x7a4a12, 0xd9c08a, 0x5a2b2b, 0xdfe7e2,
+  0x8a5a20, 0x2b3f5a, 0xe8e2d4].map(h => new THREE.Color(h));
+const BAR_COUNTER_R = 98.70, BAR_COUNTER_LEN = 10.0, BAR_COUNTER_SET = 2.6;
+const DINE_LONG_LEN = 11.0, DINE_LONG_R = [94.4, 98.4];
+/* ⚠ THE STAGE'S RADIUS IS A SIGHTLINE, not a taste call. At r 100.0 (its first
+   placement) the alcove spanned 97.0…103.0 and the NORTH HEAD-HOUSE — 5.2 m
+   wide at r 101.2, occupying 98.9…103.5 — stood between it and the dining
+   terrace, so from the long tables you watched a band behind a lift lobby.
+   At 97.6 the alcove is 94.6…100.6, dead ahead of both table rows (94.4 / 98.4)
+   and past the head-house on the seaward side. */
+const STAGE_R = 97.6, STAGE_W = 8.0, STAGE_D = 6.0;
 function barLayout(R) {
   const C = Math.PI / 2, T = HOTEL_ROOF.tower;
-  const b0 = R.barTc - R.barTh, b1 = R.barTc + R.barTh;
-  const coreN = C + R.coreArcHalf;
-  const segs = [[b0 + .038, T.th - .058], [T.th + .058, coreN - .052]];
-  const counter = { tc: (segs[0][0] + segs[0][1]) / 2, halfTh: .036, r: 99.35 };
-  const canopy = { th: T.th, r: 97.0 };
-  const stage = { th: (coreN + .052 + b1 - .02) / 2, r: 100.5, halfTang: 3.5 / 100.5 };
-  const tables = [];
-  for (const [rr, odd] of [[93.9, 0], [97.7, 1]]) {
-    const pitch = 5.4 / rr;
-    for (let th = b0 + .062 + odd * pitch / 2; th <= b1 - .062 + 1e-9; th += pitch) {
-      if (Math.abs(th - canopy.th) < .055) continue;          // under the canopy
-      if (rr > 96 && th > stage.th - stage.halfTang - .058) continue;   // the stage front
-      tables.push({ th, r: rr, round: tables.length % 2 === 0 });
+  const b0 = R.barTc - R.barTh, b1 = R.barTc + R.barTh;        // the 20 m bar zone
+  const d0 = R.dineTc - R.dineTh, d1 = R.dineTc + R.dineTh;    // the dining terrace
+  const coreN = C + R.coreArcHalf;                             // north head-house
+
+  const CR = BAR_COUNTER_R, CLEN = BAR_COUNTER_LEN;
+  const counter = { r: CR, len: CLEN, halfTh: CLEN / 2 / CR,
+    tc: b0 + (BAR_COUNTER_SET + CLEN / 2) / CR };
+  /* the radial section through the bar, sea → inland, and every gap in it is
+     load-bearing: stools 97.80 · counter 98.70 (0.84 deep) · a 0.88 m working
+     aisle · back-bar 100.30 (0.60) with its lit shelves at 100.54 · the caustic
+     volume's inner panel plane 100.90 · its body 101.95 (2.0 deep) · rOut
+     103.20. Move one and check the next two. */
+  const backbar = { r: 100.30, tc: counter.tc, halfTh: (CLEN / 2 - .5) / CR };
+  const canopy = { r: 99.9, th: b1 - 3.4 / 99.9, halfTh: 3.2 / 99.9 };
+  /* ONE run: the volume is the bar's back wall, not a colonnade down the roof.
+     It stops clear of the canopy so the two cannot interpenetrate. */
+  const segs = [[b0 + .012, canopy.th - canopy.halfTh - .010]];
+  const lounge = [];
+  for (let th = b0 + 3.0 / 94.5; th <= b1 - 3.0 / 94.5 + 1e-9; th += 6.4 / 94.5) {
+    lounge.push({ th, r: 94.5 });
+  }
+
+  const stage = { r: STAGE_R, w: STAGE_W, d: STAGE_D,
+    halfTang: STAGE_W / 2 / STAGE_R, th: d1 - (STAGE_W / 2 + 1.3) / STAGE_R };
+  const bridge = [T.th - T.bridgeTh - 2.2 / 96.6, T.th + T.bridgeTh + 2.2 / 96.6];
+  const core = [coreN - 4.2 / 101.2, coreN + 4.2 / 101.2];
+  const freeSegs = [[d0 + 1.8 / 96.6, bridge[0]], [bridge[1], core[0]]];
+
+  const longTables = [], tables = [];
+  for (const [s, e] of freeSegs) {
+    for (const rr of DINE_LONG_R) {
+      const half = DINE_LONG_LEN / 2 / rr, tc = e - 1.6 / rr - half;
+      if (tc - half <= s) continue;                            // no room: skip it
+      longTables.push({ th: tc, r: rr, halfTh: half, len: DINE_LONG_LEN });
+      const re = tc - half - 2.6 / rr, pitch = 5.0 / rr;
+      for (let th = s + pitch / 2; th <= re + 1e-9; th += pitch) {
+        tables.push({ th, r: rr, round: tables.length % 2 === 0 });
+      }
     }
   }
   const beds = [];
-  for (let th = b0 + .11; th <= b1 - .11 + 1e-9; th += .165) beds.push({ th, r: 91.75 });
-  return { b0, b1, segs, counter, canopy, stage, tables, beds };
+  for (let th = b0 + .075; th <= b1 - .075 + 1e-9; th += .075) beds.push({ th, r: 91.9 });
+  for (let th = d0 + .075; th <= d1 - .075 + 1e-9; th += .085) beds.push({ th, r: 91.9 });
+  return { b0, b1, d0, d1, segs, counter, backbar, canopy, lounge,
+    stage, longTables, tables, beds, bridge };
 }
 
 function buildHotelRoof(G, g, acx, acz) {
@@ -3637,8 +3823,9 @@ function buildHotelRoof(G, g, acx, acz) {
      NORTH half, and the 9 m cross-walk (C ± divideHalf) is the paved seam
      between them. The height field is already cut this way in site.js; these
      visuals and roofColliders() must follow it, never the other way round. */
-  const p0 = R.poolTc - R.poolTh, p1 = R.poolTc + R.poolTh;  // the pool room
-  const b0 = R.barTc - R.barTh, b1 = R.barTc + R.barTh;      // the bar room
+  const p0 = R.poolTc - R.poolTh, p1 = R.poolTc + R.poolTh;  // the pool room, 28 m
+  const b0 = R.barTc - R.barTh, b1 = R.barTc + R.barTh;      // the bar zone, 20 m
+  const d0 = R.dineTc - R.dineTh, d1 = R.dineTc + R.dineTh;  // the dining terrace
   const DY = R.deckY, WY = R.waterY, BY = R.basinY, RY = R.roofY;
   const PL = DY - RY;                                    // plinth, 1.4 m
   const LEDGE = 90.35;                                   // marble ledge, past the water
@@ -3669,23 +3856,30 @@ function buildHotelRoof(G, g, acx, acz) {
       mat4(WX(th, rc), RY + PL / 2, WZ(th, rc), .34, PL, R.rOut - R.rIn, th));
   }
 
-  /* ── the deck, as edge-to-edge bands — never stacked, and now FOUR floors:
-        · a0…p0        the south apron: the full pool-side section, as before
-        · p0…p1        the POOL room: nothing between rIn and the water but the
-                       lip; coping → teak → back paving inland of it
-        · p1…b0        the CROSS-WALK: one paved band, rail ledge to back band
-        · b0…b1        the BAR room: dark timber boards the whole way (refs)
-        · b1…a1        the north apron: plain paving closing the terrace  ── */
+  /* ── the deck, as edge-to-edge bands — never stacked, and now SIX floors:
+        · a0…p0        the SOUTH DECK: the daylight photograph's left-hand side
+                       — timber, the screen wall, the cabana daybeds, loungers.
+                       ~69 m of it, released by the short pool.
+        · p0…p1        the POOL room, 28 m: nothing between rIn and the water
+                       but the lip; coping → teak → back paving inland of it
+        · p1…b0        the paved WALK, 6 m, pool ↔ bar
+        · b0…b1        the BAR zone, 20 m: dark timber boards (refs)
+        · b1…d0        the planted break, 4 m
+        · d0…d1        the DINING TERRACE: dark boards, long communal tables,
+                       the live-band stage at its north end
+        · d1…a1        the north closing apron                              ── */
   for (const [s, e] of [[a0, p0], [p1, a1]]) {
     band(R.rIn, LEDGE, s, e, DY, MAT.rtCoping, 1.6);           // balustrade ledge
   }
-  band(LEDGE, R.poolOut, a0, p0, DY, MAT.rtPave, 1);           // the brunch apron
+  band(LEDGE, R.poolOut, a0, p0, DY, MAT.rtPave, 1);           // the south deck's inner strip
   band(R.poolOut, 97.2, a0, p1, DY, MAT.rtCoping, 1.6);        // pool coping
   band(97.2, R.teakOut, a0, p1, DY, MAT.rtTeak, 6);            // the timber deck
   band(R.teakOut, R.rOut, a0, p1, DY, MAT.rtPave, 1);          // back paving
-  band(LEDGE, R.rOut, p1, b0, DY, MAT.rtPave, 1);              // THE CROSS-WALK
-  band(LEDGE, R.rOut, b0, b1, DY, MAT.rtDarkTeak, 6);          // THE BAR ROOM's boards
-  band(LEDGE, R.rOut, b1, a1, DY, MAT.rtPave, 1);              // north closing apron
+  band(LEDGE, R.rOut, p1, b0, DY, MAT.rtPave, 1);              // THE WALK
+  band(LEDGE, R.rOut, b0, b1, DY, MAT.rtDarkTeak, 6);          // THE BAR's boards
+  band(LEDGE, R.rOut, b1, d0, DY, MAT.rtPave, 1);              // the planted break
+  band(LEDGE, R.rOut, d0, d1, DY, MAT.rtDarkTeak, 6);          // THE DINING TERRACE
+  band(LEDGE, R.rOut, d1, a1, DY, MAT.rtPave, 1);              // north closing apron
 
   /* ── the white lip, and the catch trough hung UNDER it off the facade.
         Nothing between the water and the sea but 0.20 m of marble — which is
@@ -3835,11 +4029,14 @@ function buildHotelRoof(G, g, acx, acz) {
     }
   });
 
-  /* ── deck lanterns along the back of the teak, ~8 m apart — pool side only;
-        the bar room lights itself (candles, bed strips, the caustic wash) ── */
-  const lantN = Math.max(4, Math.round((p1 - a0) * 99.9 / 8.26));
+  /* ── deck lanterns along the back of the teak, ~8 m apart — the SOUTH DECK
+        only. They used to run to p1, which since 2026-08-04 would stand them
+        at r 99.9 in the middle of the brunch four-tops' row at r 99.0; the bar
+        and the dining terrace light themselves (candles, bed strips, the
+        caustic wash, the stage's gold LED). ── */
+  const lantN = Math.max(4, Math.round((p0 - a0) * 99.9 / 8.26));
   for (let i = 0; i < lantN; i++) {
-    const th = a0 + (p1 - a0) * ((i + .5) / lantN);
+    const th = a0 + (p0 - a0) * ((i + .5) / lantN);
     const x = WX(th, 99.9), z = WZ(th, 99.9);
     inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .55, z, .1, 1.1, .1));
     inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + 1.24, z, .26, .38, .26, th));
@@ -3922,9 +4119,12 @@ function buildHotelRoof(G, g, acx, acz) {
      shows through the holes; one geometry and one material, so the whole
      screen is a SINGLE draw call.
 
-     ⚠ POOL HALF ONLY since the two-rooms split — over the bar room the
-     elevated bar volume IS the back-band elevation, and two competing screens
-     would read as scaffolding. The run stops at the cross-walk's edge.
+     ⚠ IT ENDS AT THE POOL, at p1 — over the bar and the dining terrace the
+     caustic volume and the stage alcove ARE the back-band elevation, and two
+     competing screens would read as scaffolding. Since the short pool of
+     2026-08-04 the run is mostly SOUTH of the water, which is where the
+     daylight photograph puts it: screen wall and cabanas to the left, pool
+     centre, bar right.
 
      At night the material's emissiveMap (texScreenGlow) lifts to 1.45 and the
      screen becomes the blue projection wall from the photograph. That is why
@@ -4040,13 +4240,20 @@ function buildHotelRoof(G, g, acx, acz) {
      ════════════════════════════════════════════════════════════════════════ */
   const BL = barLayout(R);
 
-  /* ── the hero: the elevated bar volume on its splayed tree-columns.
+  /* ── the backdrop: the elevated caustic-clad volume on its splayed
+        tree-columns. Carl-approved and it is what makes the roof read after
+        dark, so it stays — but since 2026-08-04 it is the BAR's back wall, one
+        run behind the counter, not a colonnade down half the building.
         Per clad bay: a dark body box + recessed white cap, caustic panels on
         BOTH faces (the east face reads from fly mode), a flared column every
         second bay with a warm soffit light between — panel planes stand
         ≥140 mm off the body faces, the coplanar-overlay rule. Panels use
-        alternating heights so the top reads as the refs' crenellation. ── */
-  const BAY = 1.62, RV = 101.55;              // clad bay (m) · volume centre radius
+        alternating heights so the top reads as the refs' crenellation.
+        ⚠ The body is 2.0 m deep now, not 2.4, and its inner panel plane moved
+        100.15 → 100.75: the back-bar's cabinets and bottle shelves stand in the
+        band it used to occupy, and the old planted base at r 100.3 stood
+        exactly where the bartender does. That planting moved to BL.beds. ── */
+  const BAY = 1.62, RV = 101.95;              // clad bay (m) · volume centre radius
   const PANEL_H = [0, .75, .3, 1.05, .15, .9, .45, 1.2];   // + base 4.7 m
   for (const [s, e] of BL.segs) {
     const n = Math.max(4, Math.round((e - s) * RV / BAY));
@@ -4055,72 +4262,120 @@ function buildHotelRoof(G, g, acx, acz) {
        a black monolith from inside the room. Caustic panels, like the faces. */
     for (const tq of [s - .0008, e + .0008]) {
       inst('rtBarPanelI', UNIT_BOX, MAT.rtBarPanel,
-        mat4(WX(tq, RV), DY + 4.9, WZ(tq, RV), .12, 4.9, 2.85, tq));
+        mat4(WX(tq, RV), DY + 4.9, WZ(tq, RV), .12, 4.9, 2.45, tq));
     }
     for (let i = 0; i < n; i++) {
       const th = s + (i + .5) * dth;
       inst('darkI', UNIT_BOX, MAT.dark,
-        mat4(WX(th, RV), DY + 4.63, WZ(th, RV), BAY + .06, 4.15, 2.4, th));
+        mat4(WX(th, RV), DY + 4.63, WZ(th, RV), BAY + .06, 4.15, 2.0, th));
       inst('rtWhiteI', UNIT_BOX, MAT.white,
-        mat4(WX(th, RV), DY + 6.83, WZ(th, RV), BAY + .06, .30, 2.5, th));
+        mat4(WX(th, RV), DY + 6.83, WZ(th, RV), BAY + .06, .30, 2.1, th));
       const h = 4.7 + PANEL_H[i % PANEL_H.length];
       inst('rtBarPanelI', UNIT_BOX, MAT.rtBarPanel,
-        mat4(WX(th, 100.15), DY + 2.45 + h / 2, WZ(th, 100.15), BAY - .10, h, .12, th));
+        mat4(WX(th, 100.90), DY + 2.45 + h / 2, WZ(th, 100.90), BAY - .10, h, .12, th));
       inst('rtBarPanelI', UNIT_BOX, MAT.rtBarPanel,
-        mat4(WX(th, 102.95), DY + 2.45 + h / 2, WZ(th, 102.95), BAY - .10, h, .12, th));
+        mat4(WX(th, 103.05), DY + 2.45 + h / 2, WZ(th, 103.05), BAY - .10, h, .12, th));
       if (i % 2 === 0) {                      // the flared tree-column
         inst('rtWhiteCylI', UNIT_CYL, MAT.white,
-          mat4(WX(th, 100.6), DY + .85, WZ(th, 100.6), .52, 1.7, .52));
+          mat4(WX(th, 101.5), DY + .85, WZ(th, 101.5), .52, 1.7, .52));
         inst('rtWhiteConeI', UNIT_CONE, MAT.white,
-          mat4(WX(th, 100.6), DY + 2.12, WZ(th, 100.6), 2.0, .85, 2.0, th, Math.PI));
-        inst('poleI', UNIT_CYL, MAT.dark,     // plain prop on the back row
-          mat4(WX(th, 102.7), DY + 1.28, WZ(th, 102.7), .6, 2.55, .6));
+          mat4(WX(th, 101.5), DY + 2.12, WZ(th, 101.5), 2.0, .85, 2.0, th, Math.PI));
       } else {                                // warm soffit light between columns
         inst('glowI', UNIT_BOX, MAT.glowLamp,
-          mat4(WX(th, 100.9), DY + 2.38, WZ(th, 100.9), 1.35, .10, .5, th));
-        /* a planted base under the colonnade line, uplight strip stood
-           170 mm proud of its face (the 285 m depth buffer resolves ~60 mm) */
-        inst('darkI', UNIT_BOX, MAT.dark,
-          mat4(WX(th, 100.3), DY + .34, WZ(th, 100.3), 1.30, .68, .9, th));
-        inst('hedgeI', UNIT_BLOB, MAT.hedge,
-          mat4(WX(th, 100.35), DY + .95, WZ(th, 100.35), 1.6, .95, 1.2));
-        inst('inLightI', UNIT_BOX, MAT.inLight,
-          mat4(WX(th, 99.68), DY + .10, WZ(th, 99.68), 1.30, .09, .10, th));
+          mat4(WX(th, 101.6), DY + 2.38, WZ(th, 101.6), 1.35, .10, .5, th));
       }
     }
   }
 
-  /* ── the counter, at deck level in front of the long run — the deleted
-        central pavilion's function, and its ONE warm point light ── */
-  const CT = BL.counter, ctD = 1.55 / CT.r;
+  /* ── THE BAR COUNTER, from reference/photos/rooftop-pool-bar-daylight.webp.
+        A DARK STONE TOP over a VERTICAL FLUTED TIMBER front, stools with white
+        cushions along the pool side, and behind it the back-bar: base cabinets
+        with the ice wells let into them and two lit shelves of bottles above.
+        10.0 m of counter, its south end 2.6 m into the room — from the pool's
+        near coping to the first stool is ~9 m, which is Carl's "the bar is very
+        close by the pool". Its ONE warm point light is the deleted central
+        pavilion's, moved; the campus light count does not change. ── */
+  const CT = BL.counter, BB = BL.backbar;
+  const ctSeg = 8, ctD = (2 * CT.halfTh) / ctSeg;      // fluted bays along the run
   pointLight(g, Math.sin(CT.tc) * (CT.r + .6), DY + 2.2, Math.cos(CT.tc) * (CT.r + .6), 0, 38, 26);
-  for (let k = 0; k < 5; k++) {
-    const th = CT.tc + (k - 2) * ctD;
+  for (let k = 0; k < ctSeg; k++) {
+    const th = CT.tc - CT.halfTh + (k + .5) * ctD;
     const x = WX(th, CT.r), z = WZ(th, CT.r);
-    inst('rtDkI', UNIT_BOX, MAT.rtDarkTeak, mat4(x, DY + .53, z, 1.5, 1.06, .9, th));
-    inst('rtMarbleI', UNIT_BOX, MAT.marble, mat4(x, DY + 1.09, z, 1.62, .1, 1.02, th));
-    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + .18, z, 1.35, .1, .12, th));
-    /* a proper barstool in the dining furniture's language (same pass:
-       pedestal, timber band, white cushion) — foot disc, column, a timber
-       footrest ring and seat band with the round white cushion on top.
-       Seat top DY + .82 against the DY + 1.14 counter top. Same position
-       (sth, r 98.55) and count as the old pole+slab; every part rides an
-       existing bucket (poleI / rtSlatCylI / rtWhiteCylI) so the room's
-       draw calls and colliders do not move. */
-    const sth = th + ctD * .25;                                             // a stool
-    const stx = WX(sth, 98.55), stz = WZ(sth, 98.55);
+    /* the fluted front: four slim timber staves per bay, standing 60 mm proud
+       of the carcass, which is what reads as fluting at any distance */
+    inst('rtDkI', UNIT_BOX, MAT.rtDarkTeak, mat4(x, DY + .53, z, ctD * CT.r + .04, 1.06, .84, th));
+    for (let f = 0; f < 4; f++) {
+      const fv = (f - 1.5) * (ctD * CT.r / 4);
+      inst('rtSlatI', UNIT_BOX, MAT.slat,
+        mat4(TX(th, CT.r - .48, fv), DY + .55, TZ(th, CT.r - .48, fv), .16, 1.02, .09, th));
+    }
+    // the dark stone top, overhanging the fluting on the guest side
+    inst('rtDkTopBoxI', UNIT_BOX, MAT.blackPolish,
+      mat4(WX(th, CT.r - .06), DY + 1.10, WZ(th, CT.r - .06), ctD * CT.r + .06, .10, 1.06, th));
+    inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + .18, z, ctD * CT.r * .8, .1, .12, th));
+    // one stool per bay, on the pool side
+    const stx = WX(th, 97.80), stz = WZ(th, 97.80);
     inst('poleI', UNIT_CYL, MAT.dark, mat4(stx, DY + .025, stz, .44, .05, .44));       // foot disc
     inst('poleI', UNIT_CYL, MAT.dark, mat4(stx, DY + .36, stz, .11, .62, .11));        // pedestal
     inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(stx, DY + .26, stz, .34, .045, .34));  // footrest ring
     inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(stx, DY + .70, stz, .46, .06, .46));   // seat band
     inst('rtWhiteCylI', UNIT_CYL, MAT.white, mat4(stx, DY + .775, stz, .42, .09, .42)); // cushion
   }
-  for (let k = 0; k < 3; k++) {               // the lit back-bar shelves, 150 mm
-    const th = CT.tc + (k - 1) * ctD * 1.6;   // proud of the panel plane
-    inst('inLightI', UNIT_BOX, MAT.inLight,
-      mat4(WX(th, 99.88), DY + 1.6, WZ(th, 99.88), 2.2, .09, .12, th));
-    inst('inLightI', UNIT_BOX, MAT.inLight,
-      mat4(WX(th, 99.88), DY + 2.15, WZ(th, 99.88), 2.2, .09, .12, th));
+  /* the back-bar: cabinets + two ice wells + lit bottle shelves */
+  {
+    const bbSeg = 6, bbD = (2 * BB.halfTh) / bbSeg;
+    for (let k = 0; k < bbSeg; k++) {
+      const th = BB.tc - BB.halfTh + (k + .5) * bbD;
+      const w = bbD * BB.r + .04;
+      inst('darkI', UNIT_BOX, MAT.dark, mat4(WX(th, BB.r), DY + .47, WZ(th, BB.r), w, .94, .60, th));
+      inst('rtDkTopBoxI', UNIT_BOX, MAT.blackPolish,
+        mat4(WX(th, BB.r), DY + .97, WZ(th, BB.r), w, .06, .64, th));
+      if (k === 1 || k === 4) {               // the ice wells, let into the top
+        inst('rtSlatCylI', UNIT_CYL, MAT.slat,
+          mat4(WX(th, BB.r - .06), DY + 1.02, WZ(th, BB.r - .06), .52, .06, .52));
+      }
+      // the bottles, in their own rows on the two lit shelves
+      for (const [sh, y] of [[0, 1.64], [1, 2.19]]) {
+        for (let b = 0; b < 5; b++) {
+          const bth = th + (b - 2) * (bbD / 5.4);
+          inst('rtBottleI', UNIT_CYL, MAT.bottle,
+            mat4(WX(bth, BB.r + .24), DY + y + .16, WZ(bth, BB.r + .24), .11, .32, .11),
+            BOTTLE_TINT[(k * 5 + b + sh * 3) % BOTTLE_TINT.length]);
+        }
+      }
+    }
+    for (const y of [1.58, 2.13]) {           // the two shelves, and their strips
+      const s0 = BB.tc - BB.halfTh, s1 = BB.tc + BB.halfTh;
+      inst('rtSlatI', UNIT_BOX, MAT.slat,
+        mat4(WX((s0 + s1) / 2, BB.r + .24), DY + y, WZ((s0 + s1) / 2, BB.r + .24),
+          (s1 - s0) * BB.r, .06, .42, (s0 + s1) / 2));
+      inst('inLightI', UNIT_BOX, MAT.inLight,
+        mat4(WX((s0 + s1) / 2, BB.r + .12), DY + y + .04, WZ((s0 + s1) / 2, BB.r + .12),
+          (s1 - s0) * BB.r - .3, .07, .10, (s0 + s1) / 2));
+    }
+  }
+
+  /* ── the bar's forecourt: the photograph's foreground — timber-framed lounge
+        chairs with white cushions round a low side table, on the deck seaward
+        of the counter, facing the sea ── */
+  for (const L of BL.lounge) {
+    for (const v of [-1.25, 1.25]) {
+      const cx0 = TX(L.th, L.r, v), cz0 = TZ(L.th, L.r, v);
+      for (const [u, w] of [[-.42, -.42], [-.42, .42], [.42, -.42], [.42, .42]]) {
+        inst('rtSlatI', UNIT_BOX, MAT.slat,
+          mat4(TX(L.th, L.r + u, v + w), DY + .17, TZ(L.th, L.r + u, v + w), .07, .34, .07, L.th));
+      }
+      inst('rtSlatI', UNIT_BOX, MAT.slat, mat4(cx0, DY + .38, cz0, 1.02, .08, 1.02, L.th));
+      inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(cx0, DY + .46, cz0, .92, .16, .92, L.th));
+      inst('rtSlatI', UNIT_BOX, MAT.slat,       // the raked back frame
+        mat4(TX(L.th, L.r + .48, v), DY + .74, TZ(L.th, L.r + .48, v), .09, .68, .98, L.th));
+      inst('rtWhiteI', UNIT_BOX, MAT.white,
+        mat4(TX(L.th, L.r + .40, v), DY + .76, TZ(L.th, L.r + .40, v), .12, .58, .86, L.th));
+    }
+    inst('rtSlatCylI', UNIT_CYL, MAT.slat,      // the round side table between them
+      mat4(WX(L.th, L.r), DY + .22, WZ(L.th, L.r), .62, .44, .62));
+    inst('rtDkTopI', UNIT_CYL, MAT.rtDarkTeak,
+      mat4(WX(L.th, L.r), DY + .445, WZ(L.th, L.r), .66, .04, .66));
   }
 
   /* ── dining: REAL furniture (Carl, 2026-08-03: "the table and chairs are
@@ -4138,9 +4393,29 @@ function buildHotelRoof(G, g, acx, acz) {
           · a place-setting hint: one white plate per cover on the table edge.
         Per-seat yaw/pull jitter is SEEDED (mulberry32, house rule — never
         Math.random) so the room never shuffles between loads. The candles
-        stay; zero lights added; the only new bucket is the round tables'
-        slat-toned cylinder (rtSlatCylI), +1 draw call for the whole room. ── */
+        stay; zero lights added. ── */
   const rndSeat = mulberry32(83017);
+  /* ONE chair, authored at (x, z) facing the table along +ca. Extracted
+     2026-08-04 so the long communal tables seat the SAME woven chair as the
+     round ones — that repetition is what makes the dining terrace read as one
+     restaurant in reference/photos/rooftop-bar-live-band.webp. */
+  const diningChair = (cx1, cz1, ca) => {
+    const ux = Math.cos(ca), uz = -Math.sin(ca);
+    const vx = Math.sin(ca), vz = Math.cos(ca);
+    const at = (lx, lz, y, sx, sy, sz, key, mat) =>
+      inst(key, UNIT_BOX, mat,
+        mat4(cx1 + ux * lx + vx * lz, y, cz1 + uz * lx + vz * lz, sx, sy, sz, ca));
+    for (const [lx, lz] of [[-.19, -.18], [-.19, .18], [.20, -.18], [.20, .18]]) {
+      at(lx, lz, DY + .22, .05, .44, .05, 'rtSlatI', MAT.slat);            // four legs
+    }
+    at(0, 0, DY + .465, .48, .05, .46, 'rtSlatI', MAT.slat);               // seat frame
+    at(0, 0, DY + .535, .44, .09, .42, 'rtWhiteI', MAT.white);             // white cushion
+    for (const lz of [-.18, .18]) {
+      at(.20, lz, DY + .75, .05, .55, .05, 'rtSlatI', MAT.slat);           // back uprights
+    }
+    at(.20, 0, DY + 1.045, .05, .06, .41, 'rtSlatI', MAT.slat);            // top rail
+    at(.21, 0, DY + .77, .035, .40, .30, 'rtRattanI', MAT.rattan);         // woven inset panel
+  };
   for (const t of BL.tables) {
     const x = WX(t.th, t.r), z = WZ(t.th, t.r);
     if (t.round) {
@@ -4160,26 +4435,71 @@ function buildHotelRoof(G, g, acx, acz) {
     for (let c = 0; c < 4; c++) {
       const ca = c * Math.PI / 2 + (t.round ? .79 : .4) + t.th + (rndSeat() - .5) * .24;
       const cd = 1.02 + (rndSeat() - .5) * .08;
-      /* chair-local frame under mat4's ry = ca: +X is outward (away from the
-         table, behind the sitter), +Z runs across the seat */
-      const ux = Math.cos(ca), uz = -Math.sin(ca);
-      const vx = Math.sin(ca), vz = Math.cos(ca);
-      const cx1 = x + ux * cd, cz1 = z + uz * cd;
-      const at = (lx, lz, y, sx, sy, sz, key, mat) =>
-        inst(key, UNIT_BOX, mat,
-          mat4(cx1 + ux * lx + vx * lz, y, cz1 + uz * lx + vz * lz, sx, sy, sz, ca));
-      for (const [lx, lz] of [[-.19, -.18], [-.19, .18], [.20, -.18], [.20, .18]]) {
-        at(lx, lz, DY + .22, .05, .44, .05, 'rtSlatI', MAT.slat);            // four legs
-      }
-      at(0, 0, DY + .465, .48, .05, .46, 'rtSlatI', MAT.slat);               // seat frame
-      at(0, 0, DY + .535, .44, .09, .42, 'rtWhiteI', MAT.white);             // white cushion
-      for (const lz of [-.18, .18]) {
-        at(.20, lz, DY + .75, .05, .55, .05, 'rtSlatI', MAT.slat);           // back uprights
-      }
-      at(.20, 0, DY + 1.045, .05, .06, .41, 'rtSlatI', MAT.slat);            // top rail
-      at(.21, 0, DY + .77, .035, .40, .30, 'rtRattanI', MAT.rattan);         // woven inset panel
+      diningChair(x + Math.cos(ca) * cd, z - Math.sin(ca) * cd, ca);
       inst('rtWhiteCylI', UNIT_CYL, MAT.white,                               // the plate
-        mat4(x + ux * .42, DY + .795, z + uz * .42, .27, .018, .27));
+        mat4(x + Math.cos(ca) * .42, DY + .795, z - Math.sin(ca) * .42, .27, .018, .27));
+    }
+  }
+
+  /* ════════════════════════════════════════════════════════════════════════
+     THE LONG COMMUNAL DINING TABLES — Carl, 2026-08-04, from
+     reference/photos/rooftop-bar-live-band.webp: *"here is the reference
+     picture of the rooftop bar live band"*. That photograph is not really a
+     picture of a band, it is a picture of a DINING ROOM — bare dark tables
+     running the length of the deck, woven chairs down both sides with white
+     cushions, candles and full glassware settings at every cover, and the
+     stage at the end of the run. The long-table rhythm is the bar's signature
+     and it is what the round four-tops alone could not say.
+
+     They run ALONG the arc, which points their length at the stage. Every
+     part rides a bucket that already existed, so 4 × 11 m of communal table
+     with 96 covers is ZERO new draw calls beyond the glassware.
+     ════════════════════════════════════════════════════════════════════════ */
+  const rndLong = mulberry32(51993);
+  for (const LT of BL.longTables) {
+    const R0 = LT.r, W = LT.len;
+    const nLeg = 4, nSeat = Math.round(W / .88);
+    const c0 = WX(LT.th, R0), cz0 = WZ(LT.th, R0);
+    /* the top: ONE box per table — a long box on a curve is a chord, and at
+       11 m over a 94 m radius the sagitta is 16 cm, which reads as straight */
+    inst('rtSlatI', UNIT_BOX, MAT.slat, mat4(c0, DY + .715, cz0, W, .08, 1.14, LT.th));
+    inst('rtDkI', UNIT_BOX, MAT.rtDarkTeak, mat4(c0, DY + .775, cz0, W - .06, .04, 1.06, LT.th));
+    for (let l = 0; l < nLeg; l++) {           // trestle legs, in pairs
+      const lv = (l - (nLeg - 1) / 2) * (W - 1.9) / (nLeg - 1);
+      for (const u of [-.40, .40]) {
+        inst('rtSlatI', UNIT_BOX, MAT.slat,
+          mat4(TX(LT.th, R0 + u, lv), DY + .35, TZ(LT.th, R0 + u, lv), .09, .70, .09, LT.th));
+      }
+      inst('rtSlatI', UNIT_BOX, MAT.slat,      // the stretcher between them
+        mat4(TX(LT.th, R0, lv), DY + .22, TZ(LT.th, R0, lv), .07, .07, .86, LT.th));
+    }
+    for (let s = 0; s < nSeat; s++) {
+      const sv = (s - (nSeat - 1) / 2) * (W - .5) / (nSeat - 1);
+      for (const side of [-1, 1]) {
+        /* facing the table: the chair sits 1.02 m out, turned to look inward */
+        const cd = 1.02 + (rndLong() - .5) * .06;
+        /* diningChair()'s +X is OUTWARD (behind the sitter). The outward unit
+           vector on the +r side is (sin th, cos th) and at() builds its own as
+           (cos ca, −sin ca), so ca = th − π/2 on that side and th + π/2 on the
+           other. Getting this sign wrong seats everyone facing the sea. */
+        const ca = LT.th - side * Math.PI / 2 + (rndLong() - .5) * .16;
+        diningChair(TX(LT.th, R0 + side * cd, sv), TZ(LT.th, R0 + side * cd, sv), ca);
+        // the cover: plate, then the photograph's full glassware — two stems
+        inst('rtWhiteCylI', UNIT_CYL, MAT.white,
+          mat4(TX(LT.th, R0 + side * .40, sv), DY + .805,
+            TZ(LT.th, R0 + side * .40, sv), .27, .018, .27));
+        for (const [gu, gv, gh] of [[.60, -.16, .17], [.62, .16, .13]]) {
+          inst('rtStemI', UNIT_CYL, MAT.rtGlass,
+            mat4(TX(LT.th, R0 + side * gu, sv + gv), DY + .80 + gh / 2,
+              TZ(LT.th, R0 + side * gu, sv + gv), .07, gh, .07));
+        }
+      }
+      if (s % 3 === 1) {                       // candles down the centre line
+        inst('rtSlatCylI', UNIT_CYL, MAT.slat,
+          mat4(TX(LT.th, R0, sv), DY + .84, TZ(LT.th, R0, sv), .13, .10, .13));
+        inst('glowI', UNIT_BOX, MAT.glowLamp,
+          mat4(TX(LT.th, R0, sv), DY + .95, TZ(LT.th, R0, sv), .10, .14, .10));
+      }
     }
   }
 
@@ -4193,39 +4513,145 @@ function buildHotelRoof(G, g, acx, acz) {
       mat4(WX(b.th, b.r + .60), DY + .10, WZ(b.th, b.r + .60), 2.2, .09, .10, b.th));
   }
 
-  /* ── the cantilevered planted canopy on ONE flared pedestal (refs, right of
-        frame) — on the bridge bearing, so arriving guests walk in under it ── */
+  /* ── THE CANTILEVERED PLANTED CANOPY on ONE white column — the daylight
+        photograph's top-right corner, trailing greenery over the bar. It used
+        to stand on the bridge bearing 45 m up the roof; it belongs over the
+        back-bar, which is where it is now. ── */
   {
     const x = WX(BL.canopy.th, BL.canopy.r), z = WZ(BL.canopy.th, BL.canopy.r);
     inst('rtWhiteCylI', UNIT_CYL, MAT.white, mat4(x, DY + 1.15, z, .95, 2.3, .95));
     inst('rtWhiteConeI', UNIT_CONE, MAT.white,
       mat4(x, DY + 2.72, z, 3.1, .85, 3.1, BL.canopy.th, Math.PI));
-    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + 3.32, z, 6.2, .28, 5.2, BL.canopy.th));
+    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + 3.32, z, 6.4, .28, 5.0, BL.canopy.th));
     inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + 2.98, z, 1.8, .08, 1.8, BL.canopy.th));
-    inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(x, DY + 3.75, z, 5.6, .8, 4.6));
-    for (const [u, v] of [[-2.9, 0], [2.9, 0], [0, -2.4], [0, 2.4], [-2.4, -2.0], [2.4, 2.0]]) {
+    inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(x, DY + 3.75, z, 5.8, .8, 4.4));
+    for (const [u, v] of [[-3.0, 0], [3.0, 0], [0, -2.3], [0, 2.3], [-2.4, -1.9], [2.4, 1.9]]) {
       inst('hedgeI', UNIT_BLOB, MAT.hedge,      // greenery trailing off the edge
         mat4(TX(BL.canopy.th, BL.canopy.r + v, u), DY + 3.05,
           TZ(BL.canopy.th, BL.canopy.r + v, u), 1.0, 1.5, .7, BL.canopy.th));
     }
   }
 
-  /* ── the live-band stage (Carl's ask): a low platform against the back
-        band past the north head-house, with a modest dark backline ── */
+  /* ════════════════════════════════════════════════════════════════════════
+     THE LIVE-BAND STAGE — rebuilt 2026-08-04 from
+     reference/photos/rooftop-bar-live-band.webp, replacing the generic
+     platform / amp stacks / drum riser that stood here.
+
+     What that photograph actually shows: an alcove at the end of the dining
+     run, roofed by a fan of big WHITE PERFORATED PANELS each outlined in a
+     continuous line of WARM GOLD LED, carried on SPLAYED white columns; a
+     dense GREEN LIVING WALL filling the back of it; and two performers on a
+     low platform in front of the greenery.
+
+     ⚠ The gold outline is an emissiveMap (MAT.rtStagePanel), not a light. The
+     campus's point-light count is budgeted (js/lightbudget.js, N = 12 slots
+     over 31 logical lights) and two extra rooftop lights were MEASURED at
+     13–18 % of the frame rate in every view. This entire alcove — panels,
+     LED, the wash on the living wall — costs zero lights.
+
+     The stage faces SOUTH, down the length of the long communal tables, so the
+     living wall stands on its north flank as a radial wall.
+     ════════════════════════════════════════════════════════════════════════ */
   {
     const ST = BL.stage, sx = (r, v) => TX(ST.th, r, v), sz = (r, v) => TZ(ST.th, r, v);
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(WX(ST.th, ST.r), DY + .21, WZ(ST.th, ST.r), 7.0, .42, 4.0, ST.th));
-    inst('rtDkI', UNIT_BOX, MAT.rtDarkTeak, mat4(WX(ST.th, ST.r), DY + .45, WZ(ST.th, ST.r), 6.9, .06, 3.9, ST.th));
-    for (const u of [-2.6, 2.6]) {              // amp stacks
-      inst('darkI', UNIT_BOX, MAT.dark, mat4(sx(ST.r + 1.4, u), DY + .93, sz(ST.r + 1.4, u), .8, .9, .55, ST.th));
+    const rBack = ST.r + ST.d / 2, rFront = ST.r - ST.d / 2;   // 103.0 · 97.0
+    const halfW = ST.w / 2;
+    // the low platform + its dark timber deck
+    inst('darkI', UNIT_BOX, MAT.dark,
+      mat4(WX(ST.th, ST.r), DY + .21, WZ(ST.th, ST.r), ST.w, .42, ST.d - .6, ST.th));
+    inst('rtDkI', UNIT_BOX, MAT.rtDarkTeak,
+      mat4(WX(ST.th, ST.r), DY + .45, WZ(ST.th, ST.r), ST.w - .1, .06, ST.d - .7, ST.th));
+
+    /* THE GREEN LIVING WALL, on the stage's north flank — a radial wall of
+       densely packed foliage on a dark carrier, so it reads as planted rather
+       than as clipped topiary */
+    const wth = ST.th + (halfW + .55) / ST.r;
+    inst('darkI', UNIT_BOX, MAT.dark,
+      mat4(WX(wth, ST.r), DY + 2.3, WZ(wth, ST.r), .30, 4.6, ST.d, wth));
+    for (let ry = 0; ry < 6; ry++) for (let rr = 0; rr < 7; rr++) {
+      const r = rFront + .45 + rr * ((ST.d - .9) / 6);
+      inst('livingI', UNIT_BLOB, MAT.living,
+        mat4(WX(wth - .17 / ST.r, r), DY + .55 + ry * .78, WZ(wth - .17 / ST.r, r), .62, 1.05, 1.12));
     }
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(sx(ST.r + 1.2, 0), DY + .93, sz(ST.r + 1.2, 0), 1.5, .9, .9, ST.th));
-    for (const u of [-1.6, 0, 1.6]) {           // mic stands
-      inst('poleI', UNIT_CYL, MAT.dark, mat4(sx(ST.r - 1.1, u), DY + 1.23, sz(ST.r - 1.1, u), .05, 1.5, .05));
-      inst('darkI', UNIT_BOX, MAT.dark, mat4(sx(ST.r - 1.1, u), DY + 2.0, sz(ST.r - 1.1, u), .18, .1, .18, ST.th));
+
+    /* THE CANOPY: splayed white columns, a white soffit, and the fan of
+       gold-edged perforated shields hanging across the alcove's south face */
+    for (const v of [-halfW + .5, 0, halfW - .5]) {
+      inst('rtWhiteCylI', UNIT_CYL, MAT.white,
+        mat4(sx(rBack - 1.1, v), DY + 2.35, sz(rBack - 1.1, v), .40, 4.7, .40));
+      inst('rtWhiteConeI', UNIT_CONE, MAT.white,
+        mat4(sx(rBack - 1.1, v), DY + 5.05, sz(rBack - 1.1, v), 1.9, .95, 1.9, ST.th, Math.PI));
     }
-    for (const u of [-1.2, 1.2]) {              // monitor wedges on the lip
-      inst('darkI', UNIT_BOX, MAT.dark, mat4(sx(ST.r - 1.7, u), DY + .62, sz(ST.r - 1.7, u), .55, .3, .4, ST.th));
+    inst('rtWhiteI', UNIT_BOX, MAT.white,
+      mat4(WX(ST.th, ST.r + .3), DY + 5.66, WZ(ST.th, ST.r + .3), ST.w + 1.0, .30, ST.d - .2, ST.th));
+    /* the panels: one row across the alcove's SOUTH face, spanning its depth.
+       UNIT_SHIELD's apex is already −Y — it hangs point-down as authored, so
+       there is no rz here.
+       ⚠ TWO AXES THAT ARE EASY TO SWAP, and the first pass swapped both.
+       UNIT_SHIELD is a Shape in the XY plane extruded along Z, so `sx` is the
+       panel's WIDTH, `sy` its HEIGHT and `sz` its THICKNESS — put the width in
+       `sz` and what you see is the EXTRUSION'S SIDE WALL, whose UVs come from
+       ExtrudeGeometry's own generator and repeat, so every panel wears the gold
+       frame three times over. And this row runs RADIALLY, so its width must lie
+       along the radius: `ry = pth + π/2` maps local +X onto the radial
+       direction (`ry = pth` would map it onto the tangent). */
+    const nPan = 5, pth = ST.th - (halfW + .10) / ST.r;
+    const pw = (ST.d - 1.1) / nPan;
+    for (let i = 0; i < nPan; i++) {
+      const r = rFront + .55 + (i + .5) * pw;
+      /* they hang from the soffit and STOP well above head height — at the
+         first placement their tips came down to DY + 1.2 and the band was
+         behind a curtain of panels */
+      const ph = 2.6 + (i % 2) * .30;
+      inst('rtStagePanelI', UNIT_SHIELD, MAT.rtStagePanel,
+        mat4(WX(pth, r), DY + 5.50 - ph / 2, WZ(pth, r), pw * .94, ph, .14,
+          pth + Math.PI / 2));
+    }
+    /* the same panels return along the back, behind the living wall's head, so
+       the alcove reads as a lantern from the dining terrace and from fly mode */
+    for (let i = 0; i < 3; i++) {
+      const v = (i - 1) * (ST.w / 3);
+      inst('rtStagePanelI', UNIT_SHIELD, MAT.rtStagePanel,
+        mat4(sx(rBack + .12, v), DY + 5.50 - 1.3, sz(rBack + .12, v),
+          ST.w / 3 * .92, 2.6, .16, ST.th));
+    }
+
+    /* THE BAND. Two performers on the platform, facing the tables (south):
+       the singer at the mic in a dark dress, the guitarist beside her.
+       ⚠ A bucket key carries ONE (geometry, material) pair — inst() takes both
+       from the FIRST call and silently ignores the rest — so the red top and
+       the dark one need different keys, and the legs cannot ride 'poleI'
+       (which is MAT.dark). */
+    const figure = (v, topKey, topMat, hairY) => {
+      const fx = sx(ST.r + .2, v), fz = sz(ST.r + .2, v);
+      inst('bandLegI', UNIT_CYL, MAT.uniform, mat4(fx, DY + .82, fz, .30, .84, .26));
+      inst(topKey, UNIT_BOX, topMat, mat4(fx, DY + 1.52, fz, .44, .58, .28, ST.th));
+      for (const a of [-.27, .27]) {                                                 // arms
+        inst('bandArmI', UNIT_CYL, MAT.skin,
+          mat4(sx(ST.r + .2, v + a), DY + 1.50, sz(ST.r + .2, v + a), .10, .52, .10));
+      }
+      inst('bandArmI', UNIT_CYL, MAT.skin, mat4(fx, DY + 1.92, fz, .21, .22, .21));  // head
+      inst('bandHairI', UNIT_BLOB, MAT.hair, mat4(fx, hairY, fz, .27, .30, .27));
+    };
+    figure(-1.0, 'bandDarkI', MAT.uniform, DY + 2.02);   // the singer, dark dress
+    figure(1.0, 'bandRedI', MAT.bougain, DY + 2.01);     // the guitarist, red
+    // her mic on its stand, and his guitar across his body
+    inst('poleI', UNIT_CYL, MAT.dark,
+      mat4(sx(ST.r - .55, -1.0), DY + .90, sz(ST.r - .55, -1.0), .04, .90, .04));
+    inst('darkI', UNIT_BOX, MAT.dark,
+      mat4(sx(ST.r - .55, -1.0), DY + 1.40, sz(ST.r - .55, -1.0), .07, .16, .07, ST.th));
+    inst('rtSlatCylI', UNIT_CYL, MAT.slat,
+      mat4(sx(ST.r - .32, 1.05), DY + 1.34, sz(ST.r - .32, 1.05), .46, .10, .46));
+    inst('rtSlatI', UNIT_BOX, MAT.slat,
+      mat4(sx(ST.r - .32, 1.62), DY + 1.44, sz(ST.r - .32, 1.62), .80, .07, .07, ST.th));
+    // two monitor wedges on the lip, and a pair of slim uplights washing the wall
+    for (const u of [-1.9, 1.9]) {
+      inst('darkI', UNIT_BOX, MAT.dark,
+        mat4(sx(rFront + 1.0, u), DY + .62, sz(rFront + 1.0, u), .55, .3, .4, ST.th));
+    }
+    for (const r of [rFront + 1.4, rBack - 1.4]) {
+      inst('inLightI', UNIT_BOX, MAT.inLight,
+        mat4(sx(r, halfW + .28), DY + .52, sz(r, halfW + .28), .22, .09, 1.1, ST.th));
     }
   }
 
@@ -4441,23 +4867,39 @@ function roofColliders(G, acx, acz) {
     L.push({ x: WX(th, R.loungeR), z: WZ(th, R.loungeR), r: .85, ...ROOF });
   }
 
-  /* ── THE BAR ROOM — every solid from the SAME barLayout(R) the builder
-        reads. (The old central pavilion's counter arc at C ± barArcHalf is
-        gone with the pavilion.) All ROOF-ranged: an unranged circle here is
-        an invisible wall at grade where the fly-in path runs.
-        The volume chain is FAT circles at r 101.4: they block the whole band
-        from ~99.05 out to past the outer rail, so there is no walkable
-        sliver behind the volume, and they stop at each segment's end so the
-        bridge gap stays open — that gap is the way IN from the stair. ── */
+  /* ── THE BAR ZONE + THE DINING TERRACE — every solid from the SAME
+        barLayout(R) the builder reads. All ROOF-ranged: an unranged circle
+        here is an invisible wall at grade where the fly-in path runs.
+        The volume chain is FAT circles at r 101.6: they close the whole band
+        from ~99.15 out past the outer rail, which is the volume AND the
+        back-bar's working aisle behind the counter — nobody walks there. Every
+        chain stops at its own list's ends, so the stair bridge's landing and
+        the head-house both stay open; the bridge gap is the way IN. ── */
   const BL = barLayout(R);
-  for (const [s, e] of BL.segs) arc(101.4, s + .010, e - .010, 1.9, ROOF);
-  arc(BL.counter.r, BL.counter.tc - BL.counter.halfTh,
-    BL.counter.tc + BL.counter.halfTh, .55, ROOF);            // the counter
+  for (const [s, e] of BL.segs) arc(101.6, s + .010, e - .010, 2.1, ROOF);
+  /* the counter with its stools — stricter than the geometry, which reaches
+     97.59 (a stool cushion) to 99.17 (the stone top's guest-side overhang) */
+  arc(98.45, BL.counter.tc - BL.counter.halfTh,
+    BL.counter.tc + BL.counter.halfTh, 1.05, ROOF);
   L.push({ x: WX(BL.canopy.th, BL.canopy.r), z: WZ(BL.canopy.th, BL.canopy.r),
-    r: .95, ...ROOF });                                       // the canopy pedestal
+    r: .95, ...ROOF });                                       // the canopy column
+  for (const Lg of BL.lounge) {                               // the lounge groups
+    for (const v of [-1.25, 0, 1.25]) {
+      const tt = Lg.th + v / Lg.r;
+      L.push({ x: WX(tt, Lg.r), z: WZ(tt, Lg.r), r: .85, ...ROOF });
+    }
+  }
+  /* the stage: the platform is 0.42 m, past CFG.STEP_UP, so it is a solid and
+     not a surface — the chain is stricter than its 97.3…102.7 footprint. The
+     living wall is a RADIAL wall on its north flank. */
   arc(BL.stage.r, BL.stage.th - BL.stage.halfTang + .006,
-    BL.stage.th + BL.stage.halfTang - .006, 1.55, ROOF);      // the stage
-  for (const t of BL.tables) {                                // dining tables
+    BL.stage.th + BL.stage.halfTang - .006, 2.80, ROOF);
+  radial(BL.stage.th + (BL.stage.w / 2 + .55) / BL.stage.r,
+    BL.stage.r - BL.stage.d / 2, BL.stage.r + BL.stage.d / 2, .35, ROOF);
+  for (const LT of BL.longTables) {                           // long communal tables
+    arc(LT.r, LT.th - LT.halfTh, LT.th + LT.halfTh, 1.35, ROOF);
+  }
+  for (const t of BL.tables) {                                // round / square tables
     L.push({ x: WX(t.th, t.r), z: WZ(t.th, t.r), r: .95, ...ROOF });
   }
   for (const b of BL.beds) {                                  // planting beds

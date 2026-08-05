@@ -1207,17 +1207,22 @@ export function initMoments(G) {
   const D = SITE.DECK;
 
   /* ── 0 · WELCOME BRUNCH — the Westin rooftop, 18 March, two days out ───────
-     THE ROOFTOP IS TWO ROOMS NOW (site.js): the infinity pool keeps the SOUTH
-     half of the terrace (poolTc ± poolTh) and the north half is the venue's own
-     rooftop bar. The brunch lives ENTIRELY in the pool room. campus.js stands
-     the eight four-tops — the list is HOTEL_ROOF.brunchTables, published once
-     so the two files can no longer disagree — and this moment is the COVER:
-     linen over the marble, settings, low blooms, a champagne service and a
-     buffet on the pool half's teak, and a menu easel greeting arrivals at the
-     cross-walk. Nothing here duplicates a table that is already up there —
-     dress it, don't rebuild it. Everything is WORLD space, in HOTEL_ROOF's
-     polar frame, and everything registered carries __world (miss one and it
-     lands 90° around the map, silently). */
+     THE ROOFTOP IS THREE ROOMS (site.js): the infinity pool — 28 m of it since
+     Carl's 2026-08-04 correction — then a 6 m paved walk, the bar zone, and the
+     dining terrace, with ~69 m of open deck south of the water. The brunch
+     lives ENTIRELY in the POOL ROOM. campus.js stands the eight four-tops — the
+     list is HOTEL_ROOF.brunchTables, published once so the two files can no
+     longer disagree — and this moment is the COVER: linen over the marble,
+     settings, low blooms, a champagne service at the walk, a buffet against the
+     screen wall behind the tables, and a menu easel at the room's threshold.
+     Nothing here duplicates a table that is already up there — dress it, don't
+     rebuild it. Everything is WORLD space, in HOTEL_ROOF's polar frame, and
+     everything registered carries __world (miss one and it lands 90° around the
+     map, silently).
+     ⚠ Every bearing below is keyed to (poolTc ± poolTh) or to the published
+     table list, so the whole dressing followed the water when it shrank from
+     89 m to 28 m. The only numbers that had to be re-authored are the ones that
+     were quoted as a LENGTH along a 90 m room. */
   let champPt;               // the champagne service — "Pour a glass" shares it
   {
     const g = groups.brunch;
@@ -1283,18 +1288,30 @@ export function initMoments(G) {
         const sash = box(.56, .09, .13, blush);
         sash.position.set(bx, DY + .50, bz); sash.rotation.y = ca; g.add(sash);
       }
-      cols.brunch.push({ x: p.x, z: p.z, r: 1.35, y0: DY - .6, __world: true });
+      /* ⚠ 1.35 → 0.95 with the short pool (2026-08-04). The eight four-tops are
+         one row on a 3.16 m pitch now; at r 1.35 each table claimed 1.70 m with
+         the player's own radius, so two neighbours' claims OVERLAPPED and the
+         brunch room could not be walked at all — you were fenced against the
+         coping. 0.95 is the SAME figure campus.js gives its bar dining tables
+         (whose chairs sit at the same 1.02 m), leaves a 0.56 m corridor between
+         two settings, and still rings the 0.68 m cloth with 0.27 m to spare. */
+      cols.brunch.push({ x: p.x, z: p.z, r: .95, y0: DY - .6, __world: true });
     }
 
-    /* ── the buffet: a 7 m draped run on the pool half's teak ──
-       The old bearing, C + .455, is in the BAR room since the split. It now
-       stands on the outer stretch of the pool room, BGAP metres of clear teak
-       past the outermost four-top (derived from the published list, quoted in
-       METRES at the buffet's own radius — never as a typed fraction of the
-       arc). At r 98.4 it sits between the coping and the lounger row's back,
-       clear of the tables, the loungers and the spawn. */
-    const BR = 98.4, BGAP = 5.7;
-    const BTH = Math.min(...HOTEL_ROOF.brunchTables.map(t => t.th)) - BGAP / BR;
+    /* ── the buffet: a 7 m draped run, on the pool room's BACK PAVING ──
+       ⚠ RE-KEYED 2026-08-04 with the short pool. It used to stand BGAP metres
+       past the outermost four-top, along the arc — which on a 28 m pool room
+       puts it 2 m outside the room, on the south deck among the loungers. The
+       pool room is 29.8 m of arc at r 99 and the eight four-tops (one row now)
+       take 25.9 m of that, so there is no room for it BESIDE them; it goes
+       BEHIND them instead, against the lattice screen wall, which is where a
+       hotel puts a breakfast buffet anyway.
+       The section: four-tops at r 99.0 reaching 100.32 with their chair backs ·
+       a 0.97 m service aisle · the buffet at 101.85 (101.29…102.41) · 0.32 m
+       clear of the screen's plinth at 102.73. Centred on the room's own bearing
+       so it can never drift off the tables. */
+    const BR = 101.85;
+    const BTH = RF.poolTc;
     for (let i = 0; i < 5; i++) {
       const th = BTH - .028 + i * .014;
       rbox(1.55, .74, 1.02, th, BR, DY + .37, linen);      // drape
@@ -1320,13 +1337,21 @@ export function initMoments(G) {
     }
     colLineY(cols.brunch, pt(BTH - .032, BR), pt(BTH + .032, BR), .62, DY - .6);
 
-    /* ── champagne service — at the pool room's cross-walk seam, greeting
-          arrivals off the bridge (the old C + .383 is in the bar room now).
-          1.4 m inside the seam, quoted in metres at its own radius. The
-          "Pour a glass" interactable is DERIVED from this same point below —
-          one source of truth, they can never drift apart again. ── */
-    const CR = 97.9;
-    const CTH = RF.poolTc + RF.poolTh - 1.4 / CR;
+    /* ── champagne service — at the pool room's threshold onto the paved walk,
+          greeting arrivals coming down from the bar (the old C + .383 is in the
+          bar zone now). 1.0 m inside the seam, quoted in metres at its own
+          radius: at 1.4 m it would clash with the first of the eight four-tops,
+          whose row starts _BT_EDGE = 3.8 m in (site.js). The "Pour a glass"
+          interactable is DERIVED from this same point below — one source of
+          truth, they can never drift apart again. ── */
+    /* ⚠ THE RADIUS IS A WALKABILITY CONSTRAINT, not a taste one. At r 97.9 the
+       service's 0.95 m collider (1.30 m with the player) plus the easel's at
+       98.9 formed one blob spanning r 96.60…99.85 across the pool room's only
+       threshold — a scripted walk from the water to the paved walk simply
+       stalled in it. At 99.6 the blob is 97.95…100.90 and there are two ways
+       past: the coping strip seaward of it and the back paving behind it. */
+    const CR = 99.6;
+    const CTH = RF.poolTc + RF.poolTh - 1.0 / CR;
     rcyl(.54, .80, CTH, CR, DY + .40, linen, 18);
     rcyl(.58, .05, CTH, CR, DY + .82, linen, 18);
     {
@@ -1347,16 +1372,19 @@ export function initMoments(G) {
     }
 
     /* ── a hedge of blooms along the pool coping, so the water reads as part
-          of the table setting rather than a lap pool. Re-keyed to the POOL'S
-          OWN span — the old C ± .33 straddled the crescent's centre, which put
-          half the run on the cross-walk and in the bar room. Same 22 blooms at
-          the same 2.9 m spacing (⚠ the count is load-bearing: every moment
-          after this block shares the one seeded stream, so changing the draw
-          count here re-jitters the ceremony), laid along the .66 rad of coping
-          fronting the tables and the service. ── */
-    const HEDGE_END = RF.poolTc + RF.poolTh - .02;    // 1.9 m shy of the seam
+          of the table setting rather than a lap pool. Keyed to the POOL'S OWN
+          span — the old C ± .33 straddled the crescent's centre, which put half
+          the run on the cross-walk and in the bar room.
+          ⚠ 2026-08-04: the run is now the pool's WHOLE coping (0.26 rad, 25 m)
+          instead of a 0.66 rad reach of a 90 m one, so the blooms sit at 1.2 m
+          rather than 2.9 m — a real flower run along a real pool.
+          ⚠ THE COUNT IS LOAD-BEARING at 22 and must stay: every moment after
+          this block shares the one seeded stream (mulberry32(CFG.SEED)), so
+          adding or dropping a draw here re-jitters the entire ceremony. Two
+          rnd() per bloom, 44 in this loop, unchanged. ── */
+    const HEDGE_A = RF.poolTc - RF.poolTh + .02, HEDGE_B = RF.poolTc + RF.poolTh - .02;
     for (let i = 0; i < 22; i++) {
-      const th = HEDGE_END - .66 + (i / 21) * .66;
+      const th = HEDGE_A + (i / 21) * (HEDGE_B - HEDGE_A);
       const p = pt(th, 96.9);
       const f = new THREE.Mesh(new THREE.SphereGeometry(.13 + rnd() * .07, 7, 6),
         rnd() > .5 ? blush : foliage);

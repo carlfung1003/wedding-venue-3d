@@ -212,6 +212,55 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE ROOFTOP, CORRECTED — DONE 2026-08-04
+
+Carl, with `reference/photos/rooftop-pool-bar-daylight.webp`: *"the bar is very
+close by the pool and the pool is definitely a lot shorter than what we have
+now"*, plus `rooftop-bar-live-band.webp` for the stage.
+
+| | was | now |
+|---|---|---|
+| **pool length** | **88.96 m** | **28.00 m** (27.05 at the lip, 28.95 at the back wall) |
+| bar counter | — (a whole 89 m "room") | **10.00 m** |
+| counter → pool's near coping | — | **8.71 m** |
+
+The measurement that drove it: scaling the photo off the bar stools (~12 at
+0.7 m ⇒ a ~10 m counter) put the real pool at 25–30 m. We were **3× too long**.
+
+**The two-room 50/50 partition is gone; the roof is now a three-room precinct**
+and the dining terrace is the RESIDUAL (bar's north edge → the dressed band's
+end), so the rooms cannot overlap however the arc changes, and a `console.warn`
+fires if the precinct ever stops fitting. Reads: 69 m south deck (screen wall,
+cabanas, loungers) · **28 m pool** · 6 m walk · **20 m bar** · 4 m planted
+break · 69.7 m dining terrace. `brunchTables` is re-derived as one row at
+r 99.0 on a pitch computed from the pool room's own span.
+
+The **live-band stage** is rebuilt from the photo: a living wall, splayed
+columns, and eight **gold-edged perforated shields** (emissive — no lights
+added, the budget is 12 slots), with two performers. Plus **four 11 m communal
+tables** (96 covers, woven chairs, candles) beside the round/square ones.
+
+**Two bugs caught inside the pass, both instructive:**
+- **The stage panels were scaled edge-on.** `UNIT_SHIELD` is a Shape in XY
+  extruded along Z, so the width is `sx`, not `sz`. Swapped, the visible face
+  was the extrusion's SIDE wall, whose UVs come from ExtrudeGeometry's own
+  generator and repeat — every panel wore the gold frame three times.
+- **The brunch room could not be walked**: at the old 1.35 m table collider,
+  neighbours on the new 3.16 m pitch claimed overlapping circles, and the
+  champagne service plus the easel formed one blob across the room's only
+  threshold. Collider → 0.95, champagne → r 99.6.
+
+⚠️ **The pool is still 6.30 m across against the photo's ~11 m, deliberately.**
+`rOut` 103.2 is the crescent's own roof and the inland band is fully spent
+(coping → teak with loungers and four-tops → screen wall at 102.9). Widening
+even a metre pushes the screen off the back of the terrace. Carl's correction
+was the LENGTH, and that is delivered exactly.
+
+Also found, pre-existing, NOT fixed: the north head-house stands inside the
+dining terrace (dodged, not moved); and **the eight four-tops have no colliders
+outside the Welcome Brunch** — campus.js builds them permanently but only
+moments.js rings them, so in the other five moments you walk through them.
+
 ## THE 2F FALL HAZARDS — CLOSED 2026-08-04 (`atrium.js` + `suite.js`)
 
 The check-in walkway turned the atrium's upper gallery into the venue's main

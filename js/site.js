@@ -95,39 +95,80 @@ const ROOF_ARC_HALF = HOTEL_ARC / 2 - ROOF_END_M / ROOF_R_MID;        // 1.0456
 const ROOF_POOL_ARC_HALF = ROOF_ARC_HALF - ROOF_PAVE_M / ROOF_R_MID;  // 1.0006
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   THE ROOFTOP IS TWO ROOMS — 2026-08-02 (Carl)
+   THE ROOFTOP IS A SHORT POOL, A BAR BESIDE IT, AND A DINING TERRACE
+   — 2026-08-04 (Carl), superseding the 50/50 "two rooms" split of 2026-08-02
    ═══════════════════════════════════════════════════════════════════════════
-   *"not the entire top floor is pool only. The right side infinity pool is
-   correct, but the left side should be a bar area."*
+   *"i have a better shot of the hotel rooftop pool + bar, the bar is very
+   close by the pool and the pool is definitely a lot shorter than what we have
+   now"* — reference/photos/rooftop-pool-bar-daylight.webp.
 
-   Looking at the crescent from the campus the camera faces roughly EAST, so
-   screen RIGHT is +Z (south) and screen LEFT is −Z (north). The pool therefore
-   keeps the SOUTH half of the terrace and the ROOFTOP BAR takes the NORTH half
-   — which is also the end the crescent already lifts into its sky-bar block
-   (buildHotel, θ = C + arc/2), so the venue and the massing agree.
+   WHAT WAS WRONG, measured. The 2026-08-02 split halved the DRESSED band
+   between two rooms, so the water took `ROOF_ROOM_TH` = 0.4770 rad about
+   `poolTc`, which at the pool's own mid radius (93.25) is **88.96 m of pool**.
+   Scaling the photograph off the bar stools — roughly a dozen at ~0.70 m
+   centres, so a ~10 m counter — and reading the water at 2.5…3× that counter
+   puts the real pool at **25…30 m**. We were ~3.2× too long, and the bar had
+   the whole other half of a 202 m terrace to sprawl across.
 
-   References for the bar: reference/photos/rooftop-bar-night.png and
-   rooftop-bar-dusk.png — an elevated cube clad in perforated panels lit
-   electric blue with a water-caustic ripple, standing on splayed flared
-   columns, over dark timber decking, dining tables with woven chairs, planting
-   beds with warm linear uplighting, a cantilevered canopy on one splayed
-   column, a bar counter, and (Carl) a live-band stage.
+   THE FIX. The pool is a LENGTH IN METRES now, not a fraction of anything:
+   28 m at its own mid radius, which is where a pool is measured. The bar is a
+   20 m zone a short paved walk to the north of it — close enough that the two
+   read as one venue, which is Carl's "the bar is very close by the pool" — and
+   everything north of that is the DINING TERRACE (the long communal tables and
+   the live-band stage of reference/photos/rooftop-bar-live-band.webp). What is
+   left, ~69 m of terrace SOUTH of the water, is what the photograph shows to
+   the left of the pool: timber deck, the perforated screen wall, the white
+   four-poster cabana daybeds under it, and the loungers.
 
-   ⚠ BOTH SPANS ARE DERIVED, from the same ROOF_POOL_ARC_HALF the water used to
-   own outright. `poolArcHalf` keeps its old meaning — the half-width of the
-   DRESSED band, terrace less its end paving — and the two rooms partition it
-   about the crescent's centre bearing with a paved cross-walk between them.
-   Change HOTEL_ARC and the pool, the bar and the walk all follow; neither room
-   can drift into the other, and nothing here is a typed fraction of the arc
-   (which is exactly how the pool ended up as a strip across the middle of a
-   building that had grown out from under it — see the block above).           */
+   ⚠ EVERY SPAN IS STILL DERIVED. The lesson that produced the 2026-08-02 block
+   has not changed — a typed fraction of `HOTEL_ARC` silently rescales when the
+   building does. What changed is the UNIT: the pool, the walk, the bar and the
+   dining gap are metres at a stated radius, and only the dining terrace's
+   length is residual (it is "whatever is left of the dressed band"), so the
+   three rooms can never overlap and none of them can drift with the arc.
+
+   ⚠ ORIENTATION, and it is the sign that has cost this project three passes.
+   `pt(th, r)` puts +θ at −Z, so **θ > C is NORTH and θ < C is SOUTH**. Standing
+   on the terrace looking at the sea (inward, −X) that puts NORTH on your RIGHT
+   and SOUTH on your LEFT — which is exactly the daylight photograph: screen
+   wall + cabanas LEFT, pool centre, bar RIGHT.                                */
 const ROOF_C = Math.PI / 2;                    // the crescent's centre bearing
-const ROOF_DIVIDE_M = 9.0;                     // the paved cross-walk on that bearing
-const ROOF_DIVIDE_HALF = ROOF_DIVIDE_M / 2 / ROOF_R_MID;              // 0.0466
-/* each room is half of what is left, so the two are the same size by construction */
-const ROOF_ROOM_TH = (ROOF_POOL_ARC_HALF - ROOF_DIVIDE_HALF) / 2;     // 0.4770
-const ROOF_POOL_TC = ROOF_C - ROOF_DIVIDE_HALF - ROOF_ROOM_TH;        // south
-const ROOF_BAR_TC = ROOF_C + ROOF_DIVIDE_HALF + ROOF_ROOM_TH;         // north
+/* the pool's section, hoisted so its own mid radius can derive its half-angle
+   (SITE.HOTEL.ROOFTOP.poolIn / .poolOut read these two — one source) */
+const ROOF_POOL_IN = 90.10, ROOF_POOL_OUT = 96.4;
+const ROOF_POOL_R_MID = (ROOF_POOL_IN + ROOF_POOL_OUT) / 2;           // 93.25
+/* ⚠ CARL'S NUMBER. 28 m of water, measured along the arc at the pool's mid
+   radius — the photograph's 25…30 m, taken at the middle of the range. */
+const ROOF_POOL_LEN_M = 28.0;
+const ROOF_POOL_TH = ROOF_POOL_LEN_M / 2 / ROOF_POOL_R_MID;           // 0.15013
+/* the paved walk between the water and the bar. It was 9 m when the two rooms
+   were 90 m each; at this size that is a courtyard, and Carl's correction is
+   that the two are CLOSE. */
+const ROOF_DIVIDE_M = 6.0;
+const ROOF_DIVIDE_HALF = ROOF_DIVIDE_M / 2 / ROOF_R_MID;              // 0.03106
+/* the bar zone: the counter + its back-bar, the planted cantilever canopy and
+   the caustic-clad volume standing behind them. 20 m holds a 10 m counter with
+   room at both ends; the dining is a separate room to the north of it. */
+const ROOF_BAR_LEN_M = 20.0;
+const ROOF_BAR_TH = ROOF_BAR_LEN_M / 2 / ROOF_R_MID;                  // 0.10352
+const ROOF_DINE_GAP_M = 4.0;                   // planted break, bar → dining
+const ROOF_DINE_GAP_HALF = ROOF_DINE_GAP_M / 2 / ROOF_R_MID;
+
+const ROOF_POOL_TC = ROOF_C - ROOF_DIVIDE_HALF - ROOF_POOL_TH;        // south
+const ROOF_BAR_TC = ROOF_C + ROOF_DIVIDE_HALF + ROOF_BAR_TH;          // north
+/* the dining terrace is RESIDUAL — it runs from the bar's planted break to the
+   dressed band's north end, so it cannot overlap the bar and cannot run off
+   the paving. ~69 m today. */
+const ROOF_DINE_0 = ROOF_BAR_TC + ROOF_BAR_TH + 2 * ROOF_DINE_GAP_HALF;
+const ROOF_DINE_1 = ROOF_C + ROOF_POOL_ARC_HALF;
+const ROOF_DINE_TH = (ROOF_DINE_1 - ROOF_DINE_0) / 2;
+const ROOF_DINE_TC = (ROOF_DINE_1 + ROOF_DINE_0) / 2;
+/* the precinct must fit inside the dressed band at BOTH ends, or a room's
+   floor runs off the terrace and people fall 26 m. Silent if it ever breaks,
+   so it shouts. */
+if (ROOF_POOL_TC - ROOF_POOL_TH < ROOF_C - ROOF_POOL_ARC_HALF || ROOF_DINE_TH <= 0) {
+  console.warn('[site] rooftop precinct no longer fits the dressed band — check ROOF_*_LEN_M');
+}
 
 export const SITE = {
   // ---------------------------------------------------------------- the suite
@@ -1333,26 +1374,38 @@ export const SITE = {
          It is no longer all water — see the two rooms below, which partition
          it. Kept because the end aprons past it are still keyed off it. */
       poolArcHalf: ROOF_POOL_ARC_HALF,
-      /* ── THE TWO ROOMS ── centre bearing + half-width, both DERIVED.
+      /* ── THE THREE ROOMS ── centre bearing + half-width, every one DERIVED.
          Everything that used to read (_RC, poolArcHalf) as "where the water is"
-         now reads (poolTc, poolTh); the bar half publishes the same pair so a
-         prop up there can never be authored against the wrong span. */
-      poolTc: ROOF_POOL_TC, poolTh: ROOF_ROOM_TH,   // infinity pool — SOUTH half
-      barTc: ROOF_BAR_TC, barTh: ROOF_ROOM_TH,      // the rooftop bar — NORTH half
-      divideHalf: ROOF_DIVIDE_HALF,                 // the paved cross-walk between them
-      poolIn: 90.10,     // THE INFINITY EDGE — on the facade line, spilling west
+         reads (poolTc, poolTh); the bar and the dining terrace publish the same
+         pair so a prop up there can never be authored against the wrong span.
+         ⚠ 2026-08-04: poolTh is no longer half the dressed band — it is
+         ROOF_POOL_LEN_M / 2 / poolMidRadius, i.e. 28 m of water. See the
+         "SHORT POOL" block at the top of this file for the measurement. */
+      poolTc: ROOF_POOL_TC, poolTh: ROOF_POOL_TH,   // the infinity pool — 28 m
+      barTc: ROOF_BAR_TC, barTh: ROOF_BAR_TH,       // the bar zone — 20 m, beside it
+      dineTc: ROOF_DINE_TC, dineTh: ROOF_DINE_TH,   // the dining terrace — residual
+      divideHalf: ROOF_DIVIDE_HALF,                 // the paved walk pool ↔ bar
+      dineGapHalf: ROOF_DINE_GAP_HALF,              // the planted break bar ↔ dining
+      poolIn: ROOF_POOL_IN,  // THE INFINITY EDGE — on the facade line, spilling west
       lipW: 0.20,        // the white coping hairline seaward of the water
       troughR: 89.42,    // catch basin, cantilevered off the facade under the lip
       troughDrop: 0.78,  // …this far below the water surface
-      poolOut: 96.4,     // pool back wall → 6.3 m across
+      /* ⚠ 6.3 m across, KEPT. The daylight photograph's pool is closer to
+         28 × 11, but the inland band this would have to eat is fully spent:
+         coping 96.4→97.2, teak with the loungers and the four-tops to 102.3,
+         the lattice screen at 102.9 and rOut at 103.2. Widening the water even
+         a metre pushes the screen wall off the back of the terrace, and rOut is
+         the crescent's own roof. The correction Carl made is the LENGTH. */
+      poolOut: ROOF_POOL_OUT,  // pool back wall → 6.3 m across
       loungeR: 98.2,     // the lounger row, facing the drop
       gardenR: 100.9,    // the four-poster daybed row, on the timber deck
       teakOut: 102.3,    // the timber deck runs from the coping to here
       screenR: 102.9,    // THE PERFORATED LATTICE SCREEN WALL
       screenH: 5.1,      // …and how far it stands over the deck
       screenW: 3.00,     // one blade, along the arc
-      barArcHalf: 0.075, // rooftop bar, on the crescent's centreline
-      barH: 3.2,         // bar pavilion clear height above deckY
+      /* (`barArcHalf` / `barH` are GONE — they sized the central bar pavilion
+         that straddled the cross-walk, deleted 2026-08-03. The bar's plan lives
+         in campus.js barLayout(), keyed to barTc/barTh.) */
       /* the two stair/lift head-houses. Also DERIVED — they are bookends, and
          at a typed 0.50 on a ±1.05 terrace they would have huddled in the
          middle of the run with 100 m of unbroken daybeds outboard of them.
@@ -1943,6 +1996,14 @@ const _TW_RISE = _R.deckY / _TW_FL;            // 2.9556 m per flight
 /* metres of tangential offset → radians, at the tower's mid radius */
 const _tw = v => v / ((_TW_R0 + _TW_R1) / 2);
 
+/* the brunch four-tops' row — see the note beside `brunchTables` below.
+   ⚠ `_BT_EDGE` is 3.8 m of clear teak at each end of the pool room, and it is
+   load-bearing twice: the champagne service stands 1.0 m inside the north seam
+   (moments.js) and the first table must clear its 0.58 m cloth. */
+const _BT_R = 99.0;
+const _BT_EDGE = 3.8 / _BT_R;
+const _BT_PITCH = (2 * _R.poolTh - 2 * _BT_EDGE) / 7;
+
 export const HOTEL_ROOF = {
   cx: _H.cx - _H.r, cz: _H.cz,                 // ARC CENTRE — (190, 10)
   C: _RC,
@@ -1966,15 +2027,22 @@ export const HOTEL_ROOF = {
      `99.2 + (k % 2) * 1.6`) with a comment in each file telling the next person
      they had to agree. They no longer can disagree: this list is the tables.
 
-     They all moved into the POOL half when the roof was split — the bar half
-     is the venue's own dark-timber dining deck now and a run of white marble
-     four-tops with parasols in the middle of it reads as two hotels. They sit
-     on the INNER stretch of the pool half, nearest the cross-walk, which is
-     where the loungers already leave room (see loungerRow in campus.js, which
-     derives its inner limit from the outermost table here). */
+     They all live in the POOL ROOM — the bar and the dining terrace are the
+     venue's own dark-timber floors and a run of white marble four-tops with
+     parasols in the middle of one reads as two hotels.
+
+     ⚠ 2026-08-04, the SHORT pool: the two staggered rows at 99.2 / 100.8 no
+     longer fit. The pool room is 28 m of arc and its teak is 5.1 m deep
+     (97.2 → 102.3); two rows of chair-ringed four-tops plus the buffet behind
+     them needs 7 m of depth, so the eight are ONE row now, at r 99.0, with the
+     buffet on the back paving behind them (moments.js). The pitch is DERIVED
+     to fill the room — never a typed angle — and `_BT_EDGE` is the clear teak
+     kept at each end for the champagne service and the menu easel.
+     The ring a chair sweeps is 1.32 m (back at 1.28 + half its thickness), so
+     the pitch must stay above 2.64 m or two settings interlock; it is 3.20 m. */
   brunchTables: Array.from({ length: 8 }, (_, k) => ({
-    th: _R.poolTc + _R.poolTh - 0.052 - k * 0.0565,
-    r: 99.2 + (k % 2) * 1.6,
+    th: _R.poolTc + _R.poolTh - _BT_EDGE - k * _BT_PITCH,
+    r: _BT_R,
   })),
 };
 
@@ -2181,11 +2249,15 @@ export const WALK_REGIONS = [
      ground 26 m below. Nothing walkable exists at r < rIn, so over-covering
      inward is free; under-covering is a hole in the roof.
 
-     ⚠ 2026-08-02, when the roof was split into two rooms: the hole, the basin
-     and the steps are keyed to (poolTc, poolTh) — the SOUTH half — not to
-     (_RC, poolArcHalf) any more. The bar half is plain deck the whole way from
-     rIn to rOut, so it needs no hole; get this wrong the other way and you cut
-     a 90 m hole in the bar's floor and everyone standing on it falls 26 m. */
+     ⚠ 2026-08-02, when the roof was split into rooms: the hole, the basin and
+     the steps are keyed to (poolTc, poolTh) — never to (_RC, poolArcHalf) any
+     more. Everything else up there (the south deck, the paved walk, the bar
+     zone, the dining terrace, both aprons) is plain deck the whole way from
+     rIn to rOut and needs no hole; get this wrong the other way and you cut a
+     hole in a floor people are standing on and they fall 26 m.
+     ⚠ 2026-08-04: poolTh is 0.150 rad now, not 0.477 — the hole, the basin and
+     both sets of submerged steps shrank with it because all three read the same
+     pair. Nothing here needed editing, which is the point of deriving them. */
   annulus('hotel-roof-deck', HOTEL_ROOF.cx, HOTEL_ROOF.cz, _R.rIn, _R.rOut,
     _RC, _R.arcHalf, _R.deckY,
     { aholes: [{ r0: _R.rIn - .3, r1: _R.poolOut, tc: _R.poolTc, th: _R.poolTh }] }),
@@ -2346,15 +2418,22 @@ const MOMENT_PLACES_LOCAL = {
    four-tops — derived from the published list so it can never end up inside a
    table's collider, which is a 1.35 m circle plus the player's own 0.35 m.
    (It moved here with the tables when the roof was split: at _RC + 0.34 it was
-   in what is now the rooftop bar.) */
+   in what is now the rooftop bar.)
+   ⚠ 2026-08-04: the RADIUS moved 99.2 → 97.9 with the short pool. The eight
+   four-tops are one row at r 99.0 on a 3.16 m pitch now, so the midpoint
+   between two of them is only 1.58 m from each centre. At 97.9 the same bearing
+   is 1.93 m from both, clear of their 1.30 m claim (collider 0.95 + the
+   player's 0.35), on the strip of teak between the tables and the pool coping —
+   which is also the better picture: you spawn at the water's edge looking down
+   it, which is what the daylight reference photograph is. */
 const _BRUNCH_TH = (HOTEL_ROOF.brunchTables[3].th + HOTEL_ROOF.brunchTables[4].th) / 2;
-const _BRUNCH_PT = HOTEL_ROOF.pt(_BRUNCH_TH, 99.2);   // on the teak, behind the coping
+const _BRUNCH_PT = HOTEL_ROOF.pt(_BRUNCH_TH, 97.9);   // on the teak, at the coping
 const MOMENT_PLACES_WORLD = {
-  // Standing among the tables looking due WEST: the water fills the frame, the
-  // infinity edge and 26 m of nothing are dead ahead, the rooftop bar's lit
-  // cube stands off to the right and the tables run away to the left.
-  // Due west rather than dead-inward (which would be yaw = θ) so the water and
-  // the tables both stay in frame instead of one filling it.
+  // Standing at the pool's edge looking due WEST: the water fills the frame,
+  // the infinity edge and 26 m of nothing are dead ahead, the bar counter and
+  // its planted canopy stand off to the right and the dressed four-tops run
+  // away behind you. Due west rather than dead-inward (which would be yaw = θ)
+  // so the water and the tables both stay in frame instead of one filling it.
   BRUNCH: { x: _BRUNCH_PT.x, z: _BRUNCH_PT.z, y: SITE.HOTEL.ROOFTOP.deckY, yaw: Math.PI / 2 },
 };
 
