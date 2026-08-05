@@ -214,6 +214,52 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE SECOND POOL'S PAVILION + THE SWIM-UP BAR — DONE 2026-08-04 (`campus.js`)
+
+From `reference/photos/3br-pool-area-view.jpg` (the open flat-roofed pavilion
+standing between the waters — the missing hero there) and
+`reference/photos/resort-swim-up-bar.webp` (slatted canopy, bottle shelving,
+counter at water level, submerged stools, "POOL BAR", bougainvillea bowl).
+
+Both were built by an agent that could NOT edit `site.js` (a concurrent pass
+owned it), so every coordinate is derived from published `SITE.*` values —
+a good discipline that is worth keeping. The pavilion is enclave-local at
+(−56, −11.2); the swim-up bar is WORLD-space in its own `resort-poolbar` group
+on the campus root, deliberately not enclave-shaped so `adoptCampus` skips it.
+
+⚠️ **The two water passes ran concurrently on the same lagoon**, so the bar was
+required to report its footprint for a merge check: AABB x 142.14…151.27,
+z −9.91…−0.32, entirely west of the basin centre line. Verified after merging —
+**13.87 m to the cabana islet, 11.4 m to the spoked pavilion, and the bar's
+7.6 m planting-cull disc reaches neither** (checked empirically, not by
+arithmetic: zero instances of either structure are zero-scaled).
+
+**Three bugs the WALK test caught that a render never would** — this is the
+project's "walk it, don't render it" rule earning its place again:
+1. **A column dead on the centre-line of all four faces** — an "open pavilion"
+   you could not walk into head-on. Fixed with an even column count.
+2. **The hedges sealed it on three sides**: a walker was held 0.9 m out and
+   moved 0.00 m in six bursts. Both runs now break for the axis they straddle.
+3. **`water.js`'s river dressing buried the bar** — `buildRiverDressing` rings
+   EVERY basin with `round(rm × 2.4)` shrub clumps (42 around the lagoon) and
+   two ~3 m masses filled the frame. A new `cullPlantingAt()` sweeps both
+   nature.js's and water.js's groups, scale-to-zero, house pattern.
+
+Found, pre-existing, NOT fixed:
+- **You cannot swim up to the swim-up bar.** `riverColliders()` fills every
+  basin interior (rim chain + a 2.6 m grid of r 2.0 circles), so the in-water
+  approach moves 0.00 m. Opening a swimmable mouth is a `water.js` job.
+- ⚠️ **A bucket-key collision in `buildArrival`**: `inst()` binds geometry AND
+  material on first use, but `arrTableI`, `arrChairI`, `arrCabI`,
+  `arrCounterI` and `arrDeskI` are each called with TWO different materials —
+  so the arrival's table legs, chair frames, desk trim and buffet marble all
+  silently render in whichever material registered first. Left alone because
+  fixing it CHANGES THE ARRIVAL'S LOOK, which wants Carl's eye. **General
+  rule: one bucket key per (geometry, material) pair.**
+- The pavilion's plinth is 0.16 m rather than 0.30 m because a raised floor
+  needs a `WALK_REGION` and that registry lives in site.js — give it a real
+  podium only in the same pass that registers it.
+
 ## THE RESORT POOL COMPLEX — DONE 2026-08-04 (`site.js` + `water.js`)
 
 Built from `reference/resort-pool-complex-brief.md` and Carl's photographs. The

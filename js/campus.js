@@ -747,6 +747,37 @@ function texLoungePlaque() {
   }, [1, 1]);
 }
 
+/* the lagoon swim-up bar's counter front. reference/photos/resort-swim-up-bar.webp
+   letters it "POO[L] BAR" in a loose resort script over a pale cream panel, with
+   a small wave glyph between the words — the "L" is behind a stool in the photo
+   and is read by inference (resort-pool-complex-brief.md §2g says so). Cream
+   ground, not white: it has to sit against MAT.white's counter body without
+   reading as a decal stuck on it. */
+function texPoolBar() {
+  return tex(512, 96, (g, w, h) => {
+    g.fillStyle = '#efe9dc'; g.fillRect(0, 0, w, h);
+    const r = mulberry32(0x9a11);
+    for (let i = 0; i < 900; i++) {                 // plaster tooth
+      g.fillStyle = `rgba(0,0,0,${r() * .03})`;
+      g.fillRect(r() * w, r() * h, 2, 2);
+    }
+    g.fillStyle = '#2f7fb5';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.font = 'italic 600 52px "Snell Roundhand", "Apple Chancery", cursive';
+    g.fillText('POOL', w * .29, h * .52);
+    g.fillText('BAR', w * .72, h * .52);
+    /* the wave glyph between the words */
+    g.strokeStyle = '#2f7fb5'; g.lineWidth = 5; g.lineCap = 'round';
+    g.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const x = w * .46 + (i / 24) * w * .1;
+      const y = h * .52 + Math.sin(i / 24 * Math.PI * 2) * h * .1;
+      i ? g.lineTo(x, y) : g.moveTo(x, y);
+    }
+    g.stroke();
+  }, [1, 1]);
+}
+
 /* the white four-panel cabinet wall behind the check-in desk (63.png) */
 function texCabinet() {
   return tex(256, 256, (g, w, h) => {
@@ -1279,6 +1310,14 @@ function makeMaterials() {
   const plaque = texPlaque();
   m.plaque = glow(new THREE.MeshStandardMaterial({
     map: plaque, emissive: 0xffffff, emissiveMap: plaque, roughness: .5 }), .1, 1.0);
+  /* the lagoon swim-up bar's counter lettering. A whisper by day, lit after
+     dark like every other sign on this campus — and, like them, an EMISSIVE
+     rather than a light: js/lightbudget.js caps the visible point lights at 12
+     and this pass adds none. */
+  const poolBar = texPoolBar();
+  m.poolBar = glow(new THREE.MeshStandardMaterial({
+    map: poolBar, emissive: 0xffffff, emissiveMap: poolBar, roughness: .62,
+    side: THREE.DoubleSide }), .12, .95);
   glow(m.rtScreen, 0, 1.45);
   tint(m.rtScreen, 0xa9b6cc);
   glow(m.rtBarPanel, 0, 1.8);
@@ -5032,6 +5071,515 @@ function tick(dt) {
     1.8 * (1 + Math.sin(clock * 1.15 + .7) * .10 + Math.sin(clock * 2.6) * .05);
 }
 
+/* ── keep the campus's PLANTING off a new footprint ─────────────────────────
+   Two builders scatter greenery after this one and NEITHER consults
+   G.colliders, which is the only thing a structure's colliders can influence:
+     · nature.js's understory + ground cover dart-throw against its own
+       exclusionZones() alone — the arrival's SHRUB cull and world.js's
+       cullUnderstoryInsideEnclave() both exist for exactly this;
+     · water.js's buildRiverDressing() rings EVERY basin with
+       `round(rm × 2.4)` shrub clumps set 0.8…5.0 m outside its deck — 42 of
+       them around SITE.LAGOON alone. That one is not obvious from nature.js,
+       and it is what actually buried the swim-up bar: two ~3 m masses stood
+       against its landward face and filled the frame from the deck.
+   So the sweep covers BOTH owners' groups. Same one-shot scale-to-zero as the
+   two existing culls, and the same two rules: palm buckets are
+   DynamicDrawUsage (the sway ticker rewrites their matrices every frame, so
+   anything written here is gone by the next one) and the translation is kept
+   so nothing re-indexes. Instance positions are taken through matrixWorld —
+   the river group and the enclave's `nature:enclave` group are not at the
+   origin, and testing raw instance translations would miss in both. */
+const _cull_m = new THREE.Matrix4(), _cull_p = new THREE.Vector3(),
+  _cull_z = new THREE.Vector3(0, 0, 0);
+
+function cullPlantingAt(G, hit) {
+  let done = false;
+  (G.tickers ||= []).push(() => {
+    if (done) return;
+    const roots = [G.groups && G.groups.nature, G.groups && G.groups.water].filter(Boolean);
+    if (!roots.length) return;
+    done = true;
+    for (const root of roots) {
+      root.updateMatrixWorld(true);
+      root.traverse(o => {
+        if (!o.isInstancedMesh) return;
+        if (o.instanceMatrix.usage === THREE.DynamicDrawUsage) return;   // palms
+        let touched = 0;
+        for (let i = 0; i < o.count; i++) {
+          o.getMatrixAt(i, _cull_m);
+          _cull_p.setFromMatrixPosition(_cull_m).applyMatrix4(o.matrixWorld);
+          if (!hit(_cull_p.x, _cull_p.z)) continue;
+          _cull_m.scale(_cull_z);
+          o.setMatrixAt(i, _cull_m);
+          touched++;
+        }
+        if (touched) o.instanceMatrix.needsUpdate = true;
+      });
+    }
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   11 · THE OPEN PAVILION AT THE SECOND POOL
+   ════════════════════════════════════════════════════════════════════════
+   Reference: reference/photos/3br-pool-area-view.jpg — shot from a 3-BR
+   terrace, over that key's clipped hedge. Beyond the hedge it reads, near to
+   far: a shallow curved reflecting pool · a timber deck · the rectangular
+   swimming pool · clipped hedge blocks — and standing BETWEEN THE WATERS, an
+   OPEN PAVILION: a flat roof on slender dark columns, open on all four sides,
+   on a LOW plinth, with the clubhouse behind it. CLAUDE.md's "CARL'S
+   DECISIONS — 2026-08-04 §3" names that pavilion as the queued work; this is
+   it. (The white curved tower on the photo's horizon is the Regent, and is
+   background — deliberately not modelled.)
+
+   ⚠ WHAT THIS IS NOT. `SITE.LOUNGE_POOL` is a HISTORICAL NAME: the standalone
+   酒廊 was demolished 2026-08-04 and that water now serves the 3-BR keys and
+   the dinner lawns. Nothing here is lounge-named and nothing here is a lounge.
+
+   ── FRAME CHOICE: ENCLAVE-LOCAL, VIA inst() ONLY ────────────────────────────
+   Deliberate, and it is the same call `buildGrassGround()` makes for the same
+   reason. world.js re-parents campus.js content into the rotated enclave two
+   ways: named groups listed in its CAMPUS_ENCLAVE_GROUPS literal (`pergola`,
+   `sign`, `extstair`), and per-INSTANCE through isEnclaveLocal(). This pass
+   does not own world.js, so a NEW named group would not be in that Set and the
+   whole pavilion would stand 90° around the map at raw local coordinates,
+   silently. So: EVERY part of this pavilion is an inst() instance, there is no
+   group, and every instance position satisfies isEnclaveLocal() (local x
+   −63…−49 < 84, local z −16…−4 > −80). Its colliders are pushed enclave-local
+   and world.js's collider rewrite maps them through enclaveToWorld().
+   Corollary, same as the grass ground: no THREE.PointLight out here — a light
+   needs a parent group — so the soffit downlights are emissive instances.
+
+   ── POSITION, DERIVED ───────────────────────────────────────────────────────
+   On the pool's long centre-line (`LP.cx`), off its NORTH end, separated from
+   the pool's stone apron by a timber deck. That end is where a guest walking
+   down from the 3-BR keys arrives, and it is the one flank of the pool with
+   open ground: the apron's east edge is the 2.5 m dinner clearance (below),
+   the west is the palm belt and the south is the walk to the grand lawn.
+
+   ⚠ THE 2.5 m CLEARANCE IS LOAD-BEARING and nothing here may enter it.
+   water.js's buildLoungePool() lays the pool's stone apron at cx ± w/2 ± 4.5
+   and cz − d/2 − 5.0 … cz + d/2 + 4.0; against SITE.LOUNGE_POOL that puts its
+   east edge at local x −41.5, exactly 2.5 m short of DINNER_LAWNS[1].x0
+   (−39) — a measured clearance from the 2026-08-02 pass, re-verified
+   2026-08-04. Those four offsets are water.js's; they are mirrored here (not
+   re-typed from a screenshot) because the apron's north lip is this pavilion's
+   own datum, and site.js — where they would otherwise be published once — is
+   not this pass's to edit. If they ever move in water.js, move them here.
+   The pavilion's own east edge lands ~11 m west of the lawn, so the clearance
+   is untouched by construction as well as by measurement. */
+const SP_APRON_W = 4.5;      // water.js buildLoungePool: apron, pool's ±X
+const SP_APRON_N = 5.0;      // …its north lip
+const SP_APRON_S = 4.0;      // …its south lip
+const SP_DECK_RUN = 3.2;     // timber deck between the apron's north lip and
+                             // the pavilion's plinth — the photo's boardwalk
+
+function buildSecondPoolPavilion(G) {
+  const LP = SITE.LOUNGE_POOL, DL = SITE.DINNER_LAWNS[1];
+  const rnd = mulberry32((CFG.SEED ^ 0x2b00) >>> 0);
+
+  /* the second pool's stone apron, re-derived from the published footprint */
+  const APRON = {
+    x0: LP.cx - LP.w / 2 - SP_APRON_W, x1: LP.cx + LP.w / 2 + SP_APRON_W,
+    z0: LP.cz - LP.d / 2 - SP_APRON_N, z1: LP.cz + LP.d / 2 + SP_APRON_S,
+  };
+  /* the clearance this builder must not eat. Asserted, not assumed — if a
+     future move of either footprint closes it, the console says so on boot. */
+  const DINNER_GAP = DL.x0 - APRON.x1;
+  if (DINNER_GAP < 2.49) {
+    console.warn('[campus] second pool apron → outer dinner lawn is only '
+      + DINNER_GAP.toFixed(2) + ' m (2.5 expected)');
+  }
+
+  const PV = {
+    w: 11.0, d: 7.0,                    // 77 ㎡ of open floor
+    cx: LP.cx,                          // dead on the pool's long centre-line
+    cz: APRON.z0 - SP_DECK_RUN - 7.0 / 2,
+    plY: .16,                           // ⚠ LOW on purpose — see below
+    colH: 3.05, colT: .17,
+    eave: .55, roofT: .26,
+  };
+  const hx = PV.w / 2, hz = PV.d / 2;
+  const roofY = PV.plY + PV.colH;       // underside of the roof slab
+
+  /* ⚠ THE PLINTH IS 0.16 m AND THAT IS A CONSTRAINT, NOT A TASTE. A raised
+     floor you can stand on has to be a WALK_REGION, and the registry lives in
+     site.js, which this pass does not own. At 0.16 m the plinth reads as a base
+     in silhouette (the reference's is low too) while a walker crossing it — who
+     stays at floorY 0.000, because nothing here registers a surface — is barely
+     a boot-sole out. Give this a real 0.30 m podium only in the same pass that
+     registers `second-pool-pavilion` in WALK_REGIONS. */
+  inst('spBlackI', UNIT_BOX, MAT.blackPolish,
+    mat4(PV.cx, PV.plY / 2, PV.cz, PV.w + 1.0, PV.plY, PV.d + 1.0));
+  inst('spStoneI', UNIT_PLANE, MAT.stone,
+    mat4(PV.cx, PV.plY + .004, PV.cz, PV.w + .84, 1, PV.d + .84));
+  /* a 60 mm outer step, so the plinth is two courses rather than one kerb */
+  inst('spBlackI', UNIT_BOX, MAT.blackPolish,
+    mat4(PV.cx, .03, PV.cz, PV.w + 2.4, .06, PV.d + 2.4));
+
+  /* ── the timber deck: plinth → the pool's apron. The photo's middle band. ── */
+  const dz0 = PV.cz + hz + .5, dz1 = APRON.z0;
+  inst('spDeckI', UNIT_PLANE, MAT.deck,
+    mat4(PV.cx, .05, (dz0 + dz1) / 2, PV.w + 2.0, 1, dz1 - dz0));
+  /* board joints — six shadow lines across the run, so 13 m of deck is not one
+     flat plane from the drone orbit */
+  for (let i = 1; i < 7; i++) {
+    inst('spDarkI', UNIT_BOX, MAT.dark,
+      mat4(PV.cx, .054, dz0 + (dz1 - dz0) * i / 7, PV.w + 2.0, .012, .05));
+  }
+
+  /* ── the columns: SLENDER, dark, open on all four sides ──
+     ⚠ FOUR per long run, and the count is EVEN on purpose. The first layout
+     ran five a side plus a mid-column on each short end, which put a column
+     dead on the centre-line of all four faces — and the walk test found it
+     immediately: a walker aimed at the middle of a face stopped 0.57 m out
+     (collider .22 + CFG.PLAYER_R .35) and covered 3.9 m of a 15.2 m crossing.
+     An open pavilion has to be enterable head-on, so every face now has a
+     clear centre bay: 3.43 m between columns on the long runs, and the 7 m
+     short ends span corner to corner with no intermediate post. */
+  const cols = [];
+  for (let i = 0; i < 4; i++) {
+    const x = PV.cx + (i / 3 - .5) * (PV.w - .7);
+    for (const s of [-1, 1]) cols.push([x, PV.cz + s * (hz - .35)]);
+  }
+  for (const [x, z] of cols) {
+    inst('spColI', UNIT_BOX, MAT.dark,
+      mat4(x, PV.plY + PV.colH / 2, z, PV.colT, PV.colH, PV.colT));
+    /* stricter than the geometry, per the house rule — you walk BETWEEN them */
+    G.colliders.push({ x, z, r: .22 });
+  }
+
+  /* ── the flat roof: slab, copper fascia, warm timber soffit, slat ceiling ── */
+  const rw = PV.w + PV.eave * 2, rd = PV.d + PV.eave * 2;
+  inst('spSoffitI', UNIT_BOX, MAT.warmSoffit,
+    mat4(PV.cx, roofY + .07, PV.cz, rw - .18, .14, rd - .18));
+  for (let i = 0; i < 16; i++) {                   // the soffit's slat rhythm
+    inst('spSlatI', UNIT_BOX, MAT.slatWarm,
+      mat4(PV.cx, roofY + .015, PV.cz + (i / 15 - .5) * (rd - .9),
+        rw - .5, .04, .16));
+  }
+  /* the copper fascia. y 3.33…3.45 against the soffit's 3.21…3.35 — a 20 mm
+     OVERLAP, not a shared plane: the first version put its underside exactly on
+     the soffit's top face and that is the coplanar pair this file's own rule
+     forbids (invisible here only because both faces are back-to-back inside the
+     stack, which is luck, not design). */
+  inst('spCopperI', UNIT_BOX, MAT.copper,
+    mat4(PV.cx, roofY + .18, PV.cz, rw + .08, .12, rd + .08));
+  inst('spRoofI', UNIT_BOX, MAT.roof,
+    mat4(PV.cx, roofY + .14 + PV.roofT / 2, PV.cz, rw, PV.roofT, rd));
+
+  /* soffit downlights — emissive instances, ZERO new point lights (see the
+     frame note above: out here a light would need a parent group) */
+  for (let i = 0; i < 4; i++) {
+    for (const s of [-1, 1]) {
+      inst('spDownI', UNIT_BOX, MAT.arrDown,
+        mat4(PV.cx + (i / 3 - .5) * (PV.w - 2.2), roofY - .005,
+          PV.cz + s * (hz - 1.1), .3, .03, .3));
+    }
+  }
+
+  /* ── two low timber benches, in the end bays and pushed 1.9 m OFF the short
+        axis, so all four centre bays stay walkable (same lesson as the column
+        count above — the walk test caught a bench sitting in the end doorway,
+        4.1 m of an 18.8 m crossing). ── */
+  for (const s of [-1, 1]) {
+    const bx = PV.cx + s * (hx - 1.05), bz = PV.cz - 1.9;
+    inst('spSlatI', UNIT_BOX, MAT.slatWarm, mat4(bx, PV.plY + .40, bz, .62, .11, 2.6));
+    for (const t of [-1, 1]) {
+      inst('spDarkI', UNIT_BOX, MAT.dark,
+        mat4(bx, PV.plY + .19, bz + t * 1.02, .5, .38, .12));
+    }
+    G.colliders.push({ x: bx, z: bz, r: .5 });
+    G.colliders.push({ x: bx, z: bz + 1.0, r: .45 });
+    G.colliders.push({ x: bx, z: bz - 1.0, r: .45 });
+  }
+
+  /* ── clipped hedge blocks + topiary: the photo has them THROUGHOUT, and they
+        are what stops the pavilion reading as a table on a lawn.
+
+     ⚠ EVERY RUN LEAVES ITS CENTRE-LINE OPEN, and that is not decoration. The
+     first layout put a flank block on each short end's centre-line and an
+     unbroken five-block run across the back, and the walk test caught it at
+     once: the pavilion was enclosed on three sides and a walker approaching
+     the local −Z face was held 0.9 m out and moved 0.00 m in six bursts — an
+     "open pavilion" you cannot walk into. Both runs now break for the axis
+     they straddle, so all four faces are enterable. This is the walk-don't-
+     render rule in miniature: it rendered perfectly the whole time. ── */
+  const hedge = (x, z, w, h, d) => {
+    inst('spHedgeI', UNIT_BOX, MAT.hedge, mat4(x, h / 2, z, w, h, d));
+    G.colliders.push({ x, z, r: Math.max(w, d) * .42 });
+  };
+  for (const s of [-1, 1]) {                       // flanks: clear of z = PV.cz
+    for (const t of [-1, 1]) {
+      hedge(PV.cx + s * (hx + 2.9), PV.cz + t * 3.15,
+        1.5 + rnd() * .3, .85 + rnd() * .22, 2.4);
+    }
+  }
+  /* the back run, with a 3.5 m gap on the centre-line for the way in from the
+     clubhouse side; the clubhouse reads over the top of it */
+  for (const s of [-1, 1]) {
+    for (let i = 0; i < 2; i++) {
+      hedge(PV.cx + s * (1.75 + 1.25 + i * 2.4), PV.cz - hz - 2.6,
+        2.2, .78 + rnd() * .16, 1.15);
+    }
+  }
+  /* rounded topiary punctuation — NO colliders, deliberately: they stand in
+     the 1.5 m lap lane beside the plinth, where a collider would pinch the
+     route the hedges were just opened for. They are knee-to-waist high. */
+  for (const s of [-1, 1]) for (const t of [-1, 1]) {
+    inst('spTopiaryI', UNIT_BLOB, MAT.hedge,
+      mat4(PV.cx + s * (hx + 1.5), .62 + rnd() * .1, PV.cz + t * 2.6,
+        1.25, 1.35, 1.25, rnd() * 3));
+  }
+
+  /* the pavilion's floor and its boardwalk, cleared of nature's understory —
+     the footprint is stated in ENCLAVE-LOCAL coordinates and the query point
+     is mapped, exactly like siteFloorY does it */
+  cullPlantingAt(G, (wx, wz) => {
+    const l = worldToEnclave(wx, wz);
+    return l.x > PV.cx - hx - 1.4 && l.x < PV.cx + hx + 1.4
+      && l.z > PV.cz - hz - 1.4 && l.z < APRON.z0;
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   12 · THE SWIM-UP BAR at the resort's lagoon
+   ════════════════════════════════════════════════════════════════════════
+   References: reference/photos/resort-swim-up-bar.webp and §2g of
+   reference/resort-pool-complex-brief.md. What that photo shows: a timber bar
+   standing partly IN the water — a flat SLATTED canopy over a ~2 m back wall
+   of BOTTLE SHELVING, a service counter at water level, a row of SUBMERGED
+   STOOLS in front of it, "POO[L] BAR" lettering across the counter front, and
+   a big white bowl planter (~1 m) on a curved white wall above, overflowing
+   with pink bougainvillea. Carl called this one out specifically.
+
+   ── FRAME CHOICE: WORLD SPACE, AND IT MUST NOT BE CAPTURED ──────────────────
+   The mirror image of the pavilion above, and the trap runs the other way.
+   world.js's adoptCampus() re-parents a campus root child ONLY if its name is
+   in CAMPUS_ENCLAVE_GROUPS (`pergola`, `sign`, `extstair`); a group named
+   anything else is left alone, which is what this one wants. The instanced
+   repeats are the sharper edge: relocateInstances() tests every instance with
+   isEnclaveLocal(), which answers TRUE for x < 84. Every part of this bar is
+   at world x 139…152 — the nearest is 55 m clear of that line — so nothing
+   here is captured. Its colliders are world-space for the same reason
+   (isEnclaveLocal false ⇒ world.js's rewrite skips them), and they are pushed
+   during buildWorld so initMoments' snapshot keeps them.
+
+   ── POSITION, DERIVED ───────────────────────────────────────────────────────
+   Carl puts it toward the NORTH of the pool complex, so it sits on
+   SITE.LAGOON's north rim. Three things fix the exact bearing:
+     · NORTH  → sin θ < 0, i.e. θ ∈ (180°, 360°) in the ellipse's own parameter.
+     · The lagoon's NORTH-EAST quadrant and its centre are somebody else's
+       ground (a cabana islet + a spoked pavilion are being added there), so
+       every part of this structure stays WEST of the basin's centre line
+       (x < SITE.LAGOON.cx) — asserted on boot, below.
+     · SITE.RIVER.SPINE enters the basin across the WEST-NORTH-WEST rim (its
+       last control points cross the published ellipse between (133, 0.5) and
+       (138, 5), θ ≈ 215°) and SITE.RIVER.SPUR leaves through the north-east,
+       so neither mouth may be built over.
+   That leaves the north-north-west rim, and inside it there is exactly one
+   natural slot: water.js sets its lagoon umbrellas out at θ = (i + 0.35)/n·2π
+   for n = SITE.LAGOON.umbrellas, so the bar takes the MIDPOINT of the gap
+   between umbrellas 7 and 8 — θ = (7.5 + 0.35)/11·2π = 256.9°. Derived from
+   the published count, so if the umbrella count ever changes the bar moves to
+   the new gap instead of standing inside a parasol. (The (i + 0.35)/n rule is
+   water.js's; it is mirrored here for the same reason the apron offsets are
+   above — there is nowhere shared to publish it from without editing site.js.)
+
+   ── WHAT YOU CANNOT DO, AND WHY ─────────────────────────────────────────────
+   ⚠ You cannot swim up to this swim-up bar. water.js's riverColliders() fills
+   EVERY basin interior — the lagoon included — with a rim chain plus a 2.6 m
+   grid of r 2.0 circles, so a walker is held at the water's edge everywhere
+   around this lagoon and always was. That is pre-existing and deliberate (it
+   is also what keeps nature.js's palms out of the water); opening a swimmable
+   mouth is a water.js job, not this one. The stools are therefore dressing,
+   read from the bank and from the air, exactly as the reference photo reads
+   them — from across the water.
+
+   Single-Reflector rule: nothing here is reflective. No water surface, no
+   Reflector, no second mirror pass. Zero new THREE.PointLights — the back-bar
+   strip lights and the sign are emissive, on the existing night registry. */
+const SUB_UMB_PHASE = .35;   // water.js buildRiverDressing: umbrella θ phase
+
+function buildSwimUpBar(G, root) {
+  const L = SITE.LAGOON, R = SITE.RIVER;
+  const TAU = Math.PI * 2;
+  const rnd = mulberry32((CFG.SEED ^ 0x5ba0) >>> 0);
+
+  /* ⚠ NOT in CAMPUS_ENCLAVE_GROUPS, and that is the point — see the banner.
+     The name is deliberately not enclave-shaped so nobody adds it to that Set. */
+  const g = new THREE.Group();
+  g.name = 'resort-poolbar';
+  root.add(g);
+
+  /* ── the bank frame at the chosen bearing ── */
+  const T = (7.5 + SUB_UMB_PHASE) / L.umbrellas * TAU;
+  const rimX = L.cx + L.rx * Math.cos(T), rimZ = L.cz + L.rz * Math.sin(T);
+  /* outward normal of the published ellipse — ∇((x/rx)² + (z/rz)²) */
+  let nX = (rimX - L.cx) / (L.rx * L.rx), nZ = (rimZ - L.cz) / (L.rz * L.rz);
+  const nL = Math.hypot(nX, nZ); nX /= nL; nZ /= nL;
+  /* mat4()'s Y-rotation maps local +Z onto (sin ry, cos ry), so this yaw points
+     the bar's local +Z OUTWARD (landward) and its local +X along the bank. */
+  const ry = Math.atan2(nX, nZ);
+  const tX = nZ, tZ = -nX;                        // local +X, along the bank
+  /* nudged 0.8 m along the bank so the whole structure clears the basin's
+     centre line; see the assertion under COST below */
+  const U0 = .8;
+  /* (u, v) → world.  u along the bank, v OUTWARD from the water. */
+  const wx = (u, v) => rimX + (u + U0) * tX + v * nX;
+  const wz = (u, v) => rimZ + (u + U0) * tZ + v * nZ;
+  /* `dry` is an EXTRA yaw on top of the bank's, and it comes BEFORE `col` on
+     purpose: passing a rotation where inst() expects a colour is a
+     `color.toArray is not a function` at flush time, i.e. after the whole
+     campus has been built — one of this file's cheaper ways to lose an hour. */
+  const put = (key, geo, mat, u, y, v, su, sy, sv, dry = 0, col = null) =>
+    inst(key, geo, mat, mat4(wx(u, v), y, wz(u, v), su, sy, sv, ry + dry), col);
+
+  const WY = R.BASIN_Y;                 // 0.045 — the lagoon's water surface
+  const FLOOR = .16;                    // the bar's own service floor
+  const TOP = 1.14;                     // counter top — 1.09 above the water
+
+  /* ── 1 · the plinth the bar stands on, skirted down past the basin floor ── */
+  const PL_U = 7.6, PL_V0 = -.9, PL_V1 = 2.9;
+  const plV = (PL_V0 + PL_V1) / 2, plD = PL_V1 - PL_V0;
+  put('subStoneI', UNIT_BOX, MAT.stone, 0, (FLOOR - R.DEPTH * 1.15) / 2, plV,
+    PL_U, FLOOR + R.DEPTH * 1.15, plD);
+  put('subDeckI', UNIT_BOX, MAT.warmDeck, 0, FLOOR - .03, plV, PL_U - .3, .07, plD - .3);
+  /* a pale step out of the water on the swimmers' side — the reference's
+     stepped white apron under the counter */
+  put('subWhiteI', UNIT_BOX, MAT.white, 0, WY - .16, PL_V0 - .45, PL_U - 1.0, .34, .9);
+  rectCollider(G.colliders, wx(0, plV), wz(0, plV), PL_U, plD, ry, .55);
+
+  /* ── 2 · the counter, and the "POOL BAR" lettering across its front ── */
+  const CT_U = 6.6, CT_V = -.1, CT_D = .9;
+  put('subWhiteI', UNIT_BOX, MAT.white, 0, (FLOOR + TOP - .08) / 2, CT_V,
+    CT_U, TOP - .08 - FLOOR, CT_D);
+  put('subCapI', UNIT_BOX, MAT.stoneCap, 0, TOP - .04, CT_V, CT_U + .22, .08, CT_D + .22);
+  {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(2.9, .46), MAT.poolBar);
+    p.position.set(wx(-.4, CT_V - CT_D / 2 - .012), .82, wz(-.4, CT_V - CT_D / 2 - .012));
+    p.rotation.y = ry + Math.PI;                  // face the water
+    g.add(p);
+  }
+
+  /* ── 3 · the back wall of bottle shelving ── */
+  const SH_U = 6.2, SH_V = 1.7, SH_TOP = 2.35;
+  put('subDarkI', UNIT_BOX, MAT.dark, 0, (FLOOR + SH_TOP) / 2, SH_V + .16,
+    SH_U, SH_TOP - FLOOR, .1);
+  for (const s of [-1, 1]) {                      // the case's end stiles
+    put('subTimberI', UNIT_BOX, MAT.slatWarm, s * (SH_U / 2 - .09),
+      (FLOOR + SH_TOP) / 2, SH_V, .18, SH_TOP - FLOOR, .42);
+  }
+  const shelfY = [];
+  for (let i = 0; i < 5; i++) {
+    const y = FLOOR + .28 + i * .42;
+    shelfY.push(y);
+    put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, y, SH_V, SH_U - .3, .05, .4);
+    /* the lit reveal behind each shelf — emissive, not a light */
+    put('subLitI', UNIT_BOX, MAT.inLight, 0, y + .06, SH_V + .12, SH_U - .5, .04, .05);
+  }
+  /* the bottles. ⚠ per-instance tints ride MAT.bottle, whose base is WHITE on
+     purpose — MAT.dark would crush every one of them to black (the 2026-08-03
+     cocktail-bar gotcha). Hex only: Color.setHSL fills in LINEAR space. */
+  /* WEIGHTED, not uniform: the photograph's back-bar is mostly clear and amber
+     spirit glass with a few coloured labels, and an even draw across six
+     saturated hues rendered as a vertical rainbow grid — visibly wrong beside
+     the reference. Duplicates in the table are the weights. */
+  const GLASS = [0xd8d2c4, 0xd8d2c4, 0xd8d2c4, 0xcbc4b2,        // clear / frosted
+                 0x9a6b2f, 0x9a6b2f, 0x8a5a26, 0xbf9a3c,        // amber spirits
+                 0x3f5a3a, 0x2f5a34,                            // olive
+                 0x6c2118, 0x2c4d78];                           // the odd label
+  for (const y of shelfY) {
+    const n = 16;
+    for (let i = 0; i < n; i++) {
+      if (rnd() < .18) continue;                  // gaps read as a real back-bar
+      const u = (i / (n - 1) - .5) * (SH_U - .9) + (rnd() - .5) * .12;
+      const h = .24 + rnd() * .16;
+      put('subBottleI', UNIT_CYL, MAT.bottle, u, y + .03 + h / 2, SH_V + (rnd() - .5) * .12,
+        .075 + rnd() * .03, h, .075 + rnd() * .03, 0,
+        new THREE.Color(GLASS[(GLASS.length * rnd()) | 0]));
+    }
+  }
+
+  /* ── 4 · the flat SLATTED canopy on four slender timber posts ── */
+  const CN_U = 8.4, CN_V0 = -1.9, CN_V1 = 2.9, CANO = 3.0;
+  for (const su of [-1, 1]) for (const sv of [-1, 1]) {
+    const u = su * (CN_U / 2 - .65), v = sv < 0 ? -.15 : 2.55;
+    put('subTimberI', UNIT_BOX, MAT.slatWarm, u, (FLOOR + CANO) / 2, v,
+      .19, CANO - FLOOR, .19);
+    G.colliders.push({ x: wx(u, v), z: wz(u, v), r: .28 });
+  }
+  for (const sv of [-1, 1]) {                     // the two edge beams
+    put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, CANO + .09,
+      sv < 0 ? CN_V0 + .16 : CN_V1 - .16, CN_U, .18, .22);
+  }
+  put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, CANO + .06, (CN_V0 + CN_V1) / 2,
+    CN_U, .12, .22);
+  {
+    const n = 30, span = CN_V1 - CN_V0;
+    for (let i = 0; i < n; i++) {
+      put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, CANO + .21,
+        CN_V0 + .3 + (i / (n - 1)) * (span - .6), CN_U - .12, .07, .14);
+    }
+  }
+
+  /* ── 5 · the submerged stools ── */
+  for (let i = 0; i < 5; i++) {
+    const u = (i / 4 - .5) * 5.0;
+    put('subWhiteCylI', UNIT_CYL, MAT.white, u, -.35, PL_V0 - .55, .5, .09, .5);
+    put('subWhiteCylI', UNIT_CYL, MAT.white, u, (-.35 - R.DEPTH) / 2 - .2,
+      PL_V0 - .55, .17, R.DEPTH - .35, .17);
+  }
+
+  /* ── 6 · the white bowl planter of bougainvillea, on its own curved pier.
+        Set OUTSIDE the canopy line so the mass reads against the sky from the
+        water, which is exactly how the photograph frames it. ── */
+  const PI_U = -3.3, PI_V = 3.55;
+  for (let i = 0; i < 3; i++) {                   // three boxes fake the curve
+    put('subWhiteI', UNIT_BOX, MAT.white, PI_U + (i - 1) * .62, (FLOOR + 2.3) / 2,
+      PI_V + Math.abs(i - 1) * .16, .68, 2.3 - FLOOR, .86, 0);
+  }
+  put('subCapI', UNIT_BOX, MAT.stoneCap, PI_U, 2.33, PI_V, 2.1, .1, 1.02);
+  put('subWhiteCylI', UNIT_CYL, MAT.white, PI_U, 2.62, PI_V, 1.24, .5, 1.24);
+  for (let i = 0; i < 9; i++) {
+    const a = rnd() * Math.PI * 2, rr = .35 + rnd() * .5;
+    put('subBougI', UNIT_BLOB, MAT.bougain,
+      PI_U + Math.cos(a) * rr, 2.9 + rnd() * .45 - Math.max(0, rr - .55) * 1.6,
+      PI_V + Math.sin(a) * rr * .8, .78 + rnd() * .5, .62 + rnd() * .4,
+      .78 + rnd() * .5, rnd() * 3);
+  }
+  rectCollider(G.colliders, wx(PI_U, PI_V), wz(PI_U, PI_V), 2.0, .9, ry, .5);
+
+  /* ── 7 · a stone apron out to the lagoon's sand deck, so the bar is
+        approachable on foot from the bank ── */
+  put('subPaveI', UNIT_PLANE, MAT.stone, 0, R.DECK_Y + .02, (PL_V1 + 6.6) / 2,
+    5.4, 1, 6.6 - PL_V1);
+
+  /* ── 8 · clear nature's understory off the bar and its approach.
+        Measured need, not tidiness: without it two ~3 m shrub masses stood
+        hard against the landward face and buried the whole structure from the
+        deck. (u, v) → world is not invertible cheaply, so the test is the
+        world-space circle that contains the plan, which is what a shrub cull
+        wants anyway.) ── */
+  {
+    const cx = wx(0, 1.3), cz = wz(0, 1.3), rad = 7.6;
+    cullPlantingAt(G, (x, z) => (x - cx) ** 2 + (z - cz) ** 2 < rad * rad);
+  }
+
+  /* the assertion the banner promises: EVERY part of this bar stays west of
+     the basin's centre line, so the other pass's islet and spoked pavilion
+     have the centre and the north-east quadrant to themselves. */
+  let maxX = -1e9;
+  for (const u of [-CN_U / 2, CN_U / 2]) for (const v of [CN_V0, CN_V1, 6.6]) {
+    maxX = Math.max(maxX, wx(u, v));
+  }
+  if (maxX >= L.cx) {
+    console.warn('[campus] swim-up bar reaches x ' + maxX.toFixed(2)
+      + ', east of SITE.LAGOON.cx ' + L.cx);
+  }
+  return g;
+}
+
 /* ════════════════════════════════════════════════════════════════════════
    public API
    ════════════════════════════════════════════════════════════════════════ */
@@ -5057,6 +5605,16 @@ export function buildCampus(G) {
   buildExtStair(G, root);
   buildHotel(G, root);
   buildRoad(G, root, rnd);
+  /* Both of these run LAST and both carry their OWN mulberry32 stream, so the
+     shared `rnd` above reaches buildRoad in exactly the state it always did —
+     no villa, car or lamp moves because two structures were added. (The
+     campus-wide planting DOES shift: buildNature runs after buildWorld's
+     campus phase and dart-throws its palms against G.colliders, so the ~120
+     circles these two push repel palms that used to stand there. That is the
+     intended behaviour, not a regression — same mechanism as the 2026-08-04
+     lounge demolition.) */
+  buildSecondPoolPavilion(G);          // ENCLAVE-LOCAL — inst() only, no group
+  buildSwimUpBar(G, root);             // WORLD SPACE — must not be adopted
 
   flushBuckets(root);
   G.scene.add(root);
