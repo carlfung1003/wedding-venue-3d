@@ -16,7 +16,7 @@
 // built exactly as before and re-parented, as a rigid body, under one group
 // carrying SITE.ENCLAVE. Three things do NOT follow a group transform and are
 // fixed up by hand here:
-//   1. campus.js has a MIXED root — the lounge/pergola/sign/stair belong to
+//   1. campus.js has a MIXED root — the pergola/sign/stair belong to
 //      the enclave, but the hotel crescent, the arrival road and the ~50
 //      backdrop RESORT_VILLAS share it, and worse, the ten guest villas share
 //      InstancedMesh buckets with the backdrop villas and the road furniture.
@@ -48,8 +48,9 @@ import { buildSuite, setSuiteNight } from './suite.js';
    camera height directly.
    ── since 2026-08-02 it is a real HEIGHT FIELD ──────────────────────────────
    site.js owns the registry of walkable regions (the suite's stair and 2F, the
-   atrium's gallery and stair, the lounge plinth, the pool plinth, the exterior
-   stair) and resolves them; world.js keeps delegating, and injects the tuning
+   atrium's gallery and stair, the arrival's lane/court/stair/lobby/酒廊, the
+   pool plinth, the exterior stair) and resolves them; world.js keeps
+   delegating, and injects the tuning
    because site.js cannot import CFG (config.js imports site.js).
    THE THIRD ARGUMENT IS THE CONTRACT: pass the walker's current feet height and
    you get the surface they are standing on; omit it and you get bare terrain.
@@ -137,8 +138,14 @@ function phaseRunner(G, onPhase) {
 /* campus.js root children that are enclave, by name. The rest of that root —
    'hotel', 'road', the unnamed conference block, and the shared
    'campus:*' InstancedMeshes — is handled separately below.
-   ('lawn' left this Set on 2026-08-02 with SITE.LAWN itself.) */
-const CAMPUS_ENCLAVE_GROUPS = new Set(['lounge', 'pergola', 'sign', 'extstair']);
+   ⚠ A campus group whose name is NOT in here lands 90° around the map,
+   silently. REMOVING a name is safe only once nothing builds that group:
+   'lawn' left on 2026-08-02 with SITE.LAWN, and 'lounge' on 2026-08-04 with
+   buildLounge() — the standalone 酒廊 that the entrance pavilion replaced.
+   (The pavilion is NOT a group of its own: buildArrival parents its unique
+   meshes inside the adopted 'sign' group, deliberately, so it rides this same
+   transform — see its banner in campus.js.) */
+const CAMPUS_ENCLAVE_GROUPS = new Set(['pergola', 'sign', 'extstair']);
 
 const _box = new THREE.Box3();
 const _ctr = new THREE.Vector3();
@@ -294,7 +301,19 @@ function enclaveKeepOut() {
   /* the atrium was never in nature's list at all — it is a courtyard the palms
      had no business standing in even before the move */
   rect(S.ATRIUM.cx, S.ATRIUM.cz, S.ATRIUM.w + 2, S.ATRIUM.d + 2);
-  rect(S.LOUNGE.cx, S.LOUNGE.cz, S.LOUNGE.w + 3, S.LOUNGE.d + 3);
+  /* ⚠ REPOINTED 2026-08-04, not deleted. This line used to read SITE.LOUNGE —
+     the standalone 酒廊 at (−44, −16), demolished that day. The room it named
+     is now the ENTRANCE PAVILION's ground storey, and that building had never
+     been in this list at all: the only thing keeping planting off it was
+     buildArrival's ~46 phantom colliders, which repel placePalms but are
+     invisible to the understory scatter. Derived straight from SITE.ARRIVAL so
+     there is one footprint, not a second copy of its numbers. bldg + DECK, i.e.
+     the whole pavilion plus the timber deck along its courtyard face. */
+  {
+    const A = S.ARRIVAL, B = A.bldg;
+    rect((A.DECK.x0 + B.x1) / 2, (B.z0 + B.z1) / 2,
+      B.x1 - A.DECK.x0 + 2, B.z1 - B.z0 + 2);
+  }
   rect(S.LOUNGE_POOL.cx, S.LOUNGE_POOL.cz, S.LOUNGE_POOL.w + 4, S.LOUNGE_POOL.d + 4);
 
   const vw = Math.max(V.w, V.w2, V.courtW) + 7;
@@ -377,7 +396,7 @@ function adoptWater(enclave, root) {
    Named groups split cleanly. The InstancedMeshes do not: buildVillas() and
    buildResortVillas() push into the SAME buckets ('stucco', 'roofI', 'glass',
    'deckI', 'poolI', 'umbI'), and buildRoad() shares 'glowI' / 'darkI' /
-   'hedgeI' / 'poleI' with the lounge, the villas and the ext stair. One
+   'hedgeI' / 'poleI' with the arrival, the villas and the ext stair. One
    InstancedMesh cannot be half-parented, so the enclave instances are baked
    instead: premultiplying the enclave matrix onto an instance matrix is exactly
    what parenting would have done to it. */

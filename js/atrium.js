@@ -46,8 +46,20 @@ const PATH_EW = { x0: CX0, x1: CX1, z0: -35.7, z1: -33.5 };    // south run
 
 // the way through to the presidential suite (SITE.SUITE is due south)
 const PORTAL = { x0: -5, x1: 5 };
-// and a side door east toward the 隐逸居 lounge (SITE.LOUNGE)
-const LOUNGE_DOOR = { z0: -33.2, z1: -30.0 };
+/* ── LOUNGE_DOOR — DELETED 2026-08-04, and it was worse than dead ────────────
+   `const LOUNGE_DOOR = { z0: -33.2, z1: -30.0 }` cut a ground-floor opening in
+   the atrium's EAST perimeter, described as "a side door east toward the 隐逸居
+   lounge". It had pointed at nothing since 2026-08-01, when that lounge moved
+   to local −X — the east wall is at x 30 and the lounge was at cx −44, on the
+   far side of the campus.
+   What it actually opened onto was **Garden Room C3**, whose walk envelope is
+   x 30…40.2, z −34.4…−24.5: a SECOND hole in the party wall behind a guest
+   room, 2.5 m from that room's own numbered door, with a bronze reveal drawn
+   round it. A scripted walk pushed east along the gallery at z −31.6 went
+   straight through the visible wall and stood on C3's floor at feet 0.220.
+   It went with SITE.LOUNGE. `gapSpec[3][0]` is empty again, `holes.east` and
+   `buildSideOpening()` are gone, and the east wall's collider chain now takes
+   no skip there — so the wall you can see is the wall that stops you.        */
 
 /* ── THE GALLERY IS A CORRIDOR AND IT HAS DOORS IN IT (Carl, 2026-08-02) ──────
    The ten guest keys now stand against these four walls, and each one is
@@ -798,9 +810,11 @@ export function buildAtrium(G) {
   ];
   /* Every opening in the perimeter, per wall per floor, tagged so the hole the
      facade reports back can be handed to the right builder. Ground floor keeps
-     its two originals — the portal to the presidential suite and the side door
-     to the 酒廊 — and gains one per guest key on that face. The 2F only ever
-     carries the two-storey keys' upper doors. */
+     its one original — the portal to the presidential suite — and gains one per
+     guest key on that face. (Its SECOND original, the east side door to the old
+     standalone 酒廊, went on 2026-08-04; see LOUNGE_DOOR's note at the top.)
+     The 2F only ever carries the two-storey keys' upper doors and the check-in
+     walkway's. */
   /* `floors` is the number of STOREYS this opening is cut at, and the collider
      block below reads it: an opening that exists on one floor only must have
      the OTHER floor's wall put back with a height range, or the chain — which
@@ -808,7 +822,6 @@ export function buildAtrium(G) {
      facade is solid. See `upperOnly` / `lowerOnly` there. */
   const gapSpec = [[[], []], [[], []], [[], []], [[], []]];   // [wall][floor]
   gapSpec[0][0].push({ tag: 'portal', floors: 1, span: [PORTAL.x0 - A.cx, PORTAL.x1 - A.cx] });
-  gapSpec[3][0].push({ tag: 'lounge', floors: 1, span: [-(LOUNGE_DOOR.z1 - A.cz), -(LOUNGE_DOOR.z0 - A.cz)] });
   /* ── THE CHECK-IN LOBBY'S DOOR ONTO THE UPPER GALLERY (2026-08-04) ────────
      The clubhouse's entrance is on the 2F now and Carl asked for it to reach
      "the 2nd floor of the atrium to other rooms". This is that opening: a
@@ -831,7 +844,7 @@ export function buildAtrium(G) {
     }
   }
 
-  const holes = { south: null, east: null, link: null };
+  const holes = { south: null, link: null };
   /* wallSkips is per WALL, and the collider chain is built once for both
      storeys — so a 2F-only opening must NOT go in there or it punches a hole
      through the wall at grade too, where there is no door. It is collected
@@ -841,11 +854,13 @@ export function buildAtrium(G) {
   /* …and the MIRROR IMAGE, found 2026-08-04 by walking the upper gallery: the
      same "one chain, two storeys" fact means a GROUND-only opening leaves the
      chain open at gallery height too, where the facade is solid. Eight of the
-     ten guest keys are single-storey, and the suite portal and the 酒廊 side
-     door are ground-only as well — ten places where a walker on the 2F gallery
-     stepped THROUGH a wall he could see and fell into the room below (measured:
-     feet 3.600 → 0.220 at every one of them). Collected here and re-emitted as
-     a chain that blocks only AT gallery level. */
+     ten guest keys are single-storey, and the suite portal was ground-only as
+     well — TEN places where a walker on the 2F gallery stepped THROUGH a wall
+     he could see and fell into the room below (measured: feet 3.600 → 0.220 at
+     every one of them). Collected here and re-emitted as a chain that blocks
+     only AT gallery level.
+     ⚠ It is NINE from 2026-08-04: the tenth was the 酒廊 side door in the east
+     wall, which went with the building it pointed at. */
   const lowerOnly = [];
   /* the along-wall spans the collider chain must NOT seal, in WORLD terms
      (x for the south/north walls, z for the west/east ones) */
@@ -870,7 +885,6 @@ export function buildAtrium(G) {
           if (f === 0 && spec[k].floors < A.floors) lowerOnly.push({ w, ...skip });
         }
         if (spec[k].tag === 'portal') holes.south = hole;
-        else if (spec[k].tag === 'lounge') holes.east = hole;
         else if (spec[k].tag === 'link') buildLinkDoor(root, M, E, hole, f * H1);
         else buildRoomDoor(root, M, E, plaqueMats, plaques, hole, spec[k].no, f * H1);
       }
@@ -881,7 +895,6 @@ export function buildAtrium(G) {
   /* the framed portal through to the presidential suite, sized to the real
      hole the facade left (module skipping rounds it outward) */
   buildPortal(root, M, E, holes.south || { x0: PORTAL.x0, x1: PORTAL.x1 });
-  if (holes.east) buildSideOpening(root, M, holes.east);
 
   /* the four wall runs meet at the envelope corners but each stops on its own
      inner face — a 0.3 m notch is left over. Close it with a corner post. */
@@ -1484,18 +1497,8 @@ function buildLinkDoor(parent, M, E, hole, y0) {
   mkBox(parent, hole.x1 - hole.x0 + .3, .06, WALL_T + .26, M.column, cx, y0 + .03, z);
 }
 
-/* the side door east toward the 隐逸居 lounge — a plain bronze reveal */
-function buildSideOpening(parent, M, hole) {
-  const cx = (hole.x0 + hole.x1) / 2, cz = (hole.z0 + hole.z1) / 2;
-  const along = Math.max(hole.x1 - hole.x0, hole.z1 - hole.z0);
-  const g = new THREE.Group();
-  g.position.set(cx, 0, cz);
-  g.rotation.y = hole.ry;
-  parent.add(g);
-  mkBox(g, along + .5, .5, WALL_T + .4, M.darkWall, 0, H1 - .25, 0);   // header
-  mkBox(g, along + .5, .09, WALL_T + .48, M.copper, 0, H1 - .54, 0);   // copper reveal
-  for (const s of [-1, 1]) mkBox(g, .32, H1, WALL_T + .4, M.bronze, s * (along / 2 + .16), H1 / 2, 0);
-}
+/* (buildSideOpening() stood here — the bronze reveal round the east side door.
+   DELETED 2026-08-04 with LOUNGE_DOOR; see the note where that const was.) */
 
 /* glass balustrade in slim dark frames + the copper handrail.
    `tilt` (radians, negative = rises toward the far end) lets the same builder

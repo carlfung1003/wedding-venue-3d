@@ -1,7 +1,15 @@
 // campus.js — THE BUILT CAMPUS of 隐逸居 (Yinyiju), the Westin Sanya Haitang Bay
 // clubhouse enclave. Buildings + hardscape only:
 //
-//   · SITE.LOUNGE      — the 280 ㎡ / 60-seat 酒廊, wedding-dinner venue
+//   · SITE.ARRIVAL     — the two-storey entrance pavilion: the 280.7 ㎡ /
+//                        60-cover 隐逸居酒廊 at courtyard grade, the CHECK-IN
+//                        LOBBY above it, the balcony, the internal stair, the
+//                        upper walkway, the raised court, the lane and the
+//                        car park. THE CLUBHOUSE HAS EXACTLY ONE LOUNGE and
+//                        this is it (Carl, 2026-08-04); `buildLounge()` and
+//                        the standalone 酒廊 it built at (−44, −16) were
+//                        demolished the same day — see SITE.LOUNGE's tombstone
+//                        in site.js.
 //   · SITE.VILLAS      — 10 guest keys in 3 types (5 Garden Rooms, 3 Garden Pool
 //                        2-BR with walled courtyards, 2 two-storey Garden 3-BR)
 //   · (SITE.LAWN — the formal GARDEN lawn with its stone edge, ring path and
@@ -17,8 +25,7 @@
 //   · SITE.ROAD        — arrival road, parking, lamp posts
 //
 // NOT here: water surfaces (water.js), planting (nature.js), the presidential
-// suite + atrium (suite.js), interior dressing (moments.js). The lounge floor is
-// deliberately left EMPTY — the dinner module drops eight rounds onto it.
+// suite + atrium (suite.js), interior dressing (moments.js).
 //
 // Palette (clubhouse-pdf-brief.md): white stucco volumes · flat cantilevered
 // roofs with copper/bronze fascia · dark mahogany slats · cream marble ·
@@ -1436,111 +1443,33 @@ function arcBand(r, halfW, a0, a1, y, seg = 128, vScale = 6) {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   1 · 隐逸居酒廊 — the 280 ㎡ lounge. THE WEDDING DINNER ROOM.
-   20 × 14 m, 4.2 m clear, folding glass door-wall on the south (glassZ),
-   mahogany slat ceiling, cream marble floor, bar along the north wall.
-   Floor is left EMPTY on purpose — moments.js seats 60 in here.
+   1 · ~~隐逸居酒廊~~ — buildLounge() was DEMOLISHED 2026-08-04
+   ────────────────────────────────────────────────────────────────────────
+   Carl: *"clubhouse only have one lounge, lets build from scratch and let go
+   of the old one when you are done, this should be cleaner build."*
+
+   It built a standalone 20 × 14 m room on a 0.34 m plinth at SITE.LOUNGE
+   (−44, −16): three stucco walls, an 8-leaf folding glass door-wall, five
+   clerestory slots, a deep flat roof with copper fascia, a slat ceiling with
+   cove strips, a bar, a two-step terrace, planters and three point lights.
+   The REAL 酒廊 is the GROUND STOREY OF THE ENTRANCE PAVILION (buildArrival,
+   section 8 below) — 280.7 ㎡, 60 covers, its own 隐逸居酒廊 / SERENE RETREAT
+   LOUNGE plaque, folding glass onto the timber deck and the courtyard, with
+   the check-in lobby over it. Two lounges, one clubhouse; this one went.
+
+   ⚠ IT CONSUMED NO rnd() DRAWS — its signature was (G, root), never
+   (G, root, rnd) — so removing it does NOT reshuffle any seeded stream in
+   this file: buildVillas, buildResortVillas, buildArrival and buildRoad still
+   draw from `rnd` in exactly the order they always did. (nature.js's streams
+   DO move, deliberately: its lounge hedge screen and the lounge keep-out went
+   with the building.)
+
+   Gone with it: the group name 'lounge' in world.js's CAMPUS_ENCLAVE_GROUPS,
+   the `lounge-plinth` / `lounge-step` WALK_REGIONS, and atrium.js's east side
+   door — which had pointed at nothing since the lounge moved to −X on
+   2026-08-01. MAT.loungeFloor / MAT.loungeGlow / MAT.loungePlaque STAY: the
+   new 酒廊 uses all three.
    ════════════════════════════════════════════════════════════════════════ */
-function buildLounge(G, root) {
-  const L = SITE.LOUNGE;
-  const g = new THREE.Group(); g.name = 'lounge'; root.add(g);
-  const hx = L.w / 2, hz = L.d / 2;
-  const x0 = L.cx - hx, x1 = L.cx + hx;          // 26 … 46
-  const z0 = L.cz - hz, z1 = L.glassZ;           // -37 … -23
-  const T = .3, PL = .34;                        // wall thickness, plinth height
-
-  /* plinth — pushed south/east only; the atrium owns the ground west of x=26 */
-  box(g, L.w + 2.4, PL, L.d + 3.0, L.cx + .5, PL / 2, L.cz + .3, MAT.stone);
-  slab(g, L.w - .6, L.d - .6, L.cx, PL + .02, L.cz, MAT.marble);
-
-  /* three solid walls + the two short returns that frame the glass */
-  const wallH = L.h;
-  const wall = (ax, az, bx, bz) => {
-    const len = Math.hypot(bx - ax, bz - az);
-    const m = box(g, len, wallH, T, (ax + bx) / 2, PL + wallH / 2, (az + bz) / 2, MAT.stuccoWall);
-    m.rotation.y = -Math.atan2(bz - az, bx - ax);
-    colliderLine(G.colliders, ax, az, bx, bz, .45);
-    return m;
-  };
-  wall(x0, z0, x1, z0);            // north
-  wall(x0, z0, x0, z1);            // west
-  wall(x1, z0, x1, z1);            // east
-  const gw = 14, gx0 = L.cx - gw / 2, gx1 = L.cx + gw / 2;
-  wall(x0, z1, gx0, z1);           // south return (west)
-  wall(gx1, z1, x1, z1);           // south return (east)
-
-  /* the folding glass door-wall: 8 leaves, two folded open at the west jamb */
-  const leaves = 8, lw = gw / leaves, lh = wallH - .35;
-  for (let i = 0; i < leaves; i++) {
-    const cx = gx0 + lw * (i + .5);
-    if (i < 2) {                                    // folded back against the jamb
-      const fold = (i === 0 ? 1 : -1) * 1.15;
-      inst('glass', UNIT_BOX, MAT.glass,
-        mat4(gx0 + .5 + i * .34, PL + lh / 2 + .1, z1 + .55, lw * .9, lh, .07, fold));
-      inst('darkI', UNIT_BOX, MAT.dark,
-        mat4(gx0 + .5 + i * .34, PL + lh + .16, z1 + .55, lw * .9, .12, .12, fold));
-      continue;
-    }
-    inst('glass', UNIT_BOX, MAT.glass, mat4(cx, PL + lh / 2 + .1, z1, lw - .07, lh, .07));
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(gx0 + lw * i, PL + lh / 2 + .1, z1, .09, lh, .13));
-  }
-  inst('darkI', UNIT_BOX, MAT.dark, mat4(gx1, PL + lh / 2 + .1, z1, .09, lh, .13));
-  inst('darkI', UNIT_BOX, MAT.dark, mat4(L.cx, PL + lh + .12, z1, gw, .16, .18));   // head track
-
-  /* clerestory slots high on the north wall (deeper than the wall, so they
-     read from inside and out) */
-  for (let i = 0; i < 5; i++) {
-    inst('glass', UNIT_BOX, MAT.glass,
-      mat4(x0 + 2.4 + i * 3.6, PL + wallH - .75, z0, 2.4, .9, .38));
-  }
-
-  /* flat roof: deep overhang, copper fascia, dark soffit */
-  const OH = 2.0, ry0 = PL + wallH;
-  box(g, L.w + OH * 2, .34, L.d + OH * 2, L.cx, ry0 + .35, L.cz, MAT.roof);
-  box(g, L.w + OH * 2 + .14, .24, L.d + OH * 2 + .14, L.cx, ry0 + .08, L.cz, MAT.copper);
-  box(g, L.w + OH * 2 - .5, .18, L.d + OH * 2 - .5, L.cx, ry0 - .07, L.cz, MAT.dark);
-
-  /* dark mahogany slat ceiling + warm cove strips */
-  slab(g, L.w - .8, L.d - .8, L.cx, ry0 - .2, L.cz, MAT.slatCeil).rotation.x = Math.PI;
-  for (const [cx, cz, w, d] of [
-    [L.cx, z0 + .5, L.w - 1.6, .18], [L.cx, z1 - .5, L.w - 1.6, .18],
-    [x0 + .5, L.cz, .18, L.d - 1.6], [x1 - .5, L.cz, .18, L.d - 1.6],
-  ]) box(g, w, .1, d, cx, ry0 - .34, cz, MAT.loungeGlow);
-
-  /* bar counter along the north wall + lit back-bar */
-  const bx = L.cx, bz = z0 + 1.15;
-  box(g, 8.4, 1.05, 1.0, bx, PL + .53, bz, MAT.slat);
-  box(g, 8.7, .1, 1.15, bx, PL + 1.1, bz, MAT.marble);
-  box(g, 8.4, 2.3, .3, bx, PL + 1.15, z0 + .42, MAT.slat);
-  box(g, 7.8, .07, .12, bx, PL + 2.0, z0 + .58, MAT.loungeGlow);
-  box(g, 7.8, .07, .12, bx, PL + 1.35, z0 + .58, MAT.loungeGlow);
-  colliderLine(G.colliders, bx - 4.2, bz, bx + 4.2, bz, .62);
-
-  /* interior lights */
-  pointLight(g, L.cx - 5.5, PL + 3.3, L.cz, 4, 34, 22);
-  pointLight(g, L.cx, PL + 3.3, L.cz + 1.5, 4, 30, 22);
-  pointLight(g, L.cx + 5.5, PL + 3.3, L.cz, 4, 34, 22);
-
-  /* south terrace: paving down two steps to the lounge-pool deck */
-  box(g, L.w + 3, .18, .9, L.cx, PL - .09, z1 + .55, MAT.stone);
-  box(g, L.w + 3.6, .16, .9, L.cx, PL - .26, z1 + 1.45, MAT.stone);
-  slab(g, L.w + 6, 4.6, L.cx, .06, z1 + 4.2, MAT.paver);
-
-  /* planters flanking the opening + a bougainvillea against each return */
-  for (const s of [-1, 1]) {
-    inst('stoneI', UNIT_BOX, MAT.stone, mat4(L.cx + s * (gw / 2 + 1.1), PL + .35, z1 + .8, 1.5, .7, 1.5));
-    inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(L.cx + s * (gw / 2 + 1.1), PL + .95, z1 + .8, 1.5, 1.1, 1.5));
-    inst('bougain', UNIT_BLOB, MAT.bougain,
-      mat4(L.cx + s * (hx - 1.2), PL + 1.1, z1 - .5, 1.9, 2.0, 1.4));
-  }
-
-  /* step lights along the terrace edge */
-  for (let i = 0; i < 7; i++) {
-    inst('glowI', UNIT_BOX, MAT.glowLamp,
-      mat4(L.cx - 8.4 + i * 2.8, PL - .2, z1 + 1.0, .22, .1, .22));
-  }
-  return g;
-}
 
 /* ════════════════════════════════════════════════════════════════════════
    2 · THE TEN GUEST KEYS, ATTACHED TO THE ATRIUM
@@ -5115,7 +5044,8 @@ export function buildCampus(G) {
   root.name = 'campus';
   const rnd = mulberry32((CFG.SEED ^ 0x5eed) >>> 0);
 
-  buildLounge(G, root);
+  /* (buildLounge(G, root) stood here — demolished 2026-08-04, see section 1.
+     It drew nothing from `rnd`, so the order below is unchanged.) */
   buildVillas(G, root, rnd);
   buildResortVillas(G, rnd);
   buildGrassGround(G);

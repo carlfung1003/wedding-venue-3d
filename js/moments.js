@@ -1200,10 +1200,16 @@ export function initMoments(G) {
      the brunch lands 90° around the map from the roof it is set on. */
   groups.brunch.userData.worldSpace = true;
 
-  /* SITE.LOUNGE and SITE.LAWN used to be dressed here (dinner inside the 酒廊,
-     the ceremony on the little circular lawn). Both moments moved outdoors on
-     2026-08-02 and neither footprint is read any more — the lounge still
-     stands, it is just not a venue, and the circular lawn is a garden. */
+  /* SITE.LOUNGE and SITE.LAWN used to be dressed here (dinner inside the
+     standalone 酒廊, the ceremony on the little circular lawn). Both moments
+     moved outdoors on 2026-08-02 and this file has read neither footprint
+     since. Both keys are now GONE from site.js as well — SITE.LAWN on
+     2026-08-02, SITE.LOUNGE on 2026-08-04 when Carl's "clubhouse only have one
+     lounge" retired the standalone building in favour of the 酒廊 under the
+     check-in lobby. Nothing here had to change for either: ⚠ THE DINNER SPAWN
+     WAS NEVER THE LOUNGE'S. It is MOMENT_PLACES_LOCAL.DINNER (−17, −3), out on
+     the inner pool lawn, and it still lands flat at feet 0.000 facing its own
+     six rounds and two longs. */
   const D = SITE.DECK;
 
   /* ── 0 · WELCOME BRUNCH — the Westin rooftop, 18 March, two days out ───────

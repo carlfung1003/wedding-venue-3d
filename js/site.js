@@ -319,7 +319,8 @@ export const SITE = {
   // event plaza — moved WEST of the deck: the east side is now the pavilion
   // and lounger run down the pool's long edge.
   // x0 trimmed −32 → −30 (2026-08-01, pool/room-type pass) to leave a real gap
-  // for the relocated 酒廊: SITE.LOUNGE's roof overhang now reaches x −32.
+  // for the standalone 酒廊 that then stood at (−44, −16) — retired 2026-08-04,
+  // see the tombstone below SITE.ARRIVAL.
   // ...and then moved EAST again in the same pass: the −X side is now the
   // 3-BR suites and their pool, and the plaza was overlapping the villa at
   // (−24, −14). East of the cabana run is the only clear ground left.
@@ -535,68 +536,72 @@ export const SITE = {
       footOff: 3.1, wellPad: 1.0, wellZ1: -42.5 },
   },
 
-  // ------------------------------------------------------- clubhouse & lounge
-  // 隐逸居酒廊 — 280 ㎡, seats 60, folding glass to a terrace pool. WEDDING DINNER.
-  //
-  // ⚠ MOVED TO THE SUITE'S RIGHT, −X (Carl, 2026-08-01 — "pool + room-type
-  // placement"). It used to sit at cx +46 with its pool at (+46, −8), i.e. on
-  // your LEFT when you stand in the great room facing the pool, and that second
-  // sheet of water plus the villa cluster around it was the first thing Carl
-  // called out against the enclave aerial: **the presidential pool must be the
-  // only pool visible from the suite.** In the aerial the teal-umbrella pool is
-  // clearly on the RIGHT of the presidential pool and it is the water the two
-  // Garden 3-BR keys look onto, so the lounge, its pool and both `type: 2`
-  // villas moved together to −X.
-  //
-  // LEFT/RIGHT here is the SUITE'S, facing the pool = local +Z. player.js
-  // builds fwd as (−sin yaw, 0, −cos yaw) and right as (cos yaw, 0, −sin yaw);
-  // facing +Z is yaw = π, so right = (cos π, 0, −sin π) = (−1, 0, 0). LEFT is
-  // +X, RIGHT is −X. Mirroring this sign just mirrors the complaint — it has
-  // already been got backwards twice on this project.
-  //
-  // cx is pinned by two neighbours that may NOT move: SITE.PLAZA's west edge
-  // (x −30; the lounge roof stops at −32) and the ceremony lawn's outer ring
-  // path (LAWN.hedgeR + 3.8 = 27.8 m around (−75, −46); the lounge's NW roof
-  // corner clears it by ~0.5 m). cz is pinned the same way — pushing the lounge
-  // any further north walks its roof straight into that ring path.
-  // `plinth` + the pad/step numbers mirror campus.js's buildLounge() locals
-  // (PL = .34, the plinth box pushed +0.5 x / +0.3 z and 2.4 × 3.0 m proud of
-  // the walls, then two terrace steps down to the paving). They live here now
-  // because the walkable height field has to stand the player ON that plinth —
-  // the DINNER spawn is inside it. campus.js should read them when next open.
-  LOUNGE: { cx: -44, cz: -16, w: 20, d: 14, h: 4.2, glassZ: -9,
-    plinth: 0.34, plinthPadX: 2.4, plinthPadZ: 3.0, plinthOffX: 0.5, plinthOffZ: 0.3,
-    step2Y: 0.16, step2Z0: 1.0, step2Z1: 1.9 },   // step Zs are offsets from glassZ
-  /* THE SECOND POOL — the one the 3-BR keys and the 酒廊 terrace share.
+  /* ── SITE.LOUNGE — DEMOLISHED 2026-08-04 (the one-lounge pass) ─────────────
+     Carl: *"clubhouse only have one lounge, lets build from scratch and let go
+     of the old one when you are done, this should be cleaner build."*
+
+     There WAS a standalone 20 × 14 m 酒廊 here at (−44, −16) on a 0.34 m
+     plinth, with folding glass south onto a terrace and two steps down to the
+     lounge-pool deck. It was the wedding-dinner room until dinner moved
+     outdoors onto DINNER_LAWNS on 2026-08-02, and it became an outright
+     DUPLICATE on 2026-08-04 when the real 酒廊 was built where the hotel
+     actually has it — the GROUND STOREY OF THE ARRIVAL PAVILION, under the
+     check-in lobby (`SITE.ARRIVAL.bldg`, 11.6 × 24.2 m = 280.7 ㎡, 60 covers,
+     plaque 隐逸居酒廊 / SERENE RETREAT LOUNGE, folding glass onto its timber
+     deck and the courtyard). Two lounges, one clubhouse: this one went.
+
+     Removed with it: campus.js's `buildLounge()` and its 'lounge' entry in
+     world.js's CAMPUS_ENCLAVE_GROUPS; the `lounge-plinth` / `lounge-step`
+     WALK_REGIONS and their `_LO*` derivations below; nature.js's lounge
+     terrace hedge screen; and atrium.js's `LOUNGE_DOOR` + `buildSideOpening`,
+     the "side door east toward the 酒廊" — which had pointed at nothing since
+     the lounge moved to −X on 2026-08-01 and was in fact a second hole in the
+     atrium's east wall INSIDE Garden Room C3's footprint.
+
+     ⚠ THE ONE THING THAT DID NOT MOVE: the DINNER spawn. It was authored on
+     this plinth long ago but has been `MOMENT_PLACES_LOCAL.DINNER (−17, −3)`,
+     out on the inner pool lawn, since 2026-08-02 — nothing here fed it, and it
+     still spawns flat at 0.000.
+
+     The lounge's KEEP-OUTS were not deleted, they were REPOINTED at the
+     building that now holds the room: world.js's `enclaveKeepOut()` and
+     nature.js's `exclusionZones()` both read `SITE.ARRIVAL.bldg` / `.DECK`
+     directly, so there is one footprint and no second copy of its numbers.  */
+
+  /* THE SECOND POOL — the 3-BR keys' and the dinner lawns' water.
      ⚠ RESHAPED AND PUSHED OUT 2026-08-02 (Carl): *"you probably need to first
      refactor the second pool for the 3 bedroom suites, the shape is different
      and there should be more space for the two rectangle shape grass area"*.
      Reference: reference/photos/lawn-dinner-strips-and-2nd-pool.png.
 
+     ⚠ THE NAME IS HISTORICAL. It was the terrace pool of the standalone 酒廊
+     that stood at (−44, −16) until 2026-08-04; that building is gone (see the
+     tombstone above) and this water now serves the two Garden 3-BR keys and the
+     dinner lawns, which is Carl's 2026-08-04 decision #2 — *"lets do 1, i want
+     to see how it looks first before huge change"* — and is correct-by-decision,
+     not an oversight. Renaming the key would touch water.js, which this pass
+     does not own; the key stays, the room it was named for does not.
+
      Two things changed and both are load-bearing:
-      · ORIENTATION. It was 9 wide × 18 deep, i.e. running away from the lounge
-        along Z — which put it squarely in the corridor between the presidential
-        pool and the lounge, exactly where DINNER_LAWNS now live. In the aerial
-        its long axis runs along local X (≈24 m) and it is only ≈13 m along Z.
+      · ORIENTATION. It was 9 wide × 18 deep, i.e. running along Z — which put
+        it squarely in the corridor between the presidential pool and the old
+        lounge, exactly where DINNER_LAWNS now live. In the aerial its long axis
+        runs along local X (≈24 m) and it is only ≈13 m along Z.
       · POSITION. cx −44 → −56, which is 12 m further from the hero pool. Its
         stone apron (water.js lays it at cx ± w/2 ± 4.5) now stops at x −41.5,
-        clearing DINNER_LAWNS[1]'s west edge (−39) by 2.5 m. cz 6 → 7 keeps the
-        apron's north lip (cz − d/2 − 5 = −9.5) at the lounge's glass line.
-     Still on the suite's RIGHT (local −X) — Carl's 2026-08-01 call, and moving
-     it further −X only strengthens "the presidential pool is the ONLY pool
-     visible from the suite": from the great room its nearest corner sits ~70°
-     off the view axis with the lounge's mass in the way.
+        clearing DINNER_LAWNS[1]'s west edge (−39) by 2.5 m. cz 6 → 7 put the
+        apron's north lip at (cz − d/2 − 5) = −9.5.
+     Still on the suite's RIGHT (local −X) — Carl's 2026-08-01 call, and it is
+     still not visible from the great room: nearest corner ~60° off the view
+     axis against a 44.6° half-FOV.
 
-     ⚠ THE SHAPE IS NOT A RECTANGLE, and water.js — which is not ours to edit —
-     still builds it as one from w/d. OUTLINE below is the free-form plan traced
+     ⚠ THE SHAPE IS NOT A RECTANGLE. OUTLINE below is the free-form plan traced
      off the aerial, as a CLOSED polygon in normalised pool space (u = x/w,
      v = z/d, both in −0.5…+0.5, counter-clockwise, first point NOT repeated).
-     Its AABB is exactly w × d, so the rectangle water.js draws today is the
-     outline's bounding box and nothing is misplaced in the meantime. When
-     water.js is next open, buildLoungePool() should extrude this through a
-     THREE.Shape instead of calling makeRectPool — see the report/CLAUDE.md.
-     The straight run is the v = −0.5 edge: that is the side facing the lounge's
-     folding glass, which is a coped terrace edge in the photo, not a curve. */
+     Its AABB is exactly w × d. water.js's buildLoungePool() extrudes it through
+     a THREE.Shape (shipped 2026-08-02, verified 2026-08-04 — see CLAUDE.md's
+     polish backlog); the straight v = −0.5 run is a coped terrace edge in the
+     photo, not a curve, and must stay straight. */
   LOUNGE_POOL: { cx: -56, cz: 7, w: 20, d: 13, umbrellas: 6,      // teal umbrellas
     OUTLINE: [
       [-0.44, -0.50], [0.16, -0.50], [0.40, -0.47], [0.50, -0.36],
@@ -1903,10 +1908,9 @@ const _ASTZ0 = _AS.z + _AS.footOff;                        // -43.9 foot of the 
 const _ASTZ1 = _ASTZ0 - _AS.risers * _AS.going;            // -51.1 top, at 2F deck
 const _AWELL = { x0: _AS.x - _AS.wellPad, x1: _ACX0, z0: _ASTZ1, z1: _AS.wellZ1 };
 
-/* ── the lounge plinth ── */
-const _LO = SITE.LOUNGE;
-const _LOX = _LO.cx + _LO.plinthOffX, _LOZ = _LO.cz + _LO.plinthOffZ;
-const _LOW = (_LO.w + _LO.plinthPadX) / 2, _LOD = (_LO.d + _LO.plinthPadZ) / 2;
+/* (the old 酒廊's plinth derivation stood here — `_LO` / `_LOX` / `_LOW`.
+   Retired 2026-08-04 with SITE.LOUNGE itself; the 酒廊 is `arrival-lounge`
+   below, at grade, which needs no plinth.) */
 
 /* ── the exterior stair ── */
 const _ES = SITE.EXT_STAIR;
@@ -2161,14 +2165,10 @@ export const WALK_REGIONS = [
     return out;
   }),
 
-  /* ══ the 隐逸居 lounge — WEDDING DINNER ═══════════════════════════════════
-     The room sits on a 0.34 m plinth and the DINNER spawn is inside it, so
-     without this the player stands shin-deep in the marble. Two steps down to
-     the terrace paving on the south side. */
-  rect('lounge-plinth', _LOX - _LOW, _LOZ - _LOD, _LOX + _LOW, _LOZ + _LOD, _LO.plinth,
-    { ceil: _LO.plinth + _LO.h }),
-  rect('lounge-step', _LO.cx - (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z0,
-    _LO.cx + (_LO.w + 3.6) / 2, _LO.glassZ + _LO.step2Z1, _LO.step2Y),
+  /* (`lounge-plinth` + `lounge-step` stood here — the standalone 酒廊's 0.34 m
+     plinth and its two terrace steps. Both went with SITE.LOUNGE on
+     2026-08-04; the ground there is plain grass again and answers 0.000. The
+     酒廊 is `arrival-lounge` below.) */
 
   /* ══ THE ARRIVAL — raised terrace → stair → CHECK-IN LOBBY → the walkway ══
      Every surface is derived from SITE.ARRIVAL and all of them are

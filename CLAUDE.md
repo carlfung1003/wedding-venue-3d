@@ -27,7 +27,7 @@ own coordinates. Change the layout there, never in a builder.
 | `js/sky.js` | Sky dome (day + night gradients), sun/moon, stars, fog, and the whole global lighting rig |
 | `js/nature.js` | Ground, beach, animated ocean, the palm population, hedges, topiary, bougainvillea |
 | `js/water.js` | The hero pool (raised plinth, infinity edge, caustics), **the floating lanterns**, the deck + turf + "THE WESTIN" letters, cabana pavilions, loungers, lounge pool, lagoon, villa plunge pools |
-| `js/campus.js` | The 隐逸居 lounge, the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), **the grass ground** (`buildGrassGround` — the mown lawn panels, the spine + cross paths, the planted terrace edge, the fire pit), event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
+| `js/campus.js` | The entrance pavilion (the 酒廊 at grade + the check-in lobby above), the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), **the grass ground** (`buildGrassGround` — the mown lawn panels, the spine + cross paths, the planted terrace edge, the fire pit), event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
 | `js/atrium.js` | The clubhouse's central courtyard AND its corridor — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, and the **ten real guest-room doors** (`buildRoomDoor`) with their lit number plaques |
 | `js/suite.js` | The presidential suite, inside and out — folding glass wall, great room, dining, pantry, the L-stair with its chandelier, the spa, the 2F lounge and balcony |
 | `js/introcam.js` | The opening: a drone orbit of the enclave behind the title card, then a bezier dive over the pool and in through the glass wall, handing the look state to `player.js` on landing |
@@ -61,7 +61,9 @@ video, pool videos):
 - `reference/clubhouse-pdf-brief.md` (committed) — distilled from the deck:
   隐逸居 = 3,500 ㎡, 11 keys in 4 building types; presidential suite 588 ㎡
   two-storey; 酒廊 lounge 280 ㎡ / seats 60 with folding glass walls to the
-  pool terrace (wedding-dinner candidate); signature white portal-frame
+  pool terrace — **built 2026-08-04 as the arrival pavilion's ground floor**;
+  it was briefly a wedding-dinner candidate, but dinner moved outdoors on
+  2026-08-02; signature white portal-frame
   cabanas + slatted lanterns along the presidential pool; palette = dark
   mahogany, cream marble, copper fascias.
 - `reference/suite-interior-brief.md` (committed) — modeling brief distilled
@@ -211,6 +213,66 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
+
+## ONE LOUNGE — THE OLD 酒廊 DEMOLISHED 2026-08-04
+
+Carl: *"clubhouse only have one lounge, lets build from scratch and let go of
+the old one when you are done, this should be cleaner build."* Built, walked,
+shipped, and now the standalone room at enclave-local (−44, −16) is gone —
+`SITE.LOUNGE`, its two `WALK_REGIONS`, `buildLounge()` (106 lines), the
+`'lounge'` entry in `CAMPUS_ENCLAVE_GROUPS`, nature's 24 m "lounge terrace
+screen" hedge run, and the atrium's east side door. Every deletion left a
+tombstone comment saying what stood there and why it went.
+
+**`SITE.LOUNGE` was DELETED, not repointed** — the recommendation had been to
+repoint it at the new room, but those numbers are already published in
+`SITE.ARRIVAL`, and a second copy of a footprint is precisely the drift bomb
+this file warns about. `world.js`'s keep-out and `nature.js`'s exclusion zone
+now derive their rect from `SITE.ARRIVAL.bldg` + `DECK.x0` instead.
+
+**That fixed a latent bug**: the entrance pavilion had NEVER been in either
+keep-out list. Before, 12 understory instances stood inside the 酒廊's footprint
+and one on its deck (all rescued after the fact by
+`cullUnderstoryInsideEnclave`); now **0 are proposed at all**. The load-bearing
+cull pair is intact, just doing less work.
+
+⚠️ **AND ANOTHER THROUGH-THE-WALL BUG, same family as the ten found the day
+before.** The atrium's "side door east toward the 隐逸居 lounge" had pointed at
+nothing since the lounge moved on 2026-08-01 — what it actually opened onto was
+**Garden Room C3**, a second hole in the party wall 2.5 m from that room's own
+numbered door. Measured: pushing east along the gallery walked **through the
+visible wall onto C3's floor at feet 0.220**. Now held. **The general lesson: a
+named opening outlives the thing it was named for — when a building moves or
+dies, grep for the openings that pointed at it.**
+
+**The DINNER spawn was fine.** It was flagged as the sharp edge (authored on the
+old plinth) but had moved to the pool lawn on 2026-08-02, 15 m clear; moments.js
+reads no lounge footprint. Unchanged, feet 0.000, zero drift.
+
+**⚠️ THE SEEDED SCATTER MOVED, deliberately — the campus's planting renders
+visibly differently.** 1,435 of 1,887 nature instances relocated. Three inputs
+necessarily changed: the hedge run count (23 → 12 segments, 3 `rnd()` each), the
+exclusion rect swap, and one bougainvillea anchor (draw COUNT preserved at 4).
+`buildLounge` itself consumed zero draws, so campus.js's stream is untouched.
+The outcome is better, not merely different: 0 plants inside the new 酒廊 (was
+13), 9 on the old lounge site (correct — it is grass now), 0 in the suite and
+atrium on both sides. The only way back is a keep-out over (−44, −16), which
+would leave a bald 22 × 17 m patch.
+
+**Cost fell on every axis**: meshes −23, instances −66, colliders −178,
+materials −1, triangles −2.4k…−5.7k per moment, logical point lights 43 → 40
+(the demolished room's three) — and **visible point lights hold at 12**, so the
+light budget is untouched. Draw calls −23 at the brunch view.
+
+Also noted, pre-existing: the atrium's gallery stair boards SIDEWAYS off the
+west gallery lane, not head-on from the south (pond A's kerb chain covers the
+mouth) — that is what `atrium.js`'s own comment says, and the 08-04 entry above
+reads as if every approach works; and one material in `makeMaterials()` is now
+orphaned (built at boot, no mesh).
+
+**Polish backlog addition:** `SITE.LOUNGE_POOL` is now a historical name — that
+water serves the 3-BR keys and the dinner lawns, not a lounge terrace. Renaming
+needs `water.js`.
 
 ## THE ROOFTOP, CORRECTED — DONE 2026-08-04
 
@@ -443,8 +505,8 @@ lobby above it with a cantilevered frameless-glass balcony. Photographed
 proof, and the room's own plaque reads **隐逸居酒廊 / SERENE RETREAT LOUNGE**:
 `reference/photos/clubhouse-lounge-checkin-balcony.jpg` (full res;
 `lounge-checkin-view.jpg` is the rotated reading copy). The old standalone
-酒廊 at enclave-local (−44, −16) is being retired once the new one is walked
-and verified — build first, demolish second, in that order.
+酒廊 at enclave-local (−44, −16) was **DEMOLISHED 2026-08-04** once the new one
+was walked and verified — build first, demolish second, as Carl asked.
 
 **2 · The second pool does NOT get the clubhouse across it — deliberately.**
 `reference/photos/3br-pool-area-view.jpg` (from a 3-BR terrace) shows the real
@@ -1463,7 +1525,7 @@ ceremony spawn did and why the blurb had been lying since the rotation.
 **`campus.js`'s `buildGrassGround()` builds every square metre of it through
 `inst()`, and that is a correctness requirement, not a performance one.**
 world.js re-parents campus content into the rotated enclave two ways: named
-groups listed in its `CAMPUS_ENCLAVE_GROUPS` **literal** (`lounge`, `pergola`, `sign`, `extstair`),
+groups listed in its `CAMPUS_ENCLAVE_GROUPS` **literal** (`pergola`, `sign`, `extstair`),
 and InstancedMeshes,
 whose instances it relocates individually through `isEnclaveLocal()`. A new
 named group is not in that Set and would stand 90° around the map, silently.

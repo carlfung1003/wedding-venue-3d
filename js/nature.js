@@ -11,7 +11,7 @@
 // world.js turns the 隐逸居 enclave 90° clockwise and slides it south-west, as
 // a rigid body under one group carrying SITE.ENCLAVE. Every SITE.* footprint
 // that belongs to the enclave (SUITE, DECK, TURF, POOL, CABANAS, LOUNGERS,
-// PERGOLA, PLAZA, ATRIUM, LOUNGE, LOUNGE_POOL, LAWN, VILLAS) is therefore
+// PERGOLA, PLAZA, ATRIUM, ARRIVAL, LOUNGE_POOL, VILLAS) is therefore
 // ENCLAVE-LOCAL and means nothing in world space until it is mapped. Everything
 // else here — GROUND, BEACH, OCEAN, PALM_GROVE, ROAD, LAGOON, HOTEL, BOUNDS —
 // is already world space and must never move. So:
@@ -24,8 +24,9 @@
 //
 //   ENCLAVE-LOCAL, built into `nature:enclave` under G.groups.enclave so it
 //   inherits the same transform the buildings do
-//     · the ceremony lawn's hedge ring · the hedge behind the cabana run
-//     · the plaza hedge runs · the lounge terrace screen
+//     · the hedge behind the cabana run · the two plaza hedge runs
+//       (the ceremony lawn's hedge ring went with SITE.LAWN on 2026-08-02;
+//        the lounge terrace screen went with SITE.LOUNGE on 2026-08-04)
 //     · every bougainvillea (all four anchors are building walls)
 //
 //   Two things a group transform does NOT reach, fixed up by hand:
@@ -567,7 +568,19 @@ function exclusionZones() {
   /* the atrium is a two-storey courtyard building and was never in this list —
      the palms had no business standing in it even before the move */
   rect(local, S.ATRIUM.cx, S.ATRIUM.cz, S.ATRIUM.w + 2, S.ATRIUM.d + 2);
-  rect(local, S.LOUNGE.cx, S.LOUNGE.cz, S.LOUNGE.w + 2, S.LOUNGE.d + 2);
+  /* ⚠ REPOINTED 2026-08-04, not deleted — the exact mirror of the same line in
+     world.js's enclaveKeepOut(). It used to read SITE.LOUNGE, the standalone
+     酒廊 at (−44, −16); that building was demolished, and the room it named is
+     now the ENTRANCE PAVILION's ground storey, which had NEVER been in this
+     list — so shrub clumps and ground cover were free to land inside the 酒廊
+     and the check-in lobby's footprint (the dart-throw consults these rects and
+     nothing else — never colliders, never paving). Derived from SITE.ARRIVAL:
+     the building plus the timber deck along its courtyard face. */
+  {
+    const A = S.ARRIVAL, B = A.bldg;
+    rect(local, (A.DECK.x0 + B.x1) / 2, (B.z0 + B.z1) / 2,
+      B.x1 - A.DECK.x0 + 1.5, B.z1 - B.z0 + 1.5);
+  }
   rect(local, S.LOUNGE_POOL.cx, S.LOUNGE_POOL.cz, S.LOUNGE_POOL.w + 3, S.LOUNGE_POOL.d + 3);
   /* The ten guest keys. These used to be `villa centre ± (VILLA.w + 7)` — a
      symmetric box around a point, which was already loose and became simply
@@ -1320,16 +1333,24 @@ function buildUnderstory(G, blocked, enc) {
   const dummy = new THREE.Object3D();
   const H = NAT.HEDGE;
 
-  /* ── hedges — ALL THREE RUNS ARE ENCLAVE-LOCAL ─────────────────────────
+  /* ── hedges — BOTH REMAINING RUNS ARE ENCLAVE-LOCAL ────────────────────
      Every clipped hedge in the campus belongs to the clubhouse: the wall behind
-     the cabana run, the two plaza runs and the lounge terrace screen. So the
-     whole InstancedMesh goes into `enc` and inherits the enclave transform
-     exactly like the buildings do; only the collider chains are mapped by hand
-     (hedgeRun's last argument).
-     ⚠ There used to be a FOURTH run here, and it was the biggest: a 132-segment
-     hedge ring around SITE.LAWN, the formal garden lawn. Both went on
-     2026-08-02 — 132 hedge runs and their collider chains are most of what this
-     function used to cost. */
+     the cabana run and the two plaza runs. So the whole InstancedMesh goes into
+     `enc` and inherits the enclave transform exactly like the buildings do;
+     only the collider chains are mapped by hand (hedgeRun's last argument).
+     ⚠ TWO runs have been retired from here, both with the thing they screened:
+       · the 132-segment ring around SITE.LAWN, the formal garden lawn
+         (2026-08-02) — most of what this function used to cost;
+       · the 24 m LOUNGE TERRACE SCREEN (2026-08-04), which ran along the
+         standalone 酒廊's south terrace at z = LOUNGE.cz + d/2 + 2.4. With that
+         building demolished it was a hedge standing alone in open grass between
+         the dinner lawns and the second pool, still deriving its length and its
+         position from a footprint that no longer exists.
+     ⚠ REMOVING A RUN MOVES THE SEEDED SCATTER. `segs.length` feeds three rnd()
+     draws per segment in the colour loop below, and everything after it in this
+     function — the shrub dart-throw, the bougainvillea, the ground cover —
+     shares that one stream. That reshuffle is deliberate and was measured; see
+     the demolition report. */
   const segs = [];
 
   /* Hedge wall behind the pool cabanas. The run marches along Z at a fixed X,
@@ -1352,10 +1373,7 @@ function buildUnderstory(G, blocked, enc) {
     if (span) hedgeRun(G, [[span[0], pz], [span[1], pz]], 1.05, .9, segs, true, enclaveToWorld);
   }
 
-  /* lounge terrace screen */
-  const LG = SITE.LOUNGE;
-  hedgeRun(G, [[LG.cx - LG.w / 2 - 2, LG.cz + LG.d / 2 + 2.4],
-               [LG.cx + LG.w / 2 + 2, LG.cz + LG.d / 2 + 2.4]], 1.25, 1.0, segs, true, enclaveToWorld);
+  /* (the lounge terrace screen stood here — retired 2026-08-04, see above) */
 
   MAT.hedge = new THREE.MeshStandardMaterial({ map: hedgeTex(), roughness: .92, metalness: 0 });
   const hgeo = new THREE.BoxGeometry(1, 1, 1, 2, 2, 2);
@@ -1472,10 +1490,10 @@ function buildUnderstory(G, blocked, enc) {
      campus.js ALSO dresses each villa's walls, so nothing is placed there.
 
      ENCLAVE-LOCAL, all of it: every anchor is a building wall (the cabana run,
-     the suite's west and east flanks, the lounge terrace) plus a few along the
-     lawn's hedge ring. The mesh joins `enc` with the hedges. Anchor 1 tracks
-     the cabana hedge above and picks up the same {x, z0, z1} fix — it was
-     placing four instances at NaN. */
+     the suite's west and east flanks, the entrance pavilion's courtyard face)
+     plus a few along the planted terrace edge. The mesh joins `enc` with the
+     hedges. Anchor 1 tracks the cabana hedge above and picks up the same
+     {x, z0, z1} fix — it was placing four instances at NaN. */
   const anchors = [
     { x0: cabX - 2.2, x1: cabX - 1.4, z0: C.z0 + 1, z1: C.z1 - 1, n: 4 },
     /* The suite's flanks SWAPPED when its interior plan was un-mirrored on
@@ -1484,7 +1502,16 @@ function buildUnderstory(G, blocked, enc) {
        two mounds ended up growing inside the massage room. Mirrored to match. */
     { x0: SITE.SUITE.cx + 10, x1: SITE.SUITE.cx + 12.5, z0: SITE.SUITE.cz - 6, z1: SITE.SUITE.cz + 3, n: 3 },
     { x0: SITE.SUITE.cx - 17.5, x1: SITE.SUITE.cx - 15, z0: SITE.SUITE.cz - 4, z1: SITE.SUITE.cz + 4, n: 3 },
-    { x0: LG.cx - 9, x1: LG.cx + 9, z0: LG.cz + LG.d / 2 + 3, z1: LG.cz + LG.d / 2 + 4.2, n: 4 },
+    /* ⚠ ANCHOR 4 MOVED, NOT DELETED, 2026-08-04. It used to run along the
+       standalone 酒廊's south terrace (SITE.LOUNGE, demolished). It now sits
+       against the ENTRANCE PAVILION's courtyard face — the 酒廊's own folding
+       glass — in the open strip past the plaza's south edge, clear of Garden
+       Room D2's private zone to the north and of the walkable timber deck
+       itself. Keeping `n: 4` is deliberate: this loop's three rnd() draws per
+       mound are the only thing downstream cares about, so moving the anchor
+       relocates four mounds and shifts NOTHING else in the stream. */
+    { x0: SITE.ARRIVAL.DECK.x0 - 2.4, x1: SITE.ARRIVAL.DECK.x0 - 1.0,
+      z0: SITE.PLAZA.z1 + 0.6, z1: SITE.ARRIVAL.bldg.z1 - 0.4, n: 4 },
   ];
   const bougs = [];
   for (const a of anchors) {
