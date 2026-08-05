@@ -1075,8 +1075,67 @@ export const SITE = {
        is the arrangement EAST/EAST2 always had. */
     EAST2: { cx: 208, cz: 20, r: 5.4, deck: 2.6, islandR: 1.9, umbrellas: 4 },
 
-    // the lagoon's planted island, as a fraction of LAGOON.rx / .rz
-    ISLAND: { dx: .24, dz: .18, r: 3.4 },
+    /* the lagoon's planted island, as a fraction of LAGOON.rx / .rz.
+       ⚠ 2026-08-04, THE RESORT POOL COMPLEX PASS — it grew a REAL TREE.
+       reference/resort-pool-complex-brief.md §2c: the lagoon's island carries
+       "a substantial single-crown shade tree (crown diameter roughly 12–18 m)"
+       whose shadow falls right across the water; ours was a plain green
+       cylinder. TREE is the crown, SCALED TO THE BUILT BASIN and not to
+       reality, which is the same discipline the ISLE below is held to:
+       the built lagoon is LAGOON.rx × 2 = 39 m across against the measured
+       crook mass's 72 m, i.e. 0.54, so the brief's 15 m mid-crown reads
+       15 × 0.54 = 8.1 m across here → r 4.05, rounded to 4.1. `h` is the
+       height to the canopy, in the same proportion to the crown that
+       RIVER.WEST.TREE (r 8.4 / h 9.0) already uses. */
+    ISLAND: { dx: .24, dz: .18, r: 3.4, TREE: { r: 4.1, h: 4.4 } },
+
+    /* ── THE MOSAIC SWIRL FLOOR ────────────────────────────────────────────
+       reference/resort-pool-complex-brief.md §2b, the complex's signature and
+       the one thing Carl called out as "completely absent from our build":
+       broad soft-edged ribbons of a saturated ultramarine brushed across the
+       pale turquoise floor, running in long sweeping curves along the basin's
+       own long axis, several roughly parallel for 15–25 m before diverging.
+
+       MEASURED off resort-pool-complex-aerial.webp, 2026-08-04. Scale from a
+       white cabana roof (42 px against the brief's 3–4 m cabana) = 0.083 m/px;
+       the ribbons' runs across the sunlit lobe come out p25 8 px / p50 14 /
+       p75 38 / p90 62 / max 84 px, i.e. **0.7 … 5.2 m with the broadest
+       masses to 7 m**, which is the brief's stated 2–5 m plus the wide
+       masses. The two colours are the medians of the same mask, split on
+       blue-over-green: RIBBON #1379ca (mean #16 72 c5), FIELD #2cb6d4 — and
+       the FIELD is not painted at all, because the river's own shallow→deep
+       vertex ramp (water.js RC.shallow 0x59cfe4 → RC.deep 0x0a6796) already
+       straddles it. The ribbons are an alpha overlay ON that ramp.
+
+       SPAN is the metre width the seeded canvas covers, so a ribbon's width
+       is a true metre figure on every basin it is applied to rather than a
+       fraction of each basin — it is LAGOON's own full width (rx × 2), which
+       makes the lagoon exactly one tile and every smaller basin a window on
+       the same field. Applied to LAGOON and the three HOTEL_POOLS. */
+    SWIRL: {
+      span: 39,             // = SITE.LAGOON.rx * 2 (asserted in water.js)
+      wMin: 1.6, wMax: 6.8, // ribbon width, metres — the measurement above
+      ribbons: 9,           // over one 39 m tile (roughly a third again with twins)
+    },
+
+    /* ── THE KAYAK ─────────────────────────────────────────────────────────
+       Carl: *"the main water feature real life picture looks like this for
+       kayak to pass by."* One kayak, as a prop, resolved against a CENTRELINE
+       rather than typed as a coordinate, so it can never drift off the water.
+       `t` is arc-length fraction exactly as BRIDGES uses it, and .365 lands on
+       OPEN CHANNEL in the west reach between the t .28 and t .44 bridges
+       (world x ≈ 35), which is where the channel is widest (half-width ~1.9,
+       i.e. ~3.8 m of water).
+
+       ⚠ THE CHANNEL WAS **NOT** WIDENED, and that is a measurement, not a
+       shrug. resort-kayak-channel.webp was scaled off the kayak's own hull
+       (163 px; a touring kayak is 2.5–3.2 m, so 0.0184 m/px, which puts the
+       hull's beam at ~1.2 m including the paddler — consistent) and the water
+       either side of it measures **2.0 … 3.2 m** column by column across the
+       whole reach. Our SPINE/SPUR run 2.3–3.1 m in the east half and
+       2.5–4.3 m in the west. The real kayak channel is the width we already
+       build, which is what brief delta #12 asserted and this pass measured. */
+    KAYAK: { which: 'spine', t: .365, len: 3.0, beam: .78 },
 
     /* footbridges, as [which centreline, t along it 0…1]. t is arc-length
        fraction (water.js resamples both centrelines at a fixed 1.6 m step
@@ -1174,7 +1233,81 @@ export const SITE = {
      The crook's centre is also, by construction, the crescent's own arc centre
      z (SITE.HOTEL.cz = 10) — the building curves around this water. Size is
      untouched: Carl's note this round was position, not scale. */
-  LAGOON: { cx: 152, cz: 12, rx: 19.5, rz: 15.5, deck: 3.2, umbrellas: 11 },
+  /* ⚠ 2026-08-04, THE RESORT POOL COMPLEX PASS — nothing about the basin's
+     POSITION or SIZE changed (both are locked; see the two standing decisions
+     above). What is new are two anchors for objects INSIDE the existing
+     footprint: ISLE, the grass islet + cabana ring, and PAVILION, the spoked
+     roof at the water's edge. Both are stated as fractions of rx/rz exactly
+     the way RIVER.ISLAND already is, so if the basin ever moves they move with
+     it, and both were machine-checked against the basin's own seeded outline
+     (water.js outlineFn(SEED + 447, .22) — the ellipse is NOT the shape). */
+  LAGOON: {
+    cx: 152, cz: 12, rx: 19.5, rz: 15.5, deck: 3.2, umbrellas: 11,
+
+    /* ── THE CIRCULAR GRASS ISLET AND ITS CABANA RING ────────────────────────
+       reference/resort-pool-complex-brief.md §2d + §2e — the single most
+       legible "you would book this for a day" feature in the aerial: a round
+       grass islet edged by a ring path, with six to eight cabanas evenly
+       spaced round its perimeter, each on its own timber deck jutting into
+       the water.
+
+       ⚠ SCALED TO THE BUILT BASIN, WHICH THE BRIEF IS EXPLICIT ABOUT (§4.4).
+       The real assembly reads 20–28 m across against a real basin ~72 m wide;
+       ours is 39 m wide, so at full scale the ring alone would be two thirds
+       of the water and would re-open exactly the failure the smaller lagoon
+       was chosen to avoid (*"the pools dominate"*). At the basin's own ratio
+       to reality (39 / 72 = 0.54) the assembly comes to 11–15 m: `ringR`
+       5.6 + a 2.6 m cabana = 14.8 m across, the top of that band.
+
+       Placement: machine-checked. At (dx −.38, dz −.18) → world (144.6, 9.2)
+       the nearest point of the seeded outline is **11.20 m** away (the
+       assembly needs 7.4) and the ISLAND's tree crown is **13.32 m** away
+       (it needs 4.1 + 7.4 = 11.5). It sits on the opposite side of the basin
+       from the tree island, which is also the aerial's relationship.
+
+       `styles` is the ring, read clockwise. Both of the brief's §2e types are
+       built and they alternate: 'pod' is the dark woven-rattan dome with the
+       white daybed (the near/foreground type, seen from inside one in
+       resort-pool-cabana-view.webp) and 'pav' is the timber-framed pavilion
+       with slatted sides under the white peaked roof the AERIAL shows ringing
+       this islet. Seven, inside the brief's 6–8. */
+    ISLE: {
+      dx: -.38, dz: -.18,
+      r: 3.6,             // the grass islet — 7.2 m across (real 10–15 × 0.54)
+      path: .9,           // the ring path round its edge
+      ringR: 5.6,         // cabana deck centres, from the islet's centre
+      cab: 2.6,           // a cabana's footprint — the brief's 3–4 m × 0.54… but
+                          // held at 2.6 so the seven decks do not touch on a
+                          // 5.6 m ring (2π × 5.6 / 7 = 5.03 m of pitch)
+      styles: ['pav', 'pod', 'pav', 'pod', 'pav', 'pod', 'pav'],
+    },
+
+    /* ── THE SPOKED / UMBRELLA-ROOFED PAVILION ───────────────────────────────
+       §2f — "a standalone circular structure on a small deck at the water's
+       edge … white ribs radiating from a central point like an umbrella",
+       8–12 m across in reality. At the basin's 0.54 it is 5.4 m; built at
+       **6.4 m** (r 3.2), deliberately the generous end of that, because the
+       brief ranks it as a hero object and it is the only one of its kind.
+
+       `th` is a bearing in RADIANS about the basin centre and the pavilion's
+       own centre sits ON the outline at that bearing, so its 3.2 m disc is
+       half over water and half over the coping + sand deck (COPING .35 +
+       deck 3.2 = 3.55 m of dry deck, so it lands on sand, never past it).
+       1.61π puts it on the NORTH-EAST bank, between the tree island and the
+       cabana ring, which is where the aerial has it: 16.4 m from the ISLE's
+       centre and 15.4 m from the tree.
+
+       ⚠ THE BEARING IS ALSO CHOSEN TO MISS AN UMBRELLA. water.js's
+       buildRiverDressing rings this basin with `umbrellas` (11) at bearings
+       (i + .35) / 11 × 2π, and a rejected umbrella cannot simply be skipped —
+       each consumes one rnd() draw, so dropping it reshuffles every downstream
+       placement in that seeded stream. 1.53π (the first choice, and the one
+       the aerial's own position suggests) puts the pavilion's centre **2.50 m**
+       from umbrella #8's pole, i.e. the 3.2 m disc swallows it. 1.61π lands in
+       the gap between #8 and #9 at **5.65 m**, which clears the pavilion's
+       3.2 m and the canopy's 1.55 m with 0.9 m to spare. */
+    PAVILION: { th: 1.61 * Math.PI, r: 3.2, h: 4.2, ribs: 16 },
+  },
 
   /* ── the hotel's own pools, in the crook of the crescent ───────────────────
      The gap the general pass was asked to close. resort-water-features.jpeg

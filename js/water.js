@@ -2039,6 +2039,17 @@ function quad(a, A, B, C, D) {
   }
 }
 
+/* One triangle, same vertex format. A centre fan over a star-shaped basin is
+   quad()'s ring case with the inner ring collapsed to the centre — so the
+   winding is (centre, edge@t1, edge@t0), NOT the other way round. */
+function tri(a, A, B, C) {
+  for (const v of [A, B, C]) {
+    a.p.push(v[0], v[1], v[2]);
+    a.t.push(v[3], v[4]);
+    if (a.c) { const c = v[5] || RC.shallow; a.c.push(c.r, c.g, c.b); }
+  }
+}
+
 function bake(a, mat, name) {
   if (!a.p.length) return null;
   const g = new THREE.BufferGeometry();
@@ -2130,6 +2141,94 @@ function lat(s, u, extra = 0) {
   const d = s.hw * u + (u < 0 ? -extra : extra);
   return [s.x + s.nx * d, s.z + s.nz * d];
 }
+
+/* ── THE MOSAIC SWIRL FLOOR ─────────────────────────────────────────────────
+   reference/resort-pool-complex-brief.md §2b. Broad, soft-edged ribbons of
+   saturated ultramarine brushed across the pale turquoise floor — the pool
+   complex's signature, and the one thing Carl called out as missing.
+
+   A seeded CanvasTexture, not geometry, and the choice is the opposite of the
+   one the beach pool's concentric rings made two lines below — for a reason.
+   A MEDALLION is a hard-edged circle whose radius is a stated dimension, so
+   geometry gets it exactly right and a texture would have to fight the river's
+   world-planar 1/6 m UVs. A SWIRL is soft-edged, and the whole read is the
+   alpha falloff at a ribbon's shoulder; as quads that is either a hard cut or
+   ten times the triangles. So this is 768² of canvas (ONE texture, shared by
+   all four basins) painted at SITE.RIVER.SWIRL.span metres across, and the
+   geometry under it is a bare centre fan.
+
+   Two things make it correct rather than merely cheap:
+     · it is drawn as ALPHA ONLY — the pale field is not painted, because the
+       river's own shallow→deep vertex ramp already IS the field (measured:
+       reference #2cb6d4 sits between RC.shallow 0x59cfe4 and RC.deep 0x0a6796).
+       So the ribbons overlay the ramp and every basin keeps its depth read,
+       its animated normal map and its night flip underneath.
+     · it TILES SEAMLESSLY on both axes: each ribbon is a sine whose period
+       divides the tile exactly, drawn from −w to 2w so no line cap ever lands
+       inside the tile, and stamped at three vertical offsets. Basins address
+       it with RepeatWrapping and a per-basin offset, so one canvas gives four
+       different-looking floors. */
+function swirlCanvas() {
+  const N = 768;
+  return paint(N, N, (g, w, h) => {
+    const S = SITE.RIVER.SWIRL;
+    const ppm = w / S.span;                 // pixels per metre — widths are REAL
+    const rnd = mulberry32(SEED + 523);
+    g.clearRect(0, 0, w, h);
+    g.lineCap = 'round'; g.lineJoin = 'round';
+
+    /* the measured ribbon colour, #1379ca, with a slightly deeper core so a
+       wide ribbon reads as a brushstroke rather than as a flat band */
+    const CORE = '10,58,166', EDGE = '19,110,198';
+    const strokes = [];
+    for (let i = 0; i < S.ribbons; i++) {
+      /* the measured spread is skewed — most ribbons 2–5 m with a few broad
+         masses — so square the draw rather than take it flat */
+      const k01 = rnd();
+      const wpx = (S.wMin + k01 * k01 * (S.wMax - S.wMin)) * ppm;
+      strokes.push({
+        wpx,
+        y0: rnd() * h,
+        amp: (.045 + rnd() * .13) * h,      // how far the sweep wanders, 1.8…6.8 m
+        k: 1 + ((rnd() * 2) | 0),           // whole sweeps per tile — keeps the wrap exact
+        ph: rnd() * TAU,
+        taper: .82 + rnd() * .36,           // per-ribbon brush weight
+        /* several run roughly parallel for 15–25 m before diverging (§2b): a
+           companion at a small constant offset does exactly that */
+        twin: rnd() < .40 ? (.55 + rnd() * .7) : 0,
+      });
+    }
+    /* ONE continuous path per pass. A segmented stroke with a per-segment
+       lineWidth was tried first, to taper the brush along its length, and it
+       staircases visibly at this scale whatever the cap style — the ribbon is
+       up to 130 px wide and every join is a step in its shoulder. The swell is
+       carried by the SPREAD of widths across ribbons instead, which is what
+       the measurement actually describes. */
+    const lay = (s, dy, wMul, alpha, colour) => {
+      g.strokeStyle = `rgba(${colour},${alpha})`;
+      g.lineWidth = s.wpx * wMul * s.taper;
+      g.beginPath();
+      for (let x = -w; x <= w * 2; x += 8) {
+        const y = s.y0 + dy + s.amp * Math.sin(s.k * TAU * x / w + s.ph);
+        if (x === -w) g.moveTo(x, y); else g.lineTo(x, y);
+      }
+      g.stroke();
+    };
+    /* halo → mid → core, three passes, so the shoulder is soft; and three
+       vertical stamps so the tile wraps in v as well as in u */
+    for (const dy of [-h, 0, h]) {
+      for (const s of strokes) {
+        for (const off of s.twin ? [0, s.wpx * (1 + s.twin)] : [0]) {
+          const t = { ...s, y0: s.y0 + off };
+          lay(t, dy, 2.30, .13, EDGE);
+          lay(t, dy, 1.45, .30, EDGE);
+          lay(t, dy, 1.00, .82, CORE);
+        }
+      }
+    }
+  });
+}
+const swirlTex = () => sharedTex('swirl', canv('swirl', swirlCanvas), 1, 1, true);
 
 /* the system's water footprint, kept for cullPlantsInRiver */
 let riverWater = null;
@@ -2315,6 +2414,74 @@ function buildRiver(G) {
     if (rm) g.add(rm);
   }
 
+  /* ── 1c · THE LAGOON'S + HOTEL POOLS' MOSAIC SWIRL FLOOR ─────────────────
+     See swirlCanvas() above for what it is and why it is a texture where the
+     beach pool's medallions are geometry. Applied to the four basins the
+     aerial actually shows it on — LAGOON and the three HOTEL_POOLS — and to
+     no others: WEST already has its own (different, circular) floor artwork,
+     and EAST/EAST2/MID are the small drum pools, which the photograph shows
+     plain.
+
+     Drawn 6 mm OVER the basin water, the same offset and the same reason as
+     the medallions: this water is OPAQUE (vertexColors, no blend), so a
+     pattern on the true floor would never be seen, and from the air
+     pattern-on-surface and pattern-through-water are the same picture. */
+  {
+    const SW = R.SWIRL;
+    /* SPAN is published in site.js as the lagoon's own full width. Assert it,
+       because the whole point of a span in METRES is that a ribbon is 2–7 m on
+       every basin — a silent drift here would make it a fraction again. */
+    if (Math.abs(SW.span - L.rx * 2) > 1e-6) {
+      console.warn(`water.js: SITE.RIVER.SWIRL.span (${SW.span}) is no longer `
+        + `SITE.LAGOON.rx * 2 (${L.rx * 2}); ribbon widths are no longer metres.`);
+    }
+    const swirlM = new THREE.MeshStandardMaterial({
+      map: swirlTex(), transparent: true, depthWrite: false,
+      roughness: .40, metalness: 0, envMapIntensity: .5,
+      polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+    });
+    nightBits.push(on => {
+      /* ⚠ the ribbons must stay DARKER than the water at night, not merely
+         dimmer with it. The first version copied waterM's own night treatment
+         exactly (RC.nightTint + RC.nightEmissive at .5) and the swirl
+         disappeared — a dark pattern on a dark sheet lit identically is one
+         flat sheet. It keeps a fifth of the water's self-glow instead, which
+         is the same ratio the basin tiles use against the hero pool. */
+      swirlM.color.setHex(on ? 0x2b4a60 : 0xffffff);
+      swirlM.emissive.copy(RC.nightEmissive);
+      swirlM.emissiveIntensity = on ? .10 : 0;
+    });
+
+    const SWa = acc(false);
+    const SY = R.BASIN_Y + .006;
+    const srnd = mulberry32(SEED + 604);
+    for (const b of basins) {
+      if (!(b.key === 'lagoon' || b.key.startsWith('hotel'))) continue;
+      /* ribbons follow the basin's own LONG axis (§2b: "they appear to follow
+         the basin's long axis rather than cutting across it"). The canvas is
+         painted with the ribbons running along +u, so a basin that is deeper
+         than it is wide reads the axes the other way round. */
+      const swap = b.rz > b.rx;
+      /* a per-basin offset on the same tiling canvas — four different floors
+         out of one texture. Drawn unconditionally so the stream never shifts. */
+      const ou = srnd(), ov = srnd();
+      const SV = (x, z) => {
+        const a = (swap ? z - b.cz : x - b.cx) / SW.span + .5 + ou;
+        const c = (swap ? x - b.cx : -(z - b.cz)) / SW.span + .5 + ov;
+        return [x, SY, z, a, c];
+      };
+      const C0 = SV(b.cx, b.cz);
+      for (let j = 0; j < b.segs; j++) {
+        /* pulled 0.25 m inside the water line so a ribbon never bleeds onto
+           the coping — the same trim the medallions take */
+        const e0 = b.at(j / b.segs * TAU, -.25), e1 = b.at((j + 1) / b.segs * TAU, -.25);
+        tri(SWa, C0, SV(e1[0], e1[1]), SV(e0[0], e0[1]));
+      }
+    }
+    const sm = bake(SWa, swirlM, 'river:mosaic-swirl');
+    if (sm) { sm.renderOrder = 1; g.add(sm); }
+  }
+
   /* ── 2 · the channels ─────────────────────────────────────────────────── */
   const DIV = [-1, -.6, -.24, .24, .6, 1];
   const lines = { spine: centreline(R.SPINE, 1.6), spur: centreline(R.SPUR, 1.6) };
@@ -2387,6 +2554,17 @@ function buildRiver(G) {
   }
 
   const islandShrubs = buildRiverIslands(G, g, basins, R, L);
+  /* THE RESORT POOL COMPLEX PASS (2026-08-04) — three new objects inside the
+     lagoon's EXISTING footprint. They sit between the islands and the dressing
+     because they must be built before the dressing's palm/shrub scatter reads
+     G.colliders, and because they draw NO rnd() of their own: both seeded
+     streams either side of them are untouched. */
+  const bLag = basins.find(b => b.key === 'lagoon');
+  if (bLag) {
+    buildLagoonIsle(G, g, bLag, R, L);
+    buildLagoonPavilion(G, g, bLag, R, L);
+  }
+  buildKayak(g, lines, R);
   buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater);
   buildRiverBridges(g, bridges);
   riverColliders(G, basins, lines, bridges);
@@ -2397,20 +2575,63 @@ function buildRiver(G) {
   return g;
 }
 
+/* ── ONE broadleaf shade tree ───────────────────────────────────────────────
+   Four overlapping crown blobs on a flared trunk. Authored for the beach
+   pool's enormous tree (beach-pool-circular.png) and reused verbatim for the
+   lagoon's tree island (resort-pool-complex-brief.md §2c), which is the whole
+   point of pulling it out of that block: the two trees differ only by their
+   T record in site.js and by the ground they stand on.
+   ⚠ It draws NO rnd() — the lobes are a fixed table. Both call sites sit
+   inside seeded streams that must not shift. */
+function shadeTree(g, x, z, baseY, T, crownM) {
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(T.r * .062, T.r * .125, T.h * .62, 10), MAT.darkWood);
+  trunk.position.set(x, baseY + T.h * .31, z);
+  g.add(trunk);
+  const lobes = [[0, 0, 1.0, .90], [-.42, .30, .74, .78],
+                 [.46, -.24, .70, .80], [.10, -.50, .62, .72]];
+  for (const [lx, lz, s, ly] of lobes) {
+    const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(T.r * s, 1), crownM);
+    blob.position.set(x + lx * T.r, baseY + T.h * ly, z + lz * T.r);
+    blob.scale.y = .62;
+    g.add(blob);
+  }
+}
+
 /* ── islands, the round island bar, the east pool's centre feature ──────── */
 function buildRiverIslands(G, g, basins, R, L) {
   const bEast = basins.find(b => b.key === 'east');
   const rnd = mulberry32(SEED + 313);
 
-  /* the lagoon's planted island — the dark green blob in the aerial */
+  /* ONE crown material for BOTH shade trees (it was local to the beach pool's
+     block; the lagoon's tree would otherwise have wanted a second copy of the
+     material AND a second nightBits closure for the same two hexes) */
+  const crownM = new THREE.MeshStandardMaterial({ color: 0x2f6b2b, roughness: .95 });
+  nightBits.push(on => crownM.color.setHex(on ? 0x14301a : 0x2f6b2b));
+
+  /* ── THE LAGOON'S TREE ISLAND ────────────────────────────────────────────
+     resort-pool-complex-brief.md §2c: "a substantial single-crown shade tree
+     … sitting on a small mound that reads as fully surrounded by water on
+     every side, casting a long dramatic shadow across the lagoon's surface."
+     It used to be a plain green cylinder — a flat disc from the air with no
+     silhouette and no shadow, which is delta #2 in the brief. The mound
+     stays (it IS the island); what is new is the tree standing on it. */
   const ix = L.cx + L.rx * R.ISLAND.dx, iz = L.cz + L.rz * R.ISLAND.dz;
   const ir = R.ISLAND.r, ih = R.DEPTH + .55;
   const isl = new THREE.Mesh(new THREE.CylinderGeometry(ir, ir * 1.12, ih, 20), MAT.greenery);
   isl.position.set(ix, -R.DEPTH + ih / 2 - .05, iz);
   g.add(isl);
-  const rim = new THREE.Mesh(new THREE.CylinderGeometry(ir + .16, ir + .16, .22, 20), MAT.coping);
+  const islandTopY = -R.DEPTH + ih - .05;          // the mound's own surface
+  /* ⚠ OPEN-ENDED, and that is a fix. The coping rim is a LIP round the
+     island's waterline, but it was a closed cylinder whose top cap (r + .16,
+     y .51, MAT.coping = 0x24282a) sat 10 mm ABOVE the mound's own surface —
+     so from the air the "planted island" was a black disc with a green rim,
+     which is most of why it did not read as an island at all. */
+  const rim = new THREE.Mesh(
+    new THREE.CylinderGeometry(ir + .16, ir + .16, .22, 20, 1, true), MAT.coping);
   rim.position.set(ix, .40, iz);
   g.add(rim);
+  shadeTree(g, ix, iz, islandTopY, R.ISLAND.TREE, crownM);
   G.colliders.push(worldCollider(ix, iz, ir + .4));
 
   /* the east pool's central round feature — a raised dark-timber drum ringed
@@ -2446,19 +2667,10 @@ function buildRiverIslands(G, g, basins, R, L) {
   {
     const T = R.WEST.TREE;
     const tx = R.WEST.cx + T.dx * R.WEST.r, tz = R.WEST.cz + T.dz * R.WEST.r;
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.52, 1.05, T.h * .62, 10), MAT.darkWood);
-    trunk.position.set(tx, T.h * .31, tz);
-    g.add(trunk);
-    const crownM = new THREE.MeshStandardMaterial({ color: 0x2f6b2b, roughness: .95 });
-    nightBits.push(on => crownM.color.setHex(on ? 0x14301a : 0x2f6b2b));
-    const lobes = [[0, 0, 1.0, T.h * .90], [-.42, .30, .74, T.h * .78],
-                   [.46, -.24, .70, T.h * .80], [.10, -.50, .62, T.h * .72]];
-    for (const [lx, lz, s, ly] of lobes) {
-      const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(T.r * s, 1), crownM);
-      blob.position.set(tx + lx * T.r, ly, tz + lz * T.r);
-      blob.scale.y = .62;
-      g.add(blob);
-    }
+    /* the trunk's radii used to be typed 0.52 / 1.05 here — at T.r 8.4 those
+       are exactly r × .062 and r × .125, which is what shadeTree() derives, so
+       this tree is geometrically unchanged and the lagoon's is its scale model */
+    shadeTree(g, tx, tz, 0, T, crownM);
     G.colliders.push(worldCollider(tx, tz, 1.5));
   }
 
@@ -2501,6 +2713,354 @@ function buildRiverIslands(G, g, basins, R, L) {
     out.push([ix + Math.cos(a) * d, iz + Math.sin(a) * d, 1.1 + rnd() * 1.3, .5 + rnd() * .28]);
   }
   return out;
+}
+
+/* ── one unit-box InstancedMesh per material ────────────────────────────────
+   buildRiverBridges' trick, generalised: a BoxGeometry(1,1,1) carrying a
+   per-instance scale is every rectangular member on a structure — deck, post,
+   batten, bed, pillow — for ONE draw call per material. `place` takes WORLD
+   position, WORLD yaw and the three extents. */
+function boxBucket() {
+  const list = [];
+  return {
+    push: (x, y, z, sx, sy, sz, yaw = 0) => list.push([x, y, z, sx, sy, sz, yaw]),
+    bake(g, mat, name) {
+      if (!list.length) return null;
+      const d = new THREE.Object3D();
+      const m = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), mat, list.length);
+      list.forEach(([x, y, z, sx, sy, sz, yaw], i) => {
+        d.position.set(x, y, z); d.rotation.set(0, yaw, 0); d.scale.set(sx, sy, sz);
+        d.updateMatrix(); m.setMatrixAt(i, d.matrix);
+      });
+      m.instanceMatrix.needsUpdate = true;
+      m.computeBoundingSphere();
+      m.name = name;
+      g.add(m);
+      return m;
+    },
+  };
+}
+
+/* ═════════════ THE GRASS ISLET AND ITS CABANA RING (SITE.LAGOON.ISLE) ══════
+   reference/resort-pool-complex-brief.md §2d + §2e, delta #3 and #4 — the
+   single most legible feature in the aerial and the reason the basin reads
+   empty in the middle without it. A round grass islet with a ring path,
+   surrounded by seven cabanas, each on its own timber deck jutting into the
+   water, in the TWO styles the photographs actually show:
+
+     'pav'  the timber-framed pavilion — vertical batten side walls on three
+            sides, open front, on posts, under the WHITE PEAKED roof the
+            aerial shows ringing this islet (§2e far-bank type A + the aerial)
+     'pod'  the dark woven-rattan dome on its arched frame with a white
+            cushioned daybed inside — the near/foreground type, which
+            resort-pool-cabana-view.webp is taken from INSIDE (§2e)
+
+   Every number is SITE.LAGOON.ISLE's, scaled to the BUILT 39 × 31 m basin and
+   not to the real assembly — see the site.js note; at reality's 20–28 m this
+   ring alone would be two thirds of our water.
+
+   ⚠ It draws no rnd(). It is called between buildRiverIslands and
+   buildRiverDressing, which own two different seeded streams, and a draw here
+   would shift neither — but the ring is regular in the photograph anyway. */
+function buildLagoonIsle(G, g, b, R, L) {
+  const I = L.ISLE;
+  const cx = L.cx + L.rx * I.dx, cz = L.cz + L.rz * I.dz;
+
+  /* the islet itself: the same mound section the tree island uses, so the two
+     read as one family of object and sit at exactly the same height */
+  const ih = R.DEPTH + .47;
+  const topY = -R.DEPTH + ih - .05;            // = .42, the grass surface
+  const mound = new THREE.Mesh(new THREE.CylinderGeometry(I.r, I.r * 1.10, ih, 28), MAT.greenery);
+  mound.position.set(cx, -R.DEPTH + ih / 2 - .05, cz);
+  g.add(mound);
+
+  /* mown grass on top, brighter than the mound's flank — from the air this
+     disc IS the feature, and MAT.greenery alone reads as another shrub */
+  /* ⚠ the tint is a LIFT on turfCanvas's own #4a7539, not a colour: a
+     mid-green multiplied by a mid-green is nearly black, which is what
+     0x86ad5e gave on the first pass */
+  const grassM = new THREE.MeshStandardMaterial({ map: turf(3, 3), color: 0xd6e6b0, roughness: .95 });
+  nightBits.push(on => grassM.color.setHex(on ? 0x53663f : 0xd6e6b0));
+  const grass = new THREE.Mesh(new THREE.CircleGeometry(I.r - I.path, 28), grassM);
+  grass.rotation.x = -Math.PI / 2;
+  grass.position.set(cx, topY + .012, cz);
+  g.add(grass);
+
+  /* the ring path round its edge (§2d) — an annulus, not a disc, so the grass
+     shows through the middle */
+  const pathM = new THREE.MeshStandardMaterial({ color: 0xc9c2ae, roughness: .94 });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(I.r - I.path, I.r, 28), pathM);
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(cx, topY + .014, cz);
+  g.add(ring);
+
+  /* the dark coping lip at the water line, exactly the tree island's */
+  const rim = new THREE.Mesh(
+    new THREE.CylinderGeometry(I.r + .16, I.r + .16, .22, 28, 1, true), MAT.coping);
+  rim.position.set(cx, .40, cz);
+  g.add(rim);
+
+  const timberB = boxBucket(), whiteB = boxBucket(), rattanB = boxBucket();
+  const roofs = [], domes = [];
+
+  /* the deck bridges the islet's edge to open water: its depth is DERIVED as
+     twice the gap between the islet and the ring, so its inner edge lands
+     exactly on the islet however either number moves */
+  const deckD = 2 * (I.ringR - I.r);
+  const deckY = topY;                          // decks flush with the grass
+
+  I.styles.forEach((style, i) => {
+    const th = (i + .5) / I.styles.length * TAU;
+    const ax = cx + Math.cos(th) * I.ringR, az = cz + Math.sin(th) * I.ringR;
+    /* three's Y-rotation sends local +Z to (sin yaw, cos yaw); we want local
+       +Z to point OUTWARD, i.e. along (cos th, sin th) — so yaw = π/2 − th.
+       Everything below is authored in that local frame and pushed through F. */
+    const yaw = Math.PI / 2 - th;
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const F = (lx, lz) => [ax + lx * cy + lz * sy, az - lx * sy + lz * cy];
+
+    const put = (bucket, lx, ly, lz, sx, sh, sz) => {
+      const [x, z] = F(lx, lz);
+      bucket.push(x, ly, z, sx, sh, sz, yaw);
+    };
+
+    put(timberB, 0, deckY - .06, 0, I.cab, .12, deckD);          // the deck slab
+    const W = I.cab * .5;
+
+    if (style === 'pav') {
+      const PH = 2.45;                                            // eaves height
+      for (const sx of [-1, 1]) for (const sz of [-1, 1])
+        put(timberB, sx * W * .88, deckY + PH / 2, sz * deckD * .36, .13, PH, .13);
+      /* vertical battens: SEVEN per side wall, three walls (§2e "vertical
+         batten/slat side walls on three sides, open front"). Four read as a
+         row of posts at this distance; the pitch has to be tighter than the
+         batten is wide before the eye calls it a slatted wall. */
+      const NB = 7;
+      for (const sx of [-1, 1]) for (let k = 0; k < NB; k++)
+        put(timberB, sx * W * .90, deckY + .90, (k / (NB - 1) - .90) * deckD * .62, .055, 1.45, .13);
+      for (let k = 0; k < NB; k++)
+        put(timberB, (k / (NB - 1) - .5) * I.cab * .80, deckY + .90, -deckD * .34, .13, 1.45, .055);
+      /* one lounger inside, facing the open front */
+      put(whiteB, 0, deckY + .27, deckD * .16, .70, .16, 1.90);
+      roofs.push({ x: ax, y: deckY + PH + .58, z: az, r: I.cab * .82, h: 1.15, yaw });
+    } else {
+      /* the rattan pod: a dome on an arched frame over a white daybed */
+      domes.push({ x: ax, y: deckY + .06, z: az, r: I.cab * .50, h: I.cab * .62, yaw });
+      put(whiteB, 0, deckY + .26, 0, I.cab * .72, .34, I.cab * .58);      // the bed
+      for (const sx of [-1, 1])
+        put(whiteB, sx * I.cab * .18, deckY + .52, -I.cab * .18, .52, .18, .34);  // pillows
+      /* a low rattan kerb round the pod's foot, which is what the arched
+         wicker frame reads as from anywhere but inside it */
+      put(rattanB, 0, deckY + .10, -I.cab * .30, I.cab * .78, .20, .10);
+    }
+  });
+
+  timberB.bake(g, MAT.timberDeck, 'lagoon-isle:timber');
+  whiteB.bake(g, MAT.white, 'lagoon-isle:cushions');
+
+  /* the woven rattan reads DARK in resort-pool-cabana-view.webp, but the first
+     value (0x241a13) rendered as an opaque black egg from the air — the photo
+     is taken from inside the pod, where the weave is backlit, and none of that
+     survives at 60 m up. 0x4a3626 keeps it the darkest object on the islet
+     while still showing its own form. */
+  const rattanM = new THREE.MeshStandardMaterial({
+    color: 0x4a3626, roughness: .88, metalness: 0, side: THREE.DoubleSide });
+  nightBits.push(on => rattanM.color.setHex(on ? 0x1d1510 : 0x4a3626));
+  rattanB.bake(g, rattanM, 'lagoon-isle:rattan');
+
+  const dummy = new THREE.Object3D();
+  if (roofs.length) {
+    /* a four-sided cone IS a pyramid; turned 45° its faces square up with the
+       deck below, which is what makes it read as a peaked canvas roof rather
+       than as a cone */
+    const rm = new THREE.InstancedMesh(
+      new THREE.ConeGeometry(1, 1, 4), MAT.whiteFrame, roofs.length);
+    roofs.forEach((r, i) => {
+      dummy.position.set(r.x, r.y, r.z);
+      dummy.rotation.set(0, r.yaw + Math.PI / 4, 0);
+      dummy.scale.set(r.r, r.h, r.r);
+      dummy.updateMatrix(); rm.setMatrixAt(i, dummy.matrix);
+    });
+    rm.instanceMatrix.needsUpdate = true; rm.computeBoundingSphere();
+    rm.name = 'lagoon-isle:roofs';
+    g.add(rm);
+  }
+  if (domes.length) {
+    /* SphereGeometry's phi is measured from −X, so phi = π/2 is +Z: opening
+       the sweep at π/2 + gap/2 leaves the missing wedge centred on local +Z,
+       which is the side facing the water. Getting this wrong faces every pod
+       at the grass. */
+    const GAP = 1.55;
+    const dm = new THREE.InstancedMesh(
+      new THREE.SphereGeometry(1, 16, 9, Math.PI / 2 + GAP / 2, TAU - GAP, 0, Math.PI * .5),
+      rattanM, domes.length);
+    domes.forEach((o, i) => {
+      dummy.position.set(o.x, o.y, o.z);
+      dummy.rotation.set(0, o.yaw, 0);
+      dummy.scale.set(o.r, o.h, o.r);
+      dummy.updateMatrix(); dm.setMatrixAt(i, dummy.matrix);
+    });
+    dm.instanceMatrix.needsUpdate = true; dm.computeBoundingSphere();
+    dm.name = 'lagoon-isle:pods';
+    g.add(dm);
+  }
+
+  /* one collider for the whole assembly. It stands in open water that the
+     basin's own interior fill already blocks, so this is for nature.js's palm
+     test — a crown planted on the islet would hang over every cabana. */
+  G.colliders.push(worldCollider(cx, cz, I.ringR + I.cab * .5));
+  /* the mound's own planting, handed to the shared instanced bucket */
+  return { cx, cz, r: I.r };
+}
+
+/* ═════════════ THE SPOKED PAVILION (SITE.LAGOON.PAVILION) ═════════════════
+   §2f, delta #5 — "a standalone circular structure on a small deck at the
+   water's edge … white ribs radiating from a central point like an umbrella,
+   panels between the ribs taut fabric or open lattice". A hero object: one of
+   them, no instancing needed for the whole thing, only for its own ribs and
+   posts. Sized and placed entirely from SITE.LAGOON.PAVILION. */
+function buildLagoonPavilion(G, g, b, R, L) {
+  const P = L.PAVILION;
+  const [px, pz] = b.at(P.th, 0);              // centred ON the water line
+  const deckY = .42;                           // the isle decks' height
+  const apexY = deckY + P.h;
+
+  const deck = new THREE.Mesh(new THREE.CylinderGeometry(P.r, P.r * 1.02, .24, 26), MAT.timberDeck);
+  deck.position.set(px, deckY - .12, pz);
+  g.add(deck);
+
+  const fabricM = new THREE.MeshStandardMaterial({
+    color: 0xe4dfd1, roughness: .78, metalness: 0, side: THREE.DoubleSide });
+  nightBits.push(on => {
+    /* the roof is the object's whole silhouette; at night it keeps a soft
+       warm wash off the lamps rather than going black, the same treatment the
+       island bar's soffit gets */
+    fabricM.emissive.copy(RC.lampWarm);
+    fabricM.emissiveIntensity = on ? .16 : 0;
+  });
+
+  /* the taut fabric between the ribs: an open cone with exactly `ribs` radial
+     segments, so every facet lands between two ribs */
+  const CONE_H = P.h * .46;
+  const cone = new THREE.Mesh(
+    new THREE.ConeGeometry(P.r, CONE_H, P.ribs, 1, true), fabricM);
+  cone.position.set(px, apexY - CONE_H / 2, pz);
+  g.add(cone);
+
+  const column = new THREE.Mesh(
+    new THREE.CylinderGeometry(.13, .17, P.h - CONE_H + .3, 10), MAT.whiteFrame);
+  column.position.set(px, deckY + (P.h - CONE_H + .3) / 2, pz);
+  g.add(column);
+
+  /* the ribs. Aimed with Object3D.lookAt rather than by composing an XYZ
+     Euler — the same class of bug the chandelier poles hit: a Z-rotation
+     composed with a Y-rotation through one Euler bends the member sideways
+     instead of tipping it. lookAt orients local +Z at the target, so the rib
+     is a unit box scaled on Z alone. */
+  const dummy = new THREE.Object3D();
+  const ribs = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), MAT.whiteFrame, P.ribs);
+  const rimY = apexY - CONE_H;
+  /* ⚠ the ribs must stand PROUD of the fabric. A rib drawn from the apex to a
+     rim point lies exactly ON the cone's surface — it is the same straight
+     line — so the first version z-fought with the panel it was supposed to
+     stand on and the pavilion read as a plain white umbrella with no spokes at
+     all. 60 mm of lift, radially and vertically, is enough at any distance
+     this object is ever seen from. */
+  const LIFT = .06;
+  for (let i = 0; i < P.ribs; i++) {
+    const a = i / P.ribs * TAU;
+    const rx = px + Math.cos(a) * (P.r + LIFT), rz = pz + Math.sin(a) * (P.r + LIFT);
+    const ay = apexY + LIFT, ry = rimY + LIFT;
+    const mx = (px + rx) / 2, mz = (pz + rz) / 2, my = (ay + ry) / 2;
+    dummy.position.set(mx, my, mz);
+    dummy.scale.set(1, 1, 1);
+    dummy.lookAt(rx, ry, rz);
+    dummy.scale.set(.085, .085, Math.hypot(P.r + LIFT, CONE_H));
+    dummy.updateMatrix(); ribs.setMatrixAt(i, dummy.matrix);
+  }
+  ribs.instanceMatrix.needsUpdate = true; ribs.computeBoundingSphere();
+  ribs.name = 'lagoon-pavilion:ribs';
+  g.add(ribs);
+
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(P.r, .065, 6, 30), MAT.whiteFrame);
+  rim.rotation.x = Math.PI / 2;
+  rim.position.set(px, rimY, pz);
+  g.add(rim);
+
+  const posts = boxBucket();
+  for (let i = 0; i < 6; i++) {
+    const a = (i + .5) / 6 * TAU;
+    posts.push(px + Math.cos(a) * P.r * .94, deckY + (rimY - deckY) / 2,
+      pz + Math.sin(a) * P.r * .94, .10, rimY - deckY, .10, -a);
+  }
+  posts.bake(g, MAT.whiteFrame, 'lagoon-pavilion:posts');
+
+  /* ONE collider for the whole object, exactly what the island bar at
+     SITE.RIVER.BAR already does — the pavilion is a solid to walk around, and
+     a collider that is stricter than the geometry is the house rule. Its
+     inner half is already inside the basin's own rim chain. */
+  G.colliders.push(worldCollider(px, pz, P.r + .3));
+  return { x: px, z: pz };
+}
+
+/* ═════════════ THE KAYAK (SITE.RIVER.KAYAK) ═══════════════════════════════
+   Carl, with resort-kayak-channel.webp: *"the main water feature real life
+   picture looks like this for kayak to pass by."* Resolved against the
+   centreline, never typed, so it cannot drift off the water — and see the
+   site.js note for why the channel around it was measured and NOT widened. */
+function buildKayak(g, lines, R) {
+  const K = R.KAYAK;
+  const pts = lines[K.which];
+  const s = pts[Math.round(K.t * (pts.length - 1))];
+  /* three's Y-rotation sends local +Z to (sin yaw, cos yaw); the channel runs
+     along (tx, tz), so the hull points down it */
+  const yaw = Math.atan2(s.tx, s.tz);
+  const k = new THREE.Group();
+  k.name = 'river:kayak';
+  k.position.set(s.x, R.WATER_Y, s.z);
+  k.rotation.y = yaw;
+  g.add(k);
+
+  const hullM = new THREE.MeshStandardMaterial({ color: 0xf0f2f2, roughness: .38, metalness: .05 });
+  const trimM = new THREE.MeshStandardMaterial({ color: 0x1f6fae, roughness: .42, metalness: .05 });
+  const skinM = new THREE.MeshStandardMaterial({ color: 0xc98f63, roughness: .8 });
+
+  /* the hull is a scaled sphere sunk to its own waterline — the photograph is
+     straight down, so the plan silhouette is the whole read */
+  const hull = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 9), hullM);
+  hull.scale.set(K.beam / 2, .30, K.len / 2);
+  hull.position.y = .06;
+  k.add(hull);
+  /* the two-tone deck: the reference kayak is white below and blue on top */
+  const top = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 6, 0, TAU, 0, Math.PI * .42), trimM);
+  top.scale.set(K.beam / 2 * .93, .16, K.len / 2 * .95);
+  top.position.y = .16;
+  k.add(top);
+  /* the cockpit, a dark well the paddler sits in */
+  const well = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .10, 14), MAT.darkWood);
+  well.scale.set(K.beam * .34, 1, K.len * .17);
+  well.position.set(0, .21, -K.len * .06);
+  k.add(well);
+
+  /* the paddler — lying back, as in the photograph */
+  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.19, .52, 4, 8), trimM);
+  torso.rotation.x = Math.PI * .38;
+  torso.position.set(0, .38, -K.len * .10);
+  k.add(torso);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(.115, 10, 7), skinM);
+  head.position.set(0, .56, -K.len * .22);
+  k.add(head);
+  /* the paddle across the coaming, blades outboard both sides */
+  const paddle = new THREE.Mesh(new THREE.BoxGeometry(2.05, .045, .045), MAT.darkWood);
+  paddle.position.set(0, .42, K.len * .02);
+  paddle.rotation.y = .22;
+  k.add(paddle);
+  const blades = boxBucket();
+  for (const sgn of [-1, 1])
+    blades.push(sgn * Math.cos(.22) * .92, .42, -sgn * Math.sin(.22) * .92, .17, .035, .46, .22);
+  blades.bake(k, trimM, 'river:kayak-blades');
+
+  return k;
 }
 
 /* ── instanced dressing ─────────────────────────────────────────────────────

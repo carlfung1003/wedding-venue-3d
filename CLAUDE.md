@@ -214,6 +214,55 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE RESORT POOL COMPLEX — DONE 2026-08-04 (`site.js` + `water.js`)
+
+Built from `reference/resort-pool-complex-brief.md` and Carl's photographs. The
+lagoon was flat blue blobs; it is now the complex the aerial shows.
+
+- **The mosaic swirl floor** — the signature, and the reason the real aerial
+  reads as spectacular. ONE seeded 768² CanvasTexture, **alpha-only**: the pale
+  field is deliberately NOT painted, because the river's own shallow→deep ramp
+  already is it (measured — the reference field `#2cb6d4` sits between
+  `RC.shallow` and `RC.deep`), so every basin keeps its depth ramp, animated
+  normal map and night flip underneath. Colours and widths are **measured off
+  the aerial**, not guessed: 0.083 m/px from a cabana roof, ribbons
+  0.7…5.2 m with masses to 7 m. Widths are true metres on every basin because
+  `SWIRL.span` is the lagoon's own width (asserted with a `console.warn`), and
+  the canvas tiles on both axes so one texture gives four different floors.
+- **A real tree island**, `shadeTree()` extracted from the beach pool and
+  reused verbatim. **It also fixed a pre-existing bug**: the island's coping rim
+  was a CLOSED cylinder whose dark top cap sat 10 mm above the mound, so the
+  "planted island" rendered as a black disc. Open-ended on both islands now.
+- **The circular grass islet + seven cabanas in BOTH photographed styles** —
+  four timber-framed slatted pavilions and three dark woven-rattan pods with
+  white daybeds. Scaled to the BUILT 39 × 31 m basin, not the real assembly
+  (the brief is explicit). Clearances machine-checked against the basin's
+  seeded OUTLINE, not its ellipse: 11.20 m to the edge, 13.32 m to the crown.
+- **The spoked pavilion**, half over water. Two things to know: the ribs sit
+  60 mm proud because a rib from apex to rim is the SAME straight line as the
+  cone's surface — coplanar, it z-fought and read as a plain umbrella; and its
+  bearing moved off the aerial's because there it landed 2.5 m from an existing
+  umbrella pole, which cannot simply be skipped (each consumes an `rnd()`).
+- **A kayak in the west reach** — ⚠️ **and the channel was deliberately NOT
+  widened.** Scaling `resort-kayak-channel.webp` off the kayak's own hull gives
+  a real channel of **2.0…3.2 m**; ours run 2.3–3.1 east and 2.5–4.3 west.
+  **The real kayak channel is the width we already build.** The kayak is placed
+  on the reach that matches the photo instead.
+
+**Counts held**: Reflectors **1**, logical point lights **40**, visible **12**,
+shader programs **114 across all six moments and both lighting states** (no
+light-count recompile). Cost: **+21 draw calls** and +3,936 triangles for the
+whole pass — everything repeated is instanced and the swirl floor is a single
+256-triangle mesh. The seeded scatter is untouched (static instance buckets
+hash identically before and after).
+
+Found, pre-existing, NOT fixed: one **invisible pinch on `PATHS[1]`** at world
+(98.7, −11.7) where the nearest collider is 0.332 m inside `PLAYER_R` —
+reproduced identically on the pristine build; and the spoked pavilion's raised
+deck is not in the height field (it is ringed like `SITE.RIVER.BAR`, so you walk
+around it — standing on it would need a DISC shape in `siteFloorY`, which
+`rect`/`ramp`/`annulus` does not have).
+
 ## ONE LOUNGE — THE OLD 酒廊 DEMOLISHED 2026-08-04
 
 Carl: *"clubhouse only have one lounge, lets build from scratch and let go of
