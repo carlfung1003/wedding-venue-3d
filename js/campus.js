@@ -2340,17 +2340,11 @@ function buildArrival(G, g, rnd) {
   }
   /* a handful of parked cars (buildRoad's instancing pattern) in stalls
      0/1/4/5 — the two on the approach axis stay open for the walk */
-  const carCol = new THREE.Color();
-  const palette = [0x1c1f24, 0xd8d9dc, 0x8d9299, 0x2a3a52, 0x6d1f22, 0xe4e2dc, 0x3c4046];
   for (const k of [0, 1, 4, 5]) {
     const cz = AR.stalls.z0 + (k + .5) * AR.stalls.pitch;
     const cx = 62.3 + (rnd() - .5) * .3;
     const cry = Math.PI / 2 + (rnd() - .5) * .05;
-    carCol.setHex(palette[Math.floor(rnd() * palette.length)]);
-    inst('carI', UNIT_BOX, MAT.car, mat4(cx, .62, cz, 1.85, .82, 4.4, cry), carCol.clone());
-    inst('carGlassI', UNIT_BOX, MAT.carGlass,
-      mat4(cx - .18 * Math.sin(cry), 1.24, cz - .18 * Math.cos(cry), 1.62, .62, 2.3, cry));
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(cx, .3, cz, 1.95, .5, 4.1, cry));
+    parkedCar(cx, cz, cry, CAR_PALETTE[Math.floor(rnd() * CAR_PALETTE.length)]);
     for (const s of [-1, 1]) {
       G.colliders.push({ x: cx + s * 1.15 * Math.sin(cry), z: cz + s * 1.15 * Math.cos(cry), r: 1.05 });
     }
@@ -3806,6 +3800,68 @@ function roofColliders(G, acx, acz) {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
+   A PARKED CAR — one place, both car parks (2026-08-04, Carl: *"the cars at
+   the parking lots looks very low quality"*).
+
+   Both the north apron and the arrival court used to stand three boxes each —
+   a body slab, a glass slab and a dark underbody — which reads as a crate the
+   moment you are within thirty metres of it, and the arrival court is now
+   somewhere guests actually walk.
+
+   It is still instanced and still cheap: fifteen parts per car, every one on a
+   bucket that already existed, so sixteen cars cost ZERO extra draw calls.
+
+   ⚠ Two things worth knowing before editing this:
+   · **Per-instance tints must ride a WHITE-based material.** `MAT.car` is the
+     tintable one (that is why the lights and the body share it); `MAT.dark`'s
+     base crushes any tint to black, which is why the tyres and bumpers take it
+     un-tinted and the tail lamps do not.
+   · **`mat4`'s 8th/9th arguments are rx/rz** on a 'YXZ' Euler, so the wheels
+     are `rz = π/2` — that lays the unit cylinder's axis along the car's own X
+     BEFORE the yaw is applied, which is what makes an axle an axle. Scale is
+     applied before rotation, so `sy` is the tyre's WIDTH, not its height.
+   ════════════════════════════════════════════════════════════════════════ */
+const CAR_PALETTE = [0x1c1f24, 0xd8d9dc, 0x8d9299, 0x2a3a52, 0x6d1f22, 0xe4e2dc, 0x3c4046];
+const _carCol = new THREE.Color();
+function parkedCar(cx, cz, yaw, hex) {
+  /* local (lx, lz) → world, for a body yawed by `yaw`: local +X is
+     (cos, 0, −sin) and local +Z is (sin, 0, cos) — the same basis every
+     rotated prop on this campus uses. */
+  const S = Math.sin(yaw), C = Math.cos(yaw);
+  const PX = (lx, lz) => cx + lx * C + lz * S;
+  const PZ = (lx, lz) => cz - lx * S + lz * C;
+  const body = _carCol.setHex(hex).clone();
+  /* the roof and pillars are the body colour a touch darker, so the greenhouse
+     reads as a separate volume even on a white car */
+  const roof = _carCol.setHex(hex).multiplyScalar(.86).clone();
+  const put = (key, mat, lx, y, lz, sx, sy, sz, col = null, rz = 0) =>
+    inst(key, key === 'carWheelI' ? UNIT_CYL : UNIT_BOX, mat,
+      mat4(PX(lx, lz), y, PZ(lx, lz), sx, sy, sz, yaw, 0, rz), col);
+
+  // four wheels on two axles
+  for (const lz of [1.34, -1.34]) for (const lx of [.80, -.80]) {
+    put('carWheelI', MAT.dark, lx, .33, lz, .66, .24, .66, null, Math.PI / 2);
+  }
+  put('carI', MAT.car, 0, .70, 0, 1.80, .56, 4.38, body);        // lower body
+  put('darkI', MAT.dark, 0, .47, 0, 1.86, .18, 4.16);            // sill shadow
+  put('carI', MAT.car, 0, 1.02, 1.36, 1.70, .20, 1.28, body);    // bonnet
+  put('carI', MAT.car, 0, 1.02, -1.62, 1.70, .20, 1.02, body);   // boot lid
+  put('carGlassI', MAT.carGlass, 0, 1.26, -.08, 1.60, .50, 2.28); // the greenhouse
+  put('carI', MAT.car, 0, 1.54, -.08, 1.52, .10, 2.02, roof);    // roof panel
+  for (const lx of [.74, -.74]) for (const lz of [1.02, -1.16]) {
+    put('carI', MAT.car, lx, 1.26, lz, .10, .52, .16, roof);     // A/C pillars
+  }
+  put('darkI', MAT.dark, 0, .62, 2.14, 1.82, .28, .22);          // front bumper
+  put('darkI', MAT.dark, 0, .62, -2.14, 1.82, .28, .22);         // rear bumper
+  for (const lx of [.60, -.60]) {
+    put('carI', MAT.car, lx, .92, 2.16, .36, .15, .10, WHITE);   // head lamps
+    put('carI', MAT.car, lx, .99, -2.16, .32, .13, .09,
+      _carCol.setHex(0x8c1f18).clone());                          // tail lamps
+  }
+  for (const lx of [.98, -.98]) put('darkI', MAT.dark, lx, 1.18, .78, .17, .11, .10); // mirrors
+}
+
+/* ════════════════════════════════════════════════════════════════════════
    9 · arrival road, parking apron, lamp posts, drive spur to the clubhouse
    ════════════════════════════════════════════════════════════════════════ */
 function buildRoad(G, root, rnd) {
@@ -3850,16 +3906,11 @@ function buildRoad(G, root, rnd) {
      (east of the drive spur, clear of the lawn) */
   const px = 60, pz = -78;
   slab(g, 44, 9, px, .05, pz, MAT.park);
-  const carCol = new THREE.Color();
-  const palette = [0x1c1f24, 0xd8d9dc, 0x8d9299, 0x2a3a52, 0x6d1f22, 0xe4e2dc, 0x3c4046];
   for (let i = 0; i < 12; i++) {
     const cx = px - 20 + i * 3.6 + (rnd() - .5) * .25;
     const cz = pz + (rnd() - .5) * .5;
     const ry = (rnd() - .5) * .06;
-    carCol.setHex(palette[Math.floor(rnd() * palette.length)]);
-    inst('carI', UNIT_BOX, MAT.car, mat4(cx, .62, cz, 1.85, .82, 4.4, ry), carCol.clone());
-    inst('carGlassI', UNIT_BOX, MAT.carGlass, mat4(cx, 1.24, cz - .18, 1.62, .62, 2.3, ry));
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(cx, .3, cz, 1.95, .5, 4.1, ry));
+    parkedCar(cx, cz, ry, CAR_PALETTE[Math.floor(rnd() * CAR_PALETTE.length)]);
   }
 
   /* lamp posts along the north edge of the road */
