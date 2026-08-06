@@ -214,6 +214,35 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE GUEST JOURNEY HARNESS — `tools/guest-journey.mjs` (2026-08-06)
+
+`node tools/guest-journey.mjs` (serve first: `python3 serve.py`) walks the whole
+venue the way a wedding guest actually experiences it, in order, with real key
+input and feet logged at every leg:
+
+> dropped at the car → across the court → up the six-riser stair → the check-in
+> lobby → the desk (**"Check in" must fire**) → out through the lobby's west
+> opening → the walkway → the slot → the atrium's upper gallery (your room) →
+> the pool deck → **Ceremony → Cocktail → Dinner → After Party**, each spawning
+> flat and reaching its own beat → the rooftop **Welcome Brunch** and its
+> champagne.
+
+Every individual pass on this project verified its own fragment; **nothing had
+ever walked the chain end to end**. It passes: 0 stalls, every beat reached,
+feet 2.65 → 3.60 → 0.000 → 26.600 exactly as the height field intends, zero
+console errors. `VENUE_URL=https://venue.carlfung.dev node tools/guest-journey.mjs`
+runs it against production; `PLAYWRIGHT_PATH` overrides the borrowed
+Playwright (this project has no dependencies of its own — it is a static site).
+
+⚠️ **The lesson the harness itself taught, and why its waypoints look fussy:**
+the first version aimed straight at each target, stalled ten times on the
+lobby→walkway leg, and looked exactly like a broken route. It was walking into
+the lobby's **west wall** (local x 33), and then into the walkway's own north
+rail. **You go through the doorway, like in a building.** A naive straight-line
+walk test will manufacture false failures on any interior route here — give it
+waypoints, and when it stalls, probe what the collider actually is before
+believing the route is broken.
+
 ## THE MIRROR'S REACH + A SWIMMABLE BAR — 2026-08-06 (`water.js`, `mirrorlayers.js`)
 
 **A measured near-miss worth recording.** The Reflector is the single most
