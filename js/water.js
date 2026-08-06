@@ -31,6 +31,13 @@ import { mulberry32 } from './materials.js';
    it hands nature explicit positions instead and gets the real model back —
    in nature's instanced buckets, for no extra draw calls. See requestPalms(). */
 import { requestPalms } from './nature.js';
+/* The mirror is the most expensive object on the campus (js/detailcull.js's
+   banner has the decomposition). This keeps the far resort out of its second
+   scene render via THREE.Layers — a one-shot assignment, no per-frame cost, and
+   NOT a change to the Reflector: no shader, no tint, no resolution, still one
+   mirror. Read that file's banner before touching the radius; the measured
+   answer is smaller than it looks, and the reason is instructive. */
+import { initMirrorLayers } from './mirrorlayers.js';
 
 /* ─────────────────────────────── constants ─────────────────────────────── */
 
@@ -120,6 +127,7 @@ const nightBits = [];               // on => {...} closures, applied by setWater
 const floaters = [];                // floating-lantern records
 let lanternGroup = null;
 let mirrorU = null;                 // the hero mirror's uniform block (driven in tick)
+let mirrorMesh = null;              // the ONE Reflector — mirrorlayers.js needs it
 
 /* ───────────────────────── canvas / texture plumbing ───────────────────── */
 
@@ -645,6 +653,7 @@ function makeMirrorWater(w, d) {
   const u = mirror.material.uniforms;
   u.tNormal.value = normalTex(1, 1);          // repeat handled in-shader, NOT here
   mirrorU = u;
+  mirrorMesh = mirror;
 
   mirror.material.transparent = true;
   mirror.material.depthWrite = false;
@@ -820,6 +829,7 @@ function makeRectPool(G, o) {
       console.warn('[water] Reflector unavailable — falling back to the flat sheet:', err);
       water = null;
       mirrorU = null;
+      mirrorMesh = null;
     }
   }
   if (!water) {
@@ -3089,7 +3099,10 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
                                ...SITE.HOTEL_POOLS.map((p, i) => [byKey('hotel' + i), p.umbrellas, false])]) {
     if (!b) continue;
     for (let i = 0; i < n; i++) {
-      const th = (i + .35) / n * TAU;
+      /* UMB_PHASE, not a literal .35 — campus.js placed the swim-up bar in the
+         gap between two of THESE umbrellas and swimMouth() re-derives the same
+         bearing, so the three must read one number. Same value as before. */
+      const th = (i + UMB_PHASE) / n * TAU;
       const [ux, uz] = b.at(th, R.COPING + b.deck * .58);
       (white ? whiteUmbs : umbs).push([ux, uz, rnd() * TAU]);
       for (const k of [-.28, .28]) {
@@ -3341,11 +3354,177 @@ function buildRiverBridges(g, bridges) {
    (Pre-compensating instead — pushing worldToEnclave(x, z) so the rewrite maps
    it back — cannot work here: the pre-image of anything east of x = 22 lands
    at z ≤ −80, where isEnclaveLocal is false and the rewrite never fires.) */
-function worldCollider(x, z, r) {
+function worldCollider(x, z, r, y0, y1) {
   const c = { r };
+  if (y0 !== undefined) c.y0 = y0;
+  if (y1 !== undefined) c.y1 = y1;
   Object.defineProperty(c, 'x', { get: () => x, set: () => {}, enumerable: true });
   Object.defineProperty(c, 'z', { get: () => z, set: () => {}, enumerable: true });
   return c;
+}
+
+/* ═══════════ THE SWIM-UP BAR'S MOUTH — you can swim to it now ══════════════
+   Carl's swim-up bar (campus.js § 12, from reference/photos/resort-swim-up-bar.webp)
+   stands on the lagoon's north-north-west rim with its counter at the water
+   line and five submerged stools in front of it. Until now you could look at
+   those stools and never reach them: riverColliders() fills EVERY basin
+   interior with a 2.6 m grid of r 2.0 circles, so the water in front of the
+   counter was a solid wall. Mapped before the fix, in the bar's own frame, at
+   1 m pitch — "#" blocked, "." open:
+
+       v =  +2   .........##..#..##........#      the deck and the bar itself
+       v =   0   ###....################.###      the water's edge
+       v =  −1   ###########################  ←   every cell, all the way out
+       v = −16   ###########################
+
+   ── WHAT IS OPENED — TWO PIECES, AND THE SECOND ONE IS THE HONEST PART ────
+   1 · THE POCKET. The interior grid, inside one rectangle of the bar's own
+       (u, v) frame: |u| ≤ 7, −11 ≤ v ≤ 0.6. That is the water in front of the
+       counter, and clearing it alone was NOT enough — measured.
+   2 · TWO CIRCLES OF THE RIM CHAIN, and no more. The rim runs unbroken across
+       the bar's whole frontage at ~1.95 m pitch (measured in this frame:
+       u = … −3.18, −1.17, +0.85, +2.84, +4.79, +6.74, +8.70 …) and each blocks
+       1.95 m, so the pocket was sealed off from the deck by a solid wall. The
+       swimmer has to get IN somewhere; a swim-up bar without an entry is the
+       bug we were sent to fix, one metre further out.
+
+   So the mouth is ONE DOORWAY, at the west end of the counter. `pickEntry`
+   takes the TWO rim circles nearest u = +5.75 — two by count, never by window,
+   so the opening's width cannot change if the seeded outline ever reshuffles.
+   Their surviving neighbours are 5.99 m apart centre to centre, which leaves
+   **2.09 m of clear walking** against the 0.70 m player. Everywhere else on
+   the lagoon's ~110 m rim the chain is exactly as it was — verified by walking
+   it, not by reading it.
+
+   ⚠ WHY THE DOORWAY IS AT THE COUNTER'S END AND NOT IN FRONT OF IT. In front,
+   the bar's own plinth (a solid rectCollider, 7.6 × 3.8) already blocks
+   |u| ≤ 4.70, so a gap there would open nothing. At the end, the plinth stops
+   and the doorway is real — and it reads as what it is, the steps beside a
+   pool bar.
+
+   ⚠ AND THE CIRCLES ARE NOT DELETED — THEY BECOME PHANTOMS. nature.js's
+   placePalms() rejects any throw within (collider.r + 1.4) and IGNORES the
+   y-range, while updatePlayer skips a collider whose [y0, y1) does not cover
+   the walker's feet. So the mouth's circles are re-emitted at feet-height 80 m
+   (campus.js's own pattern for the arrival court): the palm scatter still sees
+   an unbroken keep-out and cannot plant in the water, the swimmer walks
+   through. Delete them instead and the scatter is free to stand a coconut palm
+   in the open water in front of the bar — silently, and only visible from the
+   air. Because the circles are re-emitted rather than dropped, the collider
+   COUNT is unchanged too (10,764 either way), which is what makes the seeded
+   planting provably identical: 217 static instance buckets, 0 differing.
+
+   ── NO FALL, AND NO WALK_REGION NEEDED ────────────────────────────────────
+   The whole river system is drawn AT GRADE: SITE.RIVER.BASIN_Y is 0.045 and
+   the "depth" is a vertex-colour ramp plus a skirt below the coping, not an
+   excavation. siteFloorY answers 0.000 across the entire lagoon, so a swimmer
+   here wades at feet 0.000 and there is no hole to fall through — which is
+   also why the bar's submerged stool line needs no registration. If the basin
+   is ever really dug out, THIS is the comment that says the mouth then needs a
+   walkable ramp and the stools a standable surface.
+
+   ── THE FRAME IS DERIVED, NOT TYPED ───────────────────────────────────────
+   campus.js could not edit site.js when it built the bar, so it placed it from
+   published SITE.LAGOON values: the midpoint of the gap between lagoon
+   umbrellas 7 and 8, where the umbrella bearings are water.js's OWN rule,
+   (i + UMB_PHASE) / n × 2π. We re-derive the identical frame from the identical
+   numbers here. That is a duplicated *rule*, but not a duplicated *coordinate*:
+   change SITE.LAGOON's size, position or umbrella count, or UMB_PHASE, and the
+   bar and this mouth move together, because both are functions of those. */
+const SWIM = {
+  /* half-width of the mouth along the counter. The plinth is 7.6 m wide and
+     its own collider blocks to |u| 4.70, so 7.0 leaves a 2.3 m lane round each
+     end of the bar — wide enough for the 0.70 m walker with margin, narrow
+     enough that the mouth reads as the bar's own approach and not as an
+     opening in the lagoon. */
+  U: 7.0,
+  /* how far the pocket runs into the water. It does not need to be exact: the
+     cabana islet's own keep-out (SITE.LAGOON.ISLE, r ringR + cab/2 = 6.9) sits
+     12.3 m from the counter and bounds the swimmable water at ~5 m regardless,
+     so this is only the point where the interior grid resumes. Kept at 11 so
+     the islet is the bound, not this number — if the islet ever moves, the
+     mouth needs no edit. */
+  V_IN: -11.0,
+  /* the landward limit. +0.6 is past the counter (v −0.1) and into the plinth,
+     which keeps its own solid collider — so this bound can never open the bar
+     itself, only the water in front of it. */
+  V_OUT: 0.6,
+  /* the doorway: the TWO rim circles nearest this u. +5.75 is the midpoint of
+     the first two beyond the plinth's own block (|u| 4.70), i.e. hard against
+     the west end of the counter. */
+  ENTRY_U: 5.75,
+  ENTRY_N: 2,
+  /* feet height for the phantoms — campus.js's arrival court uses the same 80. */
+  PHANTOM_Y0: 80, PHANTOM_Y1: 80.01,
+};
+
+/* water.js's own umbrella phase, hoisted so buildRiverDressing and the swim
+   mouth cannot drift apart. It was `(i + .35)` inline in one place and
+   re-typed as SUB_UMB_PHASE = .35 in campus.js; all three are now the same
+   number reached from the same rule. */
+const UMB_PHASE = .35;
+
+/* The bar's (u, v) frame: u along the bank, v OUTWARD from the water (so the
+   water is v < 0). Returns null if SITE.LAGOON ever stops publishing what the
+   derivation needs. */
+function swimMouth() {
+  /* `?swim=off` restores the sealed basin, cold, for the A/B — the same escape
+     hatch shape as ?lb / ?dc / ?ml. */
+  try {
+    if (new URLSearchParams(location.search).get('swim') === 'off') return null;
+  } catch { /* no location (a test harness) — build the mouth */ }
+
+  const L = SITE.LAGOON;
+  if (!L || !L.umbrellas) return null;
+
+  /* the midpoint of the gap between umbrellas 7 and 8 — campus.js's bearing */
+  const T = (7.5 + UMB_PHASE) / L.umbrellas * TAU;
+  const rimX = L.cx + L.rx * Math.cos(T);
+  const rimZ = L.cz + L.rz * Math.sin(T);
+  /* outward normal of the published ellipse — ∇((x/rx)² + (z/rz)²) */
+  let nX = (rimX - L.cx) / (L.rx * L.rx), nZ = (rimZ - L.cz) / (L.rz * L.rz);
+  const nL = Math.hypot(nX, nZ) || 1;
+  nX /= nL; nZ /= nL;
+  const tX = nZ, tZ = -nX;          // along the bank, matching campus.js
+  const U0 = .8;                    // campus.js's nudge off the centre line
+
+  const local = (x, z) => {
+    const dx = x - rimX, dz = z - rimZ;
+    return { u: dx * tX + dz * tZ - U0, v: dx * nX + dz * nZ };
+  };
+
+  return {
+    local,
+    /* is this world point inside the pocket? */
+    inside(x, z) {
+      const { u, v } = local(x, z);
+      return Math.abs(u) <= SWIM.U && v <= SWIM.V_OUT && v >= SWIM.V_IN;
+    },
+    /* THE DOORWAY. Given the lagoon's rim chain as [{x, z}], return the indices
+       of the SWIM.ENTRY_N circles nearest SWIM.ENTRY_U along the bank — by
+       COUNT, deliberately, so the opening is always the same number of circles
+       wide however the seeded outline lands. Candidates are restricted to the
+       bar's own side of the basin (|u| ≤ 3 × SWIM.U and v inside the pocket's
+       span, padded) so a circle on the far rim can never be picked by being
+       numerically closest in a degenerate frame. */
+    pickEntry(rim) {
+      const cand = [];
+      for (let i = 0; i < rim.length; i++) {
+        const { u, v } = local(rim[i].x, rim[i].z);
+        if (Math.abs(u) > SWIM.U * 3) continue;
+        if (v > SWIM.V_OUT + 2 || v < SWIM.V_IN) continue;
+        cand.push({ i, d: Math.abs(u - SWIM.ENTRY_U) });
+      }
+      cand.sort((a, b) => a.d - b.d);
+      const out = new Set(cand.slice(0, SWIM.ENTRY_N).map(c => c.i));
+      if (out.size < SWIM.ENTRY_N) {
+        console.warn('[water] the swim-up bar\'s mouth found only ' + out.size
+          + ' rim circles to open (wanted ' + SWIM.ENTRY_N
+          + ') — SITE.LAGOON has moved under swimMouth(); you cannot swim to the bar.');
+      }
+      return out;
+    },
+  };
 }
 
 /* ── colliders ──────────────────────────────────────────────────────────────
@@ -3361,6 +3540,7 @@ function worldCollider(x, z, r) {
 function riverColliders(G, basins, lines, bridges) {
   const nearBridge = (x, z) => bridges.some(b =>
     (x - b.x) ** 2 + (z - b.z) ** 2 < (b.w * .62) ** 2);
+  const mouth = swimMouth();          // the lagoon's swim-up approach, or null
 
   for (const key of ['spine', 'spur']) {
     const pts = lines[key];
@@ -3384,9 +3564,25 @@ function riverColliders(G, basins, lines, bridges) {
 
   for (const b of basins) {
     const n = Math.max(16, Math.round(b.rm * 3.4));
+    const gated = mouth && b.key === 'lagoon';
+    /* the chain is built first and pushed second, because the doorway is chosen
+       by looking at the WHOLE chain (the two circles nearest the bar) rather
+       than by testing each circle against a window — see pickEntry */
+    const rim = [];
     for (let j = 0; j < n; j++) {
       const [x, z] = b.at(j / n * TAU, -.4);
-      G.colliders.push(worldCollider(x, z, 1.6));
+      rim.push({ x, z });
+    }
+    const door = gated ? mouth.pickEntry(rim) : null;
+    for (let j = 0; j < n; j++) {
+      const s = rim[j];
+      /* a doorway circle is still PUSHED, at feet-height 80 m: the palm scatter
+         keeps its unbroken keep-out, the walker passes. Count is unchanged. */
+      if (door && door.has(j)) {
+        G.colliders.push(worldCollider(s.x, s.z, 1.6, SWIM.PHANTOM_Y0, SWIM.PHANTOM_Y1));
+      } else {
+        G.colliders.push(worldCollider(s.x, s.z, 1.6));
+      }
     }
     /* Fill the middle, or nature plants a palm in open water. Two numbers
        have to line up or the fill leaks:
@@ -3402,6 +3598,16 @@ function riverColliders(G, basins, lines, bridges) {
     for (let x = b.cx - b.rx; x <= b.cx + b.rx; x += step) {
       for (let z = b.cz - b.rz; z <= b.cz + b.rz; z += step) {
         if (!b.inside(x, z, -1.2)) continue;
+        /* THE SWIM-UP BAR'S MOUTH — see the banner over swimMouth(). Inside it
+           the circle is still PUSHED, at feet-height 80 m: placePalms ignores
+           the y-range so the keep-out is intact and nothing plants in the
+           water, while updatePlayer skips it entirely and the swimmer walks
+           through. The rim chain above is untouched, so the basin's
+           containment is unchanged. */
+        if (mouth && b.key === 'lagoon' && mouth.inside(x, z)) {
+          G.colliders.push(worldCollider(x, z, cr, SWIM.PHANTOM_Y0, SWIM.PHANTOM_Y1));
+          continue;
+        }
         G.colliders.push(worldCollider(x, z, cr));
       }
     }
@@ -3613,6 +3819,15 @@ export function buildWater(G) {
   buildVillaPools(G);
 
   (G.tickers ||= []).push((dt) => tick(dt));
+
+  /* ── keep the far resort out of the mirror's second scene render ──────────
+     AFTER every builder above, so the Reflector exists — but the assignment
+     itself deliberately waits for the first TICK, because world.js has not
+     rotated the enclave (or adopted moments.js's groups) yet and a distance
+     measured here would be taken 90° from where the campus really stands.
+     Guarded on mirrorMesh: with TUNE.MIRROR false, or after the Reflector's
+     own fallback above, there is no second pass to cull for. */
+  if (mirrorMesh) initMirrorLayers(G, mirrorMesh);
 
   setWaterNight(false);
   setLanterns(true);

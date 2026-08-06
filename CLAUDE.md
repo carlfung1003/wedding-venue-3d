@@ -214,6 +214,61 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## THE MIRROR'S REACH + A SWIMMABLE BAR — 2026-08-06 (`water.js`, `mirrorlayers.js`)
+
+**A measured near-miss worth recording.** The Reflector is the single most
+expensive object on the campus (hiding it: **+36 fps at the pool deck, +139 at
+brunch**), so the plan was to stop it drawing the far campus via a layer mask
+keyed on distance from the pool. **The premise was right and the lever is
+nearly empty**: the mirror camera's own frustum ALREADY culls the far campus at
+every viewpoint where the reflection is legible. From `off` down to a 55 m
+radius the great-room view's mirror draws the identical **920 calls**; at
+Ceremony, Cocktail and most fly views it draws **zero** (the Reflector mesh is
+outside the main frustum, so three never calls `onBeforeRender`).
+
+Shipped at **R = 120 m** — chosen as the MIDDLE OF A PLATEAU, not a knee:
+between 90 and 140 m the mirror's content does not change at all, so any value
+inside is arbitrary and the middle buys margin both ways. Below 90 the next
+thing to go is the beachfront sea-edge band, which IS in the reflection looking
+west. Worth **+4.0 fps at the pool deck, +5.0 at brunch, ±0.0 everywhere
+else**, for a one-shot assignment and one bitwise OR per frame. Nine
+identical-camera pairs with the clock pinned: eight at or below their own A/A
+control; the one real signal is **95 pixels inside a single 15 × 24 px box**.
+
+⚠️ **THE MEASUREMENT ERROR THAT NEARLY SHIPPED A DISASTER, and the general
+lesson**: the first sweep used `geometry.boundingSphere` for every renderable.
+**For an `InstancedMesh` that is the unit prototype at the ORIGIN**, not the
+sphere covering its instances — so all ~200 instanced buckets measured as tiny
+objects at the enclave origin, and the sweep "found" +45 fps at R = 70 by
+deleting every palm, every hedge and the whole rooftop from the reflection.
+three's own `Frustum.intersectsObject` prefers `object.boundingSphere`; match
+it. (`detailcull.js` sidesteps this by excluding InstancedMesh outright.)
+
+**⚠️ THE REAL LEVER, NAMED AND NOT ATTEMPTED** (it is the last big optimization
+left): three renders the mirror through the **full reflected view frustum**,
+not the mirror quad's SCREEN-SPACE EXTENT. At the brunch view the pool is a
+**25-pixel sliver** and still costs ~900 draw calls. Narrowing the virtual
+camera's projection to the reflector's on-screen bounds — rebuilding
+`textureMatrix` from the same matrix — would cut that to near zero AND RAISE
+the reflection's effective resolution. It means forking
+`Reflector.onBeforeRender` rather than wrapping it.
+
+**You can now swim up to the swim-up bar.** `riverColliders()` filled every
+basin interior, so the approach moved 0.00 m. The mouth is two pieces: the
+interior-grid pocket, plus **exactly two rim circles** at the counter's west
+end picked BY COUNT so the opening cannot change width if the seeded outline
+reshuffles (2.09 m of clear walking). ⚠️ **Circles are CONVERTED, never
+deleted** — re-emitted at feet-height 80 m, the arrival court's phantom-collider
+pattern: `placePalms` ignores y-ranges so the keep-out survives, and
+`updatePlayer` skips them so the swimmer passes. Deleting them would have let
+the scatter stand a coconut palm in open water. Containment re-checked on 36
+bearings against the SEEDED OUTLINE (not the ellipse): endpoints identical at
+33 of 36, exactly one now ends in water — the doorway. You still cannot walk
+out through the front; the bar's own plinth holds you.
+
+A/B hatches in the house style: `?ml=off` / `?ml=<metres>` / `G.mirrorLayers.*`,
+and `?swim=off`.
+
 ## FIFTEEN BUCKET-KEY COLLISIONS — FIXED 2026-08-06 (`campus.js` + `site.js`)
 
 ⚠️ **THE RULE, now written at `inst()` itself: ONE BUCKET KEY PER (GEOMETRY,
