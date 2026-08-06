@@ -214,6 +214,13 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+~~The rooftop strafe from the brunch spawn ends in the pool~~ — **NOT A BUG,
+  checked 2026-08-06.** Walking from the brunch tables to the bar holds feet
+  **26.600 across all twelve bursts**, and `floorY` probes 26.600 at every
+  bearing from `poolTc` to `barTc` at r 99.0. The original observation was a
+  STRAFE, which moves you SEAWARD from the tables at r 97.9 into the pool at
+  r 90.10…96.40 — i.e. the pool is where the pool is, and Carl asked for
+  exactly that (the water takes the edge, the tables sit behind it).
 ## THE GUEST JOURNEY HARNESS — `tools/guest-journey.mjs` (2026-08-06)
 
 `node tools/guest-journey.mjs` (serve first: `python3 serve.py`) walks the whole
