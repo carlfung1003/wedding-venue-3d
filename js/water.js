@@ -38,6 +38,14 @@ import { requestPalms } from './nature.js';
    mirror. Read that file's banner before touching the radius; the measured
    answer is smaller than it looks, and the reason is instructive. */
 import { initMirrorLayers } from './mirrorlayers.js';
+/* …and this is the lever mirrorlayers.js's banner named and did not pull: the
+   mirror pass renders through the FULL reflected frustum, not the quad's
+   screen-space extent. mirrorfrustum.js forks Reflector.onBeforeRender to
+   narrow the virtual camera's projection to the quad's own on-screen box AND
+   to render into the matching sub-rectangle of the same target — which is what
+   keeps the sampling density, the ripple and the texture matrix bit-identical
+   to stock. Read its banner before touching either number here. */
+import { initMirrorFrustum } from './mirrorfrustum.js';
 
 /* ─────────────────────────────── constants ─────────────────────────────── */
 
@@ -128,6 +136,7 @@ const floaters = [];                // floating-lantern records
 let lanternGroup = null;
 let mirrorU = null;                 // the hero mirror's uniform block (driven in tick)
 let mirrorMesh = null;              // the ONE Reflector — mirrorlayers.js needs it
+let mirrorFrustum = null;           // the screen-extent pass's debug handle
 
 /* ───────────────────────── canvas / texture plumbing ───────────────────── */
 
@@ -368,6 +377,37 @@ function normalCanvas() {
 function normalTex(rx, ry) {
   const t = texOf(canv('normal', normalCanvas), rx, ry, false);   // linear — not a colour map
   return t;
+}
+
+/* THE SHADER'S OWN WORST-CASE LOOKUP OFFSET, measured off the very canvas it
+   samples. The mirror fragment shader perturbs the projected reflection lookup
+   by `(n1.xy + n2.xy) * uRipple`, where each tap is `tex.xyz * 2 − 1` on this
+   normal map — so the largest |Δu| it can ever ask for is
+   `2 · uRipple · max|R·2−1|` and likewise |Δv| off the G channel.
+   js/mirrorfrustum.js turns that into the pad it renders BEYOND the mirror
+   quad's own screen box, and an under-estimate here is a fringe of unrendered
+   texels along the water's edge. Derived rather than typed for exactly that
+   reason: retune MIRROR_RIPPLE_AMP or reseed the wave set and the pad follows.
+   One 256² pass at boot; the canvas is cached so it costs a single scan. */
+let _wobble = null;
+function mirrorWobbleUV() {
+  if (_wobble) return _wobble;
+  const c = canv('normal', normalCanvas);
+  let mx = 0, my = 0;
+  try {
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    for (let i = 0; i < d.length; i += 4) {
+      const nx = Math.abs(d[i] / 255 * 2 - 1);
+      const ny = Math.abs(d[i + 1] / 255 * 2 - 1);
+      if (nx > mx) mx = nx;
+      if (ny > my) my = ny;
+    }
+  } catch {
+    mx = my = 1;                     // unreadable canvas → the absolute bound
+  }
+  const a = TUNE.MIRROR_RIPPLE_AMP;
+  _wobble = { u: 2 * a * mx, v: 2 * a * my };
+  return _wobble;
 }
 
 /* ── caustic web — thin bright interference lines, used additively ── */
@@ -641,8 +681,14 @@ const MirrorShader = {
 /* Build the hero pool's mirror plane. Returns the Reflector mesh (already
    configured for transparency) — the caller parents it like any other mesh. */
 function makeMirrorWater(w, d) {
+  /* ⚠ three keeps clipBias in the Reflector's closure and never publishes it,
+     so mirrorfrustum.js — which re-implements the oblique clip — has to be
+     handed the SAME number. One const, passed twice; a second literal here is
+     a silent reflection bug waiting to happen. */
+  const CLIP_BIAS = .0032;
+
   const mirror = new Reflector(new THREE.PlaneGeometry(w, d), {
-    clipBias: .0032,
+    clipBias: CLIP_BIAS,
     textureWidth: TUNE.MIRROR_W,
     textureHeight: TUNE.MIRROR_H,
     color: TUNE.MIRROR_TINT,
@@ -659,6 +705,18 @@ function makeMirrorWater(w, d) {
   mirror.material.depthWrite = false;
   mirror.material.fog = true;                 // must be set before first compile
   mirror.renderOrder = 3;
+
+  /* ── narrow the mirror pass to the quad's own screen extent ──────────────
+     FIRST, so the every-Nth-frame gate below wraps the forked onBeforeRender
+     rather than the other way round. `ripple` sizes the pad that keeps the
+     shader's projected-lookup wobble inside the rendered sub-rectangle — it is
+     measured off the SAME normal canvas the fragment shader samples, so if
+     MIRROR_RIPPLE_AMP or the wave seed ever moves the pad follows for free. */
+  const wob = mirrorWobbleUV();
+  mirrorFrustum = initMirrorFrustum(mirror, {
+    clipBias: CLIP_BIAS,
+    wobbleU: wob.u, wobbleV: wob.v,
+  });
 
   /* perf gate: skip the reflection render on all but every Nth frame */
   const inner = mirror.onBeforeRender;
@@ -3828,6 +3886,10 @@ export function buildWater(G) {
      Guarded on mirrorMesh: with TUNE.MIRROR false, or after the Reflector's
      own fallback above, there is no second pass to cull for. */
   if (mirrorMesh) initMirrorLayers(G, mirrorMesh);
+  /* the screen-extent pass is installed in makeMirrorWater (it has to sit under
+     the every-Nth-frame gate); this only publishes its handle, and only if the
+     Reflector actually came up. */
+  if (mirrorFrustum) G.mirrorFrustum = mirrorFrustum;
 
   setWaterNight(false);
   setLanterns(true);

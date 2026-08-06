@@ -221,6 +221,78 @@ when two corrections disagree.
   STRAFE, which moves you SEAWARD from the tables at r 97.9 into the pool at
   r 90.10…96.40 — i.e. the pool is where the pool is, and Carl asked for
   exactly that (the water takes the edge, the tables sit behind it).
+## THE MIRROR FRUSTUM — DONE 2026-08-06 (`js/mirrorfrustum.js` + `water.js`)
+
+The lever the layer-mask pass named. three renders the mirror through the FULL
+reflected view frustum, so at the brunch a 25-pixel sliver of pool cost ~900
+draw calls. It now renders into the quad's own screen box.
+
+**The maths is exact by algebra, not by tuning — this is why it cannot drift.**
+Stock builds `textureMatrix = bias·P·V·M`. Narrowing to a target sub-rectangle
+sets `P' = S·P`; the lookup must then land in that rectangle, `T = scale∘offset∘bias`.
+**`T·S = bias` identically**, so `textureMatrix = T·P'·V·M = bias·P·V·M` —
+unchanged. The file computes NO new texture matrix: it runs three's own line
+from three's own `projectionMatrix` and the narrowing cancels out. A slide would
+need a viewport/projection pair that disagree, and both come from one integer
+rectangle three lines apart.
+
+⚠️ It is a **VIEWPORT** narrowing, deliberately, not projection-only:
+- sampling density is identical, so the reflection does not SHARPEN as you walk
+  toward the pool (projection-only would have — which sounds like a bonus until
+  you watch it happen);
+- the ripple is in target UV, i.e. texels, and texel size is unchanged, so the
+  swell does not shrink as you back away.
+
+⚠️ **The single decision that made it work: Lengyel's `q` is solved from the
+MAIN camera's projection, not the narrowed one.** Solved from the narrowed
+matrix, row 2 differs from stock's, which MOVES THE FAR PLANE — measured as a
+*narrower* frustum drawing MORE (+6 calls at the grazing view) and a visible
+**0.989 mean |Δ|** inside the mirror. From the main camera's matrix, row 2 is
+bit-identical to stock and both collapse to **0.0007 and 0 px**.
+
+| view | mirror calls | fps |
+|---|---|---|
+| great room over the water (the dive lands here) | 934 → **399** | 51.3 → **62.1** |
+| flyover | 695 → **194** | 39.2 → **67.6** |
+| Welcome Brunch | 818 → **552** | 53.2 → **60.2** |
+| quad behind the camera | 145 → **1** (skipped) | 70.9 → **94.3** |
+| **pool deck at night — the signature** | 288 → 288 | 93.5 → 95.2 |
+
+**It is ZERO at the signature shot and that is honest** — the quad fills the
+screen there, so there is nothing outside it to cull.
+
+**Motion is what decided it** (static pairs cannot catch a sliding reflection):
+150-step walk + orbit, same frame ON and OFF at every step. The frame-to-frame
+series track to **four significant figures at every quantile**; the pair
+difference peaks at **0.19/255 against a motion signal of 29.4 — 150×**. The
+viewport size changed 89 times along the path and the worst pair difference at
+any size-change step is 0.054. A 240-step 360° sweep skipped the render on 68
+steps, every one **exactly 0.0000**.
+
+⚠️ **It broke the shader warm-up, and the fix is worth knowing.** `main.js`
+spends a whole render behind the loading card buying programs; a NARROWED
+warm-up reaches far fewer materials — 101 instead of 112, the missing 11
+landing as a **139.8 ms first frame** plus two 40 ms stalls out on the path.
+Gated: stay un-narrowed until the program cache has been quiet 30 frames, and
+re-open whenever it moves. After: 114 programs, max frame 65.9 vs stock's 64.8.
+
+`?mf=off` **is stock, not an approximation of it** — verified against an
+untouched checkout served side by side: identical draw calls, triangles and
+program count at six viewpoints, to the unit. Composes with `?ml=*`.
+
+⚠️ Known and bounded: a narrower frustum can draw **1–2 MORE** objects, because
+three culls by bounding SPHERE and the kept set is not monotone in the frustum.
+Both observed cases are one 40-triangle suite mesh.
+
+**Two pre-existing findings for a future pass, neither fixed here:**
+1. ⚠️ **three's transmission pass runs INSIDE the mirror pass** at the
+   prewedding deck — one `transmission: .85` material in moments.js (the
+   champagne glassware) makes the campus render a THIRD time, which is why the
+   mirrored-suite views cost 2,948 mirror calls against the deck's 288. That is
+   the biggest single remaining cost on this campus.
+2. The far-plane behaviour of Lengyel's oblique clip is frustum-shape
+   dependent — documented at the call site.
+
 ## THE GUEST JOURNEY HARNESS — `tools/guest-journey.mjs` (2026-08-06)
 
 `node tools/guest-journey.mjs` (serve first: `python3 serve.py`) walks the whole
