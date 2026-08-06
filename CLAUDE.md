@@ -214,6 +214,59 @@ the crescent. Spend triangles and draw calls on the three, not on the field.
 This is a *judgement* rule, not a layout rule — it tells you what to trade
 when two corrections disagree.
 
+## FIFTEEN BUCKET-KEY COLLISIONS — FIXED 2026-08-06 (`campus.js` + `site.js`)
+
+⚠️ **THE RULE, now written at `inst()` itself: ONE BUCKET KEY PER (GEOMETRY,
+MATERIAL) PAIR.** `inst()` binds BOTH on a key's first use *in build order*,
+and `BUCKETS` is one module-level Map flushed once at the end of
+`buildCampus` — so keys are shared **across functions**, not just within one.
+Every later call with that key silently renders in the first material.
+
+I found five in `buildArrival` and briefed those; the census found **fifteen**,
+one of them cross-function (a `put()` in `buildVillas` bound `hedgeI` two
+hundred lines before `buildGrassGround` asked it for a box). What was actually
+on screen:
+
+- **Both check-in staff were a single black cylinder stack** — torso, arms,
+  skin head and hair all drawing the uniform-cylinder binding.
+- The buffet's **marble top drew dark teak**; the desk lamp's **cone shade drew
+  a dark cylinder**; the monitor drew teak.
+- The LINK's whole **corten pergola drew copper**.
+- The stair tower's **risers drew marble**, so the flight was a monolith.
+- Every clipped **hedge RUN drew as a blob**; the retaining wall's **black
+  coping drew pale stone**; sofa feet drew ivory; chair legs drew rattan.
+
+Census: **15 collisions / 93 keys → 0 / 138**, over a merged namespace that
+also resolves the helper-forwarded call sites (`put`, `at`, `figure`). All
+21,725 instance placements hash identically before and after — no `rnd()` draw
+count changed. Triangles actually FELL slightly (the mis-bound hedges were
+drawing blobs where boxes belong).
+
+⚠️ **One case was reverted on look, deliberately, and the accident became the
+intent.** The wedding-dinner paved walk had been asking for `MAT.paver` and
+silently getting `MAT.stone` for years. Fixed, it finally drew the campus sett
+— which is right against the arrival court but reads as a **multicoloured
+patchwork** on a 4 m walk between two manicured lawns, under the dinner. It is
+now `MAT.stone` explicitly, on the key that is bound to it, with a comment
+saying why. **Same pixels as before the fix, but honest.**
+
+Also fixed in the same pass:
+- **The eight rooftop four-tops had no colliders outside the Welcome Brunch** —
+  campus.js built them permanently but only moments.js ringed them, so in the
+  other five moments you walked through them. Now registered in
+  `roofColliders()` from the published `brunchTables` list at `TABLE_R = 0.95`.
+  The duplicate ring during the brunch is harmless BY CONSTRUCTION: same
+  centre, same radius, same height window, so the union is what that moment
+  already had. Proven — ceremony/dinner approach 0.011 m → **1.300 m** held,
+  brunch approach **1.300 m unchanged** and the room still navigable.
+- **The invisible pinch on the north-bank path**, and the culprit is worth
+  recording: **a scatter palm trunk**. `nature.js placePalms` avoids
+  `G.colliders`, but a PATH draws no collider and registers no exclusion zone,
+  so paths are invisible to the palm scatter. The path moved (`PATHS[1][13]`
+  (102, −14) → (100, −16)) rather than the tree, since nature.js cannot see
+  paths. Negative samples along the whole path **3 → 0**; worst walker margin
+  **−0.427 m → +1.249 m**; the palm's own seeded position is unchanged.
+
 ## THE DETAIL CULL — DONE 2026-08-05 (`js/detailcull.js` + one call in main.js)
 
 The second optimization pass, after the light budget. Same shape: a per-frame

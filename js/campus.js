@@ -1357,6 +1357,28 @@ function mat4(x, y, z, sx, sy, sz, ry = 0, rx = 0, rz = 0) {
   _q.setFromEuler(_e);
   return new THREE.Matrix4().compose(_p, _q, _s);
 }
+/* ⚠⚠ ONE BUCKET KEY PER (GEOMETRY, MATERIAL) PAIR. NO EXCEPTIONS. ⚠⚠
+   The FIRST call for a key binds BOTH `geo` and `mat` for the whole build —
+   every later call with that key contributes only a MATRIX, and its own
+   geometry and material arguments are silently thrown away. So
+       inst('tableI', UNIT_BOX, MAT.teak,  …)     ← binds teak
+       inst('tableI', UNIT_BOX, MAT.dark,  …)     ← draws in TEAK, not dark
+   renders the legs in the top's material and nothing anywhere throws, warns or
+   looks broken enough to notice — it just quietly renders the wrong building.
+
+   This has now bitten the project TWICE. 2026-08-04 found it in `buildArrival`
+   and left it (it changes the look, which wanted Carl's eye); the fix pass on
+   2026-08-06 found 15 collided keys across this file, including the check-in
+   staff — five parts in four materials and three geometries, ALL drawn as one
+   dark cylinder — and the buffet's marble top drawn as dark teak.
+
+   The rule when you add an instance: if the pair is new, the KEY is new. Name
+   the key after the part, never after the room (`arrTableI` + `arrTableLegI`,
+   not one `arrTableI`), and if you are unsure, run the census in
+   `flushBuckets`'s comment below — it is one grep over this file.
+
+   (Splitting a key is free: it costs one extra InstancedMesh, draws no `rnd()`
+   and moves no instance. It is never a reason to reuse one.) */
 function inst(key, geo, mat, m, color = null) {
   let b = BUCKETS.get(key);
   if (!b) { b = { geo, mat, ms: [], cs: [], any: false }; BUCKETS.set(key, b); }
@@ -1364,6 +1386,22 @@ function inst(key, geo, mat, m, color = null) {
   if (color) b.any = true;
   return b;
 }
+/* HOW TO CENSUS THE KEYS (the check that proves the rule above still holds):
+   collect every call site's (key, geometry, material) triple and group by key —
+   any key carrying two distinct triples is a part rendering in the wrong
+   geometry or finish. Two things make a naive grep of `inst(` wrong, and both
+   have already hidden a real bug here:
+     · THERE IS ONE BUCKETS MAP for the whole builder and flushBuckets() runs
+       ONCE, at the end of buildCampus — so keys are shared across every
+       function in this file, not just within one. `hedgeI` was bound to
+       UNIT_BLOB by buildVillas 200 lines before buildGrassGround asked it for
+       a UNIT_BOX, and buildGrassGround's hedge run drew blobs.
+     · SEVERAL CALL SITES FORWARD to inst() through a local helper — buildVillas
+       and buildSecondPoolPavilion's `put(key, geo, mat, …)`, the car's
+       `put(key, mat, …)`, the rooftop dining chair's `at(…, key, mat)` and the
+       band's `figure(v, topKey, topMat, …)`. Their literals count too.
+   Census all five forms together, in one namespace, and ignore comments (this
+   one included). Clean as of 2026-08-06: 138 keys, 0 collisions. */
 function flushBuckets(parent) {
   for (const [key, b] of BUCKETS) {
     if (!b.ms.length) continue;
@@ -1778,7 +1816,7 @@ function buildVillas(G, root, rnd) {
       lounger(CW * .32 + 1.4, cz - CD * .22, 1);
       for (let k = -1; k <= 1; k += 2) stepLight(k * (CW / 2 - .6), cz - CD / 2 + .8);
       put('bougain', UNIT_BLOB, MAT.bougain, -CW / 2 + 1.1, 1.2, cz + CD / 2 - 1.5, 1.1, 1.2, 1.0);
-      put('hedgeI', UNIT_BLOB, MAT.hedge, CW / 2 - 1.2, .9, cz + CD / 2 - 1.4, 1.8, 1.5, 1.6);
+      put('hedgeBlobI', UNIT_BLOB, MAT.hedge, CW / 2 - 1.2, .9, cz + CD / 2 - 1.4, 1.8, 1.5, 1.6);
 
     } else {
       /* ── 花园三卧套房 Garden 3-BR — TWO storeys, and the only key entered
@@ -1838,7 +1876,7 @@ function buildVillas(G, root, rnd) {
       lounger(hw * .5 + 1.5, hd + 2.8, 1);
       stepLight(-gx + .5, z0 + .5); stepLight(gx - .5, z0 + .5);
       put('bougain', UNIT_BLOB, MAT.bougain, -gx + .8, 1.1, z1 - 1.2, 1.0, 1.1, .9);
-      put('hedgeI', UNIT_BLOB, MAT.hedge, gx - .8, .85, z0 + 1.6, 1.6, 1.4, 1.6);
+      put('hedgeBlobI', UNIT_BLOB, MAT.hedge, gx - .8, .85, z0 + 1.6, 1.6, 1.4, 1.6);
     }
   }
 }
@@ -2055,7 +2093,7 @@ function buildGrassGround(G) {
   {
     const A = FP.w + FP.rim * 2;
     paving(FP.cx, FP.cz, A + 2.4, A + 2.4);
-    inst('grassPaveI', UNIT_PLANE, MAT.blackstone,
+    inst('grassBlackPaveI', UNIT_PLANE, MAT.blackstone,
       mat4(FP.cx, PATH_Y + .004, FP.cz, A, 1, A));
     for (const s of [-1, 1]) {
       inst('firePitI', UNIT_BOX, MAT.stone,
@@ -2067,7 +2105,7 @@ function buildGrassGround(G) {
       colliderLine(G.colliders, FP.cx - FP.w / 2, FP.cz + s * (FP.w / 2 + .25),
         FP.cx + FP.w / 2, FP.cz + s * (FP.w / 2 + .25), .45);
     }
-    inst('grassPaveI', UNIT_PLANE, MAT.blackstone,
+    inst('grassBlackPaveI', UNIT_PLANE, MAT.blackstone,
       mat4(FP.cx, .07, FP.cz, FP.w - .5, 1, FP.w - .5));
     inst('glowI', UNIT_BOX, MAT.glowLamp,
       mat4(FP.cx, .10, FP.cz, FP.w - .9, .06, FP.w - .9));
@@ -2157,7 +2195,7 @@ function buildGrassGround(G) {
       for (let x = s0; x < s1 - .6; ) {
         const w = Math.min(3.0 + rndB() * 1.6, s1 - x + .4);
         const h = 1.0 + rndB() * .25;
-        inst('hedgeI', UNIT_BLOB, MAT.hedge,
+        inst('hedgeBlobI', UNIT_BLOB, MAT.hedge,
           mat4(x + w / 2, h / 2, BAND_Z + (rndB() - .5) * .24, w + .9, h, 1.35 + rndB() * .35));
         colliderLine(G.colliders, x + .4, BAND_Z, x + w - .4, BAND_Z, .5);
         x += w - .55;
@@ -2190,11 +2228,20 @@ function buildGrassGround(G) {
       paving(s < 0 ? L.x0 - .35 : L.x1 + .35, (L.z0 + L.z1) / 2, .7, L.z1 - L.z0);
     }
   }
-  inst('grassPaveI', UNIT_PLANE, MAT.paver,
+  /* ⚠ PALE STONE HERE, NOT `MAT.paver`, AND THAT IS A DELIBERATE CHOICE.
+     These two calls asked for `MAT.paver` for years and silently got
+     `MAT.stone`, because `grassPaveI` had already been bound to stone — one of
+     the fifteen bucket-key collisions fixed on 2026-08-06. When the collision
+     was fixed they finally rendered as the sett texture they had been asking
+     for, and it looks WRONG: the campus sett is right against the arrival
+     court, but on a 4 m walk between two manicured lawns it reads as a
+     multicoloured patchwork under the wedding dinner. So the accident is now
+     the intent, stated honestly — pale stone, on the key that is bound to it. */
+  inst('grassPaveI', UNIT_PLANE, MAT.stone,
     mat4((DW.x0 + DW.x1) / 2, PATH_Y, (DW.z0 + DW.z1) / 2,
       DW.x1 - DW.x0 - 1.4, 1, DW.z1 - DW.z0));
   /* the apron that joins both lawns back to the pool terrace */
-  inst('grassPaveI', UNIT_PLANE, MAT.paver,
+  inst('grassPaveI', UNIT_PLANE, MAT.stone,
     mat4((SITE.DINNER_LAWNS[1].x0 + SITE.DINNER_LAWNS[0].x1) / 2, PATH_Y,
       SITE.DINNER_LAWNS[0].z0 - 2.4,
       SITE.DINNER_LAWNS[0].x1 - SITE.DINNER_LAWNS[1].x0, 1, 3.4));
@@ -2378,7 +2425,7 @@ function buildArrival(G, g, rnd) {
     const nx = Math.cos(ry), nz = -Math.sin(ry);          // outward normal
     inst('arrRetainI', UNIT_BOX, MAT.stone,
       mat4(cx + nx * .28, TY / 2, cz + nz * .28, .56, TY, len, ry));
-    inst('arrRetainI', UNIT_BOX, MAT.blackPolish,
+    inst('arrRetainCapI', UNIT_BOX, MAT.blackPolish,
       mat4(cx + nx * .30, TY + .09, cz + nz * .30, .72, .18, len, ry));   // cap
     /* the planted batter: a slope band of clipped mass falling to grade */
     const n = Math.max(2, Math.round(len / 2.4));
@@ -2781,7 +2828,7 @@ function buildArrival(G, g, rnd) {
     inst('arrChairI', UNIT_BOX, MAT.rattan, mat4(cx, cy + .43, cz, .46, .07, .46, cry));
     inst('arrChairI', UNIT_BOX, MAT.rattan, mat4(cx, cy + .68, cz - .21, .46, .5, .06, cry));
     for (const [lx, lz] of [[-.19, -.19], [.19, -.19], [-.19, .19], [.19, .19]]) {
-      inst('arrChairI', UNIT_BOX, MAT.dark,
+      inst('arrChairLegI', UNIT_BOX, MAT.dark,
         mat4(cx + lx * Math.cos(cry) + lz * Math.sin(cry), cy + .21,
           cz - lx * Math.sin(cry) + lz * Math.cos(cry), .05, .43, .05, cry));
     }
@@ -2793,8 +2840,8 @@ function buildArrival(G, g, rnd) {
   const table = (cx, cz, seats) => {
     const w = seats === 4 ? 1.5 : .95, d = seats === 4 ? .95 : .95;
     inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(cx, .74, cz, w, .07, d));
-    inst('arrTableI', UNIT_BOX, MAT.dark, mat4(cx, .37, cz, .12, .74, .12));
-    inst('arrTableI', UNIT_BOX, MAT.dark, mat4(cx, .03, cz, .7, .06, .7));
+    inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(cx, .37, cz, .12, .74, .12));
+    inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(cx, .03, cz, .7, .06, .7));
     inst('arrWareI', UNIT_CYL, MAT.white, mat4(cx, .82, cz, .12, .12, .12));   // bud vase
     inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(cx, .95, cz, .22, .2, .22),
       new THREE.Color(0xecd7ae));
@@ -2823,7 +2870,7 @@ function buildArrival(G, g, rnd) {
     inst('arrBanqI', UNIT_BOX, MAT.ivory, mat4(B.x1 - 1.0, .24, bz, 1.1, .48, 3.4));
     inst('arrBanqI', UNIT_BOX, MAT.ivory, mat4(B.x1 - .55, .78, bz, .2, .62, 3.4));
     inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(B.x1 - 2.4, .74, bz, 1.4, .07, .9));
-    inst('arrTableI', UNIT_BOX, MAT.dark, mat4(B.x1 - 2.4, .37, bz, .12, .74, .12));
+    inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(B.x1 - 2.4, .37, bz, .12, .74, .12));
     for (const oz of [-.6, .6]) chair(B.x1 - 3.3, 0, bz + oz, -Math.PI / 2);
     setting(B.x1 - 2.4, .76, bz - .2);
     setting(B.x1 - 2.4, .76, bz + .2);
@@ -2836,12 +2883,12 @@ function buildArrival(G, g, rnd) {
      0.80 m; AR.INTS reaches x 39.5, so the counter starts east of that. */
   const bufX = B.x1 - 2.4, bufZ = B.z1 - 1.15;
   inst('arrCounterI', UNIT_BOX, MAT.rtDarkTeak, mat4(bufX, .5, bufZ, 3.8, 1.0, .8));
-  inst('arrCounterI', UNIT_BOX, MAT.marble, mat4(bufX, 1.03, bufZ, 4.0, .07, .95));
+  inst('arrCounterTopI', UNIT_BOX, MAT.marble, mat4(bufX, 1.03, bufZ, 4.0, .07, .95));
   for (let k = 0; k < 4; k++) {
     inst('arrWareI', UNIT_CYL, MAT.white,
       mat4(bufX - 1.4 + k * .95, 1.14, bufZ - .1, .34, .16, .34));
   }
-  inst('glowI', UNIT_BOX, MAT.loungeGlow, mat4(bufX, 1.9, bufZ + .3, 3.6, .07, .1));
+  inst('loungeGlowI', UNIT_BOX, MAT.loungeGlow, mat4(bufX, 1.9, bufZ + .3, 3.6, .07, .1));
   rectCollider(C, bufX, bufZ, 4.2, 1.1, 0, .3, BELOW);
 
   /* ══════════════════════════════════════════════════════════════════════
@@ -2911,7 +2958,7 @@ function buildArrival(G, g, rnd) {
     for (const lx of [-len / 2 + .18, len / 2 - .18]) {
       for (const lz of [-.38, .38]) {
         const p = P(lx, lz);
-        inst('arrSofaI', UNIT_BOX, MAT.white, mat4(p[0], LY + .075, p[1], .07, .15, .07, cry));
+        inst('arrSofaFootI', UNIT_BOX, MAT.white, mat4(p[0], LY + .075, p[1], .07, .15, .07, cry));
       }
     }
     /* ⚠ ABOVE, for the mirror-image reason the lounge's furniture is BELOW:
@@ -2921,7 +2968,7 @@ function buildArrival(G, g, rnd) {
   };
   const lowTable = (cx, cz) => {
     inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(cx, LY + .34, cz, 1.5, .1, .9));
-    inst('arrTableI', UNIT_BOX, MAT.dark, mat4(cx, LY + .16, cz, 1.3, .28, .74));
+    inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(cx, LY + .16, cz, 1.3, .28, .74));
     inst('arrWareI', UNIT_CYL, MAT.white, mat4(cx, LY + .46, cz - .2, .2, .14, .2));
     inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(cx, LY + .6, cz - .2, .3, .26, .3),
       new THREE.Color(0xbf6f9a));
@@ -3021,7 +3068,7 @@ function buildArrival(G, g, rnd) {
         mat4(DX - DLEN / 2 + .05 + (k + .5) * (DLEN + .8) / 4, LY + 1.55, CABZ,
           (DLEN + .8) / 4 - .05, 3.0, .12));
     }
-    inst('arrCabI', UNIT_BOX, MAT.rtDarkTeak,
+    inst('arrCabPlinthI', UNIT_BOX, MAT.rtDarkTeak,
       mat4(DX, LY + .04, CABZ, DLEN + .9, .08, .16));             // its dark plinth
     /* the counter: solid dark timber top over a vertical slat front */
     inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + 1.06, DZ, DLEN, .09, .78));
@@ -3036,10 +3083,10 @@ function buildArrival(G, g, rnd) {
         mat4(DX - DLEN / 2 + .1 + k * .11, LY + .53, DZ + .40, .045, .94, .045));
     }
     /* the monitor, the shaded lamp, and the white bowl of dried flowers */
-    inst('arrDeskI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.36, DZ - .1, .06, .5, .78));
-    inst('arrDeskI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.12, DZ - .1, .2, .06, .3));
+    inst('arrDeskDarkI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.36, DZ - .1, .06, .5, .78));
+    inst('arrDeskDarkI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.12, DZ - .1, .2, .06, .3));
     inst('arrLampI', UNIT_CYL, MAT.dark, mat4(DX + .2, LY + 1.24, DZ - .05, .04, .28, .04));
-    inst('arrLampI', UNIT_CONE, MAT.lampShade, mat4(DX + .2, LY + 1.46, DZ - .05, .34, .3, .34));
+    inst('arrLampShadeI', UNIT_CONE, MAT.lampShade, mat4(DX + .2, LY + 1.46, DZ - .05, .34, .3, .34));
     inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(DX - 1.2, LY + 1.22, DZ - .05, .42, .24, .42));
     for (let k = 0; k < 7; k++) {
       const a = rnd() * Math.PI * 2;
@@ -3072,13 +3119,13 @@ function buildArrival(G, g, rnd) {
     for (const [sx, syaw] of [[DX - .95, .16], [DX + 1.0, -.12]]) {
       const sz = DZ - .82;
       inst('arrStaffI', UNIT_CYL, MAT.uniform, mat4(sx, LY + .48, sz, .38, .96, .3, syaw));
-      inst('arrStaffI', UNIT_BOX, MAT.uniformTop, mat4(sx, LY + 1.32, sz, .48, .62, .3, syaw));
-      inst('arrStaffI', UNIT_BOX, MAT.uniformTop,
+      inst('arrStaffTopI', UNIT_BOX, MAT.uniformTop, mat4(sx, LY + 1.32, sz, .48, .62, .3, syaw));
+      inst('arrStaffTopI', UNIT_BOX, MAT.uniformTop,
         mat4(sx - .28, LY + 1.28, sz + .06, .13, .56, .16, syaw));
-      inst('arrStaffI', UNIT_BOX, MAT.uniformTop,
+      inst('arrStaffTopI', UNIT_BOX, MAT.uniformTop,
         mat4(sx + .28, LY + 1.28, sz + .06, .13, .56, .16, syaw));
-      inst('arrStaffI', UNIT_CYL, MAT.skin, mat4(sx, LY + 1.76, sz, .23, .28, .23, syaw));
-      inst('arrStaffI', UNIT_BLOB, MAT.hair, mat4(sx, LY + 1.86, sz - .02, .26, .22, .25, syaw));
+      inst('arrStaffHeadI', UNIT_CYL, MAT.skin, mat4(sx, LY + 1.76, sz, .23, .28, .23, syaw));
+      inst('arrStaffHairI', UNIT_BLOB, MAT.hair, mat4(sx, LY + 1.86, sz - .02, .26, .22, .25, syaw));
       C.push({ x: sx, z: sz, r: .3, y0: CY });
     }
   }
@@ -3129,12 +3176,12 @@ function buildArrival(G, g, rnd) {
   /* a light pergola roof over the LINK so it reads as the clubhouse's own
      covered corridor rather than as a bare bridge */
   for (let x = LK.x0 + 1.2; x < LK.x1; x += 2.3) {
-    inst('arrRailI', UNIT_BOX, MAT.corten,
+    inst('arrPergolaI', UNIT_BOX, MAT.corten,
       mat4(x, LY + 2.62, (LK.z0 + LK.z1) / 2, .12, .18, LK.z1 - LK.z0 + .5));
   }
-  inst('arrRailI', UNIT_BOX, MAT.corten,
+  inst('arrPergolaI', UNIT_BOX, MAT.corten,
     mat4((LK.x0 + LK.x1) / 2, LY + 2.74, LK.z0 + .1, LK.x1 - LK.x0, .16, .14));
-  inst('arrRailI', UNIT_BOX, MAT.corten,
+  inst('arrPergolaI', UNIT_BOX, MAT.corten,
     mat4((LK.x0 + LK.x1) / 2, LY + 2.74, LK.z1 - .1, LK.x1 - LK.x0, .16, .14));
 
   /* balustrades. Every one carries y0 so it exists only UP HERE — the
@@ -3658,6 +3705,15 @@ function buildHotel(G, root) {
    (site.js promises exactly this beside the list): outermost four-top, plus
    its chair ring, plus a lounger half, plus walking room. */
 const LOUNGE_CLEAR_M = 5.3;       // past the outermost four-top's chairs, metres
+
+/* The collider radius of a chair-ringed rooftop table — the bar room's round
+   and square tops and the eight brunch four-tops, which carry the same 1.02 m
+   chairs. It is ALSO the figure moments.js rings the brunch tables with, and
+   the two must stay equal: see the note beside the brunch ring in
+   roofColliders(). 0.95 was measured on 2026-08-04 (1.35 fenced the brunch
+   room off against the coping); it leaves 0.56 m between two settings on the
+   3.20 m pitch and still clears the 0.68 m cloth by 0.27 m. */
+const TABLE_R = .95;
 function loungerRow(R) {
   const C = Math.PI / 2, pitch = 4.39 / R.loungeR;
   const maxOff = Math.max(...HOTEL_ROOF.brunchTables.map(t => Math.abs(t.th - C)));
@@ -4093,7 +4149,7 @@ function buildHotelRoof(G, g, acx, acz) {
     const pth = th + 2.35 / GR;
     inst('darkI', UNIT_BOX, MAT.dark,
       mat4(WX(pth, GR + .35), DY + .34, WZ(pth, GR + .35), .82, .68, .82, pth));
-    inst('hedgeI', UNIT_BLOB, MAT.hedge,
+    inst('hedgeBlobI', UNIT_BLOB, MAT.hedge,
       mat4(WX(pth, GR + .35), DY + .96, WZ(pth, GR + .35), 1.24, 1.02, 1.24));
   }
 
@@ -4211,7 +4267,7 @@ function buildHotelRoof(G, g, acx, acz) {
   const rimN = Math.max(12, Math.round(2 * rimHalf * 104.4 / 7.36) + 1);
   for (let i = 0; i < rimN; i++) {
     const th = (C - rimHalf) + (i / (rimN - 1)) * rimHalf * 2;
-    inst('hedgeI', UNIT_BLOB, MAT.hedge,
+    inst('hedgeBlobI', UNIT_BLOB, MAT.hedge,
       mat4(WX(th, 104.4), RY + .55, WZ(th, 104.4), 3.0, 1.1, 1.7));
   }
 
@@ -4336,7 +4392,7 @@ function buildHotelRoof(G, g, acx, acz) {
       inst('rtSlatI', UNIT_BOX, MAT.slat,
         mat4(WX((s0 + s1) / 2, BB.r + .24), DY + y, WZ((s0 + s1) / 2, BB.r + .24),
           (s1 - s0) * BB.r, .06, .42, (s0 + s1) / 2));
-      inst('inLightI', UNIT_BOX, MAT.inLight,
+      inst('inLightBarI', UNIT_BOX, MAT.inLight,
         mat4(WX((s0 + s1) / 2, BB.r + .12), DY + y + .04, WZ((s0 + s1) / 2, BB.r + .12),
           (s1 - s0) * BB.r - .3, .07, .10, (s0 + s1) / 2));
     }
@@ -4495,8 +4551,8 @@ function buildHotelRoof(G, g, acx, acz) {
   for (const b of BL.beds) {
     const x = WX(b.th, b.r), z = WZ(b.th, b.r);
     inst('darkI', UNIT_BOX, MAT.dark, mat4(x, DY + .30, z, 2.4, .6, .85, b.th));
-    inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(x, DY + .92, z, 2.7, 1.0, 1.05));
-    inst('inLightI', UNIT_BOX, MAT.inLight,
+    inst('hedgeBlobI', UNIT_BLOB, MAT.hedge, mat4(x, DY + .92, z, 2.7, 1.0, 1.05));
+    inst('inLightBarI', UNIT_BOX, MAT.inLight,
       mat4(WX(b.th, b.r + .60), DY + .10, WZ(b.th, b.r + .60), 2.2, .09, .10, b.th));
   }
 
@@ -4511,9 +4567,9 @@ function buildHotelRoof(G, g, acx, acz) {
       mat4(x, DY + 2.72, z, 3.1, .85, 3.1, BL.canopy.th, Math.PI));
     inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + 3.32, z, 6.4, .28, 5.0, BL.canopy.th));
     inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + 2.98, z, 1.8, .08, 1.8, BL.canopy.th));
-    inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(x, DY + 3.75, z, 5.8, .8, 4.4));
+    inst('hedgeBlobI', UNIT_BLOB, MAT.hedge, mat4(x, DY + 3.75, z, 5.8, .8, 4.4));
     for (const [u, v] of [[-3.0, 0], [3.0, 0], [0, -2.3], [0, 2.3], [-2.4, -1.9], [2.4, 1.9]]) {
-      inst('hedgeI', UNIT_BLOB, MAT.hedge,      // greenery trailing off the edge
+      inst('hedgeBlobI', UNIT_BLOB, MAT.hedge,      // greenery trailing off the edge
         mat4(TX(BL.canopy.th, BL.canopy.r + v, u), DY + 3.05,
           TZ(BL.canopy.th, BL.canopy.r + v, u), 1.0, 1.5, .7, BL.canopy.th));
     }
@@ -4637,7 +4693,7 @@ function buildHotelRoof(G, g, acx, acz) {
         mat4(sx(rFront + 1.0, u), DY + .62, sz(rFront + 1.0, u), .55, .3, .4, ST.th));
     }
     for (const r of [rFront + 1.4, rBack - 1.4]) {
-      inst('inLightI', UNIT_BOX, MAT.inLight,
+      inst('inLightBarI', UNIT_BOX, MAT.inLight,
         mat4(sx(r, halfW + .28), DY + .52, sz(r, halfW + .28), .22, .09, 1.1, ST.th));
     }
   }
@@ -4714,7 +4770,7 @@ function buildRoofAccess(G, g, acx, acz) {
       const y = yBase + (i + 1) * rise;
       inst('rtTreadI', UNIT_BOX, MAT.marble,
         mat4(acx + gx(rC, v), y - .07, acz + gz(rC, v), 1.7, .14, going + .02, TH));
-      inst('rtTreadI', UNIT_BOX, MAT.rtSlat,
+      inst('rtRiserI', UNIT_BOX, MAT.rtSlat,
         mat4(acx + gx(A ? rLo : rLo + going, v), y - rise / 2 - .07,
           acz + gz(A ? rLo : rLo + going, v), 1.7, rise, .05, TH));
     }
@@ -4854,6 +4910,33 @@ function roofColliders(G, acx, acz) {
     L.push({ x: WX(th, R.loungeR), z: WZ(th, R.loungeR), r: .85, ...ROOF });
   }
 
+  /* ── THE EIGHT BRUNCH FOUR-TOPS — PERMANENT, in all six moments ──────────
+     They are built unconditionally by buildHotelRoof() from
+     HOTEL_ROOF.brunchTables, but until 2026-08-06 the only circles around them
+     were the ones moments.js pushes into `cols.brunch` — so in the other five
+     moments the marble tops, their pedestals and thirty-two chairs were
+     furniture you walked straight through. Same class of bug as the daybeds
+     and loungers above, which is exactly why those two are rung from HERE.
+
+     ⚠ REGISTERED DURING buildWorld, and it has to be: initMoments() snapshots
+     G.colliders as the world statics and setMoment() rebuilds the list as
+     statics + the live moment's props, so a ring pushed after init is deleted
+     by the first moment switch.
+
+     ⚠ THE BRUNCH IS RUNG TWICE AND THAT IS DELIBERATE. moments.js is not this
+     pass's file, so its per-table circle stays; these are authored to be the
+     SAME CIRCLE — same centre (the same published list), same TABLE_R, same
+     ROOF window — so during the Welcome Brunch the two coincide exactly and
+     the union is the set that moment already had. A walker pushed out to
+     `TABLE_R + PLAYER_R` by one is already outside the other, so nothing
+     narrows: the 0.56 m corridor between two settings that the 2026-08-04
+     rooftop pass measured is untouched. Do NOT "improve" this by making the
+     permanent ring bigger than moments.js's — a fatter twin is the over-ring
+     that made the brunch room unwalkable once before. */
+  for (const t of HOTEL_ROOF.brunchTables) {
+    L.push({ x: WX(t.th, t.r), z: WZ(t.th, t.r), r: TABLE_R, ...ROOF });
+  }
+
   /* ── THE BAR ZONE + THE DINING TERRACE — every solid from the SAME
         barLayout(R) the builder reads. All ROOF-ranged: an unranged circle
         here is an invisible wall at grade where the fly-in path runs.
@@ -4887,7 +4970,7 @@ function roofColliders(G, acx, acz) {
     arc(LT.r, LT.th - LT.halfTh, LT.th + LT.halfTh, 1.35, ROOF);
   }
   for (const t of BL.tables) {                                // round / square tables
-    L.push({ x: WX(t.th, t.r), z: WZ(t.th, t.r), r: .95, ...ROOF });
+    L.push({ x: WX(t.th, t.r), z: WZ(t.th, t.r), r: TABLE_R, ...ROOF });
   }
   for (const b of BL.beds) {                                  // planting beds
     L.push({ x: WX(b.th, b.r), z: WZ(b.th, b.r), r: 1.0, ...ROOF });
@@ -5010,7 +5093,7 @@ function buildRoad(G, root, rnd) {
   const island = new THREE.Mesh(new THREE.CircleGeometry(2.4, 28), MAT.turf);
   island.rotation.x = -Math.PI / 2; island.position.set(FC.x, .16, FC.z); g.add(island);
   box(g, 5.2, .22, 5.2, FC.x, .08, FC.z, MAT.stone);
-  inst('hedgeI', UNIT_BLOB, MAT.hedge, mat4(FC.x, .95, FC.z, 3.2, 1.7, 3.2));
+  inst('hedgeBlobI', UNIT_BLOB, MAT.hedge, mat4(FC.x, .95, FC.z, 3.2, 1.7, 3.2));
 
   /* parking apron + parked cars, tucked against the road's campus side
      (east of the drive spur, clear of the lawn) */

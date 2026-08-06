@@ -1190,10 +1190,30 @@ export const SITE = {
          needs no bridge, and every point (plus the smoothed 2.4 m resample)
          was machine-checked against all eight basin outlines (exact seeded
          fr(θ), not the ellipse), both channel polylines with their
-         half-widths, and every RESORT_VILLAS footprint. */
+         half-widths, and every RESORT_VILLAS footprint.
+         ⚠ THE CLEARANCE CHECK THAT PASS RAN DID NOT INCLUDE THE PALMS, and
+         that is what the one remaining pinch was: nature.js's `placePalms`
+         dart-throws the scatter AFTER the enclave is built and keeps clear of
+         `G.colliders` — but a path draws no colliders and registers no
+         exclusion zone, so a path is invisible to it. One scatter palm landed
+         at (98.483, −11.348) with `NAT.TRUNK_R` 0.35, i.e. 0.41 m off the
+         smoothed line: a trunk standing IN the paving, and a walker following
+         the bank deflected 0.427 m (their 0.35 m cylinder overlapped the
+         trunk's by that much). FIXED 2026-08-06 by moving control point [13]
+         (102, −14) → (100, −16) — the palm cannot move (nature.js is seeded
+         and does not read this list), the path can, and 2 m of a garden walk
+         is free. AWAY from the water, not toward it: the channel is south of
+         this reach, the NORTH villa field does not start until z −28.
+         Measured after, resampled at 0.5 m against every collider active at
+         feet 0: the palm's margin is +1.546 m (the trunk now sits 0.946 m
+         OUTSIDE the 1.3 m path edge) and the whole 260 m walk's worst margin
+         is +1.249 m, at (161.9, −10.1) against a lagoon-rim circle — a
+         pre-existing figure this change does not touch. ⚠ Anyone re-laying
+         this line must re-run that sweep over BOTH paths; a control point is
+         only clear of the palms by measurement, never by eye. */
       [[-33, -30], [-24, -26], [-14, -20], [-4, -14], [7, -7], [18, -6],
        [30, -5], [40, -8], [48, -6], [56, -4], [68, -2], [80, -5], [92, -7],
-       [102, -14], [112, -16],
+       [100, -16], [112, -16],
        [124, -15], [136, -13], [148, -11], [160, -10], [172, -11], [184, -9],
        [196, -5], [204, -2], [212, 2]],
     ],
