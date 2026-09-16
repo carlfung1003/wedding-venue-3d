@@ -1,0 +1,17 @@
+{
+  "bytes": 3048,
+  "front": "-Z",
+  "material": "paint_w",
+  "min": [
+    -0.15,
+    0.0,
+    -0.15
+  ],
+  "origin": "floor",
+  "size": [
+    0.3,
+    1.0,
+    0.3
+  ],
+  "tris": 108
+}

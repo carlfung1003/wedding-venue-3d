@@ -1,0 +1,4 @@
+# Blender masters are the asset source of truth and are binary — Git LFS.
+assets/blender/masters/*.blend filter=lfs diff=lfs merge=lfs -text
+# raw generated art plates (green-screen shots), if any are ever force-added
+assets/art_raw/** filter=lfs diff=lfs merge=lfs -text

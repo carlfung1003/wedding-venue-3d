@@ -6,3 +6,12 @@ reference/**
 
 # agent worktrees (isolation copies; never part of the site)
 .claude/
+
+# asset pipeline (KAN-207): generated / intermediate, never committed
+assets/blender/refsheets/
+assets/art_raw/
+**/__pycache__/
+assets/previews/
+# bake intermediates — the atlas is packed into the master .blend and shipped in the GLB
+assets/blender/textures/*.png
+assets/blender/masters/*.blend1

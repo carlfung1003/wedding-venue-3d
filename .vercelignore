@@ -1,0 +1,16 @@
+# Vercel CLI deploys from the working tree, and once THIS file exists it REPLACES
+# .gitignore as the exclusion list — so everything .gitignore hides is repeated
+# here. Personal reference media must never reach the CDN.
+.DS_Store
+.vercel
+.claude
+.git
+reference/
+# the Blender asset pipeline: sources, masters (LFS), bake intermediates, previews
+assets/blender/
+assets/previews/
+assets/art_raw/
+# dev-only harnesses (guest-journey, the model viewer, the screenshot rig)
+tools/
+CLAUDE.md
+README.md

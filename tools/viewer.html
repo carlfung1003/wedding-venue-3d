@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Big Day — model viewer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- THE SAME IMPORTMAP AS index.html. The viewer exists to judge an asset under
+     the venue's own renderer (PMREM RoomEnvironment, ACES, sRGB, the golden-hour
+     key), so it must load the identical three build. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0d1a; overflow: hidden; }
+  canvas { display: block; }
+  #hud { position: fixed; left: 12px; top: 10px; color: #f6ecd8; font: 13px/1.5 Inter, system-ui, sans-serif;
+         text-shadow: 0 1px 2px rgba(0,0,0,.5); pointer-events: none; white-space: pre; }
+  #hud b { font-size: 16px; }
+  #pick { position: fixed; right: 12px; top: 10px; font: 13px system-ui; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<div id="hud">loading…</div>
+<select id="pick"></select>
+<script type="module">
+/* usage: tools/viewer.html?m=<name>[&night=1][&spin=0][&cast=0]
+   window.__viewer = { ready (Promise), isReady, frame(name) → Promise<info>, errors[] } */
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as models from '../js/models.js';
+
+const q = new URLSearchParams(location.search);
+const NIGHT = q.get('night') === '1';
+const SPIN = q.get('spin') !== '0';
+/* The loader ships castShadow = false (the game's props do not cast into the sun's
+   finite shadow map). For judging an asset's form a ground shadow helps, so the
+   viewer turns it on by default — VIEWER ONLY; ?cast=0 shows the game's exact state. */
+const CAST = q.get('cast') !== '0';
+const errors = [];
+addEventListener('error', (e) => errors.push(String(e.message || e)));
+addEventListener('unhandledrejection', (e) => errors.push('rejection: ' + (e.reason && e.reason.message || e.reason)));
+
+/* ── renderer: main.js lines 80–115, verbatim in spirit ── */
+const canvas = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = NIGHT ? 1.12 : 1.0;          // CFG.LIGHT.EXPOSURE_*
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(NIGHT ? 0x0e1426 : 0xa9cfe4);   // SKY.DAY.fog colour
+const pmrem = new THREE.PMREMGenerator(renderer);
+pmrem.compileEquirectangularShader();
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+scene.environmentIntensity = NIGHT ? 0.30 : 0.95;               // CFG.LIGHT.ENV_*
+
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.05, 500);   // CFG.FOV
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+
+/* ── the rig: sky.js buildLights(), scaled to a 12 m stage ── */
+const SUN_DIR = new THREE.Vector3(-0.82, 0.30, -0.30).normalize();
+const MOON_DIR = new THREE.Vector3(0.45, 0.62, 0.35).normalize();
+const hemi = NIGHT
+  ? new THREE.HemisphereLight(0x2b3a5e, 0x3a2c1a, 0.40)          // night: the fill goes warm
+  : new THREE.HemisphereLight(0xbfe3ff, 0x6d7a44, 0.75);
+hemi.position.set(0, 60, 0); scene.add(hemi);
+scene.add(NIGHT ? new THREE.AmbientLight(0xffc27a, 0.30) : new THREE.AmbientLight(0xa8c8e4, 0.28));
+const key = NIGHT ? new THREE.DirectionalLight(0xc9d6f0, 0.16) : new THREE.DirectionalLight(0xffd7a2, 2.1);
+const dir = NIGHT ? MOON_DIR : SUN_DIR;
+key.position.copy(dir).multiplyScalar(40);
+key.target.position.set(0, 0, 0); scene.add(key.target);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.bias = -0.0006; key.shadow.normalBias = 0.035;
+Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 120 });
+key.shadow.camera.updateProjectionMatrix();
+scene.add(key);
+
+/* a 12 m ground disc — sage-green matte, receives the shadow; 1 m rings for scale */
+const ground = new THREE.Mesh(new THREE.CircleGeometry(6, 96),
+  new THREE.MeshStandardMaterial({ color: 0x7f9a63, roughness: 1, metalness: 0 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+for (let r = 1; r <= 6; r++) {
+  const pts = []; for (let i = 0; i <= 128; i++) { const a = i / 128 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * r, 0.003, Math.sin(a) * r)); }
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({ color: 0x6b855a, transparent: true, opacity: 0.5 })));
+}
+
+/* ── framing ── */
+const holder = new THREE.Group(); scene.add(holder);
+const hud = document.getElementById('hud');
+const pick = document.getElementById('pick');
+let current = null;
+
+function fit() {
+  const box = new THREE.Box3().setFromObject(holder);
+  if (box.isEmpty()) return;
+  const sph = box.getBoundingSphere(new THREE.Sphere());
+  /* 3/4 view from the FRONT (-Z side, +X), from "guest distance": the bounding
+     sphere fills ~70 % of the vertical frame, never closer than 1.2 m */
+  const half = THREE.MathUtils.degToRad(camera.fov / 2);
+  const d = Math.max(sph.radius / Math.sin(half * 0.7), 1.2);
+  const yaw = THREE.MathUtils.degToRad(35), pitch = THREE.MathUtils.degToRad(18);
+  const meta = models.info(current) || {};
+  const front = meta.front === '+Z' ? 1 : -1;
+  camera.position.set(sph.center.x + Math.sin(yaw) * Math.cos(pitch) * d,
+                      sph.center.y + Math.sin(pitch) * d,
+                      sph.center.z + front * Math.cos(yaw) * Math.cos(pitch) * d);
+  camera.lookAt(sph.center);
+  return { box, sph, d };
+}
+
+async function frame(name) {
+  holder.clear();
+  current = name;
+  const m = models.get(name);
+  const geo = models.geometry(name);
+  const mat = models.material(name);
+  const meta = models.info(name);
+  console.log(`viewer: geometry('${name}') →`, geo, '| material →', mat && mat.name, '| meta', meta);
+  if (!m) { hud.textContent = `${name}: NOT LOADED`; return { name, loaded: false }; }
+  if (CAST) m.traverse((n) => { if (n.isMesh) n.castShadow = true; });
+  holder.add(m);
+  const f = fit();
+  const tris = geo && geo.index ? geo.index.count / 3 : (geo ? geo.attributes.position.count / 3 : 0);
+  const sz = f.box.getSize(new THREE.Vector3());
+  hud.textContent = `${name}\n` +
+    `tris ${tris}  ·  ${meta ? (meta.bytes / 1024).toFixed(0) + ' KB' : '?'}  ·  ` +
+    `size ${sz.x.toFixed(2)} × ${sz.y.toFixed(2)} × ${sz.z.toFixed(2)} m\n` +
+    `material '${mat ? mat.name : '?'}'  ·  front ${meta ? meta.front : '?'}  ·  origin ${meta ? meta.origin : '?'}\n` +
+    `geometry(): ${geo ? geo.type : 'null'}  ·  ${NIGHT ? 'night' : 'day'}  ·  cast shadow ${CAST ? 'ON (viewer only; loader ships off)' : 'off = game state'}`;
+  pick.value = name;
+  /* two frames so the shadow map and the env have settled before a screenshot */
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  return { name, loaded: true, tris, size: [sz.x, sz.y, sz.z], geometry: geo ? geo.type : null,
+           material: mat ? mat.name : null, camDist: f.d };
+}
+
+/* ── loop ── */
+let last = performance.now();
+function tick(now) {
+  const dt = Math.min(Math.max((now - last) / 1000, 0), 0.1); last = now;
+  if (SPIN) holder.rotation.y += dt * 0.15;
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+/* ── boot ── */
+const api = { ready: null, isReady: false, frame, errors, models, THREE, scene, camera, renderer };
+window.__viewer = api;
+api.ready = (async () => {
+  await models.preload((p, n, ok) => { hud.textContent = `loading ${Math.round(p * 100)}%  ${n}${ok ? '' : ' (failed)'}`; });
+  const names = models.names();
+  pick.innerHTML = names.map((n) => `<option>${n}</option>`).join('');
+  pick.onchange = () => { location.search = `?m=${pick.value}${NIGHT ? '&night=1' : ''}${SPIN ? '' : '&spin=0'}`; };
+  const want = q.get('m') || names[0];
+  const info = want ? await frame(want) : null;
+  api.isReady = true;
+  return info;
+})();
+</script>
+</body>
+</html>

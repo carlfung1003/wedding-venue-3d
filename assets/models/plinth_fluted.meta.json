@@ -1,0 +1,17 @@
+{
+  "bytes": 8752,
+  "front": "-Z",
+  "material": "flute",
+  "min": [
+    -0.5,
+    0.0,
+    -0.5
+  ],
+  "origin": "floor",
+  "size": [
+    1.0,
+    1.0,
+    1.0
+  ],
+  "tris": 1000
+}
