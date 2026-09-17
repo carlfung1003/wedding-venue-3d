@@ -1,0 +1,512 @@
+{
+  "_about": "gen_art.py manifest (KAN-207). Keys starting with _ are not entries. Every entry: kind (texture|plate|refsheet), prompt, aspect, size, refs[] (repo-relative, cut by _crops from the planner's renders), out, post (none|tile-check|tile-blend|key-green). The couple are Fung & Cheng / Carl & Rachel; no image carries any lettering — the game draws every word itself.",
+  "_crops": {
+    "cer_tower_left": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.31, 0.05, 0.475, 0.8]
+    },
+    "cer_tower_right": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.545, 0.12, 0.69, 0.8]
+    },
+    "cer_fabric_flower": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.49, 0.19, 0.62, 0.41]
+    },
+    "cer_arch_left": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.165, 0.37, 0.325, 0.66]
+    },
+    "cer_arch_right": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.68, 0.37, 0.825, 0.66]
+    },
+    "cer_chairs_right": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.655, 0.46, 1.0, 0.96]
+    },
+    "cer_chairs_left": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.16, 0.47, 0.31, 0.9]
+    },
+    "cer_cluster_left": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.16, 0.78, 0.285, 1.0]
+    },
+    "cer_cluster_right": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.645, 0.78, 0.815, 1.0]
+    },
+    "cer_cluster_mid": {
+      "src": "decor-ceremony-main.jpg",
+      "box": [0.31, 0.62, 0.42, 0.9]
+    },
+    "des_counter": {
+      "src": "decor-dessert-bar.jpg",
+      "box": [0.35, 0.07, 0.82, 0.85],
+      "paint": [
+        {"box": [0.485, 0.59, 0.605, 0.745], "from": [0.45, 0.68]}
+      ]
+    },
+    "des_parasol": {
+      "src": "decor-dessert-bar.jpg",
+      "box": [0.46, 0.07, 0.81, 0.55]
+    },
+    "des_barrow": {
+      "src": "decor-dessert-bar.jpg",
+      "box": [0.69, 0.56, 0.955, 0.87]
+    },
+    "des_boxes": {
+      "src": "decor-dessert-bar.jpg",
+      "box": [0.69, 0.6, 0.83, 0.745]
+    },
+    "des_plinths": {
+      "src": "decor-dessert-bar.jpg",
+      "box": [0.24, 0.565, 0.35, 0.835]
+    },
+    "des_cluster_left": {
+      "src": "decor-dessert-bar.jpg",
+      "box": [0.345, 0.59, 0.46, 0.86]
+    },
+    "des_cluster_right": {
+      "src": "decor-dessert-bar.jpg",
+      "box": [0.6, 0.59, 0.72, 0.88]
+    },
+    "hat_rack": {
+      "src": "decor-plinths-and-hats.jpg",
+      "box": [0.59, 0.19, 0.955, 0.91]
+    },
+    "hats_close": {
+      "src": "decor-plinths-and-hats.jpg",
+      "box": [0.65, 0.28, 0.915, 0.7]
+    },
+    "hat_basket": {
+      "src": "decor-plinths-and-hats.jpg",
+      "box": [0.575, 0.63, 0.7, 0.89]
+    },
+    "plinths": {
+      "src": "decor-plinths-and-hats.jpg",
+      "box": [0.075, 0.15, 0.48, 0.91]
+    },
+    "pl_cluster_left": {
+      "src": "decor-plinths-and-hats.jpg",
+      "box": [0.04, 0.64, 0.175, 0.91]
+    },
+    "pl_cluster_right": {
+      "src": "decor-plinths-and-hats.jpg",
+      "box": [0.85, 0.67, 0.99, 0.91]
+    },
+    "coconut_rack": {
+      "src": "decor-beverage-coconut.jpg",
+      "box": [0.03, 0.48, 0.285, 0.935]
+    },
+    "bev_cart": {
+      "src": "decor-beverage-coconut.jpg",
+      "box": [0.485, 0.49, 1.0, 0.945],
+      "paint": [
+        {"box": [0.73, 0.77, 0.93, 0.845], "from": [0.8, 0.865]}
+      ]
+    },
+    "bev_cart_top": {
+      "src": "decor-beverage-coconut.jpg",
+      "box": [0.5, 0.5, 1.0, 0.78]
+    },
+    "bar_drum": {
+      "src": "decor-cocktail-bar.jpg",
+      "box": [0.33, 0.53, 1.0, 1.0]
+    },
+    "pine_close": {
+      "src": "decor-cocktail-bar.jpg",
+      "box": [0.375, 0.68, 1.0, 1.0]
+    },
+    "lilac": {
+      "src": "decor-cocktail-bar.jpg",
+      "box": [0.0, 0.77, 0.335, 1.0]
+    },
+    "menu_spritz": {
+      "src": "decor-cocktail-menu.jpg",
+      "box": [0.17, 0.31, 0.34, 0.58],
+      "paint": [
+        {"box": [0.296, 0.465, 0.34, 0.58], "from": [0.05, 0.5]}
+      ]
+    },
+    "menu_pink": {
+      "src": "decor-cocktail-menu.jpg",
+      "box": [0.71, 0.19, 0.86, 0.44],
+      "paint": [
+        {"box": [0.71, 0.29, 0.745, 0.41], "from": [0.95, 0.3]}
+      ]
+    },
+    "menu_yellow": {
+      "src": "decor-cocktail-menu.jpg",
+      "box": [0.737, 0.575, 0.9, 0.79],
+      "paint": [
+        {"box": [0.737, 0.6, 0.747, 0.79], "from": [0.95, 0.6]}
+      ]
+    },
+    "menu_negroni": {
+      "src": "decor-cocktail-menu.jpg",
+      "box": [0.15, 0.705, 0.385, 0.855],
+      "paint": [
+        {"box": [0.362, 0.795, 0.385, 0.855], "from": [0.05, 0.75]}
+      ]
+    },
+    "din_round": {
+      "src": "decor-dinner-rounds.jpg",
+      "box": [0.17, 0.55, 0.75, 0.845]
+    },
+    "din_chair_close": {
+      "src": "decor-dinner-rounds.jpg",
+      "box": [0.29, 0.67, 0.57, 0.84]
+    },
+    "cand_pair": {
+      "src": "decor-dinner-chandeliers.jpg",
+      "box": [0.26, 0.57, 0.94, 0.79]
+    },
+    "cand_right": {
+      "src": "decor-dinner-chandeliers.jpg",
+      "box": [0.51, 0.575, 0.94, 0.78]
+    },
+    "cand_left": {
+      "src": "decor-dinner-chandeliers.jpg",
+      "box": [0.25, 0.64, 0.45, 0.79]
+    }
+  },
+  "bloom_blue_cream": {
+    "kind": "texture",
+    "out": "bloom_blue_cream.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 2048,
+    "post": "tile-blend",
+    "refs": ["reference/crops/cer_cluster_left.png", "reference/crops/cer_cluster_right.png", "reference/crops/des_cluster_left.png"],
+    "prompt": "Top-down macro photograph of a dense florist's bloom mass packed shoulder to shoulder with no gaps and no ground showing: powder-blue mophead hydrangea heads covering a little under half of the area, fully open cream and ivory garden roses, a few white ranunculus, and small sprigs of pale sage eucalyptus foliage tucked between the blooms. Colours exactly as in the attached reference clusters — soft dusty powder blue, warm champagne cream, ivory, pale grey-green sage. Soft natural daylight, photographic, sharp everywhere.",
+    "blend": 0.06
+  },
+  "bloom_blue": {
+    "kind": "texture",
+    "out": "bloom_blue.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 2048,
+    "post": "tile-blend; balanced to #92b8de",
+    "refs": ["reference/crops/cer_cluster_right.png", "reference/crops/cer_cluster_mid.png"],
+    "prompt": "Top-down macro photograph of a dense florist's bloom mass packed shoulder to shoulder with no gaps, almost entirely blue: powder-blue mophead hydrangea heads of different sizes, a few cornflower-blue delphinium spikes, a handful of small white blooms scattered through it and tiny slivers of pale sage foliage. A real photograph of real flowers — every head different, no printed pattern, no repetition. Colours as in the attached reference — soft dusty powder blue like the hydrangea in the reference, the delphinium only a little deeper, never royal blue, never navy, never purple. Soft natural daylight, sharp everywhere.",
+    "tile": "fill",
+    "blend": 0.06,
+    "balance": {
+      "target": "#92b8de",
+      "ref": "p70"
+    }
+  },
+  "bloom_cream": {
+    "kind": "texture",
+    "out": "bloom_cream.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 2048,
+    "post": "tile-blend; balanced to #ecd7ae",
+    "refs": ["reference/crops/des_cluster_right.png", "reference/crops/pl_cluster_left.png"],
+    "prompt": "Top-down macro photograph of a dense florist's bloom mass packed shoulder to shoulder with no gaps: fully open cream and ivory garden roses with softly ruffled petals, white ranunculus, and a few champagne-cream spray roses, with only tiny slivers of pale sage foliage between them. Warm champagne cream, ivory and soft white as in the attached reference roses, no blue. A real photograph of real flowers — every bloom different, no printed pattern, no repetition. Soft natural daylight, sharp everywhere.",
+    "tile": "fill",
+    "blend": 0.06,
+    "balance": {
+      "target": "#ecd7ae",
+      "ref": "p70"
+    }
+  },
+  "bloom_lilac": {
+    "kind": "texture",
+    "out": "bloom_lilac.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-blend",
+    "refs": ["reference/crops/lilac.png"],
+    "prompt": "Top-down macro photograph of a dense florist's bloom mass packed with no gaps: lilac and lavender-mauve roses, soft purple stock spikes, dusty-mauve carnations, white stock and a few white roses, over pale sage-green foliage. Colours as in the attached reference — soft lilac, pale lavender, dusty mauve and white, never saturated purple. A real photograph of real flowers — every bloom different, no printed pattern, no repetition. Soft natural daylight, sharp everywhere.",
+    "tile": "fill",
+    "blend": 0.06
+  },
+  "foliage_sage": {
+    "kind": "texture",
+    "out": "foliage_sage.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-blend; balanced to #94ae87",
+    "refs": ["reference/crops/cer_cluster_mid.png", "reference/crops/pl_cluster_right.png"],
+    "prompt": "Top-down macro photograph of a dense mass of pale sage-green eucalyptus — round silver-dollar leaves and small-leaved gunnii sprigs — mixed with soft grey-green greenery, packed edge to edge with no gaps and no flowers at all. Colour a pale, dusty, slightly silvery sage green like the foliage in the attached reference. A real photograph of real flowers — every bloom different, no printed pattern, no repetition. Soft natural daylight, sharp everywhere.",
+    "tile": "fill",
+    "blend": 0.06,
+    "balance": {
+      "target": "#94ae87",
+      "ref": "p70"
+    }
+  },
+  "hydrangea_head": {
+    "kind": "texture",
+    "out": "hydrangea_head.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "none; balanced to #92b8de",
+    "tile": false,
+    "refs": ["reference/crops/cer_cluster_right.png", "reference/crops/cer_cluster_left.png"],
+    "prompt": "One single powder-blue mophead hydrangea head photographed straight from above, perfectly centred and filling the frame almost to the edges, on a plain flat mid-grey background. Dozens of small four-petalled florets packed into a soft dome, colour a soft dusty powder blue exactly as in the attached reference, with only gentle tonal variation across the head. Soft natural daylight, photographic, sharp.",
+    "balance": {
+      "target": "#92b8de",
+      "ref": "p70"
+    }
+  },
+  "rose_head": {
+    "kind": "texture",
+    "out": "rose_head.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "none; balanced to #ecd7ae",
+    "tile": false,
+    "refs": ["reference/crops/des_cluster_right.png", "reference/crops/cer_cluster_left.png"],
+    "prompt": "One single fully open cream garden rose photographed straight from above, perfectly centred and filling the frame almost to the edges, on a plain flat mid-grey background. Many softly ruffled petals spiralling in to the centre, colour a warm champagne cream as in the attached reference roses. Soft natural daylight, photographic, sharp.",
+    "balance": {
+      "target": "#ecd7ae",
+      "ref": "p70"
+    }
+  },
+  "linen_ivory": {
+    "kind": "texture",
+    "out": "linen_ivory.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-blend; balanced to #f6ecd8",
+    "prompt": "Macro photograph of the ivory linen tablecloth from the attached reference wedding tables, stretched flat and seen from directly above so that the weave fills the frame: a slightly open plain weave with visible irregular slubbed threads, one thicker darker slub thread wandering across the upper left, a scatter of tiny darker fibre flecks and two short loose threads lying on the surface, warm ivory colour, matte, with no creases and no folds. Real fabric, real weave, sharp.",
+    "refs": ["reference/crops/din_round.png"],
+    "note": "Rolls 1-2 came back text-only with finishReason IMAGE_RECITATION — a bare 'ivory linen weave' prompt reads as a stock photo to the model; anchoring on a reference crop got past it. Roll 3 (with pressed creases) tiled as a repeating fold stripe, so roll 4 asks for a flat weave only.",
+    "blend": 0.1,
+    "flatten": 0.12,
+    "tile": "fill",
+    "balance": {
+      "target": "#f6ecd8",
+      "ref": "mean"
+    }
+  },
+  "chiffon_white": {
+    "kind": "texture",
+    "out": "chiffon_white.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-blend; balanced to #faf7f0",
+    "prompt": "Macro photograph of the sheer white chiffon from the attached reference chair drapes, stretched perfectly flat and smooth and seen from directly above so that only the weave is visible: a fine, airy, semi-transparent plain weave of very thin threads with a faint soft sheen, pure soft white, perfectly even, with no folds, no creases and no ripples anywhere. Real fabric, sharp.",
+    "refs": ["reference/crops/cer_chairs_right.png"],
+    "tile": "fill",
+    "blend": 0.1,
+    "note": "Roll 1 had one large diagonal fold that repeated on the tile; re-rolled flat with fill + tile-blend.",
+    "flatten": 0.12,
+    "balance": {
+      "target": "#faf7f0",
+      "ref": "mean"
+    }
+  },
+  "pine_planks": {
+    "kind": "texture",
+    "out": "pine_planks.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-check",
+    "refs": ["reference/crops/pine_close.png"],
+    "prompt": "Close-up of a wall of vertical light knotty pine boards, exactly five boards across the frame, each board running the full height of the frame with a thin dark gap between neighbours, pale honey-blonde pine with soft straight grain and a few small round knots, matte natural finish, as in the attached reference bar."
+  },
+  "oak_light": {
+    "kind": "texture",
+    "out": "oak_light.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-blend; balanced to #c3a37c",
+    "refs": ["reference/crops/din_chair_close.png", "reference/crops/cer_chairs_right.png"],
+    "prompt": "Macro photograph of the flat timber of the cross-back chair in the attached reference, filling the whole frame from directly above: pale grey-warm light oak, a fine straight grain running top to bottom with one soft cathedral arch of figure in the upper third and two tiny pin knots, a matte oiled finish. Colour a light greyish tan exactly like the reference chairs — never orange, never red, never dark.",
+    "tile": "fill",
+    "blend": 0.1,
+    "note": "Roll 1 text-only, finishReason IMAGE_RECITATION (generic 'oak texture' reads as stock). Anchored on the chair timber + specific figure.",
+    "flatten": 0.2,
+    "flatten_amount": 0.6,
+    "balance": {
+      "target": "#c3a37c",
+      "ref": "mean"
+    }
+  },
+  "straw_weave": {
+    "kind": "texture",
+    "out": "straw_weave.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-blend",
+    "refs": ["reference/crops/hats_close.png"],
+    "prompt": "Macro photograph of the natural straw of the hats in the attached reference, seen flat from directly above: a flat sheet of pale golden natural straw braid, the narrow sewn braids running in straight parallel rows straight across the frame, each braid a tight even plait of flat straw strands, with a little colour variation strand to strand, matte. Real straw, sharp.",
+    "tile": "fill",
+    "blend": 0.08,
+    "flatten": 0.15,
+    "note": "Roll 1 drew a hat crown seen from above — concentric braid spirals that cannot tile. Re-rolled as straight parallel rows."
+  },
+  "galvanised": {
+    "kind": "texture",
+    "out": "galvanised.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-blend",
+    "refs": ["reference/crops/des_barrow.png"],
+    "prompt": "Close-up of a flat sheet of hot-dip galvanised steel: the characteristic crystalline spangle pattern of irregular zinc crystals in cool silver-grey with slightly darker and lighter facets, satin-matte, perfectly flat, as on the attached reference wheelbarrow.",
+    "blend": 0.08,
+    "flatten": 0.2
+  },
+  "gold_foil": {
+    "kind": "texture",
+    "out": "gold_foil.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "tile-blend",
+    "refs": ["reference/crops/des_boxes.png"],
+    "prompt": "Macro photograph of the wrapping paper on the gift boxes in the attached reference, filling the whole frame from directly above: pale champagne-gold metallic foil paper with a soft satin sheen, a very fine crinkle texture and a few faint hairline creases where it was folded round a box, pale warm champagne gold exactly like the reference boxes, not brassy, not yellow, no ribbon.",
+    "tile": "fill",
+    "blend": 0.1,
+    "note": "Roll 1 text-only (IMAGE_RECITATION on a generic 'gold foil texture'); anchored on the favour boxes + fold creases.",
+    "flatten": 0.15
+  },
+  "petal": {
+    "kind": "texture",
+    "out": "petal.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "post": "key-green",
+    "green": true,
+    "pad": 6,
+    "prompt": "One single fresh rose petal, white with the faintest blush of pink at its base, lying flat and centred in the frame with its natural gently curved heart-shaped outline and soft velvety surface, seen straight from above.",
+    "mode": "hue",
+    "note": "Keyed with --mode flat first: the petal's soft shadow on the backdrop (darker green, far from the backdrop colour by RGB distance) survived as a green blob and the edge kept a green fringe. A pale petal has no green in it, so the hue-ratio key + despill is the right tool; flat is for subjects that contain green (the mint on the menu). The last opaque ring was a subject/backdrop mix that the despill darkened into a thin outline (unmix could not recover it honestly) — the matte is eroded 2 px.",
+    "unmix": true,
+    "erode": 2
+  },
+  "welcome_board_art": {
+    "kind": "plate",
+    "out": "welcome-board-art.webp",
+    "aspect": "9:16",
+    "size": "2K",
+    "max": 2048,
+    "post": "none",
+    "refs": ["reference/crops/cer_cluster_left.png", "reference/crops/cer_tower_left.png"],
+    "prompt": "The flat face of a pale stone welcome board, filling the entire frame edge to edge as a plain matte pale grey-white stone surface with a very faint soft mottle — the frame IS the board, there is nothing around it and no edge or frame drawn. Painted onto the stone in loose soft watercolour: a garland of powder-blue hydrangea, cream garden roses and pale sage eucalyptus draped across the top-left and top-right corners, and a fuller cluster of the same blooms resting along the bottom centre. The entire middle of the board, roughly its central two-thirds, is left completely empty plain stone with nothing painted on it at all. Bloom colours as in the attached reference. Flat frontal lighting, no shadow."
+  },
+  "menu_drinks": {
+    "kind": "plate",
+    "out": "menu-drinks.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 2048,
+    "post": "key-green",
+    "green": true,
+    "crop": false,
+    "refs": ["reference/crops/menu_spritz.png", "reference/crops/menu_pink.png", "reference/crops/menu_yellow.png", "reference/crops/menu_negroni.png"],
+    "prompt": "Four loose watercolour cocktail illustrations in EXACTLY the style of the attached reference drawings — soft watercolour wash, a delicate ink outline, white paper highlights — arranged as a 2x2 grid, each drink centred in its own quarter of the frame with clear empty space around it and all four at the same scale. Top-left: an orange Aperol spritz in a tall stemmed wine glass with a grapefruit wedge and a sprig of rosemary. Top-right: a pale pink drink with a white coconut-foam cap in a tall stemmed glass, with a small fruit garnish. Bottom-left: a bright yellow rum highball in a faceted straight tumbler with a sprig of mint. Bottom-right: an amber lychee negroni over ice in a short crystal rocks tumbler with an orange peel twist. Nothing but the four glasses and their garnishes.",
+    "mode": "flat"
+  },
+  "crossback_chair": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/cer_chairs_right.png", "reference/crops/din_chair_close.png", "reference/crops/cer_chairs_left.png"],
+    "prompt": "Object: a wooden cross-back (X-back) event chair in light grey-warm oak exactly like the attached reference chairs — never orange. Two rear stiles rise to a gently rounded top rail, a straight lower back rail sits below it, and between the two rails a large X of two crossing members fills the back; a plain slab seat with a softly rounded front edge; four slightly tapered round legs with a side stretcher on each side. Real proportions: 0.46 m wide, 0.44 m deep, seat top at 0.48 m, back 1.00 m tall. Panel 1 shows the chair from the front (the seat's front edge toward the viewer), so the X is seen through the back."
+  },
+  "candelabra": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/cand_pair.png", "reference/crops/cand_right.png", "reference/crops/cand_left.png"],
+    "prompt": "Object: a two-tier clear crystal candle chandelier hanging from a tall slim matte-black steel pole, exactly like the attached reference. The pole rises straight from a small round base and curves over at the top in a smooth quarter-circle hook, and the chandelier hangs from that hook on a short rod: a small canopy, a central faceted crystal column, an upper tier of eight curved crystal arms each ending in a bobèche holding a white taper candle with a small flame, a lower and smaller tier of six arms, and a swag of dangling crystal drops around the bottom. Pole about 3.5 m tall, the chandelier about 1.1 m across; the pole and its hook are part of the object in every panel."
+  },
+  "round_bar": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/bar_drum.png", "reference/crops/pine_close.png"],
+    "prompt": "Object: a round cocktail bar drum built from about thirty vertical light knotty pine boards standing side by side on a circle, exactly like the attached reference, with a slightly overhanging round plank top; the top is completely bare. About 2.5 m across and 1.13 m tall.",
+    "note": "Roll 1 drew the side elevation at half the front's width (a round drum's side IS its front). Repaired conversationally (2026-09-16): the v1 sheet + the bar crop were passed as references with 'keep panels 1, 3, 4; redraw panel 2 as wide as panel 1'. v1 kept as art_raw/round_bar.v1.png."
+  },
+  "dessert_counter_parasol": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/des_counter.png", "reference/crops/des_parasol.png"],
+    "prompt": "Object: a long low white dessert bar counter with a slightly overhanging flat top slab and a completely plain, blank, flat white front, and standing behind its centre a tall white double-tiered garden parasol on a slim timber pole — a large lower canopy with a scalloped valance, a small second tier above it and a finial — with sixteen strands of white pearl beads hanging straight down from the lower canopy's rim, exactly like the attached reference. The counter top is bare. Counter 6 m long, 0.92 m deep, 1.1 m tall; the parasol pole 2.6 m tall with the lower canopy 3.9 m across."
+  },
+  "wheelbarrow": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/des_barrow.png", "reference/crops/des_boxes.png"],
+    "prompt": "Object: a galvanised steel garden wheelbarrow exactly like the attached reference — a deep pan with a rolled rim, one front wheel with a black rubber tyre, two long straight tubular steel handles with black grips angling up toward the back, two tubular rear legs — with the pan heaped with about fifteen small square gift boxes wrapped in pale champagne-gold foil paper and tied with ivory ribbon. About 1.75 m long from wheel to grips, 0.74 m wide, the rim at 0.77 m. Panel 1 shows it from the wheel end."
+  },
+  "beverage_cart": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/bev_cart.png", "reference/crops/bev_cart_top.png"],
+    "prompt": "Object: a small white painted timber market cart exactly like the attached reference: a rectangular table on four slim square legs, four slim corner posts rising to a shallow ivory fabric canopy with a gently scalloped edge that is tilted very slightly to one side; on the table a spread of fresh fruit — a watermelon, oranges, bananas, blueberries, a pineapple — a small steel bucket and two little glass vases of white flowers. The front edge of the table is plain and bare with no cloth hanging from it. 1.56 m long, 0.78 m deep, table top at 0.915 m, canopy at 2.0 m."
+  },
+  "coconut_rack": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/coconut_rack.png"],
+    "prompt": "Object: a tall narrow white painted metal shelving rack exactly like the attached reference: four slim round uprights, four flat shelves evenly spaced, and a decorative semicircular arched top rail with a small loop at its crown; on every shelf two or three green young coconuts with flat cut tops. 0.74 m wide, 0.54 m deep, 2.04 m to the top shelf with the arch above it."
+  },
+  "hat_rack": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/hat_rack.png", "reference/crops/hats_close.png", "reference/crops/hat_basket.png"],
+    "prompt": "Object: a hat display exactly like the attached reference — two square dark timber posts standing 3.5 m apart with three thin taut lines strung between them at three heights, each line carrying five natural straw hats with dark bands pegged by their brims with small wooden pegs so their brims face the viewer, and beside the right-hand post a round woven basket holding a stack of four straw hats. Posts 2.28 m tall."
+  },
+  "arch_bead_chandelier": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/cer_arch_left.png", "reference/crops/cer_arch_right.png"],
+    "prompt": "Object: a slim white round-tube arch frame — two straight vertical posts joined by a semicircular arch on top — with a five-tier crystal and pearl bead chandelier hanging inside it from the apex on a drop rod, exactly like the attached reference: a small canopy disc, then five concentric rings of hanging clear crystal and white pearl bead strands narrowing downward on a cone, and a single finial strand down the centre. Arch 2.24 m wide and 3.42 m to the apex; the chandelier's top tier 1.2 m across."
+  },
+  "dj_booth": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/bar_drum.png", "reference/crops/des_counter.png"],
+    "prompt": "Object: a low rectangular DJ booth for an outdoor after-party, in the same clean event-hire finish as the attached reference furniture but matte charcoal-black: a plain box with a flat blank front panel and a flat top, and on the top a closed laptop, a DJ controller with two jog wheels and a small gooseneck lamp. 2.4 m wide, 0.8 m deep, 1.1 m tall."
+  },
+  "champagne_tower": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/des_counter.png", "reference/crops/des_plinths.png"],
+    "prompt": "Object: a small round table draped to the floor in ivory linen with soft vertical pleats, in the same clean finish as the attached reference, topped by a pyramid of frosted champagne coupe glasses stacked in three tiers — nine on the bottom, four in the middle, one on top. Table 1.2 m across, top at 0.78 m."
+  },
+  "lounge_sofa": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/cer_chairs_right.png", "reference/crops/des_plinths.png"],
+    "prompt": "Object: an outdoor lounge sofa in the same light grey-warm oak as the attached reference chairs: a low slatted timber base and low timber arms, deep ivory linen seat cushions and two loose back cushions, a low back. It is about two and a half times as wide as it is tall, and a little less than half as deep as it is wide; the seat cushion top sits a little over half way up the back. Plain drawing of the object only — no dimension lines and no measurements written anywhere.",
+    "note": "Roll 1 came back with dimension lines and metric labels (2.2m / 0.9m / 0.45m / 0.80m) — the numbers in the prompt invited them, and they also broke the height spread (14.4%). Re-rolled with proportions in words."
+  },
+  "installation_floral": {
+    "kind": "refsheet",
+    "aspect": "16:9",
+    "size": "2K",
+    "refs": ["reference/crops/cer_tower_left.png", "reference/crops/cer_tower_right.png", "reference/crops/cer_cluster_left.png"],
+    "prompt": "Object: a tall asymmetric florist's floral tower exactly like the attached reference: a teardrop mass of powder-blue hydrangea heads and cream and ivory garden roses over pale sage eucalyptus, widest near its base and drawn up to a narrow plume at the top that leans a little to one side, with a wing of blooms spilling sideways at chest height, a skirt of blooms spreading on the grass at its foot, and delphinium and eucalyptus sprigs breaking the silhouette. 3.3 m tall, about 1.6 m wide across the base."
+  }
+}

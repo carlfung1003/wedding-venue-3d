@@ -1,0 +1,17 @@
+{
+  "bytes": 16612,
+  "front": "+Z",
+  "material": "oak_grain",
+  "min": [
+    -0.23,
+    0.0,
+    -0.233
+  ],
+  "origin": "floor",
+  "size": [
+    0.46,
+    1.013,
+    0.443
+  ],
+  "tris": 1512
+}

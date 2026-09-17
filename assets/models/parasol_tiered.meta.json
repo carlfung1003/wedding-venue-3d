@@ -1,0 +1,17 @@
+{
+  "bytes": 68528,
+  "front": "-Z",
+  "material": "parasol_tiered",
+  "min": [
+    -1.981,
+    0.0,
+    -1.981
+  ],
+  "origin": "floor",
+  "size": [
+    3.962,
+    2.99,
+    3.962
+  ],
+  "tris": 6456
+}

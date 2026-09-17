@@ -1,0 +1,17 @@
+{
+  "bytes": 41292,
+  "front": "-Z",
+  "material": "coconut_rack",
+  "min": [
+    -0.371,
+    0.0,
+    -0.27
+  ],
+  "origin": "floor",
+  "size": [
+    0.741,
+    2.411,
+    0.54
+  ],
+  "tris": 3008
+}

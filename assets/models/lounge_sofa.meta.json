@@ -1,0 +1,17 @@
+{
+  "bytes": 35428,
+  "front": "-Z",
+  "material": "lounge_sofa",
+  "min": [
+    -1.1,
+    0.0,
+    -0.45
+  ],
+  "origin": "floor",
+  "size": [
+    2.2,
+    0.81,
+    0.9
+  ],
+  "tris": 2316
+}

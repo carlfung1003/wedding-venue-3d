@@ -1,0 +1,17 @@
+{
+  "bytes": 98312,
+  "front": "-Z",
+  "material": "round_bar",
+  "min": [
+    -1.24,
+    0.0,
+    -1.24
+  ],
+  "origin": "floor",
+  "size": [
+    2.48,
+    1.13,
+    2.48
+  ],
+  "tris": 4000
+}

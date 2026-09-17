@@ -1,0 +1,17 @@
+{
+  "bytes": 18292,
+  "front": "-Z",
+  "material": "head_table",
+  "min": [
+    -3.036,
+    0.0,
+    -0.541
+  ],
+  "origin": "floor",
+  "size": [
+    6.071,
+    0.804,
+    1.081
+  ],
+  "tris": 1564
+}

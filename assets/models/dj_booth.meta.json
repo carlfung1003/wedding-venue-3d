@@ -1,0 +1,17 @@
+{
+  "bytes": 13876,
+  "front": "-Z",
+  "material": "dj_booth",
+  "min": [
+    -1.22,
+    0.0,
+    -0.42
+  ],
+  "origin": "floor",
+  "size": [
+    2.44,
+    1.547,
+    0.84
+  ],
+  "tris": 1354
+}

@@ -1,0 +1,17 @@
+{
+  "bytes": 9344,
+  "front": "-Z",
+  "material": "parasol_round",
+  "min": [
+    -1.742,
+    0.0,
+    -1.742
+  ],
+  "origin": "floor",
+  "size": [
+    3.484,
+    3.055,
+    3.485
+  ],
+  "tris": 532
+}

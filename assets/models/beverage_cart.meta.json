@@ -1,0 +1,17 @@
+{
+  "bytes": 51312,
+  "front": "-Z",
+  "material": "beverage_cart",
+  "min": [
+    -0.902,
+    0.0,
+    -0.51
+  ],
+  "origin": "floor",
+  "size": [
+    1.805,
+    2.087,
+    1.02
+  ],
+  "tris": 4204
+}

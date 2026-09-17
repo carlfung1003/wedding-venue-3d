@@ -1,0 +1,17 @@
+{
+  "bytes": 11832,
+  "front": "-Z",
+  "material": "menu_easel",
+  "min": [
+    -0.45,
+    0.001,
+    -0.352
+  ],
+  "origin": "floor",
+  "size": [
+    0.9,
+    1.51,
+    0.704
+  ],
+  "tris": 888
+}

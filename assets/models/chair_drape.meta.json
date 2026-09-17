@@ -1,0 +1,17 @@
+{
+  "bytes": 12584,
+  "front": "+Z",
+  "material": "chiffon_tex",
+  "min": [
+    -0.265,
+    0.3,
+    -0.508
+  ],
+  "origin": "floor",
+  "size": [
+    0.53,
+    0.906,
+    0.334
+  ],
+  "tris": 1112
+}

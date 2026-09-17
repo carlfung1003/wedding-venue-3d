@@ -1,0 +1,17 @@
+{
+  "bytes": 50180,
+  "front": "-Z",
+  "material": "bottle_set",
+  "min": [
+    -0.696,
+    0.0,
+    -0.198
+  ],
+  "origin": "base",
+  "size": [
+    1.391,
+    0.45,
+    0.395
+  ],
+  "tris": 4296
+}

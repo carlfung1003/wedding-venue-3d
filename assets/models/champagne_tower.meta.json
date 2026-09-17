@@ -1,0 +1,17 @@
+{
+  "bytes": 33204,
+  "front": "-Z",
+  "material": "champagne_tower",
+  "min": [
+    -0.63,
+    0.0,
+    -0.63
+  ],
+  "origin": "floor",
+  "size": [
+    1.26,
+    1.2,
+    1.26
+  ],
+  "tris": 4330
+}

@@ -8,7 +8,8 @@ reference/**
 .claude/
 
 # asset pipeline (KAN-207): generated / intermediate, never committed
-assets/blender/refsheets/
+assets/blender/refsheets/*
+!assets/blender/refsheets/CONTACT.md
 assets/art_raw/
 **/__pycache__/
 assets/previews/

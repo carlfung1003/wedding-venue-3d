@@ -1,0 +1,17 @@
+{
+  "bytes": 517336,
+  "front": "-Z",
+  "material": "installation_small",
+  "min": [
+    -1.876,
+    0.0,
+    -0.828
+  ],
+  "origin": "floor",
+  "size": [
+    2.876,
+    2.998,
+    1.677
+  ],
+  "tris": 31384
+}

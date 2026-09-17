@@ -1,0 +1,17 @@
+{
+  "bytes": 15424,
+  "front": "-Z",
+  "material": "linen_skirt",
+  "min": [
+    -0.438,
+    0.0,
+    -0.438
+  ],
+  "origin": "floor",
+  "size": [
+    0.875,
+    1.099,
+    0.875
+  ],
+  "tris": 1162
+}

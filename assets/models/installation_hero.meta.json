@@ -1,0 +1,17 @@
+{
+  "bytes": 355156,
+  "front": "-Z",
+  "material": "installation_hero",
+  "min": [
+    -1.0,
+    0.0,
+    -0.802
+  ],
+  "origin": "floor",
+  "size": [
+    2.849,
+    3.279,
+    1.629
+  ],
+  "tris": 9347
+}

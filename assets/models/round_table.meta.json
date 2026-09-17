@@ -1,0 +1,17 @@
+{
+  "bytes": 29584,
+  "front": "-Z",
+  "material": "round_table",
+  "min": [
+    -0.959,
+    0.0,
+    -0.96
+  ],
+  "origin": "floor",
+  "size": [
+    1.919,
+    0.804,
+    1.92
+  ],
+  "tris": 1638
+}
