@@ -23,19 +23,44 @@ import wv_lib as L
 
 
 # ---------------------------------------------------------------- materials
-def tex(name, filename, roughness=0.62, fallback="white", tint_to=None):
+def tex(name, filename, roughness=0.62, fallback="white", tint_to=None, gain=1.0):
     path = filename if os.path.isabs(filename) else os.path.join(L.TEX_GEN, filename)
     if os.path.exists(path) and os.path.getsize(path) == 0:
         print(f"WARN tex({name!r}): {path} is 0 bytes (being written?) — falling back to {fallback!r}")
         return L.M(fallback)
     m = L.image_mat(name, filename, roughness=roughness, fallback=fallback)
     if tint_to and m.get("wv_family") == "bloom" and not m.get("wv_tinted"):
-        _tint_to_palette(m, tint_to)
+        _tint_to_palette(m, tint_to, gain)
+    elif gain != 1.0 and not m.get("wv_gained"):
+        # flat fallback: scale the key's colour the same way
+        bsdf = m.node_tree.nodes.get("Principled BSDF")
+        if bsdf:
+            g = gain if isinstance(gain, (tuple, list)) else (gain, gain, gain)
+            c = bsdf.inputs["Base Color"].default_value
+            bsdf.inputs["Base Color"].default_value = (c[0] * g[0], c[1] * g[1], c[2] * g[2], 1.0)
+            m["wv_gained"] = 1
     return m
 
 
-def _tint_to_palette(m, key):
-    """Multiply the picture so its mean equals PALETTE[key] (per channel, linear)."""
+def dielectric(key):
+    """The bake stores DIFFUSE colour, and a metallic key (steel .8, gold .55) has
+    almost none — it comes out near-black in the atlas. For a prop whose GLB
+    material is dielectric anyway (the linen dominates), zero the metallic on the
+    shared key so its brushed grey/gold albedo survives the bake."""
+    m = L.M(key)
+    bsdf = m.node_tree.nodes.get("Principled BSDF")
+    if bsdf:
+        bsdf.inputs["Metallic"].default_value = 0.0
+        bsdf.inputs["Roughness"].default_value = max(bsdf.inputs["Roughness"].default_value, 0.45)
+    return m
+
+
+def _tint_to_palette(m, key, gain=1.0):
+    """Multiply the picture so its mean equals PALETTE[key] × gain (per channel, linear).
+    `gain` (scalar or per-channel linear) < 1 darkens deliberately: the venue's
+    2.1 sun + hemisphere sky + ACES renders a lit timber face far above its
+    albedo, and adds more blue than red, so the oak takes a per-channel gain to
+    RENDER at the palette's hue and the reference render's lightness."""
     nt = m.node_tree
     tex_node = next((n for n in nt.nodes if n.type == 'TEX_IMAGE' and n.image), None)
     bsdf = nt.nodes.get("Principled BSDF")
@@ -49,7 +74,8 @@ def _tint_to_palette(m, key):
     mean = px.mean(axis=0)
     if not img.is_float:
         mean = np.array([L.srgb_to_linear(float(c)) for c in mean])
-    target = np.array([L.srgb_to_linear(c) for c in L.PALETTE[key]])
+    g = np.array(gain if isinstance(gain, (tuple, list)) else (gain, gain, gain), dtype=float)
+    target = np.array([L.srgb_to_linear(c) for c in L.PALETTE[key]]) * g
     ratio = target / np.maximum(mean, 1e-4)
     mix = nt.nodes.new("ShaderNodeMixRGB")
     mix.blend_type = 'MULTIPLY'
@@ -59,8 +85,7 @@ def _tint_to_palette(m, key):
     nt.links.new(tex_node.outputs["Color"], mix.inputs[1])
     nt.links.new(mix.outputs[0], bsdf.inputs["Base Color"])
     m["wv_tinted"] = 1
-    r, g, b = (L.srgb_to_linear(c) for c in L.PALETTE[key])
-    m.diffuse_color = (r, g, b, 1.0)
+    m.diffuse_color = (float(target[0]), float(target[1]), float(target[2]), 1.0)
     print(f"TINT {m.name}: mean {tuple(round(float(c), 3) for c in mean)} -> {key} x{tuple(round(float(c), 3) for c in ratio)}")
 
 

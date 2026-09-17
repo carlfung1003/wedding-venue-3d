@@ -67,6 +67,40 @@
     ],
     "tris": 4296
   },
+  "buffet_run": {
+    "bytes": 123104,
+    "front": "-Z",
+    "material": "buffet_run",
+    "min": [
+      -3.545,
+      0.0,
+      -0.495
+    ],
+    "origin": "floor",
+    "size": [
+      7.09,
+      1.394,
+      0.99
+    ],
+    "tris": 5528
+  },
+  "canape_table": {
+    "bytes": 47608,
+    "front": "-Z",
+    "material": "canape_table",
+    "min": [
+      -0.638,
+      0.0,
+      -0.637
+    ],
+    "origin": "floor",
+    "size": [
+      1.275,
+      1.008,
+      1.274
+    ],
+    "tris": 2618
+  },
   "candelabra": {
     "bytes": 66564,
     "front": "-Z",
@@ -102,7 +136,7 @@
     "tris": 280
   },
   "chair_drape": {
-    "bytes": 12584,
+    "bytes": 12084,
     "front": "+Z",
     "material": "chiffon_tex",
     "min": [
@@ -117,6 +151,23 @@
       0.334
     ],
     "tris": 1112
+  },
+  "champagne_service": {
+    "bytes": 51192,
+    "front": "-Z",
+    "material": "champagne_service",
+    "min": [
+      -0.845,
+      0.0,
+      -0.443
+    ],
+    "origin": "floor",
+    "size": [
+      1.69,
+      1.27,
+      0.885
+    ],
+    "tris": 3860
   },
   "champagne_tower": {
     "bytes": 33204,
@@ -153,7 +204,7 @@
     "tris": 3008
   },
   "crossback_chair": {
-    "bytes": 16612,
+    "bytes": 15180,
     "front": "+Z",
     "material": "oak_grain",
     "min": [
@@ -306,7 +357,7 @@
     "tris": 31384
   },
   "long_table": {
-    "bytes": 23676,
+    "bytes": 18636,
     "front": "-Z",
     "material": "oak_grain",
     "min": [

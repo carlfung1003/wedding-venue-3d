@@ -1,0 +1,17 @@
+{
+  "bytes": 47608,
+  "front": "-Z",
+  "material": "canape_table",
+  "min": [
+    -0.638,
+    0.0,
+    -0.637
+  ],
+  "origin": "floor",
+  "size": [
+    1.275,
+    1.008,
+    1.274
+  ],
+  "tris": 2618
+}

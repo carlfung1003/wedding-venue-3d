@@ -33,7 +33,7 @@ def _bucket(x, y, rnd, lean_deg):
     for i in range(9):                      # ice
         a = 2 * math.pi * i / 9 + rnd.uniform(-0.3, 0.3)
         rr = rnd.uniform(0.03, 0.085)
-        ice = L.uv_sphere("ice", rnd.uniform(0.02, 0.03), (x + math.cos(a) * rr, y + math.sin(a) * rr, Z_TOP + 0.13 + rnd.uniform(0.0, 0.02)), "crystal", seg=6, rings=4)
+        ice = L.sphere("ice", rnd.uniform(0.02, 0.03), (x + math.cos(a) * rr, y + math.sin(a) * rr, Z_TOP + 0.13 + rnd.uniform(0.0, 0.02)), "crystal", sub=1)
         parts.append(ice)
     # the bottle, leaning out of the ice
     bprof = [(0.0, 0.0), (0.038, 0.0), (0.042, 0.02), (0.042, 0.17), (0.036, 0.20), (0.02, 0.25),
@@ -49,13 +49,13 @@ def _bucket(x, y, rnd, lean_deg):
 
 
 def _flute(x, y):
-    prof = [(0.0, 0.0), (0.03, 0.0), (0.03, 0.004), (0.006, 0.012), (0.005, 0.08), (0.012, 0.10),
-            (0.022, 0.14), (0.023, 0.19), (0.021, 0.20), (0.0, 0.20)]
+    prof = [(0.0, 0.0), (0.03, 0.0), (0.006, 0.012), (0.005, 0.08), (0.022, 0.14), (0.023, 0.19), (0.0, 0.20)]
     return L.lathe("flute", prof, (x, y, Z_TOP + 0.014), "glass_pale", n=8)
 
 
 def build():
     rnd = L.rng(NAME)
+    S.dielectric("steel"); S.dielectric("gold")     # keep their albedo through the diffuse bake
     top_m = S.tex("linen_top", LINEN_TEX, roughness=0.9, fallback="ivory", tint_to="ivory")
     skirt_m = S.tex("linen_skirt", LINEN_TEX, roughness=0.9, fallback="linen", tint_to="linen")
     parts = []

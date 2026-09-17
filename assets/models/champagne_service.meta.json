@@ -1,0 +1,17 @@
+{
+  "bytes": 51192,
+  "front": "-Z",
+  "material": "champagne_service",
+  "min": [
+    -0.845,
+    0.0,
+    -0.443
+  ],
+  "origin": "floor",
+  "size": [
+    1.69,
+    1.27,
+    0.885
+  ],
+  "tris": 3860
+}

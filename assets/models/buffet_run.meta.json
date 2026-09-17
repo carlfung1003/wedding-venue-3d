@@ -1,0 +1,17 @@
+{
+  "bytes": 123104,
+  "front": "-Z",
+  "material": "buffet_run",
+  "min": [
+    -3.545,
+    0.0,
+    -0.495
+  ],
+  "origin": "floor",
+  "size": [
+    7.09,
+    1.394,
+    0.99
+  ],
+  "tris": 5528
+}

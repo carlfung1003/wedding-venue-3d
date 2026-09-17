@@ -47,7 +47,7 @@ def _chafer(x, y, rnd):
     z_rim = z_stand + ph
     dome = L.lathe("lid", [(0.0, z_rim), (0.175, z_rim), (0.18, z_rim + 0.012), (0.165, z_rim + 0.08),
                            (0.12, z_rim + 0.135), (0.05, z_rim + 0.16), (0.0, z_rim + 0.165)],
-                   (x, y, 0), "steel", n=20)
+                   (x, y, 0), "steel", n=16)
     dome.scale = (1.55, 1.0, 1.0)
     parts.append(dome)
     parts.append(L.cyl("knob", 0.018, 0.03, (x, y, z_rim + 0.178), "dark", n=8))
@@ -65,15 +65,16 @@ def _platter(x, y, r, rnd, food):
     for i in range(7):
         a = 2 * math.pi * i / 7 + rnd.uniform(-0.3, 0.3)
         rr = r * rnd.uniform(0.25, 0.5)
-        b = L.uv_sphere("bite", r * 0.13, (x + math.cos(a) * rr, y + math.sin(a) * rr, Z_TOP + 0.03 + r * 0.1), rnd.choice(["cream", "coconut_cut", "label", "white"]), seg=6, rings=4)
+        b = L.sphere("bite", r * 0.13, (x + math.cos(a) * rr, y + math.sin(a) * rr, Z_TOP + 0.03 + r * 0.1), rnd.choice(["cream", "coconut_cut", "label", "white"]), sub=1)
         b.scale = (1.0, 1.0, 0.7)
         parts.append(b)
-    parts.append(L.uv_sphere("garnish", r * 0.12, (x + r * 0.15, y - r * 0.1, Z_TOP + 0.05 + r * 0.15), "leaf_d", seg=6, rings=4))
+    parts.append(L.sphere("garnish", r * 0.12, (x + r * 0.15, y - r * 0.1, Z_TOP + 0.05 + r * 0.15), "leaf_d", sub=1))
     return parts
 
 
 def build():
     rnd = L.rng(NAME)
+    S.dielectric("steel"); S.dielectric("gold")     # keep their albedo through the diffuse bake
     top_m = S.tex("linen_top", LINEN_TEX, roughness=0.9, fallback="ivory", tint_to="ivory")
     skirt_m = S.tex("linen_skirt", LINEN_TEX, roughness=0.9, fallback="linen", tint_to="linen")
     parts = []
@@ -106,10 +107,10 @@ def build():
     # a stack of plates beside it
     px, py = -3.3, 0.17
     prof = [(0.0, Z_TOP), (0.13, Z_TOP)]
-    for k in range(6):
-        z = Z_TOP + k * 0.024
-        prof += [(0.135, z + 0.006), (0.12, z + 0.014), (0.135, z + 0.022)]
-    prof += [(0.0, Z_TOP + 6 * 0.024)]
+    for k in range(4):
+        z = Z_TOP + k * 0.036
+        prof += [(0.135, z + 0.008), (0.12, z + 0.02), (0.135, z + 0.032)]
+    prof += [(0.0, Z_TOP + 4 * 0.036)]
     parts.append(L.lathe("plates", prof, (px, py, 0), "paint_w", n=16))
 
     root = L.join(parts, NAME, origin="floor")

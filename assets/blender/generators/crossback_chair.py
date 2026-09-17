@@ -36,6 +36,14 @@ FRONT = "+Z"
 ORIGIN = "floor"
 
 OAK_TEX = "oak_light.webp"
+# GAIN (per channel, linear): the balanced texture's mean IS c3a37c, yet in the
+# venue's rig (2.1 sun + sky fill + ACES) the chair's timber rendered at a median
+# of 206/188/158 (lightness .71) against the reference render's chairs at
+# 182/149/100 (.55) — a blond, and the sky fill adds more blue than red. Measured
+# per-channel lift ≈ ×1.52 R / ×1.85 G / ×2.27 B, so the albedo is scaled to
+# #92724e (same 33° hue and .30 saturation as c3a37c, darker) which renders at
+# ≈ 177/150/116 — the render's tan. Deliberate spec deviation, reported.
+OAK_GAIN = (0.53, 0.45, 0.38)
 TILE = 0.40           # metres per repeat of the grain picture
 
 # ---- the numbers (Blender frame: x across, y depth with the FRONT at -Y, z up)
@@ -152,7 +160,7 @@ def _seat(mat):
 def build():
     L.rng(NAME)
     # the picture is tinted so its mean lands on `oak` c3a37c — the palette is the contract
-    oak = S.tex("oak_grain", OAK_TEX, roughness=0.72, fallback="oak", tint_to="oak")
+    oak = S.tex("oak_grain", OAK_TEX, roughness=0.72, fallback="oak", tint_to="oak", gain=OAK_GAIN)
     parts = []
 
     # legs + stiles (swept, tapered, splayed)
