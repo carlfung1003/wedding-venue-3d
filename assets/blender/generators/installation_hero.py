@@ -20,11 +20,11 @@ NAME = "installation_hero"
 ATLAS = 1024
 BEVEL = 0
 AO_DIST = 0.3        # the crevices between heads are centimetres; .5 would bake the whole side grey
-AO_STRENGTH = 0.5
+AO_STRENGTH = 0.4
 TRIS = 45000
 FRONT = "-Z"
 ORIGIN = "floor"
 
 
 def build():
-    return F.build_installation(NAME, h=3.30, W=0.78, lean=0.62, side=+1, heads=560)
+    return F.build_installation(NAME, h=3.30, W=0.78, lean=0.62, side=+1, heads=1750)

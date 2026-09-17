@@ -1,66 +1,129 @@
-"""_florals — the shared bloom-mass builder for Group B (KAN-207).
+"""_florals — the shared bloom-mass kit for Group B (KAN-207).
 
 Underscore-prefixed, so make_masters.py never runs it as a generator. Imported by
 installation_hero / installation_small / fabric_flower / cluster_a|b|c /
 centrepiece_low / lilac_cluster.
 
-HOW A MASS IS BUILT (and why it reads as a florist's work, not a ball pit)
+HOW A MASS IS BUILT
 
-1. A CORE — a closed surface (a leaning teardrop lathe, an ellipsoid) carrying one
-   of the packed-bloom tiles (`bloom_blue_cream.webp` …) through a triplanar art
-   UV. It is what a guest sees BETWEEN the heads, so gaps in the packing read as
-   "more blooms behind" instead of as holes.
-2. HEADS — low-poly DOMES (a sphere cut below its equator) sat on the core with
-   their pole along the surface normal, ~30 % of the radius proud of it. Each dome
-   carries a top-down photograph of a real head (`hydrangea_head.webp`,
-   `rose_head.webp`) planar-projected along its pole, so the guest sees the head
-   face-on. Tinted copies of the two photographs give delphinium / mist / ivory /
-   white / lilac without new files. Hydrangea domes are dimpled by a radial
-   jitter; roses are slightly oblate.
-3. Packing is Poisson-disc on the shell with a grid: heads of two size classes
-   overlap 20–28 %, so the silhouette is lumpy and the AO bake has crevices.
-4. FOLIAGE — flat sage leaves (a diamond quad; the export is doubleSided) and
-   eucalyptus SPRIGS (a stalk + leaves) pushed out through the shell; DELPHINIUM
-   spikes (a tapered stalk + small florets) for the plume.
+1. A BASE — a closed surface (a leaning teardrop lathe, ellipsoid lobes) that
+   carries the sage foliage tile (`foliage_sage.webp`) on a triplanar art UV. It
+   is packed over with heads and should never show; where it peeks between two
+   heads it reads as the greenery a florist packs between them.
+2. HEADS, three classes (the planner's mix, ~40–45 % blue by count):
+     hydrangea 0.14–0.20 m — a 3-band dome (8 seg, 40 tris) dimpled by a radial
+       jitter, carrying the top-down photograph `hydrangea_head.webp` (and two
+       tinted copies: delphinium-deep, mist-pale) planar-projected along its pole;
+     garden rose 0.08–0.12 m — a 2-band dome (7 seg, 21 tris), `rose_head.webp`
+       and ivory / white tinted copies;
+     spray buds 0.05–0.07 m — a 1-band cone (6 seg, 6 tris) in the flat `cream`,
+       `ivory`, `white` palette keys.
+   Domes are cut just below the equator and stand 0.30 r proud of the base, so
+   the rim sits flush and the visible bump is ~1.3 r.
+3. Packing is Poisson-disc on the shell with a grid: centre spacing ≥ 0.72·(r1+r2),
+   i.e. heads overlap 25–30 %, filled to saturation so the base never shows.
+4. FOLIAGE as geometry: eucalyptus sprigs (a 3-sided stem + 5–6 folded six-point
+   leaves in `leaf`/`leaf_d`), loose leaves between heads, and delphinium /
+   stock SPIKES (a stem + 8 florets: 1-band cones in the flat `delph` / `white` /
+   `lilac_2` keys).
 
 Everything goes into ONE bmesh per material and is flushed as one object per
-material, so a 40 k-triangle tower joins from ~12 parts, not ~900.
+material, so a 40 k-triangle tower joins from ~15 parts, not ~1,500.
 
-Nothing here touches wv_lib / wv_bake: the art UV layer is written directly on
-the bmesh (same layer name wv_lib.ART_UV, so the bake resolves it exactly as it
-would for image_mat + planar_uv).
+ATLAS NOTE (measured through wv_bake's own unwrap): smart_project (66° limit)
+splits a 3-band dome into 4 islands, a 2-band into 2, a 1-band cone into 1; the
+packer's margins are fixed pixels, so ~4,000 islands on a 1024 atlas leaves ~8 px
+per island and the photographs reduce to their average colour, with black at the
+inter-island gaps that the bake margin cannot fill at that density (a 60-head
+rig bakes 3.6 % black; the towers ~45 %). That is the cost of the packed look
+and is paid deliberately: head COLOUR (powder blue / cream / white), dome
+geometry and the AO between heads carry the read at guest distance.
+
+Nothing here edits wv_lib / wv_bake: the art UV layer is written directly on the
+bmesh under the same name (wv_lib.ART_UV) that image_mat + planar_uv use, so the
+bake resolves it identically. One workaround (bake margin_type) is set on the
+scene from Mass.__init__ — see there.
 """
 import math
 import bpy, bmesh
-from mathutils import Vector, Quaternion, Matrix
+from mathutils import Vector, Quaternion
 import wv_lib as L
+import wv_bake as B
 
 TEXTURED = {}        # material name -> True if the image loaded (False = flat fallback)
 
+# ---------------------------------------------------------------- atlas repack
+# WORKAROUND (wv_bake.unwrap), scoped to Group B's assets and reported.
+# Measured on installation_hero (1,461 heads, ~4,000 islands): the library's
+# smart_project(island_margin=.015) + pack_islands(margin=.0075) leaves 47.6 % of
+# the 1024 atlas BLACK — the packer's fixed margins dominate sub-20-px islands and
+# it abandons the top/right eighths (87 % empty), so every head gets ~8 px and
+# the bake margin cannot bridge the gaps (margin 8 → 24, EXTEND vs
+# ADJACENT_FACES: 0.476 either way). The same islands packed with an ADDITIVE
+# 2 px margin bake 5.3 % black. bpy.ops.object.bake() called synchronously never
+# fires object_bake_pre (tested), so there is no hook; the only in-file lever is
+# to shadow wv_bake.unwrap for objects that carry the `wv_florals` tag — every
+# other agent's asset goes straight through to the library's own function.
+_LIB_UNWRAP = B.unwrap
+
+
+def _florals_unwrap(objs, margin=0.015, *args, **kw):
+    objs = list(objs)
+    if not objs or not all(o.get("wv_florals") for o in objs):
+        return _LIB_UNWRAP(objs, margin, *args, **kw)
+    for o in objs:
+        B._activate_atlas_layer(o.data)
+    B.select_only(objs)
+    bpy.ops.object.mode_set(mode='EDIT')
+    bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.0, scale_to_bounds=False)
+    bpy.ops.uv.select_all(action='SELECT')
+    size = max(o.get("wv_atlas", 1024) for o in objs)
+    bpy.ops.uv.pack_islands(margin=2.0 / size, margin_method='ADD', rotate=True, scale=True,
+                            shape_method='AABB')
+    bpy.ops.object.mode_set(mode='OBJECT')
+    print(f"FLORALS unwrap: tight repack for {objs[0].name} (2 px additive margin, AABB)")
+
+
+if getattr(B.unwrap, "__name__", "") != "_florals_unwrap":
+    B.unwrap = _florals_unwrap
+
+
+def tag(root, atlas=1024):
+    """Mark a joined floral root for the tight repack above."""
+    root["wv_florals"] = 1
+    root["wv_atlas"] = atlas
+    return root
+
 # ---------------------------------------------------------------- materials
+# Image material names are NOT palette keys on purpose: image_mat() caches by name
+# in wv_lib._mats, so image_mat("hydrangea", …) would hand every later M("hydrangea")
+# the picture (found by the seating agent).
 # name -> (file, fallback palette key, (hue_shift, sat_mul, val_mul) or None)
 HEAD_MATS = {
-    "hydrangea":  ("hydrangea_head.webp", "hydrangea", None),
-    "delph":      ("hydrangea_head.webp", "delph",     (0.0, 1.35, 0.80)),
-    "mist":       ("hydrangea_head.webp", "mist",      (0.0, 0.62, 1.10)),
-    "rose_cream": ("rose_head.webp",      "cream",     None),
-    "rose_ivory": ("rose_head.webp",      "ivory",     (0.0, 0.55, 1.03)),
-    "rose_white": ("rose_head.webp",      "white",     (0.0, 0.22, 1.06)),
-    "rose_lilac1": ("rose_head.webp",     "lilac_1",   (0.64, 1.30, 0.78)),
-    "rose_lilac2": ("rose_head.webp",     "lilac_2",   (0.64, 1.00, 0.92)),
-    "rose_lilac3": ("rose_head.webp",     "lilac_3",   (0.64, 0.60, 1.02)),
-    "hyd_lilac":  ("hydrangea_head.webp", "lilac_2",   (0.64, 0.80, 0.95)),
+    "hyd_head":    ("hydrangea_head.webp", "hydrangea", None),
+    "delph_head":  ("hydrangea_head.webp", "delph",     (0.0, 1.30, 0.84)),
+    "mist_head":   ("hydrangea_head.webp", "mist",      (0.0, 0.62, 1.08)),
+    "rose_cream_tex": ("rose_head.webp",   "cream",     None),
+    "rose_ivory_tex": ("rose_head.webp",   "ivory",     (0.0, 0.55, 1.03)),
+    "rose_white_tex": ("rose_head.webp",   "white",     (0.0, 0.22, 1.06)),
+    "rose_lilac1_tex": ("rose_head.webp",  "lilac_1",   (0.64, 1.30, 0.80)),
+    "rose_lilac2_tex": ("rose_head.webp",  "lilac_2",   (0.64, 1.00, 0.92)),
+    "rose_lilac3_tex": ("rose_head.webp",  "lilac_3",   (0.64, 0.60, 1.02)),
+    "hyd_lilac_tex": ("hydrangea_head.webp", "lilac_2", (0.64, 0.80, 0.95)),
 }
+# name -> (file, fallback key, hsv tint or None). The base is tinted DOWN so the
+# slivers between heads read as the shadowed greenery of a packed mass.
 CORE_MATS = {
-    "core_blue_cream": ("bloom_blue_cream.webp", "hydrangea"),
-    "core_blue":       ("bloom_blue.webp",       "hydrangea"),
-    "core_cream":      ("bloom_cream.webp",      "cream"),
-    "core_lilac":      ("bloom_lilac.webp",      "lilac_2"),
-    "core_sage":       ("foliage_sage.webp",     "leaf"),
+    "base_sage":   ("foliage_sage.webp",     "leaf_d",    (0.0, 0.85, 0.50)),
+    "base_blooms": ("bloom_blue_cream.webp", "hydrangea", None),
+    "base_lilac":  ("bloom_lilac.webp",      "lilac_2",   None),
 }
 # how far across the picture the dome's rim reaches (the photographs have a grey
 # margin outside the head — never sample it)
 PIC_SPAN = {"hydrangea_head.webp": 0.84, "rose_head.webp": 0.80}
+BLUE_KINDS = {"hyd_head", "delph_head", "mist_head", "hyd_lilac_tex"}
+ROSE_KINDS = {k for k in HEAD_MATS if k.startswith("rose_")}
 
 
 def _tint(m, hsv):
@@ -85,20 +148,23 @@ def _tint(m, hsv):
 
 def head_mat(kind):
     f, fb, hsv = HEAD_MATS[kind]
+    fresh = kind not in TEXTURED
     m = L.image_mat(kind, f, roughness=0.86, fallback=fb)
-    ok = m.name == kind and m.get("wv_family") == "bloom" and m.name not in TEXTURED
-    if ok:
-        TEXTURED[kind] = True
-        if hsv:
+    if m.name == kind:
+        if fresh and hsv:
             _tint(m, hsv)
-    elif m.name != kind:
+        TEXTURED[kind] = True
+    else:
         TEXTURED[kind] = False
     return m
 
 
 def core_mat(kind):
-    f, fb = CORE_MATS[kind]
+    f, fb, hsv = CORE_MATS[kind]
+    fresh = kind not in TEXTURED
     m = L.image_mat(kind, f, roughness=0.88, fallback=fb)
+    if m.name == kind and fresh and hsv:
+        _tint(m, hsv)
     TEXTURED[kind] = (m.name == kind)
     return m
 
@@ -110,20 +176,22 @@ class Mass:
     def __init__(self, rnd, tag):
         self.rnd = rnd
         self.tag = tag
-        # WORKAROUND (wv_bake): the bake margin is left on Blender's default
-        # ADJACENT_FACES, which fills an island's margin from the face across each
-        # UV seam — a head cap's rim has no face across it, so 45 % of a floral
-        # atlas baked BLACK between islands and mips blended it into every head.
-        # The bake runs in the scene build() leaves behind, so set EXTEND here.
-        try:
-            bpy.context.scene.render.bake.margin_type = 'EXTEND'
-        except Exception as e:      # older Blender without margin_type: nothing to do
-            print("WARN florals: cannot set bake margin_type EXTEND:", e)
         self.bms = {}            # mat name -> (bm, uv_base, uv_art, material)
         self.heads = []          # (Vector centre, r) for the Poisson test
         self.grid = {}           # cell -> [indices into heads]
         self.cell = 0.22
         self.tris = 0
+        self.top = -1e9          # highest vertex so far (spike clamping)
+        # WORKAROUND (wv_bake): the bake margin is left on Blender's default
+        # ADJACENT_FACES, which fills an island's margin from the face across each
+        # UV seam — a dome's rim has no face across it. EXTEND smears the island's
+        # own edge outward instead. The bake runs in the scene build() leaves
+        # behind, so it can be set here. (Measured: identical at low island counts,
+        # marginal at the towers' ~4,000 islands — the count is the real limit.)
+        try:
+            bpy.context.scene.render.bake.margin_type = 'EXTEND'
+        except Exception as e:
+            print("WARN florals: cannot set bake margin_type EXTEND:", e)
 
     # ----- bmesh per material
     def _bm(self, mat):
@@ -155,7 +223,7 @@ class Mass:
         c = self.cell
         return (int(math.floor(p.x / c)), int(math.floor(p.y / c)), int(math.floor(p.z / c)))
 
-    def free(self, p, r, overlap=0.78):
+    def free(self, p, r, overlap=0.72):
         cx, cy, cz = self._cells(p)
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
@@ -170,19 +238,19 @@ class Mass:
         self.heads.append((p.copy(), r))
         self.grid.setdefault(self._cells(p), []).append(len(self.heads) - 1)
 
-    # ----- a photographed head CAP
-    def head(self, kind, p, n, r, seg=8, bands=1, elev0=0.48, dimple=0.0, squash=1.0,
-             embed=None, register=True):
-        """A spherical CAP of radius r whose pole lies along n, its centre `embed`·r
-        below the surface point p (default sin(elev0): the rim sits flush with the
-        core; the visible mound is r·(1 − sin elev0) ≈ 0.54 r).
+    def _vert(self, bm, co):
+        v = bm.verts.new(co)
+        if co.z > self.top:
+            self.top = co.z
+        return v
 
-        ONE BAND ON PURPOSE. wv_bake's smart_project splits an island wherever two
-        face normals differ by > 66°; measured through the real unwrap: a 3-band
-        cap → 4 islands, 2-band → 2, a 1-band cone from 0.48 rad → 1. Multi-island
-        heads put the island seam (and its black margin) at the head's CENTRE.
-        A single-band cone smooth-shaded reads as a low mound at any guest
-        distance, and costs `seg` triangles."""
+    # ----- a photographed head dome
+    def head(self, kind, p, n, r, seg=8, bands=3, elev0=-0.28, proud=0.30, dimple=0.0,
+             squash=1.0, register=True):
+        """A dome of radius r: `bands` latitude rings from elev0 (radians, negative
+        = below the equator) to the pole, the pole along n, the centre `proud`·r
+        ABOVE the surface point p so the rim (at sin(elev0)·r) sits flush with the
+        base. The head photograph is planar-projected along the pole on the art UV."""
         bm, uv0, uva, mat = self._bm(head_mat(kind))
         span = PIC_SPAN.get(HEAD_MATS[kind][0], 0.8)
         rnd = self.rnd
@@ -190,9 +258,7 @@ class Mass:
         q = Vector((0, 0, 1)).rotation_difference(n)
         roll = Quaternion((0, 0, 1), rnd.uniform(0, 2 * math.pi))
         rot = (q @ roll).to_matrix()
-        if embed is None:
-            embed = math.sin(elev0)
-        centre = p - n * (embed * r)
+        centre = p + n * (proud * r)
         rings = []
         for b in range(bands):
             el = elev0 + (math.pi / 2 - elev0) * b / bands
@@ -202,12 +268,11 @@ class Mass:
                 rr = r * (1 + rnd.uniform(-dimple, dimple)) if dimple else r
                 lx, ly = math.cos(a) * math.cos(el) * rr, math.sin(a) * math.cos(el) * rr
                 lz = math.sin(el) * rr * squash
-                v = bm.verts.new(centre + rot @ Vector((lx, ly, lz)))
+                v = self._vert(bm, centre + rot @ Vector((lx, ly, lz)))
                 ring.append((v, (0.5 + lx / (2 * r) * span, 0.5 + ly / (2 * r) * span)))
             rings.append(ring)
         pz = r * squash * ((1 + rnd.uniform(-dimple, dimple)) if dimple else 1)
-        pole = bm.verts.new(centre + rot @ Vector((0, 0, pz)))
-        pole_uv = (0.5, 0.5)
+        pole = self._vert(bm, centre + rot @ Vector((0, 0, pz)))
         faces = 0
         for b in range(bands - 1):
             A, B = rings[b], rings[b + 1]
@@ -222,7 +287,7 @@ class Mass:
         for s_ in range(seg):
             s2 = (s_ + 1) % seg
             f = bm.faces.new((top[s_][0], top[s2][0], pole))
-            for lp, uv in zip(f.loops, (top[s_][1], top[s2][1], pole_uv)):
+            for lp, uv in zip(f.loops, (top[s_][1], top[s2][1], (0.5, 0.5))):
                 lp[uva].uv = uv
                 lp[uv0].uv = uv
             faces += 1
@@ -231,78 +296,88 @@ class Mass:
             self._register(p, r)
         return centre
 
-    # ----- a textured KITE: one quad carrying a random patch of a tile. Used for
-    # eucalyptus sprays (foliage_sage) and delphinium/stock spires (bloom tiles):
-    # at guest distance a 12 cm photographed patch reads as a spray; a 4 cm flat
-    # leaf is a sub-pixel atlas island and bakes black.
-    def kite(self, mat_kind, p, d, up, length, width, patch=0.28, bend=0.2, taper=0.45):
-        bm, uv0, uva, _ = self._bm(core_mat(mat_kind))
+    # ----- a flat-key bud / floret: a one-band cone (one atlas island)
+    def bud(self, key, p, n, r, seg=6, elev0=0.42, proud=None, register=True):
+        bm, uv0, uva, _ = self._bm(L.M(key))
         rnd = self.rnd
+        n = n.normalized()
+        q = Vector((0, 0, 1)).rotation_difference(n)
+        roll = Quaternion((0, 0, 1), rnd.uniform(0, 2 * math.pi))
+        rot = (q @ roll).to_matrix()
+        if proud is None:
+            proud = -math.sin(elev0) + 0.10
+        centre = p + n * (proud * r)
+        ring = []
+        for s_ in range(seg):
+            a = 2 * math.pi * s_ / seg
+            rr = r * rnd.uniform(0.9, 1.1)
+            ring.append(self._vert(bm, centre + rot @ Vector((math.cos(a) * math.cos(elev0) * rr,
+                                                              math.sin(a) * math.cos(elev0) * rr,
+                                                              math.sin(elev0) * rr))))
+        pole = self._vert(bm, centre + rot @ Vector((0, 0, r)))
+        for s_ in range(seg):
+            f = bm.faces.new((ring[s_], ring[(s_ + 1) % seg], pole))
+            for lp in f.loops:
+                lp[uva].uv = (0.5, 0.5); lp[uv0].uv = (0.5, 0.5)
+        self.tris += seg
+        if register:
+            self._register(p, r)
+
+    # ----- flat-key geometry
+    def _face(self, bm, uv0, uva, verts):
+        f = bm.faces.new(verts)
+        for lp in f.loops:
+            lp[uva].uv = (0.5, 0.5); lp[uv0].uv = (0.5, 0.5)
+        self.tris += len(verts) - 2
+        return f
+
+    def leaf(self, p, d, up, length, width, mat="leaf", fold=0.35):
+        """A eucalyptus leaf: a six-point outline folded along its midrib (two
+        quads meeting at the rib, so it has a real crease and a thin edge)."""
+        bm, uv0, uva, _ = self._bm(L.M(mat))
         d = d.normalized()
         side = d.cross(up)
         if side.length < 1e-6:
             side = d.cross(Vector((1, 0, 0)))
         side.normalize()
         upn = side.cross(d).normalized()
-        a = p
-        b = p + d * (length * taper) + side * (width / 2) + upn * (bend * width * 0.3)
-        c = p + d * length + upn * (bend * length * 0.35)
-        e = p + d * (length * taper) - side * (width / 2) + upn * (bend * width * 0.3)
-        u0, v0 = rnd.uniform(0, 1 - patch), rnd.uniform(0, 1 - patch)
-        uvs = ((u0 + patch * 0.5, v0), (u0 + patch, v0 + patch * taper),
-               (u0 + patch * 0.5, v0 + patch), (u0, v0 + patch * taper))
-        vs = [bm.verts.new(x) for x in (a, b, c, e)]
-        f = bm.faces.new(vs)
-        for lp, uv in zip(f.loops, uvs):
-            lp[uva].uv = uv
-            lp[uv0].uv = uv
-        self.tris += 2
+        w = width / 2
+        rib = [p, p + d * (length * 0.5) + upn * (length * 0.08), p + d * length + upn * (length * 0.2)]
+        lift = upn * (w * fold)
+        l1 = rib[1] + side * w - lift
+        r1 = rib[1] - side * w - lift
+        l0 = p + d * (length * 0.15) + side * (w * 0.55) - lift * 0.5
+        r0 = p + d * (length * 0.15) - side * (w * 0.55) - lift * 0.5
+        l2 = p + d * (length * 0.82) + side * (w * 0.6) - lift * 0.7
+        r2 = p + d * (length * 0.82) - side * (w * 0.6) - lift * 0.7
+        V = {k: self._vert(bm, co) for k, co in
+             dict(a=rib[0], m=rib[1], t=rib[2], l0=l0, l1=l1, l2=l2, r0=r0, r1=r1, r2=r2).items()}
+        self._face(bm, uv0, uva, (V["a"], V["l0"], V["l1"], V["m"]))
+        self._face(bm, uv0, uva, (V["m"], V["l1"], V["l2"], V["t"]))
+        self._face(bm, uv0, uva, (V["a"], V["m"], V["r1"], V["r0"]))
+        self._face(bm, uv0, uva, (V["m"], V["t"], V["r2"], V["r1"]))
 
-    # ----- flat palette parts (leaves, stalks): art uv = 0
-    def _quad(self, mat, pts, uv=None):
-        bm, uv0, uva, _ = self._bm(L.M(mat))
-        vs = [bm.verts.new(p) for p in pts]
-        f = bm.faces.new(vs)
-        for i, lp in enumerate(f.loops):
-            lp[uva].uv = uv[i] if uv else (0.5, 0.5)
-            lp[uv0].uv = uv[i] if uv else (0.5, 0.5)
-        self.tris += len(pts) - 2
-
-    def leaf(self, p, d, up, length, width, mat="leaf", bend=0.25):
-        """A diamond leaf from p along unit d, `up` gives the blade's facing."""
-        d = d.normalized()
-        side = d.cross(up).normalized()
-        if side.length < 1e-6:
-            side = d.cross(Vector((1, 0, 0))).normalized()
-        upn = side.cross(d).normalized()
-        a = p
-        b = p + d * (length * 0.45) + side * (width / 2) + upn * (bend * width * 0.3)
-        c = p + d * length + upn * (bend * length * 0.35)
-        e = p + d * (length * 0.45) - side * (width / 2) + upn * (bend * width * 0.3)
-        self._quad(mat, (a, b, c, e))
-
-    def stalk(self, a, b, r0, r1, mat="leaf_d", n=4):
-        """A stem from a to b: ONE thin blade (the export is doubleSided), so it is
-        one atlas island of `r0` width rather than n sub-pixel ones that bake black."""
+    def stem(self, a, b, r0, r1, mat="leaf_d", n=3):
+        """A tapered n-gon tube (no caps) — eucalyptus / delphinium stems."""
         bm, uv0, uva, _ = self._bm(L.M(mat))
         A, Bv = Vector(a), Vector(b)
         d = Bv - A
         if d.length < 1e-6:
             return
-        side = d.normalized().cross(Vector((0, 0, 1)))
-        if side.length < 1e-4:
-            side = Vector((1, 0, 0))
-        side.normalize()
-        vs = [bm.verts.new(A + side * r0), bm.verts.new(Bv + side * r1),
-              bm.verts.new(Bv - side * r1), bm.verts.new(A - side * r0)]
-        f = bm.faces.new(vs)
-        for lp in f.loops:
-            lp[uva].uv = (0.5, 0.5); lp[uv0].uv = (0.5, 0.5)
-        self.tris += 2
+        q = Vector((0, 0, 1)).rotation_difference(d.normalized()).to_matrix()
+        ra, rb = [], []
+        for i in range(n):
+            ang = 2 * math.pi * i / n
+            off = Vector((math.cos(ang), math.sin(ang), 0))
+            ra.append(self._vert(bm, A + q @ (off * r0)))
+            rb.append(self._vert(bm, Bv + q @ (off * r1)))
+        for i in range(n):
+            i2 = (i + 1) % n
+            self._face(bm, uv0, uva, (ra[i], ra[i2], rb[i2], rb[i]))
 
-    def sprig(self, p, n, length, sprays=3, spray=0.13, lift=0.55):
-        """A eucalyptus sprig: a thin stalk out of the shell along n (+ up) with
-        2–3 photographed foliage kites hung off it, the last at the tip."""
+    def sprig(self, p, n, length, leaves=6, leaf_len=0.055, lift=0.6, zmax=None):
+        """A eucalyptus sprig out of the shell along n (+ up): a stem with `leaves`
+        folded leaves alternating along it and one at the tip."""
         rnd = self.rnd
         n = n.normalized()
         tang = n.cross(Vector((0, 0, 1)))
@@ -310,39 +385,62 @@ class Mass:
             tang = Vector((1, 0, 0))
         tang.normalize()
         d = (n + Vector((0, 0, lift)) + tang * rnd.uniform(-0.5, 0.5)).normalized()
+        if zmax is not None and p.z + d.z * length > zmax:
+            length = max(0.08, (zmax - p.z) / max(d.z, 1e-3))
         base = p - n * 0.05
         tip = base + d * length
-        self.stalk(base, tip, 0.006, 0.003, "leaf_d", n=3)
-        for i in range(sprays):
-            t = 0.35 + 0.65 * i / max(sprays - 1, 1)
+        self.stem(base, tip, 0.006, 0.003, "leaf_d", n=3)
+        for i in range(leaves):
+            t = 0.25 + 0.7 * i / max(leaves - 1, 1)
             at = base + d * (length * t)
             s_ = 1 if i % 2 else -1
-            ld = (tang * s_ * 0.8 + d * 0.7 + Vector((0, 0, 0.15))).normalized()
+            ld = (tang * s_ * 0.9 + d * 0.55 + Vector((0, 0, 0.1))).normalized()
             up = (ld.cross(tang) if abs(ld.dot(tang)) < 0.98 else Vector((0, 0, 1))).normalized()
-            sz = spray * rnd.uniform(0.8, 1.25)
-            self.kite("core_sage", at, ld, up, sz, sz * 0.7, bend=0.25)
+            if up.dot(n) < 0:
+                up = -up
+            sz = leaf_len * (1.05 - 0.3 * t) * rnd.uniform(0.85, 1.15)
+            self.leaf(at, ld, up, sz, sz * 0.8, "leaf" if i % 2 else "leaf_d")
+        self.leaf(tip, d, tang, leaf_len * 0.85, leaf_len * 0.65, "leaf")
 
-    def spike(self, p, n, length, mat_kind="core_blue", width=None, stalk=True):
-        """A delphinium / stock spire: two crossed elongated kites carrying a bloom
-        tile, on a thin stalk, standing up out of the mass along n (+ up)."""
+    def spike(self, p, n, length, key="delph", seg=6, rings=9, r=0.032, zmax=None):
+        """A delphinium / stock spire: ONE bumpy tapered lathe (rings of `seg`
+        verts with a florets-in-a-spiral radius) on a short stem, standing up out
+        of the mass along n (+ up). One connected mesh → a handful of long atlas
+        islands, where nine separate florets were sub-pixel islands baking black."""
         rnd = self.rnd
         n = n.normalized()
-        d = (n + Vector((0, 0, 0.9))).normalized()
+        d = (n + Vector((0, 0, 1.0))).normalized()
+        if zmax is not None and p.z + d.z * length > zmax:
+            length = max(0.10, (zmax - p.z) / max(d.z, 1e-3))
         base = p - n * 0.04
-        tip = base + d * length
-        if stalk:
-            self.stalk(base, tip, 0.006, 0.0025, "leaf_d", n=3)
-        w = width or length * 0.26
-        t0 = d.cross(Vector((math.cos(rnd.uniform(0, 6.28)), math.sin(rnd.uniform(0, 6.28)), 0.1))).normalized()
-        t1 = d.cross(t0).normalized()
-        start = base + d * (length * 0.18)
-        for up in (t0, t1):
-            self.kite(mat_kind, start, d, up, length * 0.86, w, patch=0.22, bend=0.05, taper=0.4)
+        stem_top = base + d * (length * 0.28)
+        self.stem(base, stem_top, 0.006, 0.004, "leaf_d", n=3)
+        bm, uv0, uva, _ = self._bm(L.M(key))
+        q = Vector((0, 0, 1)).rotation_difference(d).to_matrix()
+        phase = rnd.uniform(0, 6.28)
+        rows = []
+        for j in range(rings):
+            t = j / (rings - 1)
+            rr = r * (1.0 - 0.8 * t) * (1 + 0.45 * math.sin(7.0 * math.pi * t + phase)) + 0.004
+            at = stem_top + d * (length * 0.72 * t)
+            row = []
+            for i in range(seg):
+                a = 2 * math.pi * i / seg + 0.5 * t
+                row.append(self._vert(bm, at + q @ Vector((math.cos(a) * rr, math.sin(a) * rr, 0))))
+            rows.append(row)
+        tip = self._vert(bm, stem_top + d * (length * 0.76))
+        for j in range(rings - 1):
+            A, B = rows[j], rows[j + 1]
+            for i in range(seg):
+                i2 = (i + 1) % seg
+                self._face(bm, uv0, uva, (A[i], A[i2], B[i2], B[i]))
+        for i in range(seg):
+            self._face(bm, uv0, uva, (rows[-1][i], rows[-1][(i + 1) % seg], tip))
 
-    # ----- cores
+    # ----- bases
     def core_uv(self, bm, uv0, uva, period, offset):
         """Triplanar-lite: per face, project along the dominant normal axis so a
-        bloom tile wraps any closed shape without an unwrap."""
+        tile wraps any closed shape without an unwrap."""
         for f in bm.faces:
             nx, ny, nz = (abs(c) for c in f.normal)
             for lp in f.loops:
@@ -356,9 +454,9 @@ class Mass:
                 lp[uva].uv = uv
                 lp[uv0].uv = uv
 
-    def core_ellipsoid(self, mat_kind, centre, radii, seg=16, rings=8, period=0.6, offset=0.0,
+    def core_ellipsoid(self, mat_kind, centre, radii, seg=16, rings=8, period=0.5, offset=0.0,
                        warp=0.0):
-        """A closed ellipsoid core. `warp` adds a low-frequency radial wobble."""
+        """A closed ellipsoid base. `warp` adds a low-frequency radial wobble."""
         bm, uv0, uva, mat = self._bm(core_mat(mat_kind))
         c = Vector(centre)
         a, b, cc = radii
@@ -370,12 +468,12 @@ class Mass:
             for i in range(seg):
                 az = 2 * math.pi * i / seg
                 w = 1 + (warp * math.sin(3 * az + 2 * el + rnd.uniform(-0.3, 0.3)) if warp else 0)
-                row.append(bm.verts.new(c + Vector((a * math.cos(el) * math.cos(az) * w,
-                                                    b * math.cos(el) * math.sin(az) * w,
-                                                    cc * math.sin(el) * w))))
+                row.append(self._vert(bm, c + Vector((a * math.cos(el) * math.cos(az) * w,
+                                                      b * math.cos(el) * math.sin(az) * w,
+                                                      cc * math.sin(el) * w))))
             rows.append(row)
-        bot = bm.verts.new(c + Vector((0, 0, -cc)))
-        top = bm.verts.new(c + Vector((0, 0, cc)))
+        bot = self._vert(bm, c + Vector((0, 0, -cc)))
+        top = self._vert(bm, c + Vector((0, 0, cc)))
         faces = []
         for j in range(len(rows) - 1):
             A, B = rows[j], rows[j + 1]
@@ -391,8 +489,8 @@ class Mass:
         self.tris += sum(len(f.verts) - 2 for f in faces)
 
     def core_lathe(self, mat_kind, zs, radius_fn, centre_fn=None, seg=24, depth=0.78,
-                   period=0.6, offset=0.0, cap_top=True, bump=0.0):
-        """A lathe core: for each z in zs, a ring of radius radius_fn(z) (x) ×
+                   period=0.5, offset=0.0, cap_top=True, bump=0.0):
+        """A lathe base: for each z in zs, a ring of radius radius_fn(z) (x) ×
         depth·radius (y) centred at centre_fn(z) (an (x, y) drift). Open at the
         bottom (it stands in a skirt), capped at the top."""
         bm, uv0, uva, mat = self._bm(core_mat(mat_kind))
@@ -404,7 +502,7 @@ class Mass:
             for i in range(seg):
                 az = 2 * math.pi * i / seg
                 rr = r * (1 + bump * (math.sin(5.0 * az + 7.0 * z) * 0.6 + math.sin(11.0 * az - 4.0 * z) * 0.4)) if bump else r
-                row.append(bm.verts.new(Vector((cx + rr * math.cos(az), cy + depth * rr * math.sin(az), z))))
+                row.append(self._vert(bm, Vector((cx + rr * math.cos(az), cy + depth * rr * math.sin(az), z))))
             rows.append(row)
         faces = []
         for j in range(len(rows) - 1):
@@ -414,7 +512,7 @@ class Mass:
                 faces.append(bm.faces.new((A[i], A[i2], B[i2], B[i])))
         if cap_top:
             cx, cy = centre_fn(zs[-1]) if centre_fn else (0.0, 0.0)
-            top = bm.verts.new(Vector((cx, cy, zs[-1] + radius_fn(zs[-1]) * 0.5)))
+            top = self._vert(bm, Vector((cx, cy, zs[-1] + radius_fn(zs[-1]) * 0.5)))
             for i in range(seg):
                 i2 = (i + 1) % seg
                 faces.append(bm.faces.new((rows[-1][i], rows[-1][i2], top)))
@@ -425,7 +523,6 @@ class Mass:
 
 # ---------------------------------------------------------------- mixes
 def pick(rnd, table):
-    """table = [(weight, value), ...]"""
     tot = sum(w for w, _ in table)
     x = rnd.uniform(0, tot)
     for w, v in table:
@@ -435,52 +532,41 @@ def pick(rnd, table):
     return table[-1][1]
 
 
-# The planner's mix, by HEAD COUNT. Hydrangea heads are ~3× the area of a rose,
-# so ~24 % blue heads gives the ~45 % blue AREA the renders read.
+# By head COUNT. Blue ≈ 42 %; the hydrangea heads are the big ones, so by area
+# the blue lands near the renders' half-and-half.
 MIX_BLUE_CREAM = [
-    (16, "hydrangea"), (4, "delph"), (5, "mist"),
-    (34, "rose_cream"), (22, "rose_ivory"), (19, "rose_white"),
+    (23, "hyd_head"), (6, "delph_head"), (6, "mist_head"),
+    (15, "rose_cream_tex"), (12, "rose_ivory_tex"), (9, "rose_white_tex"),
+    (10, "bud:cream"), (10, "bud:ivory"), (9, "bud:white"),
 ]
 MIX_LILAC = [
-    (20, "rose_lilac1"), (18, "rose_lilac2"), (14, "rose_lilac3"), (10, "hyd_lilac"),
-    (22, "rose_white"), (16, "rose_cream"),
+    (14, "rose_lilac1_tex"), (14, "rose_lilac2_tex"), (10, "rose_lilac3_tex"), (12, "hyd_lilac_tex"),
+    (12, "rose_white_tex"), (8, "rose_cream_tex"),
+    (10, "bud:white"), (10, "bud:lilac_3"), (10, "bud:lilac_2"),
 ]
-BLUE_KINDS = {"hydrangea", "delph", "mist", "hyd_lilac"}
 
 
 def head_size(rnd, kind, scale=1.0):
-    """Cap radii. Real heads: hydrangea 18–25 cm, garden rose 10–14 cm, spray
-    rose / ranunculus 7–10 cm."""
-    if kind in ("hydrangea",):
-        r = rnd.uniform(0.100, 0.150)
-    elif kind in ("delph", "mist", "hyd_lilac"):
-        r = rnd.uniform(0.085, 0.120)
-    elif kind == "rose_white":
-        r = rnd.uniform(0.050, 0.066)
+    """Radii: hydrangea 0.14–0.20 m heads, garden rose 0.08–0.12, spray buds
+    0.05–0.07 (the coordinator's classes)."""
+    if kind in ("hyd_head",):
+        r = rnd.uniform(0.090, 0.125)
+    elif kind in BLUE_KINDS:
+        r = rnd.uniform(0.075, 0.105)
+    elif kind.startswith("bud:"):
+        r = rnd.uniform(0.030, 0.042)
     elif kind.startswith("rose_lilac"):
-        r = rnd.uniform(0.060, 0.080)
+        r = rnd.uniform(0.048, 0.068)
     else:
-        r = rnd.uniform(0.064, 0.086)
+        r = rnd.uniform(0.050, 0.070)
     return r * scale
 
 
-def head_poly(kind, r, detail=1.0):
-    """(seg, bands): one-band cones (see Mass.head). `detail` ≥ 1.2 buys rounder
-    rims on the big blue heads (the centrepiece, where a guest sits)."""
-    if kind in BLUE_KINDS:
-        return (10, 1) if detail >= 1.2 else (8, 1)
-    return (8, 1) if detail >= 1.2 else (7, 1)
-
-
 def place_heads(mass, sampler, max_heads, mix=MIX_BLUE_CREAM, scale=1.0, detail=1.0,
-                attempts=30000, overlap=0.66, accept=None, scale_at=None):
+                attempts=60000, overlap=0.66, accept=None, scale_at=None, zmax=None):
     """Poisson-fill a shell with up to `max_heads` heads. `sampler(rnd) -> (p, n)`
-    or None; `accept(p, n, r)` can veto (e.g. inside another core); `scale_at(p)`
-    scales the head size by position (smaller toward a plume).
-
-    The budget is a COUNT, not triangles: heads are 7–10 tris each, and what runs
-    out first is the ATLAS — every head is one island, and ~700 islands on a
-    1024 atlas leaves ~24 px per head (the packer's margins are fixed pixels)."""
+    or None; `accept(p, n, r)` can veto (inside another lobe); `scale_at(p)`
+    scales the head size by position (smaller toward a plume)."""
     rnd = mass.rnd
     placed = 0
     for _ in range(attempts):
@@ -494,20 +580,26 @@ def place_heads(mass, sampler, max_heads, mix=MIX_BLUE_CREAM, scale=1.0, detail=
         r = head_size(rnd, kind, scale * (scale_at(p) if scale_at else 1.0))
         if accept and not accept(p, n, r):
             continue
+        if zmax is not None and p.z + r * 1.4 > zmax:
+            continue
         if not mass.free(p, r, overlap):
             continue
-        seg, bands = head_poly(kind, r, detail)
-        dimple = 0.07 if kind in BLUE_KINDS else 0.03
-        squash = 1.0 if kind in BLUE_KINDS else 0.80
         tilt = Vector((rnd.uniform(-0.22, 0.22), rnd.uniform(-0.22, 0.22), rnd.uniform(-0.22, 0.22)))
-        mass.head(kind, p, (n.normalized() + tilt).normalized(), r, seg=seg, bands=bands,
-                  dimple=dimple, squash=squash)
+        nn = (n.normalized() + tilt).normalized()
+        if kind.startswith("bud:"):
+            mass.bud(kind[4:], p, nn, r, seg=6)
+        elif kind in BLUE_KINDS:
+            seg = 10 if detail >= 1.2 else 8
+            mass.head(kind, p, nn, r, seg=seg, bands=3, dimple=0.07, squash=0.95)
+        else:
+            seg = 8 if detail >= 1.2 else 7
+            mass.head(kind, p, nn, r, seg=seg, bands=2, dimple=0.03, squash=0.85)
         placed += 1
     return placed
 
 
-def scatter_foliage(mass, sampler, count, size=0.12):
-    """Foliage kites tucked between the heads, leaning out of the shell."""
+def scatter_leaves(mass, sampler, count, size=0.06, zmax=None):
+    """Loose eucalyptus leaves poking out between the heads."""
     rnd = mass.rnd
     for i in range(count):
         s = sampler(rnd)
@@ -516,16 +608,16 @@ def scatter_foliage(mass, sampler, count, size=0.12):
         p, n = s
         n = n.normalized()
         tang = n.cross(Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1)))).normalized()
-        d = (tang + n * 0.9 + Vector((0, 0, 0.25))).normalized()
-        up = n.cross(tang).normalized()
+        d = (tang + n * 1.1 + Vector((0, 0, 0.25))).normalized()
         sz = size * rnd.uniform(0.75, 1.3)
-        mass.kite("core_sage", p - n * 0.02, d, up, sz, sz * 0.75, bend=0.3)
+        if zmax is not None and p.z + d.z * sz > zmax:
+            continue
+        up = n.cross(tang).normalized()
+        mass.leaf(p + n * 0.02, d, up, sz, sz * 0.75, "leaf" if i % 2 else "leaf_d")
 
 
 # ---------------------------------------------------------------- samplers
 def ellipsoid_sampler(centre, radii, zmin_n=-0.35):
-    """Uniform-ish points on an ellipsoid shell with outward normals; skips the
-    underside (normal z below zmin_n)."""
     c = Vector(centre)
     a, b, cc = radii
 
@@ -543,7 +635,6 @@ def ellipsoid_sampler(centre, radii, zmin_n=-0.35):
 
 
 def lathe_sampler(z0, z1, radius_fn, centre_fn=None, depth=0.78, rmax=None):
-    """Points on a lathe shell, density ∝ perimeter."""
     rmax = rmax or max(radius_fn(z0 + (z1 - z0) * i / 40) for i in range(41))
 
     def s(rnd):
@@ -601,116 +692,175 @@ def inside_lathe(z0, z1, radius_fn, centre_fn=None, depth=0.78, shrink=0.92):
     return f
 
 
+def outside_all(tests, own=None, zmin=0.02):
+    """accept(p, n, r): the point is outside every lobe but its own."""
+    def f(p, n, r):
+        if p.z < zmin:
+            return False
+        for g in tests:
+            if g is own:
+                continue
+            if g(p):
+                return False
+        return True
+    return f
+
+
 def report(mass, name):
     tex = ", ".join(f"{k}={'img' if v else 'FLAT'}" for k, v in sorted(TEXTURED.items()))
-    print(f"FLORALS {name}: heads {len(mass.heads)} tris {mass.tris}  textures [{tex}]")
+    print(f"FLORALS {name}: heads {len(mass.heads)} tris {mass.tris} top {mass.top:.3f}  textures [{tex}]")
+
+
+def finish(mass, name, origin="floor", atlas=1024):
+    """flush → join → origin. 'axis' = the authored (0,0) at the lowest vertex
+    (the towers: the wing must not drag a bbox origin sideways); 'floor' = bbox
+    footprint centre at the lowest vertex; None = leave as authored."""
+    parts = mass.flush()
+    root = L.join(parts, name, origin=None)
+    if origin == "axis":
+        zmin = min(v.co.z for v in root.data.vertices)
+        L.origin_to(root, (0, 0, zmin))
+    elif origin == "floor":
+        L._origin_to_bbox(root, z="min")
+    L.shade_smooth(root, angle=60)
+    return tag(root, atlas)
+
+
+# ---------------------------------------------------------------- lobes helper
+def lobes(mass, spec, mat="base_sage", period=0.5):
+    """spec = [((cx, cy, cz), (rx, ry, rz)), …] → ellipsoid bases + samplers + inside tests."""
+    samplers, tests = [], []
+    for i, (c, r) in enumerate(spec):
+        mass.core_ellipsoid(mat, c, r, seg=16, rings=8, period=period, offset=0.11 * i, warp=0.05)
+        samplers.append(ellipsoid_sampler(c, r, zmin_n=-0.3))
+        tests.append(inside_ellipsoid(c, r, 0.94))
+    return samplers, tests
 
 
 # ---------------------------------------------------------------- the towers
-def build_installation(name, h, W, lean, side, heads, sprigs=22, spikes=14):
+def build_installation(name, h, W, lean, side, heads, sprigs=32, spikes=16, detail=1.0):
     """One of the two asymmetric towers (ASSET_SPEC Group B).
 
-    h      total height (the plume tip);  W  the teardrop's foot radius (.78 / .64)
+    h      total height (plume tip);  W  the teardrop's foot radius (.78 / .64)
     lean   crown drift over the height, x = lean·t²  (+.62 hero, −.58 small)
     side   which way the chest-height wing spills (+1 / −1)
     The profile is moments.js installation(): w(t) = (1 − .8·t^1.35)·W + .10 on
     z(t) = .26 + t·(h − .34), depth ×.78; the skirt r .92 × .78 at z .24; the wing
-    five masses from x .55 → 1.50 at z 1.55 → .80. Origin = the tower's AXIS at
-    the foot (not the bbox centre — the wing would drag that sideways).
+    a spill of heads over five tapering lobes from x .55 → 1.50 at z 1.55 → .80.
+    Origin = the tower's AXIS at the foot (the wing would drag a bbox origin
+    ~.45 m sideways).
     """
     rnd = L.rng(name)
     m = Mass(rnd, name)
-    zs0, zs1 = 0.06, h - 0.16
+    zs0, zs1 = 0.06, h - 0.20
     zt = lambda z: max(0.0, min(1.0, (z - 0.26) / (h - 0.34)))
     radius = lambda z: (1 - 0.8 * zt(z) ** 1.35) * W + 0.10 * (W / 0.78)
     drift = lambda z: (lean * zt(z) ** 2, 0.0)
-    zs = [zs0 + (zs1 - zs0) * i / 56 for i in range(57)]
-    m.core_lathe("core_blue_cream", zs, radius, drift, seg=32, depth=0.78, period=0.62, offset=0.13, bump=0.05)
+    zs = [zs0 + (zs1 - zs0) * i / 36 for i in range(37)]
+    m.core_lathe("base_sage", zs, radius, drift, seg=22, depth=0.78, period=0.5, offset=0.13, bump=0.04)
     skirt_c, skirt_r = (0.0, 0.0, 0.24), (0.92, 0.78, 0.22)
-    m.core_ellipsoid("core_blue_cream", skirt_c, skirt_r, seg=28, rings=10, period=0.62, offset=0.41, warp=0.06)
+    m.core_ellipsoid("base_sage", skirt_c, skirt_r, seg=20, rings=6, period=0.5, offset=0.41, warp=0.06)
     wing = []
     for i in range(5):
         t = i / 4
-        c = (side * (0.55 + t * 0.95), -0.10 + rnd.uniform(-0.12, 0.12), 1.55 - t * 0.75 + rnd.uniform(-0.05, 0.08))
-        r = (0.34, 0.30, 0.22)
+        c = (side * (0.55 + t * 0.95), -0.08 + rnd.uniform(-0.10, 0.10),
+             1.55 - t * 0.75 + rnd.uniform(-0.04, 0.06))
+        r = (0.40 - 0.12 * t, 0.36 - 0.10 * t, 0.30 - 0.10 * t)
         wing.append((c, r))
-        m.core_ellipsoid("core_blue_cream", c, r, seg=16, rings=8, period=0.62, offset=0.2 + 0.17 * i, warp=0.05)
+        m.core_ellipsoid("base_sage", c, r, seg=12, rings=6, period=0.5, offset=0.2 + 0.17 * i, warp=0.05)
 
     in_lathe = inside_lathe(zs0, zs1, radius, drift, 0.78, shrink=0.94)
     in_skirt = inside_ellipsoid(skirt_c, skirt_r, 0.94)
     in_wing = [inside_ellipsoid(c, r, 0.94) for c, r in wing]
-
-    def accept(p, n, r):
-        if in_lathe(p) or in_skirt(p):
-            return False
-        for f in in_wing:
-            if f(p):
-                return False
-        return p.z > 0.02
-    # a sampler that is only "outside every core": each core's own test is skipped
+    tests = [in_lathe, in_skirt] + in_wing
     lathe_s = lathe_sampler(zs0, zs1, radius, drift, 0.78)
     skirt_s = ellipsoid_sampler(skirt_c, skirt_r, zmin_n=-0.15)
-    wing_s = [ellipsoid_sampler(c, r, zmin_n=-0.45) for c, r in wing]
+    wing_s = [ellipsoid_sampler(c, r, zmin_n=-0.5) for c, r in wing]
 
-    def accept_from(own):
-        def f(p, n, r):
-            if p.z < 0.02:
-                return False
-            for g in ([in_lathe, in_skirt] + in_wing):
-                if g is own:
-                    continue
-                if g(p):
-                    return False
-            return True
-        return f
     shell_area = 2 * math.pi * 0.89 * sum(radius(z) for z in zs) / len(zs) * (zs1 - zs0)
-    total = shell_area + 3.2 + 5 * 1.0
+    wing_area = sum(4 * math.pi * ((r[0] * r[1] * r[2]) ** (2 / 3)) * 0.55 for _, r in wing)
+    total = shell_area + 3.2 + wing_area
     plume = lambda p: 1.0 - 0.35 * max(0.0, zt(p.z) - 0.55) / 0.45
-    place_heads(m, lathe_s, int(heads * shell_area / total), accept=accept_from(in_lathe), scale_at=plume)
-    place_heads(m, skirt_s, int(heads * 3.2 / total), accept=accept_from(in_skirt), scale=1.05)
-    for ws, iw in zip(wing_s, in_wing):
-        place_heads(m, ws, int(heads * 1.0 / total), accept=accept_from(iw), scale=0.95)
+    zcap = h - 0.02
+    OV = 0.57      # centre spacing ≥ 0.57·(r1+r2): heads interpenetrate as a packed mass
+    place_heads(m, lathe_s, int(heads * shell_area / total), accept=outside_all(tests, in_lathe),
+                scale_at=plume, zmax=zcap, detail=detail, overlap=OV)
+    place_heads(m, skirt_s, int(heads * 3.2 / total), accept=outside_all(tests, in_skirt), scale=1.0,
+                detail=detail, overlap=OV)
+    for (c, r), ws, iw in zip(wing, wing_s, in_wing):
+        a = 4 * math.pi * ((r[0] * r[1] * r[2]) ** (2 / 3)) * 0.55
+        place_heads(m, ws, int(heads * a / total), accept=outside_all(tests, iw), scale=0.95, detail=detail, overlap=OV)
 
-    # the eucalyptus sprigs breaking the silhouette (t .40 → 1.0 up the tower)
+    # eucalyptus sprigs breaking the silhouette (t .35 → 1.0 up the tower + the wing)
     def upper(rnd):
         s = lathe_s(rnd)
-        if s is None or zt(s[0].z) < 0.40:
+        if s is None or zt(s[0].z) < 0.35:
             return None
         return s
     for i in range(sprigs):
         s = None
-        for _ in range(50):
-            s = upper(rnd) if i < sprigs - 4 else wing_s[i % 5](rnd)
+        for _ in range(60):
+            s = upper(rnd) if i < sprigs - 8 else wing_s[i % 5](rnd)
             if s:
                 break
         if s:
             p, n = s
-            m.sprig(p, n, rnd.uniform(0.24, 0.42), sprays=rnd.randint(2, 3), spray=0.14)
+            m.sprig(p, n, rnd.uniform(0.22, 0.40), leaves=4, leaf_len=0.085, zmax=zcap)
     # delphinium at the plume, standing up out of the crown
     top_c = Vector((drift(zs1)[0], 0, zs1))
     for i in range(spikes):
-        if i < 6:
+        if i < 7:
             a = rnd.uniform(0, 2 * math.pi)
-            p = top_c + Vector((math.cos(a) * radius(zs1) * 0.5, math.sin(a) * radius(zs1) * 0.4, 0.0))
+            p = top_c + Vector((math.cos(a) * radius(zs1) * 0.5, math.sin(a) * radius(zs1) * 0.4, 0.02))
             n = Vector((math.cos(a) * 0.3, math.sin(a) * 0.3, 1)).normalized()
-            m.spike(p, n, min(rnd.uniform(0.28, 0.38), h - p.z - 0.02))
+            m.spike(p, n, rnd.uniform(0.26, 0.36), zmax=zcap)
         else:
             s = None
-            for _ in range(50):
+            for _ in range(60):
                 s = upper(rnd)
-                if s and zt(s[0].z) > 0.62:
+                if s and zt(s[0].z) > 0.6:
                     break
             if s:
                 p, n = s
-                ln = min(rnd.uniform(0.24, 0.36), h - p.z - 0.02)
-                if ln > 0.12:
-                    m.spike(p, n, ln)
-    scatter_foliage(m, union_sampler([(lathe_s, 6), (skirt_s, 2), (wing_s[2], 1)]), 70, size=0.13)
-
+                m.spike(p, n, rnd.uniform(0.22, 0.32), zmax=zcap)
+    scatter_leaves(m, union_sampler([(lathe_s, 6), (skirt_s, 2), (wing_s[2], 1)]), 50, size=0.09, zmax=zcap)
     report(m, name)
-    parts = m.flush()
-    root = L.join(parts, name, origin=None)
-    zmin = min(v.co.z for v in root.data.vertices)
-    L.origin_to(root, (0, 0, zmin))
-    L.shade_smooth(root, angle=60)
-    return root
+    return finish(m, name, origin="axis")
+
+
+# ---------------------------------------------------------------- the clusters
+def build_cluster(name, spec, heads, sprigs=9, spikes=4, mix=MIX_BLUE_CREAM, scale=0.85,
+                  zmax=None, base="base_sage", origin="floor", detail=1.0, leaves=30,
+                  spike_keys=("delph",), spike_len=(0.24, 0.34), spike_zmax=None):
+    """A ground cluster / centrepiece-style mass over ellipsoid `spec` lobes.
+    `zmax` clamps the heads and sprigs (the spec's H), `spike_zmax` the spikes
+    (a florist lets a few delphinium stand above the mass)."""
+    rnd = L.rng(name)
+    m = Mass(rnd, name)
+    samplers, tests = lobes(m, spec, mat=base)
+    areas = [4 * math.pi * ((r[0] * r[1] * r[2]) ** (2 / 3)) for _, r in spec]
+    total = sum(areas)
+    for smp, tst, a in zip(samplers, tests, areas):
+        place_heads(m, smp, int(heads * a / total), mix=mix, scale=scale, detail=detail,
+                    accept=outside_all(tests, tst, zmin=0.0), zmax=zmax)
+    union = union_sampler([(smp, a) for smp, a in zip(samplers, areas)])
+    for i in range(sprigs):
+        s = None
+        for _ in range(40):
+            s = union(rnd)
+            if s and s[1].z > -0.1:
+                break
+        if s:
+            m.sprig(s[0], s[1], rnd.uniform(0.16, 0.28), leaves=rnd.randint(4, 6), leaf_len=0.05, zmax=zmax)
+    for i in range(spikes):
+        s = None
+        for _ in range(40):
+            s = union(rnd)
+            if s and s[1].z > 0.35:
+                break
+        if s:
+            m.spike(s[0], s[1], rnd.uniform(*spike_len), key=spike_keys[i % len(spike_keys)], r=0.026,
+                    zmax=spike_zmax or zmax)
+    scatter_leaves(m, union, leaves, size=0.055, zmax=zmax)
+    report(m, name)
+    return finish(m, name, origin=origin, atlas=512)

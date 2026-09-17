@@ -1,0 +1,17 @@
+{
+  "bytes": 120344,
+  "front": "-Z",
+  "material": "cluster_a",
+  "min": [
+    -0.65,
+    0.0,
+    -0.457
+  ],
+  "origin": "floor",
+  "size": [
+    1.3,
+    0.665,
+    0.913
+  ],
+  "tris": 4138
+}

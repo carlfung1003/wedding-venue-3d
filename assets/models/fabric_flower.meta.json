@@ -1,0 +1,17 @@
+{
+  "bytes": 53824,
+  "front": "-Z",
+  "material": "fabric_flower",
+  "min": [
+    -1.583,
+    -1.893,
+    -0.294
+  ],
+  "origin": "centre",
+  "size": [
+    3.098,
+    2.891,
+    0.463
+  ],
+  "tris": 3052
+}

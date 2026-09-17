@@ -135,6 +135,23 @@
     ],
     "tris": 280
   },
+  "centrepiece_low": {
+    "bytes": 83820,
+    "front": "-Z",
+    "material": "centrepiece_low",
+    "min": [
+      -0.367,
+      0.0,
+      -0.323
+    ],
+    "origin": "base",
+    "size": [
+      0.734,
+      0.33,
+      0.645
+    ],
+    "tris": 2156
+  },
   "chair_drape": {
     "bytes": 12084,
     "front": "+Z",
@@ -185,6 +202,57 @@
       1.26
     ],
     "tris": 4330
+  },
+  "cluster_a": {
+    "bytes": 120344,
+    "front": "-Z",
+    "material": "cluster_a",
+    "min": [
+      -0.65,
+      0.0,
+      -0.457
+    ],
+    "origin": "floor",
+    "size": [
+      1.3,
+      0.665,
+      0.913
+    ],
+    "tris": 4138
+  },
+  "cluster_b": {
+    "bytes": 118980,
+    "front": "-Z",
+    "material": "cluster_b",
+    "min": [
+      -0.675,
+      0.0,
+      -0.434
+    ],
+    "origin": "floor",
+    "size": [
+      1.35,
+      0.619,
+      0.869
+    ],
+    "tris": 4354
+  },
+  "cluster_c": {
+    "bytes": 118736,
+    "front": "-Z",
+    "material": "cluster_c",
+    "min": [
+      -0.649,
+      0.0,
+      -0.517
+    ],
+    "origin": "floor",
+    "size": [
+      1.297,
+      0.693,
+      1.033
+    ],
+    "tris": 4273
   },
   "coconut_rack": {
     "bytes": 41292,
@@ -271,6 +339,23 @@
     ],
     "tris": 12
   },
+  "fabric_flower": {
+    "bytes": 53824,
+    "front": "-Z",
+    "material": "fabric_flower",
+    "min": [
+      -1.583,
+      -1.893,
+      -0.294
+    ],
+    "origin": "centre",
+    "size": [
+      3.098,
+      2.891,
+      0.463
+    ],
+    "tris": 3052
+  },
   "hat_rack": {
     "bytes": 88644,
     "front": "-Z",
@@ -323,38 +408,55 @@
     "tris": 1162
   },
   "installation_hero": {
-    "bytes": 355156,
+    "bytes": 570876,
     "front": "-Z",
     "material": "installation_hero",
     "min": [
-      -1.0,
+      -1.006,
       0.0,
-      -0.802
+      -0.877
     ],
     "origin": "floor",
     "size": [
-      2.849,
-      3.279,
-      1.629
+      2.898,
+      3.357,
+      1.743
     ],
-    "tris": 9347
+    "tris": 31299
   },
   "installation_small": {
-    "bytes": 517336,
+    "bytes": 570348,
     "front": "-Z",
     "material": "installation_small",
     "min": [
-      -1.876,
+      -1.86,
       0.0,
-      -0.828
+      -0.895
     ],
     "origin": "floor",
     "size": [
-      2.876,
-      2.998,
-      1.677
+      2.863,
+      2.95,
+      1.783
     ],
-    "tris": 31384
+    "tris": 29433
+  },
+  "lilac_cluster": {
+    "bytes": 121896,
+    "front": "-Z",
+    "material": "lilac_cluster",
+    "min": [
+      -0.763,
+      0.0,
+      -0.563
+    ],
+    "origin": "floor",
+    "size": [
+      1.526,
+      1.023,
+      1.125
+    ],
+    "tris": 4814
   },
   "long_table": {
     "bytes": 18636,

@@ -12,11 +12,11 @@ NAME = "installation_small"
 ATLAS = 1024
 BEVEL = 0
 AO_DIST = 0.3
-AO_STRENGTH = 0.5
+AO_STRENGTH = 0.4
 TRIS = 40000
 FRONT = "-Z"
 ORIGIN = "floor"
 
 
 def build():
-    return F.build_installation(NAME, h=2.95, W=0.64, lean=-0.58, side=-1, heads=500)
+    return F.build_installation(NAME, h=2.95, W=0.64, lean=-0.58, side=-1, heads=1550)

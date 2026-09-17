@@ -1,0 +1,17 @@
+{
+  "bytes": 121896,
+  "front": "-Z",
+  "material": "lilac_cluster",
+  "min": [
+    -0.763,
+    0.0,
+    -0.563
+  ],
+  "origin": "floor",
+  "size": [
+    1.526,
+    1.023,
+    1.125
+  ],
+  "tris": 4814
+}

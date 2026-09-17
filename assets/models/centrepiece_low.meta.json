@@ -1,0 +1,17 @@
+{
+  "bytes": 83820,
+  "front": "-Z",
+  "material": "centrepiece_low",
+  "min": [
+    -0.367,
+    0.0,
+    -0.323
+  ],
+  "origin": "base",
+  "size": [
+    0.734,
+    0.33,
+    0.645
+  ],
+  "tris": 2156
+}
