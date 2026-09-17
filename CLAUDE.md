@@ -221,6 +221,101 @@ when two corrections disagree.
   STRAFE, which moves you SEAWARD from the tables at r 97.9 into the pool at
   r 90.10…96.40 — i.e. the pool is where the pool is, and Carl asked for
   exactly that (the water takes the edge, the tables sit behind it).
+## THE ASSET PASS — BLENDER GLB PROPS + AI TEXTURES — DONE 2026-09-16 (KAN-207)
+
+Carl: *"work on all 3D assets in blender and image gen for venue.carlfung.dev."*
+Every dressing prop a guest stands next to is now a **Blender-authored,
+AO-baked, Draco-compressed GLB** instead of an assembly of unit primitives:
+**42 assets, 2.9 MB, 173k triangles in total** (`assets/models/models.json`).
+The campus itself (buildings, water, palms, hedges) is still procedural — this
+pass is the wedding, not the resort.
+
+**Read `assets/blender/ASSET_SPEC.md` (the contract: every asset's dims, origin,
+front, budget) and `assets/blender/INTEGRATION.md` (how moments.js consumes them)
+before touching a prop.** `assets/blender/README.md` has the commands.
+
+### The pipeline (`assets/blender/`, ported from seventh-floor)
+
+```
+wv_lib.py        primitives, the Rosa Wed PALETTE (sRGB → linear in M()), image_mat + planar/cylindrical/spherical_uv on a second UV layer
+wv_bake.py       clean-resort material families, Metal-GPU albedo×AO atlas, ONE material per GLB with a meaningful name
+generators/*.py  one module per asset: NAME, ATLAS, BEVEL, AO_DIST, TRIS, FRONT, ORIGIN, build() (+ build_<suffix>() for parts that need another material class)
+make_masters.py  generators → bake → masters/<name>.blend (Git LFS; the source of truth)     -- names… fast=1
+export_all.py    masters → ../models/<name>.glb + <name>.meta.json; models.json REBUILT from every sidecar; exit 1 over budget
+preview_all.py   Workbench 3/4 turntable → assets/previews/<name>.webp   (shape only — Workbench ignores image maps)
+art_manifest.json + gen_art.py   Vertex Gemini: 15 textures (textures/gen/*.webp), 2 art plates (assets/art/), 13 orthographic refsheets (local only; CONTACT.md carries the measurements)
+```
+`tools/viewer.html` + `tools/shoot-models.mjs` render any model in the venue's
+own PMREM/ACES/sun rig → `assets/previews/<name>-ingame.png` (`NIGHT=1`). **Judge
+assets there, at guest distance, never in a Blender turntable** — the chair that
+looked fine in Workbench baked whitewashed in-engine.
+
+`js/models.js` loads the manifest before `initMoments`; `geometry(name)` /
+`material(name)` hand out the single shared mesh so `moments.js`'s kit buckets
+instance a GLB like any unit primitive — sixty chairs are still ONE draw call.
+Material names are a contract with the loader: `*_emit` (flames, the DJ facia),
+`mirror`, `canopy_tint` (white; the game tints the cocktail parasols teal),
+`crystal`. A missing GLB warns and the call site falls back to its old primitive.
+
+### Numbers (16 views, `tools/shoot-moments.mjs`, before = `reference/photos/shots-before/`, after = `shots-after/`)
+
+_(table filled in from the integration pass — see the commit that lands the moments.js swap)_
+
+### ⚠ What this pass learned, in the order it cost time
+
+1. **Cycles' DIFFUSE bake darkens METALLIC keys** (steel .30 vs .60, gold .63 vs
+   .85) — chafing dishes, ice buckets and the barrow baked near-black. Metal parts
+   bake as dielectric copies for now; the real fix is zeroing Metallic for the
+   diffuse pass in `wv_bake.bake_atlas` and restoring it before `apply_baked`.
+2. **The UV packer starves dense atlases**: ~4,000 floret islands left **48 % of a
+   1024 atlas black** and every floret baked as a black speck. `generators/_florals.py`
+   shadows `unwrap` with a tight pack (island_margin 0, margin 2/size ADD, AABB → 5 %)
+   for objects tagged `wv_florals`. Worth adopting in the library.
+3. **`image_mat(name=<palette key>)` hijacks that key** for every later part via the
+   material cache. Image materials get their own names (`oak_grain`, `hyd_head`…).
+4. **AI textures carry their own shading and drift from the palette.** The oak
+   measured greyer/lighter than `c3a37c` and baked WHITE; heads measured darker.
+   `gen_art.py` now gains eight files to the palette (mean for flat materials, p70 for
+   heads) — and the chair still needed an albedo darker than the palette hex
+   (`#92724e`) to render as the render's tan under the venue rig. Measure, then look.
+5. **A mirror is its reflection, not its albedo** — the mirror ball rendered black
+   until the loader dropped its dark baked map and gave `mirror` a light base.
+6. **Module `BEVEL` bevels the JOINED mesh** at every edge ≥ 40° (rounds flute
+   ridges, ×4 faces); `MAT_NAME` is module-wide (applies to every `build_*` part).
+   Use `BEVEL = 0` + per-part `L.bevel()`, and single-key builds where a part must
+   keep its own material name.
+7. **The viewer frames hook-origin assets at the origin** — chandeliers hang under
+   the ground disc and shoot empty. Lift `origin: "hook"` by `size.y` (open).
+8. **`tools/shoot-moments.mjs` takes enclave-LOCAL yaws and `setFacing` wants
+   WORLD** — every custom view was 90° off until `+ ENCLAVE.rotY`.
+9. **`.vercelignore` REPLACES `.gitignore` for CLI deploys**, so it repeats
+   `reference/` and hides `assets/blender/`, `assets/previews/`, `tools/`.
+10. **Session limits kill every parallel agent at once** (three times). Carl: one
+    agent at a time; resume a killed agent with `SendMessage` and the DISK STATE
+    (its background streams do not survive); checkpoint-commit between resumes.
+
+### Deviations from the spec that are deliberate (each in its generator's docstring)
+
+Tower origins sit on the tower AXIS at the foot (the wing would drag a bbox centre
+0.45 m sideways); `fabric_flower` is origin-centre; the candelabra's 6-arm tier
+is ABOVE the 8-arm tier (render + refsheet); the bead chandelier has a bell crown;
+metal props are non-metallic materials; heads are ~35 % blue by count (reads
+half-and-half); foliage is folded sheets, not prisms (sub-pixel islands bake black).
+
+### Not in this pass (next)
+
+Palms, hedges, topiary and every `nature.js`/`water.js`/`campus.js` object; the
+welcome board (procedural + the new art plate); the cocktail glassware (tinted
+opaque liquid inside transparent glass — a bake cannot ship it); the pearl
+catenaries; adopting the tight pack and the metallic fix in the library; the
+viewer's hook lift; `linen_ivory`'s pressed-fold crease tiles at ~0.7 m on every
+skirt (reads as rental linen; drop the tile size if it bothers anyone).
+
+**Adding an asset:** a row in `ASSET_SPEC.md` → `generators/<name>.py` from
+`_template.py` → `make_masters.py -- <name>` → `export_all.py -- <name>` →
+`node tools/shoot-models.mjs <name>` and LOOK → `K.mdl('<name>')` in moments.js
+behind `models.has()`.
+
 ## THE MIRROR FRUSTUM — DONE 2026-08-06 (`js/mirrorfrustum.js` + `water.js`)
 
 The lever the layer-mask pass named. three renders the mirror through the FULL
