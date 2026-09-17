@@ -29,6 +29,7 @@ import { initIntroCam, updateIntroCam, startDive } from './introcam.js';
 import { initUI } from './ui.js';
 import { initLightBudget } from './lightbudget.js';
 import { initDetailCull } from './detailcull.js';
+import * as models from './models.js';
 
 /* ── the loading card ────────────────────────────────────────────────────────
    The card is already on screen (index.html) — this only drives its copy, its
@@ -111,6 +112,24 @@ const envRT = pmrem.fromScene(new RoomEnvironment(), .04);
 scene.environment = envRT.texture;
 scene.environmentIntensity = CFG.LIGHT.ENV;
 
+/* ── the Blender-authored props (assets/models/, KAN-207) ────────────────────
+   Started HERE and awaited below, which is the whole point: fetching and
+   decoding ~2.9 MB of GLB is NETWORK and worker time, while buildWorld is
+   CPU-bound on this thread — kicked off first, the two overlap and the models
+   cost almost nothing on the wall clock. It must nonetheless have RESOLVED
+   before initMoments, because every prop below is built synchronously from
+   models.geometry()/material().
+   models.preload never rejects: a GLB that fails leaves models.has(name)
+   false and moments.js falls back to its old primitive path. Nothing here
+   changes the light count — a GLB never carries a light — so the compileAsync
+   warm-ups further down still see the same program cache keys they always did,
+   and now also compile the GLB materials (the moment groups exist by then).
+   .06 … .08 is the models' slice of the bar; buildWorld's own .08 … .54
+   follows it, so the bar stays monotonic whichever finishes first. */
+const modelsP = models.preload((f, name) => {
+  setProgress(.06 + f * .02, `Unloading the florist's van… ${name}`);
+});
+
 /* ── the one context object threaded through every builder ── */
 const G = {
   canvas, renderer, scene, camera, touchMode,
@@ -171,6 +190,11 @@ initUI(G);
    initPlayer reads floorY, the intro orbit needs something to orbit. */
 await buildWorld(G, (f, label) => setProgress(.08 + f * .46, label));
 
+/* the props, if they are not already in (they almost always are — the fetches
+   ran under buildWorld's CPU time). MUST be before initMoments. */
+setProgress(.55, 'Unloading the florist\'s van');
+await modelsP;
+
 setProgress(.56, 'Laying the places');
 await yieldFrame();
 initPlayer(G);
@@ -229,6 +253,26 @@ initIntroCam(G);
    because it is the one call in this file three.js has not always had. */
 setProgress(.72, 'Waiting on the light');
 await yieldFrame();
+/* ── compile EVERY moment, not just the one on screen ────────────────────────
+   renderer.compile() traverses only VISIBLE objects, so with one moment group
+   shown the other five are skipped and their materials compile later, mid-game.
+   That was free by accident until the GLB props landed: every moment's
+   materials also existed in the ceremony (the moment dressed here), and the
+   count sat at a constant 114. It is not free now — the festoon's
+   LineBasicMaterial became dinner-only when the hat rack became a GLB, and the
+   program count stepped 113 → 114 on the first switch to the Wedding Dinner.
+   Showing all six across both warm-ups and the night render fixes it BY
+   CONSTRUCTION, whatever a future pass puts in which moment.
+   ⚠ Safe on all three counts that matter here:
+     · LIGHTS — initLightBudget ran above and has already set every logical
+       light .visible = false, the dinner's two included, so the visible light
+       count does not move and no program's cache key changes;
+     · THE DETAIL CULL — it collects candidates on its first ticker run, which
+       is inside the first frame(), after this block has restored;
+     · WHAT IS SEEN — the loading card is opaque over the canvas, and the
+       groups are restored before the loop starts. */
+const _mvis = Object.entries(G.momentGroups).map(([id, g]) => [g, g.visible]);
+for (const [g] of _mvis) g.visible = true;
 if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
 
 /* ── warm the OTHER half of the day, or pay for it mid-dive ──────────────────
@@ -264,6 +308,7 @@ if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
    covers the canvas, so this frame is never seen. */
 renderer.render(scene, camera);
 setNight(G, openNight, { quiet: true });
+for (const [g, v] of _mvis) g.visible = v;   // exactly as setMoment left them
 setProgress(.94, 'Opening the doors');
 await yieldFrame();
 

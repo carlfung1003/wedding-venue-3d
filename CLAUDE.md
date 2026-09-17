@@ -259,7 +259,49 @@ Material names are a contract with the loader: `*_emit` (flames, the DJ facia),
 
 ### Numbers (16 views, `tools/shoot-moments.mjs`, before = `reference/photos/shots-before/`, after = `shots-after/`)
 
-_(table filled in from the integration pass — see the commit that lands the moments.js swap)_
+| | before | after |
+|---|---|---|
+| draw calls, all 16 views | 5,433 | **4,303 (−1,130)** |
+| triangles, all 16 views | 6,573,310 | 6,880,246 (+4.7 %) |
+| shader programs | 114 | **116, min = max at every view and both lighting states** |
+| **setup-champagne** calls / fps | 2,138 / 73.9 | **1,120 / 117.6** |
+| **cocktail-spawn** calls / tris | 213 / 739,496 | **80 / 263,618** |
+| setup-spawn fps | 94.7 | **112.8** |
+| transmissive meshes at the prewedding | 30 | **0** |
+| ceremony-spawn calls / tris | 58 / 382,506 | 58 / 617,729 |
+| geometries / textures | 1,525 / 192 | 1,840 / 233 |
+
+Draw calls move only where the transmission material went away; every other
+view is within ±3. Triangles rise where the florals became real florals and FALL
+at cocktail, because the old shared bloom bucket spanned the whole lawn and could
+never be frustum-culled — a GLB bucket is local to its prop. Colliders, feet and
+night flags are byte-identical at all 16 views; the guest-journey harness passes
+with 0 stalls, every beat, and zero console errors.
+
+⚠ **The transmission win is the real one, and it is not the mirror's.** The
+champagne tower's `transmission: .85` coupes made three render the campus a THIRD
+time: 30 transmissive meshes → 0 buys **+27.5 fps at the setup spawn and −1,018
+draw calls / +47 fps at the champagne view**. The mirror pass itself barely moved
+(406 → 404 calls) — at the champagne viewpoint the Reflector is never invoked at
+all, so the cost there was three's own transmission pass on the main frame. The
+CLAUDE.md entry that called this "the biggest single remaining cost on this
+campus" was right about the cost and wrong about which pass paid it.
+
+⚠ **Two bugs the LOOK caught that the numbers did not.** The GLB easel's board
+face is 19 cm in front of where the old box's was, so the cocktail menu and the
+prewedding welcome sign rendered perfectly — behind the board. And a 1.3 m ground
+cluster on top of a 0.30 m plinth reads as a parasol balanced on a post; the
+plinth tops went back to `bloomMass`. Both found by reading the after screenshots
+beside the before ones, which is the only check that finds this class of error.
+
+⚠ **`renderer.compile()` traverses VISIBLE objects only.** After the swap the
+program count read 113 everywhere but 114 from the Wedding Dinner on: the
+festoon's `LineBasicMaterial` used to be compiled for free by the ceremony's
+hat-rack wire lines, and the hat rack is now a GLB. `initMoments` publishes
+`G.momentGroups` and `main.js` shows all six groups across both `compileAsync`
+calls and the night warm-up, then restores — safe because the light budget has
+already made every logical light invisible, the detail cull collects on its first
+ticker run afterwards, and the loading card is opaque.
 
 ### ⚠ What this pass learned, in the order it cost time
 

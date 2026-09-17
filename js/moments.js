@@ -12,8 +12,18 @@ import { SITE, HOTEL_ROOF } from './site.js';
 import { setFacing, syncCamera } from './player.js';
 import { setNight } from './world.js';
 import { mulberry32 } from './materials.js';
+import * as models from './models.js';
 
 const rnd = mulberry32(CFG.SEED);
+
+/* ── the Blender-authored GLB props (assets/models/, KAN-207) ───────────────
+   `have(name)` is the ONE gate: true only when the GLB actually loaded as a
+   single mesh, so every call site below keeps its old primitive path as the
+   fallback behind it (assets/blender/INTEGRATION.md §1). models.preload() has
+   resolved before initMoments runs — main.js awaits it — so nothing here is
+   ever asked about a model still in flight. */
+const have = (name) => models.has(name) && !!models.geometry(name);
+const ART_DIR = new URL('../assets/art/', import.meta.url).href;
 
 /* ── local materials (self-contained; the shell modules own their own) ── */
 const linen = new THREE.MeshStandardMaterial({ color: 0xf6f3ec, roughness: .85 });
@@ -28,8 +38,9 @@ const deckDark = new THREE.MeshStandardMaterial({ color: 0x1a1a1c, roughness: .6
 const bulb = new THREE.MeshStandardMaterial({
   color: 0xfff0cf, emissive: 0xffcf87, emissiveIntensity: 2.2, toneMapped: false,
 });
+const TEAL_HEX = 0x1f8fa5;   // the clubhouse teal — also the parasol_round_canopy instance tint
 const teal = new THREE.MeshStandardMaterial({
-  color: 0x1f8fa5, roughness: .85, side: THREE.DoubleSide,
+  color: TEAL_HEX, roughness: .85, side: THREE.DoubleSide,
 });
 
 const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
@@ -237,7 +248,7 @@ function bloomMass(F, cx, cy, cz, rx, ry, rz, n, big = 1, parent) {
 /* One kit of buckets per moment. Twelve instanced draw calls buy the whole
    dressing however many chairs, blooms and pearls it holds. */
 function kit() {
-  return {
+  const K = {
     oak: bucket(G_BOX, oak, true),          // every timber member, any shade
     white: bucket(G_BOX, linenW, true),      // every painted / linen box, any shade
     disc: bucket(G_DISC, linenW, true),      // table tops, plinth caps, canopies
@@ -257,12 +268,32 @@ function kit() {
     dark: bucket(G_ROD, bronzeD, true),      // the chandelier poles, steel work
     wire: wires(),
   };
+  /* a bucket per GLB: ONE InstancedMesh per model per moment, however many are
+     placed. Same put() signature as every other bucket, so frame() and the
+     curried iput keep working and the "instances go through the prop's own
+     frame" rule holds for the GLBs too. ⚠ The material is SHARED across the
+     six moments (never cloned) — that is what keeps the program count
+     constant. A baked-albedo material multiplies instanceColor into its map,
+     so `tinted` is only for assets documented as tintable
+     (parasol_round_canopy); everyone else stays at 0xffffff. */
+  const mb = new Map();
+  K.mdl = (name, tinted = false) => {
+    if (!mb.has(name)) {
+      const geo = models.geometry(name), mat = models.material(name);
+      mb.set(name, geo && mat ? bucket(geo, mat, tinted) : null);
+    }
+    return mb.get(name);
+  };
+  K._mdl = mb;
+  return K;
 }
 function bakeKit(K, g) {
   for (const k of Object.keys(K)) {
+    if (k === 'mdl' || k === '_mdl') continue;
     if (k === 'wire') bakeWires(K.wire, g);
     else bake(K[k], g);
   }
+  for (const b of K._mdl.values()) if (b) bake(b, g);
 }
 
 /* ── THE WOODEN CROSS-BACK CHAIR ────────────────────────────────────────────
@@ -307,6 +338,47 @@ function xbackChair(B, C, x, z, yaw, drape = false) {
   put(C, 0, 1.06, -.285, [.245, .30, .15], [-.24, 0, 0], 0xffffff, _cm);
   put(C, 0, .615, -.275, [.175, .64, .135], [Math.PI, 0, 0], 0xffffff, _cm);
 }
+/** the chiffon alone — for a GLB chair whose chair_drape did not load */
+function xbackDrape(C, x, z, yaw) {
+  _ce.set(0, yaw, 0);
+  _cq.setFromEuler(_ce);
+  _cm.compose(_cp.set(x, 0, z), _cq, _cs.set(1, 1, 1));
+  put(C, 0, 1.06, -.285, [.245, .30, .15], [-.24, 0, 0], 0xffffff, _cm);
+  put(C, 0, .615, -.275, [.175, .64, .135], [Math.PI, 0, 0], 0xffffff, _cm);
+}
+/** ONE cross-back chair at (x, z): the Blender GLB when it loaded — its front
+ *  faces +Z at yaw 0, exactly xbackChair's convention, so every caller's yaw
+ *  arithmetic is untouched — else the eleven-box primitive. `chair_drape`
+ *  takes the chair's matrix verbatim (its own min y is .30, the knot at the
+ *  top rail). */
+function chairAt(K, x, z, yaw, drape = false) {
+  if (have('crossback_chair')) {
+    put(K.mdl('crossback_chair'), x, 0, z, 1, [0, yaw, 0]);
+    if (!drape) return;
+    if (have('chair_drape')) put(K.mdl('chair_drape'), x, 0, z, 1, [0, yaw, 0]);
+    else xbackDrape(K.chiffon, x, z, yaw);
+    return;
+  }
+  xbackChair(K.oak, drape ? K.chiffon : null, x, z, yaw, drape);
+}
+
+/* ── the low blue-and-cream ground clusters ─────────────────────────────────
+   cluster_a/b/c are ~1.30 × .66 × .91 at scale 1 (the old bloomMass lobe was
+   1.2 W at big = 1), so the caller's old `big` scales them directly, clamped
+   .7–1.4. ONE rnd() picks the variant — drawn exactly where the old bloomMass
+   drew its first, or handed in by a caller that already drew it — so the
+   seeded stream stays deterministic. All three or none: a row never mixes the
+   two looks. */
+const CLUSTERS = ['cluster_a', 'cluster_b', 'cluster_c'];
+let _haveClusters = null;
+function haveClusters() {
+  if (_haveClusters === null) _haveClusters = CLUSTERS.every(have);
+  return _haveClusters;
+}
+function clusterAt(K, x, y, z, big, yaw = 0, parent, r = rnd()) {
+  const s = Math.min(1.4, Math.max(.7, big));
+  put(K.mdl(CLUSTERS[Math.floor(r * 3) % 3]), x, y, z, s, [0, yaw, 0], 0xffffff, parent);
+}
 
 /* ── the dressed round, 1.8 m, eight covers ─────────────────────────────────
    Ivory linen to the grass, a low centrepiece of blue hydrangea and cream
@@ -315,18 +387,32 @@ function xbackChair(B, C, x, z, yaw, drape = false) {
    Everything lands in the caller's buckets; the table itself contributes no
    Mesh of its own. */
 function roundTable(K, x, z, seats = 8) {
-  put(K.disc, x, .78, z, [.92, .06, .92], null, PAL.IVORY);           // the top
-  put(K.skirt, x, .39, z, [.90, .78, .90]);                            // linen to the grass
-  bloomMass(K.flor, x, .96, z, .30, .10, .30, 16, .95);
-  bloomMass(K.flor, x, 1.06, z, .16, .12, .16, 7, .8);
+  /* the dressed round itself: the GLB (top surface y .80, sidecar size .804)
+     or the disc + skirt; the centrepiece is base-origin and sits on that top */
+  const glb = have('round_table');
+  if (glb) put(K.mdl('round_table'), x, 0, z, 1, null);
+  else {
+    put(K.disc, x, .78, z, [.92, .06, .92], null, PAL.IVORY);           // the top
+    put(K.skirt, x, .39, z, [.90, .78, .90]);                            // linen to the grass
+  }
+  const TOP = glb ? .80 : .81;
+  const cp = have('centrepiece_low');
+  if (cp) put(K.mdl('centrepiece_low'), x, TOP, z, 1, null);
+  else {
+    bloomMass(K.flor, x, .96, z, .30, .10, .30, 16, .95);
+    bloomMass(K.flor, x, 1.06, z, .16, .12, .16, 7, .8);
+  }
+  /* the two tapers + flames + glasses stay instances; the GLB bowl is .73 wide
+     so the tapers step out to clear it */
+  const TX = cp ? .44 : .36;
   for (const s of [-1, 1]) {
-    put(K.rod, x + s * .36, .95, z, [.022, .34, .022], null, PAL.IVORY);
-    put(K.lamp, x + s * .36, 1.14, z, [.035, .05, .035]);
+    put(K.rod, x + s * TX, TOP + .17, z, [.022, .34, .022], null, PAL.IVORY);
+    put(K.lamp, x + s * TX, TOP + .36, z, [.035, .05, .035]);
   }
   for (let i = 0; i < seats; i++) {
     const a = (i / seats) * Math.PI * 2;
-    put(K.glass, x + Math.sin(a) * .62, .87, z + Math.cos(a) * .62, [.036, .18, .036]);
-    xbackChair(K.oak, null, x + Math.sin(a) * 1.35, z + Math.cos(a) * 1.35, a + Math.PI);
+    put(K.glass, x + Math.sin(a) * .62, TOP + .09, z + Math.cos(a) * .62, [.036, .18, .036]);
+    chairAt(K, x + Math.sin(a) * 1.35, z + Math.cos(a) * 1.35, a + Math.PI);
   }
 }
 
@@ -339,10 +425,15 @@ function longTable(K, x, z, len, axis = 'x') {
   const ax = axis === 'x';
   const yaw = ax ? 0 : Math.PI / 2;
   const L = (t) => (ax ? [x + t, z] : [x, z + t]);          // along the long axis
-  put(K.oak, x, .755, z, ax ? [len, .07, 1.02] : [1.02, .07, len], null, PAL.OAK);
-  for (const sl of [-1, 1]) for (const sw of [-1, 1]) {
-    const p = ax ? [x + sl * (len / 2 - .24), z + sw * .38] : [x + sw * .38, z + sl * (len / 2 - .24)];
-    put(K.oak, p[0], .36, p[1], [.08, .72, .08], null, PAL.OAK_D);
+  /* the bare-timber table: the GLB is 4.80 along X at yaw 0 and turns with the
+     same yaw the chairs use for the 'z' axis; else the planked top + four legs */
+  if (have('long_table')) put(K.mdl('long_table'), x, 0, z, 1, [0, yaw, 0]);
+  else {
+    put(K.oak, x, .755, z, ax ? [len, .07, 1.02] : [1.02, .07, len], null, PAL.OAK);
+    for (const sl of [-1, 1]) for (const sw of [-1, 1]) {
+      const p = ax ? [x + sl * (len / 2 - .24), z + sw * .38] : [x + sw * .38, z + sl * (len / 2 - .24)];
+      put(K.oak, p[0], .36, p[1], [.08, .72, .08], null, PAL.OAK_D);
+    }
   }
   const n = Math.max(3, Math.round(len / 1.2));
   for (let i = 0; i < n; i++) {
@@ -356,7 +447,7 @@ function longTable(K, x, z, len, axis = 'x') {
       const gl = ax ? [c[0], c[1] + s * .34] : [c[0] + s * .34, c[1]];
       put(K.glass, gl[0], .87, gl[1], [.036, .18, .036]);
       const ch = ax ? [c[0], c[1] + s * 1.02] : [c[0] + s * 1.02, c[1]];
-      xbackChair(K.oak, null, ch[0], ch[1], yaw + (s > 0 ? Math.PI : 0));
+      chairAt(K, ch[0], ch[1], yaw + (s > 0 ? Math.PI : 0));
     }
   }
 }
@@ -420,6 +511,23 @@ function highTop() {
     g.add(fl);
   }
   return g;
+}
+/** a linen high-top at (x, z): the GLB (top surface y 1.105) with three flutes
+ *  on it as K.glass instances — the same two rnd() per flute the old highTop()
+ *  drew — or the old Group of Meshes. ⚠ The GLB path's flutes are glassPale,
+ *  not `glassy`: that transmission material is what made three render the
+ *  whole campus a THIRD time inside the mirror pass at the prewedding deck
+ *  (CLAUDE.md, the mirror frustum's finding 1), and the point of this swap is
+ *  that it is gone from the deck. The caller adds its own collider. */
+function highTopAt(K, g, x, z) {
+  if (have('hightop')) {
+    put(K.mdl('hightop'), x, 0, z, 1, null);
+    for (let i = 0; i < 3; i++) {
+      put(K.glass, x + (rnd() - .5) * .5, 1.185, z + (rnd() - .5) * .5, [.03, .16, .03]);
+    }
+    return;
+  }
+  const t = highTop(); t.position.set(x, 0, z); g.add(t);
 }
 
 /* a catenary run of festoon bulbs between two points */
@@ -537,36 +645,50 @@ function dessertBar(K, g, C, F) {
      this and the part is built at the enclave origin instead (it happened) */
   const iput = (b, x, y, z, sc, rot, col) => put(b, x, y, z, sc, rot, col, F);
   const iflor = (x, y, z, rx, ry, rz, n, big) => bloomMass(K.flor, x, y, z, rx, ry, rz, n, big, F);
-  iput(K.white, 0, .52, 0, [6.0, 1.04, .92], null, 0xfcfbf7);
-  iput(K.white, 0, 1.075, 0, [6.24, .07, 1.06], null, 0xfefdfa);
+  /* the counter: the Blender GLB (6.0 × .92 × 1.04 under a 6.24 × 1.06 slab,
+     its front face flat and blank at z −.46) or the two white boxes. The game
+     hangs "Fung & Cheng" on that face either way. */
+  if (have('dessert_counter')) iput(K.mdl('dessert_counter'), 0, 0, 0, 1, null);
+  else {
+    iput(K.white, 0, .52, 0, [6.0, 1.04, .92], null, 0xfcfbf7);
+    iput(K.white, 0, 1.075, 0, [6.24, .07, 1.06], null, 0xfefdfa);
+  }
   panel(g, F, scriptMat(), 3.0, .78, .35, .58, -.478);
 
-  /* the parasol, standing behind the counter's right half */
-  iput(K.rod, 1.05, 1.30, .34, [.045, 2.60, .045], null, PAL.OAK);
-  iput(K.cone, 1.05, 2.34, .34, [1.95, .30, 1.95], null, 0xfbf8f0);
-  iput(K.cone, 1.05, 2.70, .34, [1.16, .26, 1.16], null, 0xfbf8f0);
-  iput(K.flor, 1.05, 2.92, .34, [.05, .08, .05], null, PAL.OAK);
-  /* pearl strands + small blooms hanging off the canopy rim */
-  for (let i = 0; i < 16; i++) {
-    const a = (i / 16) * Math.PI * 2;
-    const rr = 1.02 + rnd() * .78;
-    const px = 1.05 + Math.cos(a) * rr, pz = .34 + Math.sin(a) * rr;
-    const n = 6 + Math.floor(rnd() * 8);
-    for (let k = 0; k < n; k++) {
-      iput(K.pearl, px, 2.30 - k * .105 - rnd() * .02, pz, [.036, .05, .036], [0, a, 0]);
-    }
-    if (rnd() > .45) {
-      iput(K.flor, px, 2.30 - n * .105, pz, [.085, .08, .085], null, bloomHue(rnd()));
+  /* the parasol, standing behind the counter's right half — the GLB carries
+     its own sixteen pearl strands and their blooms */
+  if (have('parasol_tiered')) iput(K.mdl('parasol_tiered'), 1.05, 0, .34, 1, null);
+  else {
+    iput(K.rod, 1.05, 1.30, .34, [.045, 2.60, .045], null, PAL.OAK);
+    iput(K.cone, 1.05, 2.34, .34, [1.95, .30, 1.95], null, 0xfbf8f0);
+    iput(K.cone, 1.05, 2.70, .34, [1.16, .26, 1.16], null, 0xfbf8f0);
+    iput(K.flor, 1.05, 2.92, .34, [.05, .08, .05], null, PAL.OAK);
+    /* pearl strands + small blooms hanging off the canopy rim */
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2;
+      const rr = 1.02 + rnd() * .78;
+      const px = 1.05 + Math.cos(a) * rr, pz = .34 + Math.sin(a) * rr;
+      const n = 6 + Math.floor(rnd() * 8);
+      for (let k = 0; k < n; k++) {
+        iput(K.pearl, px, 2.30 - k * .105 - rnd() * .02, pz, [.036, .05, .036], [0, a, 0]);
+      }
+      if (rnd() > .45) {
+        iput(K.flor, px, 2.30 - n * .105, pz, [.085, .08, .085], null, bloomHue(rnd()));
+      }
     }
   }
 
-  /* the service: two dispensers, two cupcake stands, plates of desserts */
-  for (const [dx, r, h] of [[-2.35, .155, .34], [-1.75, .145, .30]]) {
+  /* the service: two dispensers, two cupcake stands, plates of desserts. The
+     slab's top surface is y 1.11 — the base-origin GLBs sit on it. */
+  const TOP = 1.11;
+  [[-2.35, .155, .34], [-1.75, .145, .30]].forEach(([dx, r, h], i) => {
+    if (have('drink_dispenser')) { iput(K.mdl('drink_dispenser'), dx, TOP, -.05, i ? .93 : 1, null); return; }
     iput(K.flute, dx, 1.30, -.05, [r, h, r], null, 0xf4f6f4);
     iput(K.disc, dx, 1.30 + h / 2 + .03, -.05, [r * .8, .05, r * .8], null, PAL.OAK);
     iput(K.flor, dx, 1.16, -.05, [r * .85, .1, r * .85], null, 0xf0d9a4);
-  }
+  });
   for (const dx of [.15, .78]) {
+    if (have('cupcake_stand')) { iput(K.mdl('cupcake_stand'), dx, TOP, -.02, 1, null); continue; }
     iput(K.rod, dx, 1.22, -.02, [.028, .22, .028], null, 0xfdfcf8);
     iput(K.disc, dx, 1.34, -.02, [.26, .022, .26], null, 0xfdfcf8);
     for (let i = 0; i < 5; i++) {
@@ -586,14 +708,26 @@ function dessertBar(K, g, C, F) {
     iput(K.glass, 2.5 + (i % 4) * .16, 1.19, -.1 + Math.floor(i / 4) * .22, [.032, .16, .032]);
   }
 
-  /* the fluted plinths at the near end, and the florals that ground it */
-  iput(K.flute, -3.85, .48, -.35, [.30, .96, .30], null, 0xece0d2);
-  iput(K.flute, -3.25, .36, .05, [.26, .72, .26], null, 0xece0d2);
+  /* the fluted plinths at the near end — the GLB is a UNIT r .5 × h 1.0, so
+     the old [r, h, r] becomes [r / .5, h, r / .5] — and the florals that
+     ground it */
+  if (have('plinth_fluted')) {
+    iput(K.mdl('plinth_fluted'), -3.85, 0, -.35, [.60, .96, .60], null);
+    iput(K.mdl('plinth_fluted'), -3.25, 0, .05, [.52, .72, .52], null);
+  } else {
+    iput(K.flute, -3.85, .48, -.35, [.30, .96, .30], null, 0xece0d2);
+    iput(K.flute, -3.25, .36, .05, [.26, .72, .26], null, 0xece0d2);
+  }
   iput(K.flor, -3.85, .99, -.35, [.2, .06, .2], null, PAL.IVORY);
   iflor(-3.85, 1.14, -.35, .22, .16, .2, 12, .95);
   iflor(-3.25, .86, .05, .2, .14, .18, 10, .9);
-  iflor(-2.55, .34, -.42, .72, .34, .5, 30, 1.15);
-  iflor(2.55, .36, -.44, .80, .38, .52, 34, 1.2);
+  if (haveClusters()) {
+    clusterAt(K, -2.55, 0, -.42, 1.15, 0, F);
+    clusterAt(K, 2.55, 0, -.44, 1.2, 0, F);
+  } else {
+    iflor(-2.55, .34, -.42, .72, .34, .5, 30, 1.15);
+    iflor(2.55, .36, -.44, .80, .38, .52, 34, 1.2);
+  }
 
   colLineFrame(C, F, -3.0, 0, 3.0, 0, .62);
   colAt(C, F, -3.85, -.35, .5);
@@ -607,23 +741,29 @@ function wheelbarrow(K, g, C, F) {
      this and the part is built at the enclave origin instead (it happened) */
   const iput = (b, x, y, z, sc, rot, col) => put(b, x, y, z, sc, rot, col, F);
   const iflor = (x, y, z, rx, ry, rz, n, big) => bloomMass(K.flor, x, y, z, rx, ry, rz, n, big, F);
-  const pan = new THREE.Mesh(new THREE.CylinderGeometry(.48, .32, .34, 4), steelM);
-  pan.position.set(0, .60, 0);
-  pan.rotation.y = Math.PI / 4;
-  pan.scale.set(1.25, 1, .74);
-  pan.applyMatrix4(F);
-  g.add(pan);
-  for (const s of [-1, 1]) {
-    iput(K.dark, s * .30, .72, .82, [.028, 1.75, .028], [1.30, 0, 0], 0xaab1b6);
-    iput(K.dark, s * .28, .21, -.30, [.03, .42, .03], [.2, 0, 0], 0xaab1b6);
+  /* the GLB carries the pan, the wheel at −Z, the handles rising toward +Z and
+     the fifteen gold boxes; the primitive version is everything below it */
+  if (have('wheelbarrow')) iput(K.mdl('wheelbarrow'), 0, 0, 0, 1, null);
+  else {
+    const pan = new THREE.Mesh(new THREE.CylinderGeometry(.48, .32, .34, 4), steelM);
+    pan.position.set(0, .60, 0);
+    pan.rotation.y = Math.PI / 4;
+    pan.scale.set(1.25, 1, .74);
+    pan.applyMatrix4(F);
+    g.add(pan);
+    for (const s of [-1, 1]) {
+      iput(K.dark, s * .30, .72, .82, [.028, 1.75, .028], [1.30, 0, 0], 0xaab1b6);
+      iput(K.dark, s * .28, .21, -.30, [.03, .42, .03], [.2, 0, 0], 0xaab1b6);
+    }
+    iput(K.dark, 0, .19, -.78, [.19, .08, .19], [0, 0, Math.PI / 2], 0x26241f);
+    for (let i = 0; i < 15; i++) {
+      const bx = (rnd() - .5) * .92, bz = (rnd() - .5) * .44, by = .80 + (i % 3) * .07;
+      iput(K.gold, bx, by, bz, [.105, .12, .105], [0, rnd() * 1.6, 0], 0xd8bd80);
+      iput(K.flor, bx, by + .078, bz, [.048, .03, .048], null, PAL.IVORY);
+    }
   }
-  iput(K.dark, 0, .19, -.78, [.19, .08, .19], [0, 0, Math.PI / 2], 0x26241f);
-  for (let i = 0; i < 15; i++) {
-    const bx = (rnd() - .5) * .92, bz = (rnd() - .5) * .44, by = .80 + (i % 3) * .07;
-    iput(K.gold, bx, by, bz, [.105, .12, .105], [0, rnd() * 1.6, 0], 0xd8bd80);
-    iput(K.flor, bx, by + .078, bz, [.048, .03, .048], null, PAL.IVORY);
-  }
-  iflor(-.72, .3, .28, .55, .28, .4, 22, 1.05);
+  if (haveClusters()) clusterAt(K, -.72, 0, .28, 1.05, 0, F);
+  else iflor(-.72, .3, .28, .55, .28, .4, 22, 1.05);
   colAt(C, F, 0, 0, .78);
 }
 
@@ -635,24 +775,30 @@ function hatRack(K, g, C, F) {
   const iput = (b, x, y, z, sc, rot, col) => put(b, x, y, z, sc, rot, col, F);
   const iflor = (x, y, z, rx, ry, rz, n, big) => bloomMass(K.flor, x, y, z, rx, ry, rz, n, big, F);
   const SP = 3.5;
-  for (const s of [-1, 1]) {
-    iput(K.oak, s * SP / 2, 1.14, 0, [.085, 2.28, .085], null, PAL.OAK_D);
-    colAt(C, F, s * SP / 2, 0, .3);
+  for (const s of [-1, 1]) colAt(C, F, s * SP / 2, 0, .3);
+  /* the GLB: posts at x ±1.75, three lines, fifteen hats, the basket of spares
+     at (1.15, .62); else the posts, wires and discs below */
+  if (have('hat_rack')) iput(K.mdl('hat_rack'), 0, 0, 0, 1, null);
+  else {
+    for (const s of [-1, 1]) {
+      iput(K.oak, s * SP / 2, 1.14, 0, [.085, 2.28, .085], null, PAL.OAK_D);
+    }
+    const hat = (hx, hy) => {
+      iput(K.straw, hx, hy, -.05, [.20, .016, .20], [Math.PI / 2, 0, 0], 0xdcbd90);
+      iput(K.straw, hx, hy, -.10, [.115, .10, .115], [Math.PI / 2, 0, 0], 0xd2b083);
+      iput(K.straw, hx, hy, -.09, [.128, .034, .128], [Math.PI / 2, 0, 0], 0x352f28);
+    };
+    for (let r = 0; r < 3; r++) {
+      const y = 1.98 - r * .55;
+      const a = fpt(F, -SP / 2, y, 0), b = fpt(F, SP / 2, y, 0);
+      wireRun(K.wire, a.x, a.y, a.z, b.x, b.y, b.z, .035, 5);
+      for (let i = 0; i < 5; i++) hat(-SP / 2 + (i + .5) * (SP / 5), y - .21);
+    }
+    iput(K.flute, 1.15, .19, .62, [.42, .38, .42], null, 0xd6b98d);
+    for (let i = 0; i < 4; i++) hat(1.15 - .1 + i * .07, .52 + i * .03);
   }
-  const hat = (hx, hy) => {
-    iput(K.straw, hx, hy, -.05, [.20, .016, .20], [Math.PI / 2, 0, 0], 0xdcbd90);
-    iput(K.straw, hx, hy, -.10, [.115, .10, .115], [Math.PI / 2, 0, 0], 0xd2b083);
-    iput(K.straw, hx, hy, -.09, [.128, .034, .128], [Math.PI / 2, 0, 0], 0x352f28);
-  };
-  for (let r = 0; r < 3; r++) {
-    const y = 1.98 - r * .55;
-    const a = fpt(F, -SP / 2, y, 0), b = fpt(F, SP / 2, y, 0);
-    wireRun(K.wire, a.x, a.y, a.z, b.x, b.y, b.z, .035, 5);
-    for (let i = 0; i < 5; i++) hat(-SP / 2 + (i + .5) * (SP / 5), y - .21);
-  }
-  iput(K.flute, 1.15, .19, .62, [.42, .38, .42], null, 0xd6b98d);
-  for (let i = 0; i < 4; i++) hat(1.15 - .1 + i * .07, .52 + i * .03);
-  iflor(-1.9, .28, .5, .55, .26, .42, 22, 1.05);
+  if (haveClusters()) clusterAt(K, -1.9, 0, .5, 1.05, 0, F);
+  else iflor(-1.9, .28, .5, .55, .26, .42, 22, 1.05);
   colAt(C, F, 1.15, .62, .5);
 }
 
@@ -665,15 +811,30 @@ function plinthPair(K, g, C, F) {
   const iflor = (x, y, z, rx, ry, rz, n, big) => bloomMass(K.flor, x, y, z, rx, ry, rz, n, big, F);
   const P = [[-1.30, 1.98], [-.38, 1.40], [1.30, 1.78]];
   for (const [px, ph] of P) {
-    iput(K.white, px, ph / 2, 0, [.30, ph, .30], null, 0xfdfcf8);
+    /* the GLB is a UNIT .30 × .30 × 1.0 — scale Y to the height */
+    if (have('plinth_rect')) iput(K.mdl('plinth_rect'), px, 0, 0, [1, ph, 1], null);
+    else iput(K.white, px, ph / 2, 0, [.30, ph, .30], null, 0xfdfcf8);
     colAt(C, F, px, 0, .38);
   }
+  /* The floral TOPS stay bloomMass, deliberately. A `cluster_*` is a GROUND
+     cluster — 1.3 m wide with a flat foliage underside — and on a 0.30 m plinth
+     it reads as a parasol balanced on a post, not as an arrangement standing in
+     a vessel. INTEGRATION.md's cluster list is the aisle lining, the runs under
+     the towers, the clusters BESIDE each extra, the head-table ends and the
+     welcome-board base; a plinth top is none of those. (Tried, looked at,
+     reverted.) */
   iflor(-1.30, 2.18, 0, .46, .28, .38, 40, .95);
   iflor(1.30, 1.98, 0, .44, .26, .36, 38, .9);
   iflor(-.38, 1.52, 0, .22, .14, .2, 9, .9);
-  iflor(-1.65, .3, .28, .72, .34, .52, 30, 1.15);
-  iflor(1.55, .3, .3, .68, .32, .5, 28, 1.1);
-  /* the pearls: nine catenaries between the two tall plinths */
+  if (haveClusters()) {
+    clusterAt(K, -1.65, 0, .28, 1.15, 0, F);
+    clusterAt(K, 1.55, 0, .3, 1.1, 0, F);
+  } else {
+    iflor(-1.65, .3, .28, .72, .34, .52, 30, 1.15);
+    iflor(1.55, .3, .3, .68, .32, .5, 28, 1.1);
+  }
+  /* the pearls: nine catenaries between the two tall plinths — instanced beads
+     either way; the GLB plinths carry none */
   for (let s = 0; s < 9; s++) {
     const y0 = 1.86 - s * .045, sag = .38 + s * .085, n = 17;
     for (let i = 0; i <= n; i++) {
@@ -690,21 +851,25 @@ function coconutStand(K, g, C, F) {
   /* every instanced part of a prop goes through the prop's own frame — miss
      this and the part is built at the enclave origin instead (it happened) */
   const iput = (b, x, y, z, sc, rot, col) => put(b, x, y, z, sc, rot, col, F);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    iput(K.rod, sx * .34, 1.02, sz * .24, [.026, 2.04, .026], null, 0xfbfaf6);
-  }
-  for (let i = 0; i < 4; i++) {
-    const y = .42 + i * .48;
-    iput(K.white, 0, y, 0, [.74, .035, .54], null, 0xfbfaf6);
-    for (let k = 0; k < 2 + (i % 2); k++) {
-      iput(K.flor, -.22 + k * .22, y + .15, (rnd() - .5) * .2, [.125, .135, .125], null,
-        rnd() > .4 ? 0x7e9a52 : 0xc4bf95);
+  /* the GLB: four uprights, four shelves of young coconuts, the arch on top */
+  if (have('coconut_rack')) iput(K.mdl('coconut_rack'), 0, 0, 0, 1, null);
+  else {
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      iput(K.rod, sx * .34, 1.02, sz * .24, [.026, 2.04, .026], null, 0xfbfaf6);
     }
+    for (let i = 0; i < 4; i++) {
+      const y = .42 + i * .48;
+      iput(K.white, 0, y, 0, [.74, .035, .54], null, 0xfbfaf6);
+      for (let k = 0; k < 2 + (i % 2); k++) {
+        iput(K.flor, -.22 + k * .22, y + .15, (rnd() - .5) * .2, [.125, .135, .125], null,
+          rnd() > .4 ? 0x7e9a52 : 0xc4bf95);
+      }
+    }
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(.36, .026, 5, 14, Math.PI), frameW);
+    arch.position.set(0, 2.04, 0);
+    arch.applyMatrix4(F);
+    g.add(arch);
   }
-  const arch = new THREE.Mesh(new THREE.TorusGeometry(.36, .026, 5, 14, Math.PI), frameW);
-  arch.position.set(0, 2.04, 0);
-  arch.applyMatrix4(F);
-  g.add(arch);
   colAt(C, F, 0, 0, .5);
 }
 function beverageCart(K, g, C, F) {
@@ -712,22 +877,29 @@ function beverageCart(K, g, C, F) {
      this and the part is built at the enclave origin instead (it happened) */
   const iput = (b, x, y, z, sc, rot, col) => put(b, x, y, z, sc, rot, col, F);
   const iflor = (x, y, z, rx, ry, rz, n, big) => bloomMass(K.flor, x, y, z, rx, ry, rz, n, big, F);
-  iput(K.white, 0, .88, 0, [1.56, .07, .78], null, 0xfcfbf7);
-  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
-    iput(K.rod, sx * .70, .43, sz * .32, [.028, .86, .028], null, 0xfcfbf7);
-    iput(K.rod, sx * .74, 1.46, sz * .34, [.028, 1.10, .028], null, 0xfcfbf7);
+  /* the GLB: table, legs, canopy posts, the tilted scalloped canopy, thirteen
+     fruit, the steel bucket and two vases — its front edge is plain, the
+     "Beverage" cloth is hung by the game below either way */
+  if (have('beverage_cart')) iput(K.mdl('beverage_cart'), 0, 0, 0, 1, null);
+  else {
+    iput(K.white, 0, .88, 0, [1.56, .07, .78], null, 0xfcfbf7);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      iput(K.rod, sx * .70, .43, sz * .32, [.028, .86, .028], null, 0xfcfbf7);
+      iput(K.rod, sx * .74, 1.46, sz * .34, [.028, 1.10, .028], null, 0xfcfbf7);
+    }
+    iput(K.white, 0, 2.02, 0, [1.80, .045, 1.02], [0, 0, .05], 0xfaf8f2);
+    const fruit = [0x4e7a3c, 0xe6c455, 0xe08a3c, 0x6f4d78, 0xd8564a];
+    for (let i = 0; i < 13; i++) {
+      const s = .07 + rnd() * .07;
+      iput(K.flor, -.6 + rnd() * 1.2, .95 + s, (rnd() - .5) * .5, [s * 1.3, s, s * 1.1],
+        null, fruit[i % fruit.length]);
+    }
+    iput(K.flute, .58, 1.02, -.08, [.13, .22, .13], null, 0xb9c0c4);
+    iflor(-.5, 1.06, -.2, .14, .18, .12, 9, .95);
   }
-  iput(K.white, 0, 2.02, 0, [1.80, .045, 1.02], [0, 0, .05], 0xfaf8f2);
   panel(g, F, bevMat(), .82, .74, .06, .56, -.40);
-  const fruit = [0x4e7a3c, 0xe6c455, 0xe08a3c, 0x6f4d78, 0xd8564a];
-  for (let i = 0; i < 13; i++) {
-    const s = .07 + rnd() * .07;
-    iput(K.flor, -.6 + rnd() * 1.2, .95 + s, (rnd() - .5) * .5, [s * 1.3, s, s * 1.1],
-      null, fruit[i % fruit.length]);
-  }
-  iput(K.flute, .58, 1.02, -.08, [.13, .22, .13], null, 0xb9c0c4);
-  iflor(-.5, 1.06, -.2, .14, .18, .12, 9, .95);
-  iflor(-1.05, .3, .35, .6, .3, .45, 26, 1.1);
+  if (haveClusters()) clusterAt(K, -1.05, 0, .35, 1.1, 0, F);
+  else iflor(-1.05, .3, .35, .6, .3, .45, 26, 1.1);
   colLineFrame(C, F, -.8, 0, .8, 0, .5);
 }
 
@@ -748,20 +920,25 @@ function roundBar(K, g, C, F) {
   /* every instanced part of a prop goes through the prop's own frame — miss
      this and the part is built at the enclave origin instead (it happened) */
   const iput = (b, x, y, z, sc, rot, col) => put(b, x, y, z, sc, rot, col, F);
-  const PINE = [0xe0cba4, 0xd6bd92, 0xdcc59c, 0xd0b788];
-  const N = 30, BRR = 1.05;                        // 30 boards on a 1.05 m ring
-  for (let i = 0; i < N; i++) {
-    const a = (i / N) * Math.PI * 2;
-    iput(K.oak, Math.sin(a) * BRR, .52, Math.cos(a) * BRR,
-      [.215, 1.04, .045], [0, a, 0], PINE[i % 4]);
-  }
-  /* the top: a plank disc overhanging the drum, a darker shadow ring under
-     its rim, and thin dark seams so it reads as boards, not a slab */
-  iput(K.disc, 0, 1.045, 0, [1.16, .025, 1.16], null, 0xb59a6c);
-  iput(K.disc, 0, 1.10, 0, [1.24, .06, 1.24], null, 0xe3cfa6);
-  for (const sx of [-.86, -.44, 0, .44, .86]) {
-    const chord = 2 * Math.sqrt(Math.max(.05, 1.19 * 1.19 - sx * sx));
-    iput(K.oak, sx, 1.133, 0, [.018, .004, chord * .96], null, 0xb59a6c);
+  /* the drum + top: the GLB (30 boards on the 1.05 m ring, plank top to y 1.13,
+     nothing on it) or the instanced boards, discs and seams */
+  if (have('round_bar')) iput(K.mdl('round_bar'), 0, 0, 0, 1, null);
+  else {
+    const PINE = [0xe0cba4, 0xd6bd92, 0xdcc59c, 0xd0b788];
+    const N = 30, BRR = 1.05;                      // 30 boards on a 1.05 m ring
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      iput(K.oak, Math.sin(a) * BRR, .52, Math.cos(a) * BRR,
+        [.215, 1.04, .045], [0, a, 0], PINE[i % 4]);
+    }
+    /* the top: a plank disc overhanging the drum, a darker shadow ring under
+       its rim, and thin dark seams so it reads as boards, not a slab */
+    iput(K.disc, 0, 1.045, 0, [1.16, .025, 1.16], null, 0xb59a6c);
+    iput(K.disc, 0, 1.10, 0, [1.24, .06, 1.24], null, 0xe3cfa6);
+    for (const sx of [-.86, -.44, 0, .44, .86]) {
+      const chord = 2 * Math.sqrt(Math.max(.05, 1.19 * 1.19 - sx * sx));
+      iput(K.oak, sx, 1.133, 0, [.018, .004, chord * .96], null, 0xb59a6c);
+    }
   }
   const Y = 1.13;                                  // the top's working surface
 
@@ -769,22 +946,27 @@ function roundBar(K, g, C, F) {
      ⚠ NOT the K.dark bucket: tints MULTIPLY the material color and bronzeD's
      0x2e2a26 base crushes every bottle to black. K.rod's linen base is near
      white, so the glass colours actually read. */
-  const BOT = [0x3d5c3f, 0x8a5a28, 0xcdd6da, 0x7c3a2d, 0x33506e, 0x9c8144];
-  for (let i = 0; i < 11; i++) {
-    const a = -1.1 + i * .22;
-    const bx = Math.sin(a) * .72, bz = .38 + Math.cos(a) * .34 + (i % 3) * .07;
-    const h = .30 + (i % 4) * .035;
-    iput(K.rod, bx, Y + h / 2, bz, [.046, h, .046], null, BOT[i % 6]);
-    iput(K.rod, bx, Y + h + .05, bz, [.016, .11, .016], null, BOT[(i + 3) % 6]);
-  }
-  /* the shaker and two hawthorne strainers, right of the bottles */
-  iput(K.rod, .82, Y + .12, .18, [.082, .24, .082], null, 0xc6ccd1);
-  iput(K.rod, .82, Y + .27, .18, [.055, .07, .055], null, 0xb7bdc2);
-  for (const s of [0, 1]) {
-    iput(K.rod, .58 + s * .18, Y + .03, .52 + s * .08,
-      [.07, .012, .07], [.5, s * .8, .25], 0xb7bdc2);
-    iput(K.rod, .70 + s * .18, Y + .09, .60 + s * .08,
-      [.012, .16, .012], [1.2, s * .8, 0], 0xb7bdc2);
+  /* the GLB bottle_set (eleven bottles, the shaker, two strainers) is base-
+     origin and sits on the top at (0, 1.13, +.40); else the instanced bottles */
+  if (have('bottle_set')) iput(K.mdl('bottle_set'), 0, Y, .40, 1, null);
+  else {
+    const BOT = [0x3d5c3f, 0x8a5a28, 0xcdd6da, 0x7c3a2d, 0x33506e, 0x9c8144];
+    for (let i = 0; i < 11; i++) {
+      const a = -1.1 + i * .22;
+      const bx = Math.sin(a) * .72, bz = .38 + Math.cos(a) * .34 + (i % 3) * .07;
+      const h = .30 + (i % 4) * .035;
+      iput(K.rod, bx, Y + h / 2, bz, [.046, h, .046], null, BOT[i % 6]);
+      iput(K.rod, bx, Y + h + .05, bz, [.016, .11, .016], null, BOT[(i + 3) % 6]);
+    }
+    /* the shaker and two hawthorne strainers, right of the bottles */
+    iput(K.rod, .82, Y + .12, .18, [.082, .24, .082], null, 0xc6ccd1);
+    iput(K.rod, .82, Y + .27, .18, [.055, .07, .055], null, 0xb7bdc2);
+    for (const s of [0, 1]) {
+      iput(K.rod, .58 + s * .18, Y + .03, .52 + s * .08,
+        [.07, .012, .07], [.5, s * .8, .25], 0xb7bdc2);
+      iput(K.rod, .70 + s * .18, Y + .09, .60 + s * .08,
+        [.012, .16, .012], [1.2, s * .8, 0], 0xb7bdc2);
+    }
   }
 
   /* ── the four wedding cocktails, a row of each like the photo ──
@@ -822,40 +1004,43 @@ function roundBar(K, g, C, F) {
     iput(K.white, x + .012, Y + .272, z, [.018, .016, .018], null, 0xfdfbf6);
   }
 
-  /* ── the white menu easel, leaning beside the bar like the render ── */
-  {
-    const lean = new THREE.Euler(.16, .42, 0);
-    const n = new THREE.Vector3(0, 0, -1).applyEuler(lean);
-    const mb = new THREE.Mesh(new THREE.PlaneGeometry(.78, 1.10), menuMat());
-    mb.position.set(-1.78 + n.x * .03, .88 + n.y * .03, -.55 + n.z * .03);
-    mb.rotation.set(.16, .42 + Math.PI, 0);        // flush on the board's face
-    mb.applyMatrix4(F);
-    g.add(mb);
+  /* ── the white menu easel, leaning beside the bar like the render ──
+        the easel: the GLB (blank board .90 × 1.26, centre y .88, leaning back
+        .16, tripod legs; front −Z; origin under the board) turned .42 like the
+        old one, or the board box + three oak legs. The menu hangs off whichever
+        board is actually standing there — see easelPanel. */
+  const menuGLB = have('menu_easel');
+  if (menuGLB) iput(K.mdl('menu_easel'), -1.78, 0, -.55, 1, [0, .42, 0]);
+  else {
+    iput(K.white, -1.78, .88, -.55, [.9, 1.26, .045], [.16, .42, 0], 0xfdfcf8);
+    iput(K.oak, -2.0, .55, -.40, [.04, 1.24, .04], [-.2, .42, .12], 0xd6c09a);
+    iput(K.oak, -1.55, .55, -.48, [.04, 1.24, .04], [-.2, .42, -.12], 0xd6c09a);
+    iput(K.oak, -1.79, .5, -.02, [.04, 1.1, .04], [.3, .42, 0], 0xd6c09a);   // prop leg, BEHIND the board
   }
-  iput(K.white, -1.78, .88, -.55, [.9, 1.26, .045], [.16, .42, 0], 0xfdfcf8);
-  iput(K.oak, -2.0, .55, -.40, [.04, 1.24, .04], [-.2, .42, .12], 0xd6c09a);
-  iput(K.oak, -1.55, .55, -.48, [.04, 1.24, .04], [-.2, .42, -.12], 0xd6c09a);
-  iput(K.oak, -1.79, .5, -.02, [.04, 1.1, .04], [.3, .42, 0], 0xd6c09a);   // prop leg, BEHIND the board
+  easelPanel(g, menuMat(), .78, 1.10, -1.78, -.55, .42, menuGLB, F);
 
   /* ── the lavender/lilac + white cluster at its base — delphinium-purple
         roses, lilac and white stock over pale sage, per the render ── */
-  const LIL = [0x8f6fb5, 0xb391cc, 0xcbb4de, 0x9a7fc0, PAL.WHITE, 0xf1eef6,
-    PAL.CREAM, PAL.LEAF, PAL.LEAF_D];
-  for (let i = 0; i < 55; i++) {
-    const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd());
-    const x = -1.55 + Math.cos(a) * .75 * rr - .35 * rnd();
-    const z = -.15 + Math.sin(a) * .55 * rr;
-    const s = .05 + rnd() * .05;
-    iput(K.flor, x, .10 + rnd() * .5 * (1 - rr * .7), z,
-      [s, s * (.85 + rnd() * .3), s], null, LIL[Math.floor(rnd() * LIL.length)]);
-  }
-  for (let i = 0; i < 6; i++) {                    // the white stock spikes
-    const x = -2.05 + rnd() * .8, z = -.35 + rnd() * .55;
-    const h = .55 + rnd() * .45;
-    iput(K.rod, x, h / 2, z, [.008, h, .008], null, 0x9aa77f);
-    for (let k = 0; k < 4; k++) {
-      iput(K.flor, x + (rnd() - .5) * .04, h - .05 - k * .07, z + (rnd() - .5) * .04,
-        [.028, .026, .028], null, k ? 0xf6f3ec : 0xcbb4de);
+  if (have('lilac_cluster')) iput(K.mdl('lilac_cluster'), -1.6, 0, -.15, 1, [0, .42, 0]);
+  else {
+    const LIL = [0x8f6fb5, 0xb391cc, 0xcbb4de, 0x9a7fc0, PAL.WHITE, 0xf1eef6,
+      PAL.CREAM, PAL.LEAF, PAL.LEAF_D];
+    for (let i = 0; i < 55; i++) {
+      const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd());
+      const x = -1.55 + Math.cos(a) * .75 * rr - .35 * rnd();
+      const z = -.15 + Math.sin(a) * .55 * rr;
+      const s = .05 + rnd() * .05;
+      iput(K.flor, x, .10 + rnd() * .5 * (1 - rr * .7), z,
+        [s, s * (.85 + rnd() * .3), s], null, LIL[Math.floor(rnd() * LIL.length)]);
+    }
+    for (let i = 0; i < 6; i++) {                  // the white stock spikes
+      const x = -2.05 + rnd() * .8, z = -.35 + rnd() * .55;
+      const h = .55 + rnd() * .45;
+      iput(K.rod, x, h / 2, z, [.008, h, .008], null, 0x9aa77f);
+      for (let k = 0; k < 4; k++) {
+        iput(K.flor, x + (rnd() - .5) * .04, h - .05 - k * .07, z + (rnd() - .5) * .04,
+          [.028, .026, .028], null, k ? 0xf6f3ec : 0xcbb4de);
+      }
     }
   }
 
@@ -895,6 +1080,42 @@ function colLineFrame(list, F, x1, z1, x2, z2, r) {
 }
 /** a point in a prop's local frame, as a fresh Vector3 (for wire endpoints) */
 function fpt(F, x, y, z) { return new THREE.Vector3(x, y, z).applyMatrix4(F); }
+/* ── THE EASEL BOARD'S FACE, MEASURED ───────────────────────────────────────
+   `menu_easel` carries a BLANK board by contract and the game hangs its own
+   texture a few mm proud of it. The GLB's board is NOT where the old primitive
+   box was: raycasting the geometry along +Z at the board's own heights gives a
+   front face at **z −0.2102 at y .88**, leaning back .16 rad (dz/dy = +.1612,
+   atan → .1598 — the spec's lean, confirmed). The old box was .045 thick about
+   z 0, so its face sat at −.0225; hanging the panel at that offset puts it
+   **19 cm INSIDE** the GLB. That is not theoretical — it is what the first pass
+   of this integration shipped: the cocktail menu and the prewedding welcome
+   sign both went blank, each texture rendering correctly but behind the board.
+   The face normal leans with the board and points forward and slightly UP (a
+   board leaning back shows its face tilted toward you), which is exactly what
+   `(0,0,-1).applyEuler(lean, yaw, 0)` gives — so the ROTATION the old code used
+   was always right and only the reference point was wrong. */
+const EASEL_LEAN = .16;
+const EASEL_FACE_Y = .88;
+const EASEL_FACE_Z = -.2102;      // the GLB board's face, by raycast
+const EASEL_BOX_Z = -.0225;       // the old .045 box's face — the fallback path
+/** hang a texture on an easel's board face, 3 cm proud, parallel to the board.
+ *  (x, z) is the easel's foot, `yaw` its turn, `glb` which board is standing
+ *  there; `F` an optional prop frame the whole thing rides (the round bar's). */
+function easelPanel(g, mat, w, h, x, z, yaw, glb, F) {
+  const fz = glb ? EASEL_FACE_Z : EASEL_BOX_Z;
+  const n = new THREE.Vector3(0, 0, -1).applyEuler(new THREE.Euler(EASEL_LEAN, yaw, 0));
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+  m.position.set(
+    x + fz * Math.sin(yaw) + n.x * .03,
+    EASEL_FACE_Y + n.y * .03,
+    z + fz * Math.cos(yaw) + n.z * .03,
+  );
+  m.rotation.set(EASEL_LEAN, yaw + Math.PI, 0);   // flush on the board's face
+  if (F) m.applyMatrix4(F);
+  g.add(m);
+  return m;
+}
+
 /** a flat panel (a Mesh, not an instance) standing in a prop's local frame */
 function panel(g, F, mat, w, h, lx, ly, lz) {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
@@ -910,41 +1131,66 @@ function panel(g, F, mat, w, h, lx, ly, lz) {
    couple are Carl FUNG and Rachel CHENG. Every string below is the project's
    own copy (wedding-app / the title card), NOT a transcription off a render.
    The date is the render's and is correct — it is CFG.SEED, 2027-03-20. */
+/** an art plate from assets/art/, decoded async; a failure warns and leaves
+ *  the text-only paint in place (the words are the game's either way) */
+function loadArt(file, onload) {
+  const img = new Image();
+  img.onload = () => onload(img);
+  img.onerror = () => console.warn('moments: art plate failed to load —', ART_DIR + file);
+  img.src = ART_DIR + file;
+}
 function texWelcomeSign() {
   const c = document.createElement('canvas');
   c.width = 512; c.height = 896;
   const x = c.getContext('2d');
-  const gr = x.createLinearGradient(0, 0, 60, 896);
-  gr.addColorStop(0, '#f4f7f9'); gr.addColorStop(.5, '#e5ebef'); gr.addColorStop(1, '#cfd8de');
-  x.fillStyle = gr; x.fillRect(0, 0, 512, 896);
-  x.globalAlpha = .13; x.strokeStyle = '#8fa2ae'; x.lineWidth = 2;
-  for (let i = 0; i < 22; i++) {                 // a faint marble drift
-    x.beginPath();
-    const y0 = rnd() * 896;
-    x.moveTo(0, y0);
-    x.bezierCurveTo(170, y0 + (rnd() - .5) * 130, 340, y0 + (rnd() - .5) * 130, 512, y0 + (rnd() - .5) * 90);
-    x.stroke();
+  /* the marble drift's control points come off the seeded stream ONCE, here,
+     synchronously — the async repaint under the art replays them, so a late
+     image can never consume (or re-order) a draw */
+  const drift = [];
+  for (let i = 0; i < 22; i++) {
+    drift.push([rnd() * 896, (rnd() - .5) * 130, (rnd() - .5) * 130, (rnd() - .5) * 90]);
   }
-  x.globalAlpha = 1;
-  x.textAlign = 'center';
-  x.fillStyle = '#7f8c97';
-  x.font = 'italic 600 104px Georgia, "Times New Roman", serif';
-  x.fillText('Welcome', 256, 300);
-  x.font = '600 26px Georgia, serif';
-  x.fillText('T O   O U R   W E D D I N G', 256, 352);
-  x.fillStyle = '#77848f';
-  x.font = 'italic 600 78px Georgia, serif';
-  x.fillText('Carl', 256, 500);
-  x.font = 'italic 400 46px Georgia, serif';
-  x.fillText('&', 256, 566);
-  x.font = 'italic 600 78px Georgia, serif';
-  x.fillText('Rachel', 256, 646);
-  x.fillStyle = '#8b98a3';
-  x.font = '500 34px Georgia, serif';
-  x.fillText('2 0 2 7 . 0 3 . 2 0', 256, 742);
+  const paint = (img) => {
+    const gr = x.createLinearGradient(0, 0, 60, 896);
+    gr.addColorStop(0, '#f4f7f9'); gr.addColorStop(.5, '#e5ebef'); gr.addColorStop(1, '#cfd8de');
+    x.fillStyle = gr; x.fillRect(0, 0, 512, 896);
+    if (img) {
+      /* welcome-board-art.webp — the florals, no text — as the base layer */
+      x.drawImage(img, 0, 0, 512, 896);
+    } else {
+      x.globalAlpha = .13; x.strokeStyle = '#8fa2ae'; x.lineWidth = 2;
+      for (const [y0, d1, d2, d3] of drift) {       // a faint marble drift
+        x.beginPath();
+        x.moveTo(0, y0);
+        x.bezierCurveTo(170, y0 + d1, 340, y0 + d2, 512, y0 + d3);
+        x.stroke();
+      }
+      x.globalAlpha = 1;
+    }
+    /* the lettering, on top — the game's own copy. The plate's clear centre
+       runs y ≈ 262…718 (measured), so the block sits inside that band. */
+    x.textAlign = 'center';
+    x.fillStyle = '#7f8c97';
+    x.font = 'italic 600 104px Georgia, "Times New Roman", serif';
+    x.fillText('Welcome', 256, 350);
+    x.font = '600 26px Georgia, serif';
+    x.fillText('T O   O U R   W E D D I N G', 256, 398);
+    x.fillStyle = '#77848f';
+    x.font = 'italic 600 78px Georgia, serif';
+    x.fillText('Carl', 256, 505);
+    x.font = 'italic 400 46px Georgia, serif';
+    x.fillText('&', 256, 566);
+    x.font = 'italic 600 78px Georgia, serif';
+    x.fillText('Rachel', 256, 640);
+    x.fillStyle = '#8b98a3';
+    x.font = '500 34px Georgia, serif';
+    x.fillText('2 0 2 7 . 0 3 . 2 0', 256, 706);
+  };
+  paint(null);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
+  loadArt('welcome-board-art.webp', (img) => { paint(img); t.needsUpdate = true; });
   return t;
 }
 /** transparent script lettering, for the dessert bar's front */
@@ -1009,33 +1255,54 @@ function signMats() {
    The drink NAMES are the planner's own copy and are correct as written; only
    the surnames on that sheet were mis-romanised (see LETTERING above). */
 function texCocktailMenu() {
+  /* authored in a 320 × 448 space, rendered at 2× — the drinks are drawn art
+     now (assets/art/menu-drinks.webp), and worth the texels */
+  const S = 2;
   const c = document.createElement('canvas');
-  c.width = 320; c.height = 448;
+  c.width = 320 * S; c.height = 448 * S;
   const x = c.getContext('2d');
-  x.fillStyle = '#fdfbf4'; x.fillRect(0, 0, 320, 448);
-  x.textAlign = 'center';
-  x.fillStyle = '#e07b28';
-  x.font = '600 44px "Songti SC", Georgia, serif';
-  x.fillText('鸡尾酒', 160, 64);
-  x.font = 'italic 600 26px Georgia, serif';
-  x.fillText('Wedding Cocktails', 160, 102);
   const rows = [
     ['#e8722c', '与我常在'],
     ['#f0a0b8', '心动的旋律'],
     ['#e3c93e', '翠露晨光'],
     ['#c47a2e', '荔枝尼格罗尼'],
   ];
-  x.font = '500 30px "Songti SC", Georgia, serif';
-  rows.forEach(([col, name], i) => {
-    const y = 168 + i * 72;
-    x.fillStyle = col;
-    x.beginPath(); x.arc(56, y - 10, 13, 0, 6.3); x.fill();
-    x.fillStyle = '#5a5148';
-    x.fillText(name, 186, y);
-  });
+  /* the plate is RGBA, four 1024² quadrants in reading order = menu order:
+     the spritz in a stem, the pink coconut tall, the yellow highball, the
+     amber rocks. Each crop is the quadrant's measured alpha bbox [x, y, w, h]. */
+  const CROPS = [[372, 54, 281, 919], [366, 55, 291, 910], [321, 52, 381, 913], [261, 185, 530, 704]];
+  const paint = (img) => {
+    x.setTransform(S, 0, 0, S, 0, 0);
+    x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+    x.fillStyle = '#fdfbf4'; x.fillRect(0, 0, 320, 448);
+    x.textAlign = 'center';
+    x.fillStyle = '#e07b28';
+    x.font = '600 44px "Songti SC", Georgia, serif';
+    x.fillText('鸡尾酒', 160, 64);
+    x.font = 'italic 600 26px Georgia, serif';
+    x.fillText('Wedding Cocktails', 160, 102);
+    x.font = '500 30px "Songti SC", Georgia, serif';
+    rows.forEach(([col, name], i) => {
+      const y = 168 + i * 72;
+      if (img) {
+        /* the drink beside its name, 64 tall, aspect kept, where the dot was */
+        const [cx, cy, cw, ch] = CROPS[i];
+        const qx = (i % 2) * 1024, qy = (i >> 1) * 1024;
+        const h = 64, w = Math.min(56, h * cw / ch);
+        x.drawImage(img, qx + cx, qy + cy, cw, ch, 56 - w / 2, y - 12 - h / 2, w, h);
+      } else {
+        x.fillStyle = col;
+        x.beginPath(); x.arc(56, y - 10, 13, 0, 6.3); x.fill();
+      }
+      x.fillStyle = '#5a5148';
+      x.fillText(name, 186, y);
+    });
+  };
+  paint(null);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
+  loadArt('menu-drinks.webp', (img) => { paint(img); t.needsUpdate = true; });
   return t;
 }
 function menuMat() {
@@ -1075,7 +1342,7 @@ function dressCeremonyDecor(K, g, CC, seated) {
       /* the chairs draw NO rnd, so clearing them (seated = false) cannot
          shift the seeded stream — the row-end posies stay either way */
       if (seated) for (let i = 0; i < PER; i++) {
-        xbackChair(K.oak, K.chiffon, AX + side * (1.6 + i * .62), rz, 0, true);
+        chairAt(K, AX + side * (1.6 + i * .62), rz, 0, true);
       }
       bloomMass(K.flor, AX + side * 1.36, .95, rz - .1, .18, .13, .15, 10, .85);
     }
@@ -1097,22 +1364,36 @@ function dressCeremonyDecor(K, g, CC, seated) {
       const cz = 58.8 + t * 13.4;
       if (cz > 61.3 && cz < 67.0) continue;      // the seating's own frontage
       const big = .82 + t * .75;
-      bloomMass(K.flor, AX + side * (1.6 + rnd() * .6), .26 * big, cz,
-        .6 * big, .28 * big, .48 * big, Math.round(20 + t * 16), big);
+      /* ONE draw serves both the x jitter (as before) and the GLB variant */
+      const r = rnd();
+      const cx = AX + side * (1.6 + r * .6);
+      if (haveClusters()) clusterAt(K, cx, 0, cz, big, 0, undefined, r);
+      else bloomMass(K.flor, cx, .26 * big, cz, .6 * big, .28 * big, .48 * big, Math.round(20 + t * 16), big);
     }
     for (let i = 0; i < 5; i++) {                // the run right under the towers
-      bloomMass(K.flor, AX + side * (1.5 + rnd() * 2.5), .3, 68.2 + i * .95,
-        .68, .32, .54, 25, 1.05);
+      const r = rnd();
+      const cx = AX + side * (1.5 + r * 2.5);
+      if (haveClusters()) clusterAt(K, cx, 0, 68.2 + i * .95, 1.1, 0, undefined, r);
+      else bloomMass(K.flor, cx, .3, 68.2 + i * .95, .68, .32, .54, 25, 1.05);
     }
   }
 
   /* ── the two tall asymmetric floral installations, and the fabric flower ── */
-  installation(K, AX - 3.10, AZ + .30, 3.30, .62, true);
-  installation(K, AX + 3.10, AZ + .10, 2.95, -.58, false);
+  /* the GLB towers' origin is the tower AXIS at the foot (not the bbox centre),
+     so they land on the old towers' (cx, cz); yaw 0 in this frame puts the
+     hero's wing over the aisle toward +X and the small tower's toward −X,
+     exactly as the old `lean` did (models.json: hero x −1.0…+1.9, small
+     x −1.9…+1.0). */
+  if (have('installation_hero')) put(K.mdl('installation_hero'), AX - 3.10, 0, AZ + .30, 1, null);
+  else installation(K, AX - 3.10, AZ + .30, 3.30, .62, true);
+  if (have('installation_small')) put(K.mdl('installation_small'), AX + 3.10, 0, AZ + .10, 1, null);
+  else installation(K, AX + 3.10, AZ + .10, 2.95, -.58, false);
   CC.push({ x: AX - 3.10, z: AZ + .30, r: 1.05 }, { x: AX + 3.10, z: AZ + .10, r: 1.05 });
   /* the fabric flower sits AGAINST the +X tower, not floating between the two
-     — in the render the two masses overlap and read as one installation */
-  fabricFlower(K, AX + 1.35, 2.35, AZ + .28);
+     — in the render the two masses overlap and read as one installation. The
+     GLB's origin is the flower's CENTRE (its streamers hang 1.9 m below it). */
+  if (have('fabric_flower')) put(K.mdl('fabric_flower'), AX + 1.35, 2.35, AZ + .28, 1, null);
+  else fabricFlower(K, AX + 1.35, 2.35, AZ + .28);
 
   /* ── the two white arch frames, each hanging a crystal / pearl chandelier.
         Outboard of the seating and forward of the last row, so no post ever
@@ -1120,16 +1401,23 @@ function dressCeremonyDecor(K, g, CC, seated) {
   const ARC_R = 1.12, ARC_POST = 2.30, ARC_Z = 69.0;
   for (const s of [-1, 1]) {
     const ax = AX + s * 4.55;
-    for (const p of [-1, 1]) {
-      put(K.rod, ax + p * ARC_R, ARC_POST / 2, ARC_Z, [.048, ARC_POST, .048], null, 0xfcfbf7);
-      CC.push({ x: ax + p * ARC_R, z: ARC_Z, r: .3 });
+    for (const p of [-1, 1]) CC.push({ x: ax + p * ARC_R, z: ARC_Z, r: .3 });
+    /* the frame: the GLB (posts at x ±1.12, h 2.30, semicircle to the apex at
+       3.42 — spans X at yaw 0, like the torus) or the two rods + torus */
+    if (have('arch_frame')) put(K.mdl('arch_frame'), ax, 0, ARC_Z, 1, null);
+    else {
+      for (const p of [-1, 1]) {
+        put(K.rod, ax + p * ARC_R, ARC_POST / 2, ARC_Z, [.048, ARC_POST, .048], null, 0xfcfbf7);
+      }
+      const arc = new THREE.Mesh(new THREE.TorusGeometry(ARC_R, .048, 5, 20, Math.PI), frameW);
+      arc.position.set(ax, ARC_POST, ARC_Z);     // NO rotation.y — spans X
+      g.add(arc);
     }
-    const arc = new THREE.Mesh(new THREE.TorusGeometry(ARC_R, .048, 5, 20, Math.PI), frameW);
-    arc.position.set(ax, ARC_POST, ARC_Z);       // NO rotation.y — spans X
-    g.add(arc);
-    /* −.60 because beadShade's drop rod spans y … y + .60: the shade hangs
-       FROM the apex, it does not poke through it */
-    beadShade(K, ax, ARC_POST + ARC_R - .60, ARC_Z, .60, 5);
+    /* the chandelier: the GLB is hook-origin (y 0 = the hook, its own drop rod
+       hangs below), so it is placed AT the apex; beadShade's drop rod spans
+       y … y + .60, so the primitive is placed .60 under it */
+    if (have('bead_chandelier')) put(K.mdl('bead_chandelier'), ax, ARC_POST + ARC_R, ARC_Z, 1, null);
+    else beadShade(K, ax, ARC_POST + ARC_R - .60, ARC_Z, .60, 5);
   }
 
   /* ── the welcome board ── an arched slab of pale stone at the head of the
@@ -1164,8 +1452,13 @@ function dressCeremonyDecor(K, g, CC, seated) {
     board.rotation.y = -2.44;                    // faces back down the aisle
     g.add(board);
     CC.push({ x: sx, z: sz, r: .55 });
-    bloomMass(K.flor, sx + .45, .3, sz - .3, .55, .3, .45, 34, 1.1);
-    bloomMass(K.flor, sx - .5, .28, sz + .35, .48, .26, .4, 26, 1.0);
+    if (haveClusters()) {
+      clusterAt(K, sx + .45, 0, sz - .3, 1.1, -2.44);
+      clusterAt(K, sx - .5, 0, sz + .35, 1.0, -2.44);
+    } else {
+      bloomMass(K.flor, sx + .45, .3, sz - .3, .55, .3, .45, 34, 1.1);
+      bloomMass(K.flor, sx - .5, .28, sz + .35, .48, .26, .4, 26, 1.0);
+    }
   }
 
   /* ── THE EXTRAS ── on the −X flank of BEACH_LAWN (x −40…12, z 58…75),
@@ -1184,6 +1477,16 @@ function dressCeremonyDecor(K, g, CC, seated) {
 export function initMoments(G) {
   const groups = {};
   const cols = {};
+  /* published for main.js's shader warm-up: renderer.compile() traverses only
+     VISIBLE objects, so a material that lives solely in a hidden moment group
+     is not compiled behind the loading card and pays for itself mid-game the
+     first time that moment is shown. main.js makes all six visible across the
+     warm-up and restores them. (It used to be free by accident: every moment's
+     materials also existed in the ceremony, which is the moment dressed at
+     warm-up time. The GLB props ended that — the festoon's LineBasicMaterial
+     became dinner-only the moment the hat rack stopped drawing wire lines, and
+     the program count went 113 → 114 on the first dinner switch.) */
+  G.momentGroups = groups;
   for (const m of CFG.MOMENTS) {
     groups[m.id] = new THREE.Group();
     groups[m.id].name = `moment:${m.id}`;   // so tests can find a moment's props
@@ -1232,6 +1535,9 @@ export function initMoments(G) {
   let champPt;               // the champagne service — "Pour a glass" shares it
   {
     const g = groups.brunch;
+    /* the GLB buckets bake into this group, which is worldSpace — so their
+       instances are authored in WORLD coordinates and ride the group as-is */
+    const K = kit();
     const RF = SITE.HOTEL.ROOFTOP, DY = RF.deckY;
     const pt = (th, r) => HOTEL_ROOF.pt(th, r);
     /* a box laid flat on the terrace, turned to face the arc centre */
@@ -1318,27 +1624,36 @@ export function initMoments(G) {
        so it can never drift off the tables. */
     const BR = 101.85;
     const BTH = RF.poolTc;
-    for (let i = 0; i < 5; i++) {
-      const th = BTH - .028 + i * .014;
-      rbox(1.55, .74, 1.02, th, BR, DY + .37, linen);      // drape
-      rbox(1.60, .06, 1.12, th, BR, DY + .77, timber);     // the counter itself
-      rbox(1.56, .04, 1.08, th, BR, DY + .81, linen);      // runner over it
-    }
-    // chafing domes, fruit stands and a bread board along it
-    for (let i = 0; i < 4; i++) {
-      const th = BTH - .022 + i * .0147;
-      const dome = new THREE.Mesh(new THREE.SphereGeometry(.24, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), gold);
-      const p = pt(th, BR - .1); dome.position.set(p.x, DY + .83, p.z); g.add(dome);
-    }
-    for (let i = 0; i < 3; i++) {
-      const th = BTH - .018 + i * .018;
-      rcyl(.06, .34, th, BR + .34, DY + .99, gold, 10);
-      rcyl(.30, .05, th, BR + .34, DY + 1.18, linen, 16);
-      for (let j = 0; j < 6; j++) {
-        const f = new THREE.Mesh(new THREE.SphereGeometry(.065, 7, 6), j % 2 ? blush : foliage);
-        const p = pt(th, BR + .34);
-        f.position.set(p.x + (rnd() - .5) * .34, DY + 1.25, p.z + (rnd() - .5) * .34);
-        g.add(f);
+    if (have('buffet_run')) {
+      /* the 7 m GLB run (chafing dishes, platters, juice, plates on it) is
+         7.09 along X at yaw 0; yaw BTH lays it along the arc's tangent — the
+         same rotation rbox gives its segments — with its front (−Z) on the
+         inward radial, toward the tables and the water */
+      const p = pt(BTH, BR);
+      put(K.mdl('buffet_run'), p.x, DY, p.z, 1, [0, BTH, 0]);
+    } else {
+      for (let i = 0; i < 5; i++) {
+        const th = BTH - .028 + i * .014;
+        rbox(1.55, .74, 1.02, th, BR, DY + .37, linen);      // drape
+        rbox(1.60, .06, 1.12, th, BR, DY + .77, timber);     // the counter itself
+        rbox(1.56, .04, 1.08, th, BR, DY + .81, linen);      // runner over it
+      }
+      // chafing domes, fruit stands and a bread board along it
+      for (let i = 0; i < 4; i++) {
+        const th = BTH - .022 + i * .0147;
+        const dome = new THREE.Mesh(new THREE.SphereGeometry(.24, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), gold);
+        const p = pt(th, BR - .1); dome.position.set(p.x, DY + .83, p.z); g.add(dome);
+      }
+      for (let i = 0; i < 3; i++) {
+        const th = BTH - .018 + i * .018;
+        rcyl(.06, .34, th, BR + .34, DY + .99, gold, 10);
+        rcyl(.30, .05, th, BR + .34, DY + 1.18, linen, 16);
+        for (let j = 0; j < 6; j++) {
+          const f = new THREE.Mesh(new THREE.SphereGeometry(.065, 7, 6), j % 2 ? blush : foliage);
+          const p = pt(th, BR + .34);
+          f.position.set(p.x + (rnd() - .5) * .34, DY + 1.25, p.z + (rnd() - .5) * .34);
+          g.add(f);
+        }
       }
     }
     colLineY(cols.brunch, pt(BTH - .032, BR), pt(BTH + .032, BR), .62, DY - .6);
@@ -1358,22 +1673,28 @@ export function initMoments(G) {
        past: the coping strip seaward of it and the back paving behind it. */
     const CR = 99.6;
     const CTH = RF.poolTc + RF.poolTh - 1.0 / CR;
-    rcyl(.54, .80, CTH, CR, DY + .40, linen, 18);
-    rcyl(.58, .05, CTH, CR, DY + .82, linen, 18);
     {
       const p = pt(CTH, CR);
       champPt = p;
-      for (let row = 0; row < 3; row++) {
-        const n = 4 - row;
-        for (let i = 0; i < n; i++) {
-          const c = cyl(.052, .15, glassy, 8);
-          c.position.set(p.x - (n - 1) * .075 + i * .15, DY + .92 + row * .16, p.z);
-          g.add(c);
+      if (have('champagne_service')) {
+        /* the 1.6 × .8 draped service (two buckets, a tray of flutes), long
+           axis along the arc, front to the coping strip the walkers use */
+        put(K.mdl('champagne_service'), p.x, DY, p.z, 1, [0, CTH, 0]);
+      } else {
+        rcyl(.54, .80, CTH, CR, DY + .40, linen, 18);
+        rcyl(.58, .05, CTH, CR, DY + .82, linen, 18);
+        for (let row = 0; row < 3; row++) {
+          const n = 4 - row;
+          for (let i = 0; i < n; i++) {
+            const c = cyl(.052, .15, glassy, 8);
+            c.position.set(p.x - (n - 1) * .075 + i * .15, DY + .92 + row * .16, p.z);
+            g.add(c);
+          }
         }
+        // an ice bucket, and a second one on the deck
+        const bkt = cyl(.19, .26, gold, 14);
+        bkt.position.set(p.x + .55, DY + .95, p.z + .2); g.add(bkt);
       }
-      // an ice bucket, and a second one on the deck
-      const bkt = cyl(.19, .26, gold, 14);
-      bkt.position.set(p.x + .55, DY + .95, p.z + .2); g.add(bkt);
       cols.brunch.push({ x: p.x, z: p.z, r: .95, y0: DY - .6, __world: true });
     }
 
@@ -1405,10 +1726,19 @@ export function initMoments(G) {
           the arrivals rather than out to sea. ── */
     {
       const eth = RF.poolTc + RF.poolTh - .006, er = 98.9;
-      const ebd = rbox(.92, 1.24, .05, eth, er, DY + 1.02, linen);
-      ebd.rotation.y = eth + Math.PI / 2;
-      const elg = rbox(.07, 1.02, .07, eth - .12 / er, er, DY + .51, timber);
-      elg.rotation.y = eth + Math.PI / 2;
+      if (have('menu_easel')) {
+        /* the GLB's front is −Z at yaw 0; pt() puts local −Z at yaw θ on the
+           inward radial, so yaw θ − π/2 turns the board's face to +θ — along
+           the arc, at the arrivals off the cross-walk. Its board stays blank,
+           as the linen box was. */
+        const p = pt(eth, er);
+        put(K.mdl('menu_easel'), p.x, DY, p.z, 1, [0, eth - Math.PI / 2, 0]);
+      } else {
+        const ebd = rbox(.92, 1.24, .05, eth, er, DY + 1.02, linen);
+        ebd.rotation.y = eth + Math.PI / 2;
+        const elg = rbox(.07, 1.02, .07, eth - .12 / er, er, DY + .51, timber);
+        elg.rotation.y = eth + Math.PI / 2;
+      }
       cols.brunch.push({ ...pt(eth, er), r: .6, y0: DY - .6, __world: true });
     }
 
@@ -1423,18 +1753,18 @@ export function initMoments(G) {
           is already provided inland of the back wall: the lounger runs carry
           parasols between pairs (campus.js) and the daybeds have canopies. Do
           not reinstate anything tall on the aprons seaward of the coping. ── */
+    bakeKit(K, g);
   }
 
   /* ── 1 · PREWEDDING — the suite deck at night, lanterns on the water ── */
   {
     const g = groups.setup;
+    const K = kit();
     // high-tops scattered on the basalt deck, between the glass wall and turf
     for (let i = 0; i < 7; i++) {
-      const t = highTop();
       const x = -6.5 + i * 2.2 + (rnd() - .5) * .6;
       const z = D.z0 + 2.2 + rnd() * 3.4;
-      t.position.set(x, 0, z);
-      g.add(t);
+      highTopAt(K, g, x, z);
       cols.setup.push({ x, z, r: .5 });
     }
     // festoon lights strung from the roof overhang out to the turf edge
@@ -1442,23 +1772,38 @@ export function initMoments(G) {
       const x = -7 + i * 3.5;
       g.add(stringLights(x, D.z0 + .4, x + 1.6, SITE.TURF.z1, 3.6, .9, 10));
     }
-    // a welcome easel by the door
-    const easel = box(.9, 1.3, .05, linen);
-    easel.position.set(-3.4, 1.0, D.z0 + 1.2);
-    easel.rotation.y = .3; g.add(easel);
-    const legs = box(.06, 1.0, .06, timber);
-    legs.position.set(-3.4, .5, D.z0 + 1.3); g.add(legs);
+    /* a welcome easel by the door — the same easel the cocktail bar uses, and
+       the same blank-board contract, so the welcome sign hangs on the measured
+       face rather than at the old box's */
+    const wEaselGLB = have('menu_easel');
+    if (wEaselGLB) put(K.mdl('menu_easel'), -3.4, 0, D.z0 + 1.2, 1, [0, .3, 0]);
+    else {
+      const easel = box(.9, 1.3, .05, linen);
+      easel.position.set(-3.4, 1.0, D.z0 + 1.2);
+      easel.rotation.y = .3; g.add(easel);
+      const legs = box(.06, 1.0, .06, timber);
+      legs.position.set(-3.4, .5, D.z0 + 1.3); g.add(legs);
+    }
+    easelPanel(g, signMats()[0], .64, 1.12, -3.4, D.z0 + 1.2, .3, wEaselGLB);
     // champagne tower on a draped table
-    const tbl = cyl(.6, .78, linen, 18); tbl.position.set(7.5, .39, D.z0 + 3); g.add(tbl);
-    for (let r = 0; r < 3; r++) {
-      const n = 4 - r;
-      for (let i = 0; i < n; i++) {
-        const c = cyl(.05, .14, glassy, 8);
-        c.position.set(7.5 - (n - 1) * .07 + i * .14, .85 + r * .15, D.z0 + 3);
-        g.add(c);
+    if (have('champagne_tower')) {
+      /* the GLB's coupes are frosted and OPAQUE — this is the swap that
+         retires the `glassy` transmission material from the deck, and with it
+         the third campus render inside the mirror pass */
+      put(K.mdl('champagne_tower'), 7.5, 0, D.z0 + 3, 1, null);
+    } else {
+      const tbl = cyl(.6, .78, linen, 18); tbl.position.set(7.5, .39, D.z0 + 3); g.add(tbl);
+      for (let r = 0; r < 3; r++) {
+        const n = 4 - r;
+        for (let i = 0; i < n; i++) {
+          const c = cyl(.05, .14, glassy, 8);
+          c.position.set(7.5 - (n - 1) * .07 + i * .14, .85 + r * .15, D.z0 + 3);
+          g.add(c);
+        }
       }
     }
     cols.setup.push({ x: 7.5, z: D.z0 + 3, r: .7 });
+    bakeKit(K, g);
   }
 
   /* ── 2 · CEREMONY — the private beachfront lawn, facing the sea ────────────
@@ -1518,8 +1863,13 @@ export function initMoments(G) {
      byte-for-byte identical. This block keeps only what it always had minus
      the straight bar: the high-tops, the teal parasols, the canapé table and
      the festoon poles. ── */
+  /* the cocktail's kit is filled by BOTH cocktail blocks — this one and the
+     redress at the tail — and baked ONCE there, so every GLB kind and every
+     bucket is still one InstancedMesh for the moment */
+  const KC = kit();
   {
     const g = groups.cocktail;
+    const K = KC;
     const CX = 4;
     /* Eight high-tops. Nothing sits closer than 3 m to the COCKTAIL spawn at
        (4, 58.5) and nothing with a PARASOL closer than 6.5: a 1.7 m canopy at
@@ -1528,23 +1878,36 @@ export function initMoments(G) {
       [4.2, 65.2], [8.4, 65.8], [-3.4, 67.0], [9.2, 68.6]];
     for (const [dx, z] of spots) {
       const x = CX + dx;
-      const t = highTop(); t.position.set(x, 0, z); g.add(t);
+      highTopAt(K, g, x, z);
       cols.cocktail.push({ x, z, r: .5 });
     }
     // three teal parasols, the clubhouse's own colour, over the far tables
+    /* the GLB parasol is two meshes at one origin: pole + ribs untinted, and
+       the WHITE canopy in a tinted bucket carrying the teal as its instance
+       colour (the canopy_tint material is the one asset documented as
+       tintable). Both or neither, so a parasol is never half-swapped. */
+    const parasolGLB = have('parasol_round') && have('parasol_round_canopy');
     for (const [dx, z] of [[4.2, 65.2], [8.4, 65.8], [-3.4, 67.0]]) {
+      if (parasolGLB) {
+        put(K.mdl('parasol_round'), CX + dx, 0, z, 1, null);
+        put(K.mdl('parasol_round_canopy', true), CX + dx, 0, z, 1, null, TEAL_HEX);
+        continue;
+      }
       const pole = cyl(.045, 2.5, timber, 8);
       pole.position.set(CX + dx, 1.25, z); g.add(pole);
       const um = new THREE.Mesh(new THREE.ConeGeometry(1.7, .55, 12), teal);
       um.position.set(CX + dx, 2.68, z); g.add(um);
     }
     // a raw-bar / canapé table off to one side
-    const svc = cyl(.62, .8, linen, 18);
-    svc.position.set(CX - 5.4, .4, 64.6); g.add(svc);
-    for (let i = 0; i < 10; i++) {
-      const f = new THREE.Mesh(new THREE.SphereGeometry(.07, 7, 6), i % 3 ? blush : foliage);
-      f.position.set(CX - 5.4 + (rnd() - .5) * .8, .86, 64.6 + (rnd() - .5) * .8);
-      g.add(f);
+    if (have('canape_table')) put(K.mdl('canape_table'), CX - 5.4, 0, 64.6, 1, null);
+    else {
+      const svc = cyl(.62, .8, linen, 18);
+      svc.position.set(CX - 5.4, .4, 64.6); g.add(svc);
+      for (let i = 0; i < 10; i++) {
+        const f = new THREE.Mesh(new THREE.SphereGeometry(.07, 7, 6), i % 3 ? blush : foliage);
+        f.position.set(CX - 5.4 + (rnd() - .5) * .8, .86, 64.6 + (rnd() - .5) * .8);
+        g.add(f);
+      }
     }
     cols.cocktail.push({ x: CX - 5.4, z: 64.6, r: .8 });
     /* Festoon on six real poles. The runs go pole-to-pole at the poles' OWN z,
@@ -1621,7 +1984,16 @@ export function initMoments(G) {
         el.position.set(px + dir * POLE_R, POLE_H, pz);
         if (dir < 0) el.rotation.y = Math.PI;
         g.add(el);
-        candelabra(K, px + dir * POLE_R, POLE_H + POLE_R - .68, pz, .56);
+        /* the fixture hangs from the elbow's end. The GLB is hook-origin and
+           carries its own drop rod, so it is placed AT the hook; the primitive
+           candelabra() starts its rod .68 above the point it is given, so it
+           is placed .68 under it. candelabra_flames is a second GLB (emissive)
+           at the SAME hook — the K.lamp flames are the primitive's alone. */
+        const hx = px + dir * POLE_R, hy = POLE_H + POLE_R;
+        if (have('candelabra')) {
+          put(K.mdl('candelabra'), hx, hy, pz, 1, null);
+          if (have('candelabra_flames')) put(K.mdl('candelabra_flames'), hx, hy, pz, 1, null);
+        } else candelabra(K, hx, hy - .68, pz, .56);
         DC.push({ x: px, z: pz, r: .4 });
       }
 
@@ -1651,22 +2023,34 @@ export function initMoments(G) {
     /* ── the head table across the head of the walk, serving both lawns ── */
     {
       const hw = 6.0;
-      put(K.white, WX, .78, 13.2, [hw, .06, 1.0], null, PAL.IVORY);
-      put(K.white, WX, .385, 13.2, [hw - .06, .78, .96], null, 0xf6f0e4);
+      /* the ivory-draped head table: the GLB (6.07 × 1.08, top .80, front −Z
+         toward the dance floor) or the two white boxes */
+      const ht = have('head_table');
+      if (ht) put(K.mdl('head_table'), WX, 0, 13.2, 1, null);
+      else {
+        put(K.white, WX, .78, 13.2, [hw, .06, 1.0], null, PAL.IVORY);
+        put(K.white, WX, .385, 13.2, [hw - .06, .78, .96], null, 0xf6f0e4);
+      }
+      const HT = ht ? .80 : .81;
       for (let i = 0; i < 5; i++) {
         const cx2 = WX - 2.2 + i * 1.1;
-        bloomMass(K.flor, cx2, .93, 13.2, .26, .12, .2, 12, .9);
-        put(K.rod, cx2 + .5, .94, 13.0, [.022, .32, .022], null, PAL.IVORY);
-        put(K.lamp, cx2 + .5, 1.11, 13.0, [.033, .048, .033]);
+        bloomMass(K.flor, cx2, HT + .12, 13.2, .26, .12, .2, 12, .9);
+        put(K.rod, cx2 + .5, HT + .16, 13.0, [.022, .32, .022], null, PAL.IVORY);
+        put(K.lamp, cx2 + .5, HT + .33, 13.0, [.033, .048, .033]);
       }
       for (let i = 0; i < 6; i++) {
-        xbackChair(K.oak, null, WX - 2.5 + i, 14.5, Math.PI);
-        put(K.glass, WX - 2.5 + i, .87, 12.75, [.036, .18, .036]);
+        chairAt(K, WX - 2.5 + i, 14.5, Math.PI);
+        put(K.glass, WX - 2.5 + i, HT + .09, 12.75, [.036, .18, .036]);
       }
       colLine(DC, WX - 3.0, 13.2, WX + 3.0, 13.2, .6);
       /* and the ceremony's own blue-and-cream clusters at either end of it */
-      bloomMass(K.flor, WX - 3.3, .32, 13.0, .55, .3, .45, 24, 1.1);
-      bloomMass(K.flor, WX + 3.3, .32, 13.0, .55, .3, .45, 24, 1.1);
+      if (haveClusters()) {
+        clusterAt(K, WX - 3.3, 0, 13.0, 1.1, 0);
+        clusterAt(K, WX + 3.3, 0, 13.0, 1.1, 0);
+      } else {
+        bloomMass(K.flor, WX - 3.3, .32, 13.0, .55, .3, .45, 24, 1.1);
+        bloomMass(K.flor, WX + 3.3, .32, 13.0, .55, .3, .45, 24, 1.1);
+      }
     }
 
     /* ── the dance floor on the paving between the lawns, with the festoon
@@ -1683,19 +2067,39 @@ export function initMoments(G) {
   /* ── 5 · AFTER PARTY — the pool deck, DJ, mirror ball ── */
   {
     const g = groups.afterparty;
-    const booth = box(2.4, 1.1, .8, deckDark);
-    booth.position.set(0, .55, D.z0 + 1.4); g.add(booth);
-    const face = box(2.2, .5, .06, bulb);
-    face.position.set(0, .7, D.z0 + 1.0); g.add(face);
+    const K = kit();
+    /* the DJ booth: the GLB (2.4 × .8 × 1.1, laptop + controller + lamp on
+       top, front −Z as the old face was) with its emissive facia as a second
+       GLB at the same origin; else the dark box + bulb face */
+    if (have('dj_booth')) {
+      put(K.mdl('dj_booth'), 0, 0, D.z0 + 1.4, 1, null);
+      if (have('dj_booth_facia')) put(K.mdl('dj_booth_facia'), 0, 0, D.z0 + 1.4, 1, null);
+      else {
+        const face = box(2.2, .5, .06, bulb);
+        face.position.set(0, .7, D.z0 + 1.0); g.add(face);
+      }
+    } else {
+      const booth = box(2.4, 1.1, .8, deckDark);
+      booth.position.set(0, .55, D.z0 + 1.4); g.add(booth);
+      const face = box(2.2, .5, .06, bulb);
+      face.position.set(0, .7, D.z0 + 1.0); g.add(face);
+    }
     colLine(cols.afterparty, -1.2, D.z0 + 1.4, 1.2, D.z0 + 1.4, .6);
     for (const s of [-1, 1]) {
-      const sp = box(.6, 1.6, .5, deckDark);
-      sp.position.set(s * 3.2, .8, D.z0 + 1.2); g.add(sp);
+      if (have('speaker')) put(K.mdl('speaker'), s * 3.2, 0, D.z0 + 1.2, 1, null);
+      else {
+        const sp = box(.6, 1.6, .5, deckDark);
+        sp.position.set(s * 3.2, .8, D.z0 + 1.2); g.add(sp);
+      }
       cols.afterparty.push({ x: s * 3.2, z: D.z0 + 1.2, r: .5 });
     }
-    // mirror ball over the deck
-    const ball = new THREE.Mesh(new THREE.IcosahedronGeometry(.45, 1),
-      new THREE.MeshStandardMaterial({ color: 0xdfe6ea, roughness: .12, metalness: 1, flatShading: true }));
+    // mirror ball over the deck — a CLONE (models.get), not an instance, so
+    // the existing rotation ticker keeps turning it; origin at the ball's centre
+    let ball = have('mirror_ball') ? models.get('mirror_ball') : null;
+    if (!ball) {
+      ball = new THREE.Mesh(new THREE.IcosahedronGeometry(.45, 1),
+        new THREE.MeshStandardMaterial({ color: 0xdfe6ea, roughness: .12, metalness: 1, flatShading: true }));
+    }
     ball.position.set(0, 4.2, D.z0 + 4.5);
     g.add(ball);
     G.tickers.push((dt) => { ball.rotation.y += dt * .55; });
@@ -1704,12 +2108,17 @@ export function initMoments(G) {
       const x = -8 + i * 3.2;
       g.add(stringLights(x, D.z0 + .4, x + 2.4, SITE.TURF.z1, 4.0, 1.0, 12));
     }
-    // lounge seating out on the turf
+    // lounge seating out on the turf — the GLB sofa's front is −Z at yaw 0, so
+    // yaw π turns it to +Z, toward the pool, as the boxes were read
     for (const [x, z] of [[-9, -8], [9, -8], [-11, -4]]) {
-      const sofa = box(2.2, .55, .9, linen);
-      sofa.position.set(x, .28, z); g.add(sofa);
+      if (have('lounge_sofa')) put(K.mdl('lounge_sofa'), x, 0, z, 1, [0, Math.PI, 0]);
+      else {
+        const sofa = box(2.2, .55, .9, linen);
+        sofa.position.set(x, .28, z); g.add(sofa);
+      }
       cols.afterparty.push({ x, z, r: 1.1 });
     }
+    bakeKit(K, g);
   }
 
   /* ── 3b · COCKTAIL, the redress — Carl's ask #3, authored LAST on purpose ──
@@ -1730,7 +2139,7 @@ export function initMoments(G) {
      byte-for-byte as they did before this pass. Do not move it earlier. */
   {
     const g = groups.cocktail;
-    const K = kit();
+    const K = KC;                                  // the same kit block 3 filled
     dressCeremonyDecor(K, g, cols.cocktail, false);
     roundBar(K, g, cols.cocktail, frame(4, 68, 0));
     bakeKit(K, g);
