@@ -1,6 +1,7 @@
 // nature.js — the living half of the campus: ground, beach, ocean, palms and
-// planting. Everything is procedural geometry + CanvasTexture; no external
-// assets. Coordinates come from site.js (SITE.*) — nothing here invents its own.
+// planting. Everything HERE is procedural geometry + CanvasTexture (the
+// Blender GLB props live in moments.js / assets/models). Coordinates come
+// from site.js (SITE.*) — nothing here invents its own.
 //
 // Reference: reference/photos/clubhouse-aerial.jpeg + westin-site-map.jpeg —
 // a dense palm canopy over mown lawn, turquoise shallows going deep blue

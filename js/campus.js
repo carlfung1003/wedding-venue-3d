@@ -125,7 +125,8 @@ function nightOnly(mesh) {
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   canvas textures (no image files anywhere in this project)
+   canvas textures (the CAMPUS is procedural; the dressing props in
+   moments.js are Blender-authored GLBs since KAN-207 — see assets/blender/)
    ════════════════════════════════════════════════════════════════════════ */
 function tex(w, h, draw, repeat) {
   const c = document.createElement('canvas');
