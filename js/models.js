@@ -64,7 +64,18 @@ function prepMaterial(m) {
     m.emissiveIntensity = Math.max(m.emissiveIntensity || 1, 1);
     m.toneMapped = true;
   }
-  if (name === 'mirror') { m.metalness = 1; m.roughness = 0.12; }
+  if (name === 'mirror') {
+    /* A mirror is its reflection, not its albedo: the baked atlas is dark grey
+       (AO in every tile gap) and a dark base colour multiplied into a
+       metalness-1 reflection is a black ball — which is what the first
+       in-engine shot showed. Drop the map, use the light base the procedural
+       ball had, and let the PMREM environment do the work. */
+    m.map = null;
+    m.color.set(0xdfe6ea);
+    m.metalness = 1; m.roughness = 0.12;
+    m.envMapIntensity = 1.4;
+    m.needsUpdate = true;
+  }
   if (name === 'canopy_tint') m.color.set(0xffffff);
   if (name === 'crystal') {
     m.roughness = Math.min(m.roughness, 0.1); m.metalness = Math.max(m.metalness, 0.12);
