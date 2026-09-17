@@ -1,0 +1,17 @@
+{
+  "bytes": 20940,
+  "front": "-Z",
+  "material": "cupcake_stand",
+  "min": [
+    -0.26,
+    0.0,
+    -0.26
+  ],
+  "origin": "floor",
+  "size": [
+    0.52,
+    0.243,
+    0.52
+  ],
+  "tris": 1898
+}

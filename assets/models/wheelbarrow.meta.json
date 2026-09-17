@@ -1,0 +1,17 @@
+{
+  "bytes": 75704,
+  "front": "-Z",
+  "material": "wheelbarrow",
+  "min": [
+    -0.369,
+    0.0,
+    -1.132
+  ],
+  "origin": "floor",
+  "size": [
+    0.738,
+    1.003,
+    2.265
+  ],
+  "tris": 4980
+}

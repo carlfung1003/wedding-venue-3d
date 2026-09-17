@@ -1,0 +1,17 @@
+{
+  "bytes": 13028,
+  "front": "-Z",
+  "material": "drink_dispenser",
+  "min": [
+    -0.17,
+    0.0,
+    -0.197
+  ],
+  "origin": "floor",
+  "size": [
+    0.34,
+    0.528,
+    0.395
+  ],
+  "tris": 1046
+}

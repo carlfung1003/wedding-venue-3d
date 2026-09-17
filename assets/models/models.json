@@ -288,6 +288,23 @@
     ],
     "tris": 1512
   },
+  "cupcake_stand": {
+    "bytes": 20940,
+    "front": "-Z",
+    "material": "cupcake_stand",
+    "min": [
+      -0.26,
+      0.0,
+      -0.26
+    ],
+    "origin": "floor",
+    "size": [
+      0.52,
+      0.243,
+      0.52
+    ],
+    "tris": 1898
+  },
   "dessert_counter": {
     "bytes": 14004,
     "front": "-Z",
@@ -338,6 +355,23 @@
       0.02
     ],
     "tris": 12
+  },
+  "drink_dispenser": {
+    "bytes": 13028,
+    "front": "-Z",
+    "material": "drink_dispenser",
+    "min": [
+      -0.17,
+      0.0,
+      -0.197
+    ],
+    "origin": "floor",
+    "size": [
+      0.34,
+      0.528,
+      0.395
+    ],
+    "tris": 1046
   },
   "fabric_flower": {
     "bytes": 53824,
@@ -661,5 +695,22 @@
       0.715
     ],
     "tris": 1056
+  },
+  "wheelbarrow": {
+    "bytes": 75704,
+    "front": "-Z",
+    "material": "wheelbarrow",
+    "min": [
+      -0.369,
+      0.0,
+      -1.132
+    ],
+    "origin": "floor",
+    "size": [
+      0.738,
+      1.003,
+      2.265
+    ],
+    "tris": 4980
   }
 }
