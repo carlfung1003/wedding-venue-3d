@@ -133,6 +133,15 @@ async function frame(name) {
   console.log(`viewer: geometry('${name}') →`, geo, '| material →', mat && mat.name, '| meta', meta);
   if (!m) { hud.textContent = `${name}: NOT LOADED`; return { name, loaded: false }; }
   if (CAST) m.traverse((n) => { if (n.isMesh) n.castShadow = true; });
+  /* A hook-origin asset hangs DOWN from y = 0 (a chandelier's hook, not its
+     foot), so dropped at the origin it is entirely under the ground disc and
+     the shot comes back empty — which is how the first chandelier previews had
+     to be taken from a scratch script. Hang it where the game hangs it: its own
+     height above the ground, plus a little, so the drop clears the grass. */
+  if (meta && meta.origin === 'hook') {
+    const drop = (meta.size && meta.size[1]) || 2;
+    m.position.y = drop + 1.6;                  // 1.6 = eye height, the game's own hang
+  }
   holder.add(m);
   const f = fit();
   const tris = geo && geo.index ? geo.index.count / 3 : (geo ? geo.attributes.position.count / 3 : 0);

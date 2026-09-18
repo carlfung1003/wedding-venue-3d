@@ -224,19 +224,42 @@ def _activate_atlas_layer(me):
     return lay
 
 
-def unwrap(objs, margin=0.015):
+def unwrap(objs, margin=0.015, size=512, px=3.0):
+    """Smart-project and pack, with the gap between islands measured in PIXELS.
+
+    ⚠ The margin must be ADDITIVE, not normalised, and this is measured, not
+    taste. A normalised margin is a fraction of the atlas, so it does not shrink
+    as islands multiply: on installation_hero (~4,000 islands) the old
+    `smart_project(island_margin=.015)` + `pack_islands(margin=.0075)` left
+    **47.6 % of a 1024 atlas black** — the packer's per-island margins dominated
+    sub-20 px islands and it abandoned the top and right eighths entirely, so
+    every photographed bloom reduced to its average colour with black in the
+    gaps, and no bake margin could bridge it (8 → 24, EXTEND vs ADJACENT_FACES:
+    0.476 either way). The same islands with a 2 px ADDITIVE margin bake 5.3 %.
+
+    So the island margin is zero (the pack adds the real gap) and the pack gets
+    `px` pixels converted to normalised units for THIS atlas size. 3 px is the
+    default: the bake margin (8 px) fills outward from each island, so 3 px is
+    enough that two neighbours meet in the middle rather than sampling each
+    other, and it costs ~1 % of a 512 atlas even on a simple prop.
+
+    `margin` is kept for callers that pass it positionally; it is no longer used
+    for the pack, only as the floor for `px` when a caller asks for a wide gap.
+    """
+    gap = max(px, margin * size * 0.25) / float(size)
     for o in objs:
         _activate_atlas_layer(o.data)
     select_only(objs)
     bpy.ops.object.mode_set(mode='EDIT')
     bpy.ops.mesh.select_all(action='SELECT')
-    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=margin,
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.0,
                              scale_to_bounds=False)
     bpy.ops.uv.select_all(action='SELECT')
     try:
-        bpy.ops.uv.pack_islands(margin=margin / 2, rotate=True)
-    except TypeError:
-        bpy.ops.uv.pack_islands(margin=margin / 2)
+        bpy.ops.uv.pack_islands(margin=gap, margin_method='ADD', rotate=True,
+                                scale=True, shape_method='AABB')
+    except TypeError:                      # older Blender: no margin_method
+        bpy.ops.uv.pack_islands(margin=gap, rotate=True)
     bpy.ops.object.mode_set(mode='OBJECT')
 
 
@@ -298,6 +321,39 @@ def _bake(kind, **kw):
             raise
 
 
+def _mute_metallic(mats):
+    """Zero every Principled 'Metallic' for the duration of the DIFFUSE bake.
+
+    ⚠ Cycles' DIFFUSE-COLOR pass returns the DIFFUSE lobe only, and a metal has
+    none: at Metallic 1 the pass is black, and at the palette's 0.8 it is a
+    fifth of the real colour. Measured on this palette: steel baked 0.30 against
+    its 0.60, gold 0.63 against 0.85 — which is why the first chafing dishes,
+    ice buckets and barrow came out near-black and every generator since has
+    had to build metal parts as dielectric copies.
+
+    The albedo we want in the atlas is the base colour, so the fix is to bake
+    the base colour: mute Metallic, bake, restore. The GLB keeps its real
+    metalness, so the prop reflects the PMREM environment the way a metal
+    should. Sockets driven by a node are left alone (nothing to restore to).
+    """
+    stash = []
+    for m in mats:
+        if not m.use_nodes or m.node_tree is None:
+            continue
+        for n in m.node_tree.nodes:
+            s = n.inputs.get("Metallic") if hasattr(n, "inputs") else None
+            if s is None or s.is_linked or s.default_value == 0.0:
+                continue
+            stash.append((s, s.default_value))
+            s.default_value = 0.0
+    return stash
+
+
+def _restore_metallic(stash):
+    for s, v in stash:
+        s.default_value = v
+
+
 def bake_atlas(objs, name, size=512, ao_dist=0.5, ao_samples=48, ao_strength=0.5):
     """Bake DIFFUSE colour and an AO pass, multiply them, save textures/<name>.png.
     Prints the wall time per pass and the device used."""
@@ -331,7 +387,9 @@ def bake_atlas(objs, name, size=512, ao_dist=0.5, ao_samples=48, ao_strength=0.5
     sc.cycles.samples = 8
     col = _image(name + "_col", size)
     _set_bake_target(mats, col)
+    stash = _mute_metallic(mats)
     _bake('DIFFUSE', pass_filter={'COLOR'}, margin=8, use_clear=True)
+    _restore_metallic(stash)
     t1 = time.time()
 
     if all_emit or ao_strength <= 0:
@@ -458,7 +516,7 @@ def prepare_for_export(root, size=512, bevel_width=0.004, ao_dist=0.5, ao_streng
         return None
     if bevel_width > 0:
         L.bevel(objs, width=bevel_width)
-    unwrap(objs, margin=margin)
+    unwrap(objs, margin=margin, size=size)      # the island gap is in PIXELS of THIS atlas
     atlas = bake_atlas(objs, root.name, size=size, ao_dist=ao_dist, ao_strength=ao_strength)
     apply_baked(objs, root.name, atlas, mat_name=mat_name)
     root["wv_baked"] = 1
