@@ -344,6 +344,45 @@ is ABOVE the 8-arm tier (render + refsheet); the bead chandelier has a bell crow
 metal props are non-metallic materials; heads are ~35 % blue by count (reads
 half-and-half); foliage is folded sheets, not prisms (sub-pixel islands bake black).
 
+### THE RESORT FURNITURE — DONE 2026-09-18 (a second wave, same pipeline)
+
+Eight more GLBs (50 assets total, 183k triangles, 3.0 MB) for the furniture a
+guest stands beside on the roof and at the pool, which the wedding pass left as
+primitives: `sun_lounger`, `daybed`, `pool_umbrella` + `_canopy`, `four_top`,
+`dining_chair_rattan`, `bar_stool`, `kayak`. Their rows are **Group E** in
+`ASSET_SPEC.md`, each carrying the `file:line` in campus.js/water.js the
+dimensions came from — the GLB has to drop into colliders measured against the
+primitive. Draw calls FELL (five buckets replace ~50 placements); triangles rose
+almost entirely on the 128 woven dining chairs; programs held at 116 across 24
+views; lights and the walk test unchanged.
+
+⚠ **`main.js` now awaits the models BEFORE `buildWorld`.** campus.js and water.js
+build synchronously from `geometry()`/`material()` INSIDE `buildWorld`, so a GLB
+still in flight would leave a roof of boxes for the whole session with nothing to
+rebuild it. moments.js could load late; a builder cannot.
+
+⚠ **Two rotations were the whole risk.** The rooftop lounger's local +Z is
+radially outward — which is the head — so it takes no extra turn, while the three
+poolside call sites need `+ π` and get it from one shared prototype. And the
+rattan chair needs `ry = ca − π/2`, because campus.js's dining helper authors its
+back at local +X while the GLB faces −Z; `ry = ca` seats all 128 sideways.
+
+⚠ **`inst()` has a sixth call form now** (`modelI`), and the ONE-KEY-PER-PAIR rule
+covers it. Census: 141 keys / 0 collisions before, 146 / 0 after.
+
+`tools/shoot-moments.mjs` grew a `{ world: '<expr>' }` view form evaluated on the
+live page, because the crescent is `x ≥ 84`, fails `isEnclaveLocal`, and a rooftop
+camera pushed through `enclaveToWorld` lands 90° away. Its `feet` column caught
+two new cameras standing in the pool and off the terrace edge.
+
+**Deliberately still primitive here:** the rooftop parasols over the lounger row
+(a different envelope from the modelled Ø3.1 one), the river dressing's lounger
+slabs (an explicit distance LOD — "at 60 m up that is exactly as much lounger as
+reads"), and the brunch four-tops' four white box chairs — moments.js slipcovers
+those for the event, so in the only moment a guest is on that roof they read as
+slipcovered chairs. Swapping them is a look decision, not a drop-in: the GLB back
+is 1.07 m against the box's 0.87 m.
+
 ### Not in this pass (next)
 
 Palms, hedges, topiary and every `nature.js`/`water.js`/`campus.js` object; the
