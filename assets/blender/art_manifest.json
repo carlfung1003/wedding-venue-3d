@@ -1,5 +1,5 @@
 {
-  "_about": "gen_art.py manifest (KAN-207). Keys starting with _ are not entries. Every entry: kind (texture|plate|refsheet), prompt, aspect, size, refs[] (repo-relative, cut by _crops from the planner's renders), out, post (none|tile-check|tile-blend|key-green). The couple are Fung & Cheng / Carl & Rachel; no image carries any lettering — the game draws every word itself.",
+  "_about": "gen_art.py manifest (KAN-207). Keys starting with _ are not entries. Every entry: kind (texture|plate|refsheet), prompt, aspect, size, refs[] (repo-relative, cut by _crops from the planner's renders), out, post (none|tile-check|tile-blend|key-green|key-magenta|frond-atlas), optional dir (ROOT-relative destination; runtime textures go to assets/textures, NOT assets/blender/textures which .vercelignore hides). The couple are Fung & Cheng / Carl & Rachel; no image carries any lettering — the game draws every word itself.",
   "_crops": {
     "cer_tower_left": {
       "src": "decor-ceremony-main.jpg",
@@ -508,5 +508,83 @@
     "size": "2K",
     "refs": ["reference/crops/cer_tower_left.png", "reference/crops/cer_tower_right.png", "reference/crops/cer_cluster_left.png"],
     "prompt": "Object: a tall asymmetric florist's floral tower exactly like the attached reference: a teardrop mass of powder-blue hydrangea heads and cream and ivory garden roses over pale sage eucalyptus, widest near its base and drawn up to a narrow plume at the top that leans a little to one side, with a wing of blooms spilling sideways at chest height, a skirt of blooms spreading on the grass at its foot, and delphinium and eucalyptus sprigs breaking the silhouette. 3.3 m tall, about 1.6 m wide across the base."
+  },
+  "palm_frond": {
+    "kind": "texture",
+    "dir": "assets/textures",
+    "out": "frond.webp",
+    "aspect": "16:9",
+    "size": "4K",
+    "max": 2600,
+    "side": 1024,
+    "magenta": true,
+    "tile": false,
+    "bleed": 14,
+    "lossless": false,
+    "quality": 92,
+    "dup": 0.5,
+    "dup_dark": 0.72,
+    "balance": { "target": "#3b5928", "ref": "opaque-mean" },
+    "post": "frond-atlas; balanced to #3b5928",
+    "prompt": "One single complete coconut palm frond, freshly cut, laid out perfectly flat and dead straight and photographed from directly above so that it fills the frame from the far left edge to the far right edge: the smooth pale yellow-green woody rachis runs exactly horizontally across the middle of the frame, thick at its cut butt on the left and tapering to a fine point at the right, and MORE THAN A HUNDRED very long, very narrow ribbon-shaped leaflets on EACH side are packed tightly and evenly along the whole length of it, each leaflet only a centimetre or two wide, neighbouring leaflets almost touching with only a hairline of backdrop between them, every leaflet sweeping smoothly outward and angled toward the tip of the frond and tapering to a fine sharp point. The leaflets are longest through the middle third of the frond and shorten toward both the butt and the tip, giving the whole frond a long slender leaf-shaped outline. Rich deep tropical green, a little lighter and yellower along the rachis, a few older leaflets dried to straw-yellow, fine parallel veins, a natural satin sheen, sharp focus from end to end.",
+    "note": "⚠ Magenta, not green — chroma_key.py's module docstring has the measurement. The frond-atlas post composites the keyed plate into crownGeo's exact UV layout (blade v .15…1, rachis v .575, coconut patch v 0….12); frond_atlas() prints the rachis row and the leaflet count so density can be judged as a number rather than by eye. DENSITY IS THE WHOLE RISK: the canvas frondTex it replaces draws ~150 leaflets a side, and the mesh is 4.6 m long, so a photograph with 30 reads as a stringy fan."
+  },
+  "palm_bark": {
+    "kind": "texture",
+    "dir": "assets/textures",
+    "out": "bark.webp",
+    "aspect": "16:9",
+    "size": "2K",
+    "max": 1024,
+    "flatten": 0.35,
+    "flatten_amount": 1.0,
+    "blend": 0.10,
+    "balance": { "target": "#726450", "ref": "mean" },
+    "post": "tile-blend; flattened 0.35; balanced to #726450",
+    "prompt": "Close-up photograph of the trunk of a mature coconut palm, seen straight on from a couple of metres away and filling the whole frame with nothing else in it: the stacked horizontal leaf-scar rings that a coconut palm's trunk is made of, running dead straight and level across the frame from the left edge to the right edge, about four rings from the top edge to the bottom edge. Each ring is a broad, slightly raised band of grey-brown fibrous wood separated from the one above it by a narrower darker recessed groove; the bands are weathered pale silver-grey where the sun has bleached them and warmer red-brown in the shade of the grooves, with fine vertical fibres, short shallow cracks, a few pale grey-green lichen blotches and a scatter of tiny dark specks. Flat even overcast light, sharp focus, no leaves, no sky, no background.",
+    "note": "16:9 because that is the real aspect of one tile: nature.js maps this at repeat (1.2, 16) onto an 11.5 m trunk of ~0.25 m radius, so a tile covers 1.31 m of circumference by 0.72 m of height — 1.82:1, and a square texture would render every ring feature stretched. Four rings per tile = an 18 cm scar pitch, against the 3 cm the 22-ring canvas gave."
+  },
+  "hedge_foliage": {
+    "kind": "texture",
+    "dir": "assets/textures",
+    "out": "hedge.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 1024,
+    "tile": "fill",
+    "balance": { "target": "#305027", "ref": "mean" },
+    "post": "tile-blend; balanced to #305027",
+    "prompt": "Photograph of the clipped face of a dense tropical garden hedge taken straight on from half a metre away, filling the whole frame: hundreds of small glossy dark-green leaves about the size of a thumbnail, oval and pointed like ficus or podocarpus, packed shoulder to shoulder in a tight even mass at slightly different depths and angles so that no soil, no branch, no sky and no gap shows anywhere. Deep near-black shadow in the pockets between the leaves, crisp specular highlights on the leaves that catch the light, a scatter of paler yellow-green new leaves, one or two leaves flecked brown. Clipped flat so the surface as a whole is even. Sharp focus across the whole frame.",
+    "note": "tile: fill + tile-blend, the manifest's standing lesson for organic masses — asking for 'seamless tileable' returns a printed wallpaper with an internal repeat."
+  },
+  "shrub_foliage": {
+    "kind": "texture",
+    "dir": "assets/textures",
+    "out": "shrub.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 1024,
+    "tile": true,
+    "balance": { "target": "#385b2c", "ref": "mean" },
+    "blend": 0.06,
+    "blend_axis": "y",
+    "post": "tile-blend; y axis only 0.06; balanced to #385b2c",
+    "prompt": "Photograph looking straight down into a loose tropical understory planting bed, filling the whole frame with foliage and no soil, mulch, path or sky showing anywhere: broad glossy mid-green leaves, long narrow strappy jade-green blades fanning out from their crowns, soft grey-green fern fronds, and three or four croton plants whose long leaves are mottled and veined in crimson, burgundy, orange and egg-yellow, everything overlapping at several depths so the mass reads as loose and layered rather than clipped, with deep shadow in the gaps between the clumps. Even soft daylight, sharp focus, every leaf different.",
+    "note": "Feeds BOTH MAT.shrub and MAT.cover in nature.js, which share it — the canvas build generated shrubTex() twice for the same pixels."
+  },
+  "bougainvillea": {
+    "kind": "texture",
+    "dir": "assets/textures",
+    "out": "boug.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 1024,
+    "tile": true,
+    "balance": { "target": "#3a382a", "ref": "mean" },
+    "blend": 0.06,
+    "blend_axis": "y",
+    "post": "tile-blend; y axis only 0.06; balanced to #3a382a",
+    "prompt": "Photograph of a bougainvillea bush in flower taken straight on from half a metre away, filling the whole frame: papery bracts in deep magenta and rose-pink, each flower a rosette of three thin triangular bracts with a tiny cream-white trumpet at its centre, carried in loose clusters scattered over a dense mass of small dark-green pointed leaves and fine reddish woody stems. Roughly ONE THIRD flower and TWO THIRDS dark foliage — the leaves dominate and the bracts are an accent through them, not a solid sheet of pink — with deep shadow pockets between the clusters so the bush reads as deep rather than flat. No wall, no sky, no ground, no pot: foliage and flower fill the frame to every edge. Even soft daylight, sharp focus.",
+    "note": "⚠ NOT keyed and NOT shot on a chroma backdrop — the subject IS magenta. The one-third/two-thirds weighting is deliberate: nature.js tints every mound with setHSL(.9…, .55…, .45…) on top of this map, so a bract-heavy texture comes out fluorescent, which is the exact note Carl gave on the first bougainvillea pass."
   }
 }

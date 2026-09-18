@@ -88,6 +88,67 @@ function tex(w, h, draw, repeat, srgb = true) {
   return t;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════
+   PHOTOGRAPHIC FOLIAGE MAPS  (assets/textures/*.webp, KAN-207 pass 3)
+   ═══════════════════════════════════════════════════════════════════════
+   The palms, hedges, shrub masses and bougainvillea are the vegetation in every
+   frame of every moment — ~280 palms alone — and until now every one of them wore
+   a <canvas> drawing. They now wear generated PHOTOGRAPHS (assets/blender/
+   art_manifest.json → gen_art.py; Vertex `gemini-3-pro-image`).
+
+   ⚠ THE CANVAS RECIPES BELOW ARE NOT DEAD CODE — THEY ARE THE BOOT FALLBACK.
+   world.js builds this module synchronously and the first frame must not wait on
+   a network round trip, so every material is still built with its CanvasTexture
+   and the photograph is swapped in on load. If a file 404s (or the deploy hides
+   it — see the note on assets/textures below) the campus renders exactly as it
+   did before, which is why the canvas recipes keep their comments and their
+   seeds. The canvas texture is disposed once its replacement is in.
+
+   ⚠ REPEAT / WRAP / COLORSPACE ARE A CONTRACT WITH THE GEOMETRY, not a property
+   of the file: barkTex's (1.2, 16) is what puts leaf-scar rings at a plausible
+   pitch on an 11.5 m trunk, hedgeTex's (2, 1) is what stops a 2.1 m hedge segment
+   reading as one giant leaf, and the frond atlas MUST stay ClampToEdge because
+   crownGeo samples a layout (blade v .15…1, rachis v .575, coconut patch v 0….12)
+   whose edges would otherwise bleed into each other. So the table lives HERE, next
+   to the recipes it replaces, and photoMap() applies it to whatever arrives.
+
+   ⚠ assets/textures/, NOT assets/blender/textures/. The latter is a bake input and
+   .vercelignore hides the whole of assets/blender/ from the CLI deploy — a runtime
+   texture left in there works on localhost and 404s in production. */
+const PHOTO_LOADER = new THREE.TextureLoader();
+
+function photoMap(mats, file, repeat, clamp = false) {
+  const url = new URL(`../assets/textures/${file}`, import.meta.url).href;
+  PHOTO_LOADER.load(url, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace;          // colour maps only (house rule)
+    t.anisotropy = 8;                             // matches tex()
+    t.wrapS = t.wrapT = clamp ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
+    if (repeat) t.repeat.set(repeat[0], repeat[1]);
+    for (const m of mats) {
+      if (!m) continue;
+      const old = m.map;
+      m.map = t;
+      /* Same program: USE_MAP was already defined (the canvas map was there), so
+         this is a cache hit, not a compile — `programs` must stay 116. */
+      m.needsUpdate = true;
+      if (old && old.isCanvasTexture && old !== t) old.dispose();
+    }
+  }, undefined, () => {
+    console.warn(`nature: ${file} did not load — keeping the canvas fallback`);
+  });
+}
+
+/* Called once from buildNature(), after every material exists. */
+function loadPhotoMaps() {
+  photoMap([MAT.bark], 'bark.webp', [1.2, 16]);
+  photoMap([MAT.frond], 'frond.webp', null, true);
+  photoMap([MAT.hedge], 'hedge.webp', [2, 1]);
+  /* ONE texture for both: MAT.cover has always been MAT.shrub's pixels at the same
+     repeat — the canvas build just generated shrubTex() twice for them. */
+  photoMap([MAT.shrub, MAT.cover], 'shrub.webp', [2, 2]);
+  photoMap([MAT.boug], 'boug.webp', [2, 2]);
+}
+
 /* a speck that wraps across the canvas seams, so tiled ground never shows a grid */
 function wrapDot(g, x, y, r, w, h) {
   g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
@@ -307,6 +368,10 @@ function foamTex(seed, softness) {
 }
 
 /* coconut-palm trunk: stacked leaf-scar rings, grey-brown, lichen mottle.
+   ⚠ BOOT FALLBACK ONLY — assets/textures/bark.webp replaces this on load (see
+   PHOTOGRAPHIC FOLIAGE MAPS). The photograph carries four rings per tile against
+   this canvas's 22, which at repeat (1.2, 16) on an 11.5 m trunk is an 18 cm scar
+   pitch rather than 3 cm — i.e. the pitch this comment always claimed.
    Rings are the read that says "coconut palm" rather than "pole", so they are
    deliberately high-contrast — at 16 repeats over an 11 m trunk that lands at
    roughly the real 25 cm scar pitch. */
@@ -341,7 +406,10 @@ function barkTex() {
   }, [1.2, 16]);
 }
 
-/* Frond atlas. Texture v 0.15→1 is the frond (leaflet comb, alpha-cut);
+/* Frond atlas. ⚠ BOOT FALLBACK ONLY — assets/textures/frond.webp replaces this on
+   load, composited by gen_art.py's frond_atlas() into THIS EXACT LAYOUT. If you
+   change the layout here, change it there.
+   Texture v 0.15→1 is the frond (leaflet comb, alpha-cut);
    v 0→0.10 is a solid coconut-brown patch the nut geometry samples, so the
    whole crown stays ONE material / ONE draw call per variant. */
 function frondTex() {
@@ -393,7 +461,8 @@ function frondTex() {
   });
 }
 
-/* clipped hedge / topiary: dense tight foliage */
+/* clipped hedge / topiary: dense tight foliage.
+   ⚠ BOOT FALLBACK ONLY — assets/textures/hedge.webp replaces this on load. */
 function hedgeTex() {
   return tex(256, 256, (g, w, h) => {
     const rnd = mulberry32(NAT.SEEDS.tex + 7);
@@ -411,7 +480,9 @@ function hedgeTex() {
   }, [2, 1]);
 }
 
-/* looser tropical shrub leaves — bigger blades, jade/olive spread */
+/* looser tropical shrub leaves — bigger blades, jade/olive spread.
+   ⚠ BOOT FALLBACK ONLY — assets/textures/shrub.webp replaces this on load, for
+   BOTH MAT.shrub and MAT.cover. */
 function shrubTex() {
   return tex(256, 256, (g, w, h) => {
     const rnd = mulberry32(NAT.SEEDS.tex + 8);
@@ -431,7 +502,13 @@ function shrubTex() {
   }, [2, 2]);
 }
 
-/* Bougainvillea — an ACCENT, not a colour field. In the aerials it is a
+/* Bougainvillea — an ACCENT, not a colour field.
+   ⚠ BOOT FALLBACK ONLY — assets/textures/boug.webp replaces this on load. That
+   photograph is deliberately ~one third bract to two thirds dark leaf and is
+   balanced to THIS canvas's measured mean (#3a382a), for the reason below: the
+   mounds are tinted setHSL(.9…) on top of the map, so a bract-heavy texture comes
+   out fluorescent.
+   In the aerials it is a
    scatter of small rose patches half-lost in dark leaf, so this texture is
    mostly foliage with deep-rose bracts through it, and nothing near the
    fluorescent magenta the first pass used. */
@@ -1643,6 +1720,8 @@ export function buildNature(G) {
   buildOcean(shoreX);
   const palmCount = buildPalms(G, blocked, preColliders);
   const under = buildUnderstory(G, blocked, encRoot);
+  /* every MAT.* the photographs replace now exists — see PHOTOGRAPHIC FOLIAGE MAPS */
+  loadPhotoMaps();
 
   /* ── one ticker for the whole of nature ── */
   const w = [0, 0, 0];

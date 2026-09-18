@@ -25,7 +25,8 @@ The three stages that matter:
           baked into the image would silently squash the character.
 
 Usage: chroma_key.py IN.png OUT.png [--tol auto] [--soft auto] [--pad 8] [--max 2048]
-                                    [--nocrop] [--mode hue|flat] [--unmix] [--erode N]
+                                    [--nocrop] [--mode hue|magenta|flat] [--unmix]
+                                    [--erode N] [--bleed N]
 
 wedding-venue-3d copy (2026-09-15) of seventh-floor's keyer. Two additions:
 
@@ -33,7 +34,27 @@ wedding-venue-3d copy (2026-09-15) of seventh-floor's keyer. Two additions:
            addresses each quarter by UV, so trimming the whole sheet to its alpha
            bounding box would move the quadrant centres. Keeps the full frame.
 
---mode flat   a second keyer for subjects that CONTAIN green or yellow. The hue-ratio
+--mode magenta   ⚠ THE KEY FOR ANY GREEN SUBJECT. A green leaf on a green screen is
+           the same failure as black hair on black: `greenness` cannot tell a palm
+           frond from the wall behind it. Measured on a test plate (a coconut frond
+           shot on flat magenta): subject mean #60782f, backdrop #ee5bb9, and the
+           correlation between alpha and BRIGHTNESS is -0.80 — a luminance key would
+           deliver the matte inverted, which is the bug that once deleted 66% of a
+           character in seventh-floor. Magenta is green's opposite, so the SAME hue
+           ratio works with its sign flipped: magentaness = ((r+b)/2 - g) / (r+g+b).
+           Everything else — the border-ring threshold, the speck drop, the enclosed
+           hole fill, the despill — is the green keyer's, unchanged.
+
+--bleed N  ⚠ REQUIRED FOR A MAGENTA PLATE, and free insurance on a green one. The
+           keyer leaves the BACKDROP's colour under alpha 0. three builds mipmaps on
+           the RGB channels without regard to alpha, so at distance those pixels
+           average into the visible ones: on a green screen that is a green fringe on
+           green leaves (invisible), on a MAGENTA screen it is a pink halo around
+           every frond on the campus. `--bleed N` floods the subject's own colour N
+           pixels out into the transparent region and fills whatever is left with the
+           subject's mean, so every mip level averages foliage with foliage.
+
+--mode flat   a third keyer for subjects that CONTAIN green or yellow. The hue-ratio
            key above is right for a cast of dark ghosts on a photographed green wall,
            and wrong for a watercolour of a yellow rum highball with a sprig of mint:
            measured on that plate, the ratio despill turned the yellow drink orange and
@@ -62,6 +83,22 @@ def greenness(rgb: np.ndarray) -> np.ndarray:
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     total = np.maximum(r + g + b, 1e-4)
     return (g - np.maximum(r, b)) / total
+
+
+def magentaness(rgb: np.ndarray) -> np.ndarray:
+    """How magenta a pixel is relative to its own brightness — greenness, mirrored.
+
+    Same normalisation and therefore the same immunity to the backdrop's light
+    falloff. A green subject scores hard NEGATIVE here (a palm leaflet measures
+    -0.18) while the backdrop scores hard positive (+0.23), which is the wide empty
+    gap `backdrop_level` needs and that a green screen does not give green foliage.
+    """
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    total = np.maximum(r + g + b, 1e-4)
+    return ((r + b) * 0.5 - g) / total
+
+
+CHROMA = {"hue": greenness, "green": greenness, "magenta": magentaness}
 
 
 def backdrop_level(gr: np.ndarray) -> float:
@@ -176,14 +213,22 @@ def fill_enclosed_holes(mask: np.ndarray, max_frac: float = 0.0008) -> np.ndarra
     return out
 
 
-def key(img: Image.Image, tol=None, soft=None, despill: float = 1.0, unmix: bool = False):
+def key(img: Image.Image, tol=None, soft=None, despill: float = 1.0, unmix: bool = False,
+        chroma: str = "hue"):
     """`unmix=True` replaces the despill on EDGE pixels with an unmix against the
     backdrop's median colour (c = a*s + (1-a)*bg, solved for s). The despill pulls a
     green fringe down to the red/blue average, which on a near-WHITE subject (the rose
     petal) reads as a thin dark outline; unmixing gives the fringe the subject's own
-    colour instead. Interior pixels keep the ordinary despill."""
+    colour instead. Interior pixels keep the ordinary despill.
+
+    `chroma="magenta"` mirrors the whole thing for a green subject on a magenta wall
+    (see the module docstring): the metric is magentaness instead of greenness, and the
+    despill pulls RED AND BLUE down toward green where they overshoot instead of the
+    other way round. A green leaflet has g > (r+b)/2, so its despill term is zero and
+    the leaf keeps its own colour — which is exactly what a green-screen despill
+    cannot promise it."""
     rgb = np.asarray(img.convert("RGB"), dtype=np.float32) / 255.0
-    gr = greenness(rgb)
+    gr = CHROMA[chroma](rgb)
     h0, w0 = gr.shape
     band0 = max(2, min(h0, w0) // 64)
     bg_rgb = np.median(np.concatenate([
@@ -216,7 +261,12 @@ def key(img: Image.Image, tol=None, soft=None, despill: float = 1.0, unmix: bool
     # semi-transparent hair edges do not take a hard colour shift.
     r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     rb = (r + b) * 0.5
-    g2 = g - np.maximum(g - rb, 0.0) * despill * alpha
+    if chroma == "magenta":
+        over = np.maximum(rb - g, 0.0) * despill * alpha
+        r, b = r - over, b - over
+        g2 = g
+    else:
+        g2 = g - np.maximum(g - rb, 0.0) * despill * alpha
     if unmix:
         a3 = alpha[..., None]
         edge = (alpha > 0.02) & (alpha < 0.98)
@@ -317,6 +367,40 @@ def erode_alpha(arr: np.ndarray, px: int) -> np.ndarray:
     return out
 
 
+def bleed_rgb(arr: np.ndarray, px: int) -> np.ndarray:
+    """Flood the SUBJECT's colour outward into the transparent region. See --bleed.
+
+    Alpha is never touched — only the RGB of pixels the matte has already thrown away,
+    which are invisible in the frame and decisive in the mip chain. `px` rounds of a
+    4-neighbour average fill, then whatever is still unreached takes the subject mean.
+    """
+    if px <= 0:
+        return arr
+    rgb = arr[..., :3].astype(np.float32)
+    known = arr[..., 3] > 8
+    if not known.any():
+        return arr
+    mean = rgb[known].mean(axis=0)
+    filled = rgb.copy()
+    for _ in range(px):
+        acc = np.zeros_like(filled)
+        cnt = np.zeros(known.shape, dtype=np.float32)
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            k = np.roll(np.roll(known, dy, 0), dx, 1)
+            v = np.roll(np.roll(filled, dy, 0), dx, 1)
+            acc += np.where(k[..., None], v, 0.0)
+            cnt += k
+        new = (~known) & (cnt > 0)
+        if not new.any():
+            break
+        filled = np.where(new[..., None], acc / np.maximum(cnt, 1.0)[..., None], filled)
+        known = known | new
+    filled = np.where(known[..., None], filled, mean[None, None, :])
+    out = arr.copy()
+    out[..., :3] = np.clip(filled, 0, 255).astype(arr.dtype)
+    return out
+
+
 def alpha_bbox(arr: np.ndarray, thresh: int = 8):
     a = arr[..., 3]
     ys, xs = np.where(a > thresh)
@@ -336,7 +420,10 @@ def save(img: Image.Image, dst: Path):
     """
     dst.parent.mkdir(parents=True, exist_ok=True)
     if dst.suffix.lower() == ".webp":
-        img.save(dst, "WEBP", quality=88, method=6)
+        # ⚠ exact=True. libwebp's default is to REPLACE the colour of fully transparent
+        # pixels with whatever compresses best, which throws away the bleed (--bleed)
+        # and hands three a mip chain that averages arbitrary colour into every edge.
+        img.save(dst, "WEBP", quality=88, method=6, exact=True)
     else:
         img.save(dst, optimize=True)
 
@@ -418,12 +505,16 @@ def main():
     if mode == "flat":
         arr = key_flat(Image.open(src), tol, soft)
     else:
-        arr = key(Image.open(src), tol, soft, despill, unmix="--unmix" in args)
+        arr = key(Image.open(src), tol, soft, despill, unmix="--unmix" in args, chroma=mode)
     arr = erode_alpha(arr, int(opt("--erode", 0)))
     box = alpha_bbox(arr)
     if box is None:
         raise SystemExit(f"{src}: keyed to nothing — check the backdrop")
     out = finish(arr, box, pad, mx, nocrop="--nocrop" in args)
+    # ⚠ AFTER finish(), never before. Pillow resizes RGBA through PREMULTIPLIED alpha
+    # and cannot un-premultiply where alpha is 0, so a bleed applied before the resize
+    # comes out as black — measured: subject-coloured #586a34 in, #020202 out.
+    out = Image.fromarray(bleed_rgb(np.asarray(out).copy(), int(opt("--bleed", 0))))
     save(out, dst)
     cov = (np.asarray(out)[..., 3] > 8).mean()
     print(f"{dst.name}  {out.width}x{out.height}  aspect={out.width / out.height:.4f}  "
