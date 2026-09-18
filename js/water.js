@@ -46,6 +46,11 @@ import { initMirrorLayers } from './mirrorlayers.js';
    keeps the sampling density, the ripple and the texture matrix bit-identical
    to stock. Read its banner before touching either number here. */
 import { initMirrorFrustum } from './mirrorfrustum.js';
+/* The Blender-authored props (assets/models/, KAN-207 Group E: the resort
+   furniture). ⚠ main.js awaits models.preload() BEFORE buildWorld for this —
+   every call site below reads models.geometry()/material() synchronously while
+   the water is being built, exactly as moments.js does after it. */
+import * as models from './models.js';
 
 /* ─────────────────────────────── constants ─────────────────────────────── */
 
@@ -765,6 +770,45 @@ function slab(parent, x0, z0, x1, z1, y, mat, t = .1) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, t, d), mat);
   m.position.set((x0 + x1) / 2, y - t / 2, (z0 + z1) / 2);
   parent.add(m);
+  return m;
+}
+
+/* ── the GLB props ──────────────────────────────────────────────────────────
+   `have(name)` is the ONE gate (assets/blender/INTEGRATION.md §1): true only
+   when the model loaded AND came in as a single mesh. Every call site below
+   keeps its old primitive path as the `else` branch — models.preload() never
+   rejects, so a missing GLB degrades to boxes and cones, not to a blank deck.
+
+   `mdl(name)` hands back a fresh clone wrapped in NOTHING: the caller owns the
+   transform. `mdlProto(name, ry)` wraps one in a Group that pre-applies a yaw,
+   which is how a prototype whose front faces the other way from the primitive
+   it replaces (the sun lounger) keeps every call site's own `rotation.y`.
+
+   ⚠ `canopy_tint` is the one material the game is meant to colour — the parasol
+   canopy ships PURE WHITE and the deck multiplies its own hex in. A clone per
+   COLOUR (never per umbrella) does it: three.js keys its program cache on the
+   material's shape, not its identity, so N colour clones are still one program.  */
+const have = (name) => models.has(name) && !!models.geometry(name);
+const mdl = (name) => models.get(name);
+function mdlProto(name, ry = 0) {
+  const g = new THREE.Group();
+  const m = models.get(name);
+  if (!m) return null;
+  m.rotation.y = ry;
+  g.add(m);
+  return g;
+}
+const _tintMats = new Map();
+function tintedMat(name, hex) {
+  const k = name + ':' + hex;
+  let m = _tintMats.get(k);
+  if (!m) {
+    const base = models.material(name);
+    if (!base) return null;
+    m = base.clone();
+    m.color.setHex(hex);
+    _tintMats.set(k, m);
+  }
   return m;
 }
 
@@ -1539,6 +1583,20 @@ function buildPavilions(G) {
 /* ═══════════════════════ POOLSIDE FURNITURE ═══════════════════════════════ */
 
 function makeLounger() {
+  /* `sun_lounger` — slatted timber frame, ivory squab, a rolled towel at the
+     head. ⚠ THE π LIVES HERE, once, for all three call sites. The GLB's front
+     is −Z = the FEET (campus.js's rooftop row wants exactly that), but this
+     factory's primitive points its HEAD at −Z and every caller below yaws the
+     prototype on that assumption. Pre-rotating the model inside its own group
+     is the `ry + π` ASSET_SPEC Group E asks for, spent in one place instead of
+     three. Measured: the GLB is 0.819 W × 2.063 L against these boxes' 0.66 ×
+     1.946 (seat pan .66 × 1.35 at z +.18, raked back reaching z −1.091), so it
+     is 0.16 m wider and 0.12 m longer. The row carries NO COLLIDER at all —
+     buildPoolside says why — so neither delta moves anything. */
+  if (have('sun_lounger')) {
+    const p = mdlProto('sun_lounger', Math.PI);
+    if (p) return p;
+  }
   const g = new THREE.Group();
   const w = MAT.white;
   /* seat pan (long axis along local Z, head at -Z toward the pool) */
@@ -1556,6 +1614,28 @@ function makeLounger() {
 }
 
 function makeUmbrella(colour, radius, height, sides) {
+  /* `pool_umbrella` (weighted base, tapered pole, ferrule, hub, 8 ribs,
+     finial) + `pool_umbrella_canopy` as its own mesh so the deck can colour
+     it. Both halves share ONE origin — the floor at the pole foot — so one
+     scale drives both: the model is authored at r 1.55 on a 2.50 m pole with
+     its rim at 2.20, and `[radius/1.55, height/2.5, radius/1.55]` reproduces
+     each call site's cone exactly (the 1.5 × 2.45 deck lands at rim 2.156
+     against the primitive's height − .3 = 2.15).
+     ⚠ The canopy's APEX is 2.76, not the cone's 2.64 — a deliberate deviation
+     (ASSET_SPEC Group E): at the code's .44 m rise the canopy read as a flat
+     plate in-engine. The RIM, the dimension a head clears, is unchanged. */
+  if (have('pool_umbrella') && have('pool_umbrella_canopy')) {
+    const u = new THREE.Group();
+    const pole = mdl('pool_umbrella');
+    const can = mdl('pool_umbrella_canopy');
+    const tint = tintedMat('pool_umbrella_canopy', colour.color.getHex());
+    if (pole && can && tint) {
+      can.traverse(n => { if (n.isMesh) n.material = tint; });
+      u.add(pole, can);
+      u.scale.set(radius / 1.55, height / 2.5, radius / 1.55);
+      return u;
+    }
+  }
   const g = new THREE.Group();
   const mast = new THREE.Mesh(new THREE.CylinderGeometry(.045, .055, height, 8), MAT.white);
   mast.position.y = height / 2;
@@ -3089,28 +3169,53 @@ function buildKayak(g, lines, R) {
   k.rotation.y = yaw;
   g.add(k);
 
-  const hullM = new THREE.MeshStandardMaterial({ color: 0xf0f2f2, roughness: .38, metalness: .05 });
   const trimM = new THREE.MeshStandardMaterial({ color: 0x1f6fae, roughness: .42, metalness: .05 });
   const skinM = new THREE.MeshStandardMaterial({ color: 0xc98f63, roughness: .8 });
 
-  /* the hull is a scaled sphere sunk to its own waterline — the photograph is
-     straight down, so the plan silhouette is the whole read */
-  const hull = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 9), hullM);
-  hull.scale.set(K.beam / 2, .30, K.len / 2);
-  hull.position.y = .06;
-  k.add(hull);
-  /* the two-tone deck: the reference kayak is white below and blue on top */
-  const top = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 6, 0, TAU, 0, Math.PI * .42), trimM);
-  top.scale.set(K.beam / 2 * .93, .16, K.len / 2 * .95);
-  top.position.y = .16;
-  k.add(top);
-  /* the cockpit, a dark well the paddler sits in */
-  const well = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .10, 14), MAT.darkWood);
-  well.scale.set(K.beam * .34, 1, K.len * .17);
-  well.position.set(0, .21, -K.len * .06);
-  k.add(well);
+  /* `kayak` — white lofted hull, blue moulded deck, a dished seat well with a
+     proud coaming, forward hatch, carry toggles and the paddle across the
+     deck, in one mesh.
+     ⚠ ITS ORIGIN IS THE KEEL, not the waterline, so the drop-in sits at
+     −0.24 inside this group (which is already at R.WATER_Y) — that is the
+     0.24 m of draught the sphere hull carried as `keel .24 below the water
+     line`. Its front is +Z = the BOW and `k.rotation.y = yaw` already runs
+     local +Z down the channel, so there is no extra rotation here.
+     The PADDLER is not in the GLB and stays a game object, below. */
+  if (have('kayak')) {
+    const hull = mdl('kayak');
+    hull.position.y = -0.24;
+    k.add(hull);
+  } else {
+    const hullM = new THREE.MeshStandardMaterial({ color: 0xf0f2f2, roughness: .38, metalness: .05 });
+    /* the hull is a scaled sphere sunk to its own waterline — the photograph is
+       straight down, so the plan silhouette is the whole read */
+    const hull = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 9), hullM);
+    hull.scale.set(K.beam / 2, .30, K.len / 2);
+    hull.position.y = .06;
+    k.add(hull);
+    /* the two-tone deck: the reference kayak is white below and blue on top */
+    const top = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 6, 0, TAU, 0, Math.PI * .42), trimM);
+    top.scale.set(K.beam / 2 * .93, .16, K.len / 2 * .95);
+    top.position.y = .16;
+    k.add(top);
+    /* the cockpit, a dark well the paddler sits in */
+    const well = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, .10, 14), MAT.darkWood);
+    well.scale.set(K.beam * .34, 1, K.len * .17);
+    well.position.set(0, .21, -K.len * .06);
+    k.add(well);
+    /* the paddle across the coaming, blades outboard both sides */
+    const paddle = new THREE.Mesh(new THREE.BoxGeometry(2.05, .045, .045), MAT.darkWood);
+    paddle.position.set(0, .42, K.len * .02);
+    paddle.rotation.y = .22;
+    k.add(paddle);
+    const blades = boxBucket();
+    for (const sgn of [-1, 1])
+      blades.push(sgn * Math.cos(.22) * .92, .42, -sgn * Math.sin(.22) * .92, .17, .035, .46, .22);
+    blades.bake(k, trimM, 'river:kayak-blades');
+  }
 
-  /* the paddler — lying back, as in the photograph */
+  /* the paddler — lying back, as in the photograph. A game object in BOTH
+     paths: the GLB is the boat, never the person in it. */
   const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.19, .52, 4, 8), trimM);
   torso.rotation.x = Math.PI * .38;
   torso.position.set(0, .38, -K.len * .10);
@@ -3118,15 +3223,6 @@ function buildKayak(g, lines, R) {
   const head = new THREE.Mesh(new THREE.SphereGeometry(.115, 10, 7), skinM);
   head.position.set(0, .56, -K.len * .22);
   k.add(head);
-  /* the paddle across the coaming, blades outboard both sides */
-  const paddle = new THREE.Mesh(new THREE.BoxGeometry(2.05, .045, .045), MAT.darkWood);
-  paddle.position.set(0, .42, K.len * .02);
-  paddle.rotation.y = .22;
-  k.add(paddle);
-  const blades = boxBucket();
-  for (const sgn of [-1, 1])
-    blades.push(sgn * Math.cos(.22) * .92, .42, -sgn * Math.sin(.22) * .92, .17, .035, .46, .22);
-  blades.bake(k, trimM, 'river:kayak-blades');
 
   return k;
 }
@@ -3299,18 +3395,43 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
     return m;
   };
 
-  inst(new THREE.CylinderGeometry(.05, .06, 2.5, 6), MAT.white, umbs,
-    (i, d) => d.position.set(umbs[i][0], 1.25, umbs[i][1]));
-  inst(new THREE.ConeGeometry(1.55, .44, 8), MAT.blue, umbs, (i, d) => {
-    d.position.set(umbs[i][0], 2.42, umbs[i][1]);
-    d.rotation.y = umbs[i][2];
-  });
-  inst(new THREE.CylinderGeometry(.05, .06, 2.5, 6), MAT.white, whiteUmbs,
-    (i, d) => d.position.set(whiteUmbs[i][0], 1.25, whiteUmbs[i][1]));
-  inst(new THREE.ConeGeometry(1.7, .48, 8), MAT.whiteFrame, whiteUmbs, (i, d) => {
-    d.position.set(whiteUmbs[i][0], 2.44, whiteUmbs[i][1]);
-    d.rotation.y = whiteUmbs[i][2];
-  });
+  /* the parasols — `pool_umbrella` + `pool_umbrella_canopy` (KAN-207 Group E).
+     Both halves stand on the floor at the pole foot, so the placement is the
+     ground, not the old cones' mid-heights.
+     ⚠ THE WHITE RUN IS A WIDER CANOPY ON THE SAME POLE, not a bigger parasol:
+     the code gives both runs the identical .05/.06 × 2.5 mast and only the
+     cone grows, 1.55 → 1.70, with the rim staying at 2.20. So the white
+     canopy is scaled 1.10 in X and Z and left alone in Y — a uniform 1.10
+     would lift the rim to 2.42 and change the height a guest's head clears,
+     which the envelope rule forbids.
+     The canopy's material is a per-COLOUR clone of the white `canopy_tint`
+     bake (blue 2b7fc4 for the lagoon, whiteFrame for the beach). */
+  if (have('pool_umbrella') && have('pool_umbrella_canopy')) {
+    const uGeo = models.geometry('pool_umbrella'), uMat = models.material('pool_umbrella');
+    const cGeo = models.geometry('pool_umbrella_canopy');
+    const foot = (list) => (i, d) => {
+      d.position.set(list[i][0], 0, list[i][1]);
+      d.rotation.y = list[i][2];
+    };
+    inst(uGeo, uMat, umbs, foot(umbs));
+    inst(cGeo, tintedMat('pool_umbrella_canopy', C.blue), umbs, foot(umbs));
+    inst(uGeo, uMat, whiteUmbs, foot(whiteUmbs));
+    inst(cGeo, tintedMat('pool_umbrella_canopy', MAT.whiteFrame.color.getHex()),
+      whiteUmbs, (i, d) => { foot(whiteUmbs)(i, d); d.scale.set(1.10, 1, 1.10); });
+  } else {
+    inst(new THREE.CylinderGeometry(.05, .06, 2.5, 6), MAT.white, umbs,
+      (i, d) => d.position.set(umbs[i][0], 1.25, umbs[i][1]));
+    inst(new THREE.ConeGeometry(1.55, .44, 8), MAT.blue, umbs, (i, d) => {
+      d.position.set(umbs[i][0], 2.42, umbs[i][1]);
+      d.rotation.y = umbs[i][2];
+    });
+    inst(new THREE.CylinderGeometry(.05, .06, 2.5, 6), MAT.white, whiteUmbs,
+      (i, d) => d.position.set(whiteUmbs[i][0], 1.25, whiteUmbs[i][1]));
+    inst(new THREE.ConeGeometry(1.7, .48, 8), MAT.whiteFrame, whiteUmbs, (i, d) => {
+      d.position.set(whiteUmbs[i][0], 2.44, whiteUmbs[i][1]);
+      d.rotation.y = whiteUmbs[i][2];
+    });
+  }
 
   /* a lounger is one raked slab. At 60 m up that is exactly as much lounger as
      reads; the enclave's own deck has the modelled ones. */

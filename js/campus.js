@@ -39,6 +39,11 @@ import { SITE, HOTEL_ROOF, ROOMS, worldToEnclave,
   ARRIVAL_LOBBY_Y, ARRIVAL_LOUNGE_CEIL, ARRIVAL_LANE_Y } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
+/* The Blender-authored props (assets/models/, KAN-207 + the Group E resort
+   furniture). ⚠ main.js awaits models.preload() BEFORE buildWorld for this —
+   the buckets below are filled synchronously from models.geometry()/material()
+   while the roof is being built, exactly as moments.js fills its own. */
+import * as models from './models.js';
 
 /* ════════════════════════════════════════════════════════════════════════
    shared geometry — every box in the campus is ONE unit cube, scaled
@@ -1387,6 +1392,28 @@ function inst(key, geo, mat, m, color = null) {
   if (color) b.any = true;
   return b;
 }
+
+/* ── A GLB BUCKET — inst() for a Blender-authored prop ──────────────────────
+   `have(name)` is the ONE gate (assets/blender/INTEGRATION.md §1): true only
+   when the GLB actually loaded AND came in as a single mesh. Every call site
+   below keeps its old primitive path as the `else` branch — models.preload()
+   never rejects, so a missing GLB must degrade to boxes, not to a black roof.
+
+   `modelI` routes the model's own geometry + its own baked-atlas material into
+   the SAME BUCKETS map, so the flush, the census and the enclave relocation
+   pass all treat it like any other instanced part. It obeys the rule over
+   inst() by construction and then some: a GLB carries BOTH halves of the pair,
+   so its key can never be shared with a primitive bucket OR with another
+   model — one new key per model, named `<room><Model>GlbI`.
+
+   ⚠ Never pass a `color` to a baked-albedo model: instanceColor MULTIPLIES the
+   map, so anything but white darkens the bake. `canopy_tint` is the one
+   documented exception and it is water.js's, not ours. */
+const have = (name) => models.has(name) && !!models.geometry(name);
+function modelI(key, name, m) {
+  return inst(key, models.geometry(name), models.material(name), m);
+}
+
 /* HOW TO CENSUS THE KEYS (the check that proves the rule above still holds):
    collect every call site's (key, geometry, material) triple and group by key —
    any key carrying two distinct triples is a part rendering in the wrong
@@ -1401,8 +1428,12 @@ function inst(key, geo, mat, m, color = null) {
        and buildSecondPoolPavilion's `put(key, geo, mat, …)`, the car's
        `put(key, mat, …)`, the rooftop dining chair's `at(…, key, mat)` and the
        band's `figure(v, topKey, topMat, …)`. Their literals count too.
-   Census all five forms together, in one namespace, and ignore comments (this
-   one included). Clean as of 2026-08-06: 138 keys, 0 collisions. */
+     · SINCE THE GROUP E PASS there is a SIXTH form, `modelI(key, 'model', m)`.
+       Both halves of its pair are the model, so count it as the triple
+       (glb:model, glb:model) — a reused modelI key collides with everything.
+   Census all six forms together, in one namespace, and ignore comments (this
+   one included). Clean as of 2026-08-06: 138 keys, 0 collisions; and as of
+   2026-09-18 (the resort furniture): 146 keys, 0 collisions. */
 function flushBuckets(parent) {
   for (const [key, b] of BUCKETS) {
     if (!b.ms.length) continue;
@@ -4054,10 +4085,19 @@ function buildHotelRoof(G, g, acx, acz) {
   const LG = loungerRow(R);
   LG.th.forEach((th, i) => {
     const x = WX(th, R.loungeR), z = WZ(th, R.loungeR);
-    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + .17, z, .82, .34, 2.05, th));
-    inst('rtMarbleI', UNIT_BOX, MAT.marble, mat4(x, DY + .40, z, .74, .13, 1.9, th));
-    const bx = WX(th, R.loungeR + .92), bz = WZ(th, R.loungeR + .92);
-    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(bx, DY + .58, bz, .82, .62, .13, th, .5));
+    /* `sun_lounger` — origin floor centre, front −Z = the FEET, so its head
+       is at +Z and `ry = th` (local +Z is radially OUTWARD, i.e. INLAND) puts
+       the backrest inland and the feet at the drop, exactly as the three
+       boxes below did. NO π here: water.js's makeLounger points the other way
+       and carries the π, see ASSET_SPEC Group E. */
+    if (have('sun_lounger')) {
+      modelI('rtLoungerGlbI', 'sun_lounger', mat4(x, DY, z, 1, 1, 1, th));
+    } else {
+      inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + .17, z, .82, .34, 2.05, th));
+      inst('rtMarbleI', UNIT_BOX, MAT.marble, mat4(x, DY + .40, z, .74, .13, 1.9, th));
+      const bx = WX(th, R.loungeR + .92), bz = WZ(th, R.loungeR + .92);
+      inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(bx, DY + .58, bz, .82, .62, .13, th, .5));
+    }
     if (i % 2 === 1) {                       // a side table between each pair
       const tth = th + .012;
       inst('rtSlatI', UNIT_BOX, MAT.slat,
@@ -4114,33 +4154,45 @@ function buildHotelRoof(G, g, acx, acz) {
   const GR = R.gardenR, dayTh = daybedRow(R);
   for (const th of dayTh) {
     const x = WX(th, GR), z = WZ(th, GR);
-    inst('deckI', UNIT_BOX, MAT.deck, mat4(x, DY + .11, z, 3.30, .22, 2.80, th));
-    inst('rtSlatI', UNIT_BOX, MAT.slat, mat4(x, DY + .38, z, 2.86, .34, 2.30, th));
-    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + .62, z, 2.72, .26, 2.16, th));
-    // the bolster along the back, and two throw cushions
-    inst('rtWhiteI', UNIT_BOX, MAT.white,
-      mat4(WX(th, GR + .92), DY + .84, WZ(th, GR + .92), 2.60, .44, .30, th));
-    for (const v of [-.62, .62]) {
+    /* `daybed` — the whole four-poster in ONE instance: deck platform, slatted
+       base, mattress, bolster, two throw cushions, four posts, the timber trim
+       and the white canopy, plus the curtains TIED BACK against the posts (the
+       photograph beats the code on the drapes, inside the code's own planes —
+       ASSET_SPEC Group E). Origin floor centre, front −Z = the open side, so
+       `ry = th` puts the bolster inland at +Z, as the boxes did.
+       NOT in the GLB and still drawn below: the warm lamp strip, the tray
+       table, the planted pot and its hedge blob. */
+    if (have('daybed')) {
+      modelI('rtDaybedGlbI', 'daybed', mat4(x, DY, z, 1, 1, 1, th));
+    } else {
+      inst('deckI', UNIT_BOX, MAT.deck, mat4(x, DY + .11, z, 3.30, .22, 2.80, th));
+      inst('rtSlatI', UNIT_BOX, MAT.slat, mat4(x, DY + .38, z, 2.86, .34, 2.30, th));
+      inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + .62, z, 2.72, .26, 2.16, th));
+      // the bolster along the back, and two throw cushions
       inst('rtWhiteI', UNIT_BOX, MAT.white,
-        mat4(TX(th, GR + .62, v), DY + .86, TZ(th, GR + .62, v), .46, .30, .18, th));
-    }
-    // four posts and the canopy they carry
-    for (const v of [-1.44, 1.44]) for (const dr of [-1.18, 1.18]) {
-      inst('rtSlatI', UNIT_BOX, MAT.slat,
-        mat4(TX(th, GR + dr, v), DY + 1.42, TZ(th, GR + dr, v), .11, 2.40, .11, th));
-    }
-    /* the canopy is WHITE — a stretched fabric roof with a thin timber trim,
-       not the dark slatted lid the old cabanas had. Six of those read as brown
-       boxes; nineteen would have read as a fence. */
-    inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + 2.68, z, 3.22, .20, 2.70, th));
-    inst('rtSlatI', UNIT_BOX, MAT.slat, mat4(x, DY + 2.55, z, 3.26, .07, 2.74, th));
-    // curtains: one at each end plus a half-drape on each back corner
-    for (const v of [-1.40, 1.40]) {
-      inst('rtWhiteI', UNIT_BOX, MAT.white,
-        mat4(TX(th, GR, v), DY + 1.42, TZ(th, GR, v), .09, 2.30, 2.34, th));
-      inst('rtWhiteI', UNIT_BOX, MAT.white,
-        mat4(TX(th, GR + 1.14, v * .60), DY + 1.42, TZ(th, GR + 1.14, v * .60),
-          .74, 2.30, .09, th));
+        mat4(WX(th, GR + .92), DY + .84, WZ(th, GR + .92), 2.60, .44, .30, th));
+      for (const v of [-.62, .62]) {
+        inst('rtWhiteI', UNIT_BOX, MAT.white,
+          mat4(TX(th, GR + .62, v), DY + .86, TZ(th, GR + .62, v), .46, .30, .18, th));
+      }
+      // four posts and the canopy they carry
+      for (const v of [-1.44, 1.44]) for (const dr of [-1.18, 1.18]) {
+        inst('rtSlatI', UNIT_BOX, MAT.slat,
+          mat4(TX(th, GR + dr, v), DY + 1.42, TZ(th, GR + dr, v), .11, 2.40, .11, th));
+      }
+      /* the canopy is WHITE — a stretched fabric roof with a thin timber trim,
+         not the dark slatted lid the old cabanas had. Six of those read as brown
+         boxes; nineteen would have read as a fence. */
+      inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(x, DY + 2.68, z, 3.22, .20, 2.70, th));
+      inst('rtSlatI', UNIT_BOX, MAT.slat, mat4(x, DY + 2.55, z, 3.26, .07, 2.74, th));
+      // curtains: one at each end plus a half-drape on each back corner
+      for (const v of [-1.40, 1.40]) {
+        inst('rtWhiteI', UNIT_BOX, MAT.white,
+          mat4(TX(th, GR, v), DY + 1.42, TZ(th, GR, v), .09, 2.30, 2.34, th));
+        inst('rtWhiteI', UNIT_BOX, MAT.white,
+          mat4(TX(th, GR + 1.14, v * .60), DY + 1.42, TZ(th, GR + 1.14, v * .60),
+            .74, 2.30, .09, th));
+      }
     }
     // the warm lamp under the canopy — this is what lights the row after dark
     inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + 2.54, z, 2.20, .09, .34, th));
@@ -4215,8 +4267,19 @@ function buildHotelRoof(G, g, acx, acz) {
   HOTEL_ROOF.brunchTables.forEach((t, k) => {
     const th = t.th, r = t.r;
     const x = WX(th, r), z = WZ(th, r);
-    inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .36, z, .14, .72, .14));
-    inst('rtTopI', UNIT_CYL, MAT.marble, mat4(x, DY + .75, z, 1.35, .07, 1.35));
+    /* `four_top` — the BARE table (timber top at y .785 over a Ø .14 pedestal
+       and its disc foot). Radially symmetric, so no yaw is needed.
+       ⚠ Its top face must stay at .785 and nothing may exceed r .68 below
+       y .75: moments.js dresses this same table for the Welcome Brunch with a
+       linen skirt r .68→.72 and a cloth disc at .755….805, and the GLB has to
+       sit INSIDE that. (The four chairs below are not part of this row of the
+       spec and stay as they were.) */
+    if (have('four_top')) {
+      modelI('rtFourTopGlbI', 'four_top', mat4(x, DY, z, 1, 1, 1));
+    } else {
+      inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .36, z, .14, .72, .14));
+      inst('rtTopI', UNIT_CYL, MAT.marble, mat4(x, DY + .75, z, 1.35, .07, 1.35));
+    }
     for (let c = 0; c < 4; c++) {                       // four white chairs
       const ca = c * Math.PI / 2 + .4;
       const cxp = x + Math.cos(ca) * 1.05, czp = z - Math.sin(ca) * 1.05;
@@ -4359,11 +4422,20 @@ function buildHotelRoof(G, g, acx, acz) {
     inst('glowI', UNIT_BOX, MAT.glowLamp, mat4(x, DY + .18, z, ctD * CT.r * .8, .1, .12, th));
     // one stool per bay, on the pool side
     const stx = WX(th, 97.80), stz = WZ(th, 97.80);
-    inst('poleI', UNIT_CYL, MAT.dark, mat4(stx, DY + .025, stz, .44, .05, .44));       // foot disc
-    inst('poleI', UNIT_CYL, MAT.dark, mat4(stx, DY + .36, stz, .11, .62, .11));        // pedestal
-    inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(stx, DY + .26, stz, .34, .045, .34));  // footrest ring
-    inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(stx, DY + .70, stz, .46, .06, .46));   // seat band
-    inst('rtWhiteCylI', UNIT_CYL, MAT.white, mat4(stx, DY + .775, stz, .42, .09, .42)); // cushion
+    /* `bar_stool` — the code's pedestal with the photograph's finish (bronze
+       foot and column, timber footrail + seat band, ivory cushion).
+       ⚠ Ø .46 IS LOAD-BEARING: roofColliders() says the stool line reaches
+       r 97.59 and the counter arc is authored stricter than that, so nothing
+       may exceed r .23 from this axis. models.json: 0.46 × 0.824 × 0.455. */
+    if (have('bar_stool')) {
+      modelI('rtBarStoolGlbI', 'bar_stool', mat4(stx, DY, stz, 1, 1, 1));
+    } else {
+      inst('poleI', UNIT_CYL, MAT.dark, mat4(stx, DY + .025, stz, .44, .05, .44));       // foot disc
+      inst('poleI', UNIT_CYL, MAT.dark, mat4(stx, DY + .36, stz, .11, .62, .11));        // pedestal
+      inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(stx, DY + .26, stz, .34, .045, .34));  // footrest ring
+      inst('rtSlatCylI', UNIT_CYL, MAT.slat, mat4(stx, DY + .70, stz, .46, .06, .46));   // seat band
+      inst('rtWhiteCylI', UNIT_CYL, MAT.white, mat4(stx, DY + .775, stz, .42, .09, .42)); // cushion
+    }
   }
   /* the back-bar: cabinets + two ice wells + lit bottle shelves */
   {
@@ -4444,6 +4516,19 @@ function buildHotelRoof(G, g, acx, acz) {
      round ones — that repetition is what makes the dining terrace read as one
      restaurant in reference/photos/rooftop-bar-live-band.webp. */
   const diningChair = (cx1, cz1, ca) => {
+    /* `dining_chair_rattan` — timber frame, curved top rail, a real woven
+       rattan field and a white box cushion.
+       ⚠ THE YAW. This helper authors the chair's BACK at local +X (`at`'s
+       +lx is outward, behind the sitter) while the GLB is the chair family's
+       +Z-front convention — back at local −Z. ry = ca − π/2 is the change of
+       basis between them; ry = ca seats everyone sideways.
+       Envelope 0.46 × 0.499 × 1.072 against the boxes' 0.46 × 0.48 × 1.075,
+       so nothing here reaches the tables' TABLE_R rings any differently. */
+    if (have('dining_chair_rattan')) {
+      modelI('rtDineChairGlbI', 'dining_chair_rattan',
+        mat4(cx1, DY, cz1, 1, 1, 1, ca - Math.PI / 2));
+      return;
+    }
     const ux = Math.cos(ca), uz = -Math.sin(ca);
     const vx = Math.sin(ca), vz = Math.cos(ca);
     const at = (lx, lz, y, sx, sy, sz, key, mat) =>

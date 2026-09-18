@@ -113,19 +113,26 @@ scene.environment = envRT.texture;
 scene.environmentIntensity = CFG.LIGHT.ENV;
 
 /* ── the Blender-authored props (assets/models/, KAN-207) ────────────────────
-   Started HERE and awaited below, which is the whole point: fetching and
-   decoding ~2.9 MB of GLB is NETWORK and worker time, while buildWorld is
-   CPU-bound on this thread — kicked off first, the two overlap and the models
-   cost almost nothing on the wall clock. It must nonetheless have RESOLVED
-   before initMoments, because every prop below is built synchronously from
-   models.geometry()/material().
+   Started HERE and awaited BEFORE buildWorld — and that await moved on
+   2026-09-18, with the resort-furniture wave (ASSET_SPEC Group E). It used to
+   sit after buildWorld so that fetching and decoding ~3 MB of GLB (network and
+   worker time) overlapped the CPU-bound world build for free, and only
+   initMoments needed the models. It cannot any more: campus.js now builds the
+   rooftop loungers, daybeds, four-tops, stools and dining chairs and water.js
+   the poolside loungers, the parasols and the kayak from
+   models.geometry()/material(), SYNCHRONOUSLY, inside buildWorld. A model that
+   is still in flight when the roof is built is not a late prop — it is a roof
+   full of boxes for the rest of the session, because nothing rebuilds it.
+   So the overlap is spent deliberately: the fetches still START before the
+   world (the loading card is already up and the decode is parallel), but the
+   build now waits for them.
    models.preload never rejects: a GLB that fails leaves models.has(name)
-   false and moments.js falls back to its old primitive path. Nothing here
+   false and every call site falls back to its old primitive path. Nothing here
    changes the light count — a GLB never carries a light — so the compileAsync
    warm-ups further down still see the same program cache keys they always did,
    and now also compile the GLB materials (the moment groups exist by then).
    .06 … .08 is the models' slice of the bar; buildWorld's own .08 … .54
-   follows it, so the bar stays monotonic whichever finishes first. */
+   follows it, so the bar stays monotonic. */
 const modelsP = models.preload((f, name) => {
   setProgress(.06 + f * .02, `Unloading the florist's van… ${name}`);
 });
@@ -188,12 +195,13 @@ initUI(G);
    geometry itself is only ~200 ms of it). Everything after this line depends on
    it having FINISHED — initMoments snapshots G.colliders as the world statics,
    initPlayer reads floorY, the intro orbit needs something to orbit. */
-await buildWorld(G, (f, label) => setProgress(.08 + f * .46, label));
-
-/* the props, if they are not already in (they almost always are — the fetches
-   ran under buildWorld's CPU time). MUST be before initMoments. */
-setProgress(.55, 'Unloading the florist\'s van');
+/* THE PROPS FIRST. campus.js and water.js read models.geometry()/material()
+   while they build (see the preload banner above), so this await is part of
+   buildWorld's contract now, not initMoments'. */
+setProgress(.08, 'Unloading the florist\'s van');
 await modelsP;
+
+await buildWorld(G, (f, label) => setProgress(.08 + f * .46, label));
 
 setProgress(.56, 'Laying the places');
 await yieldFrame();

@@ -21,7 +21,24 @@ const SITE_URL = process.env.VENUE_URL || 'http://127.0.0.1:8799/';
 const OUT = new URL(`../reference/photos/shots-${TAG}/`, import.meta.url).pathname;
 mkdirSync(OUT, { recursive: true });
 
-/* views: [name, momentIndex, local x, local z, yaw]  (null pos = the spawn) */
+/* views: [name, momentIndex, pos]
+     pos = null                 the moment's own spawn
+     pos = [lx, lz, yaw]        ENCLAVE-LOCAL x/z and local yaw — the campus
+     pos = { world: '<expr>' }  an expression EVALUATED ON THE LIVE PAGE,
+                                returning { x, z, y?, yaw?, lookX?, lookZ? }
+                                in WORLD coordinates.
+
+   ⚠ THE THIRD FORM EXISTS BECAUSE THE HOTEL ROOF IS NOT IN THE ENCLAVE.
+   world.js re-parents the named campus groups into a rotated enclave and
+   relocates instanced campus parts individually; the crescent (x ≥ 84) is
+   outside that test and stays in WORLD space. Feed a rooftop view through
+   enclaveToWorld and it lands 90° around the map — exactly the failure the
+   GLB placements themselves have to avoid. `y` is the FEET height, and the
+   roof needs it: 26.6, not 0 (CLAUDE.md, "m.spawn.y is the FEET height").
+   The expression is handed `S` (site.js), `CFG`, `G` and `pick(name, i)`,
+   which reads instance i of a live InstancedMesh by name — so a view can aim
+   at the furniture that is actually there instead of at a typed coordinate
+   that drifts the next time a row is re-derived. */
 const VIEWS = [
   ['brunch-spawn', 0, null],
   ['setup-spawn', 1, null],
@@ -39,6 +56,109 @@ const VIEWS = [
   ['dinner-long', 4, [-20, -1.2, Math.PI]],
   ['afterparty-spawn', 5, null],
   ['afterparty-dj', 5, [0, -15.4, Math.PI]],
+
+  /* ── the GROUP E resort furniture (2026-09-18). Everything above shows the
+        wedding dressing; the roof had only the brunch spawn, which faces the
+        sea and shows the four-tops from behind. These five are the rooms the
+        resort furniture actually lives in. ── */
+  /* the daybed / lounger run: stand on the teak between the two rows, at the
+     south end, and look back up the arc past the beds. Both rows are derived
+     in campus.js from R.gardenR / R.loungeR, so the camera is too. */
+  ['roof-daybeds', 0, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP, C = Math.PI / 2;
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    const th0 = C - R.arcHalf + .030;              // daybedRow()'s first bed
+    /* ⚠ SEAWARD OF BOTH ROWS. At R.gardenR the camera stands INSIDE a bed:
+       the platform is 2.8 m deep (99.5…102.3) and the loungers, 2.05 m long
+       on the radius, fill 97.2…99.2 behind it. r 95.6 is the open deck south
+       of the water, which is where a guest actually walks. */
+    /* ⚠ AND INSIDE THE SWEEP: a0 is C − R.arcHalf, so th0 − .038 is past the
+       terrace's own south end and floorY drops the camera off the building
+       (feet 3.9 instead of 26.6 — the harness prints it, which is the point). */
+    const cth = th0 + .012, tth = th0 + .18;       // …looking ~3 beds up the arc
+    return { x: acx + Math.sin(cth) * 95.6, z: acz + Math.cos(cth) * 95.6,
+             y: R.deckY,
+             lookX: acx + Math.sin(tth) * 100.4, lookZ: acz + Math.cos(tth) * 100.4 };
+  })()` }],
+  /* the bar counter with its stools: a guest walking up to order, from the
+     pool side. The counter's bearing is campus.js barLayout()'s own
+     arithmetic — BAR_COUNTER_R / _LEN / _SET off R.barTc ± R.barTh — so the
+     camera follows the counter if the bar zone is ever re-derived. Anchored
+     on geometry rather than on an instance so the BEFORE and AFTER runs stand
+     in exactly the same place. */
+  ['roof-bar-stools', 0, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP;
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    const CR = 98.70, CLEN = 10.0, SET = 2.6;            // campus.js BAR_COUNTER_*
+    const tc = (R.barTc - R.barTh) + (SET + CLEN / 2) / CR;
+    const half = CLEN / 2 / CR, ctD = 2 * half / 8;      // 8 fluted bays
+    const st = tc - half + 1.5 * ctD;                    // the 2nd stool along
+    const cth = st - 3.4 / 97.8;
+    return { x: acx + Math.sin(cth) * 95.7, z: acz + Math.cos(cth) * 95.7,
+             y: R.deckY,
+             lookX: acx + Math.sin(st) * 97.8, lookZ: acz + Math.cos(st) * 97.8 };
+  })()` }],
+  /* the bar room's dining — the long communal tables and their woven chairs,
+     which is what rooftop-bar-live-band.webp is a picture of. Anchored on
+     'campus:rtStemI', the glassware at a real cover: it is the ONE bucket
+     unique to the long tables and this pass does not touch it, so both runs
+     stand at the same cover. */
+  ['roof-bar-dining', 0, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP;
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    const p = pick('campus:rtStemI', 6);
+    const th = Math.atan2(p.x - acx, p.z - acz);
+    const r = Math.hypot(p.x - acx, p.z - acz);
+    const cth = th - 4.2 / r;
+    return { x: acx + Math.sin(cth) * (r - 2.0), z: acz + Math.cos(cth) * (r - 2.0),
+             y: R.deckY, lookX: p.x, lookZ: p.z };
+  })()` }],
+  /* the brunch four-tops, DRESSED — moment 0's own room, which brunch-spawn
+     shows only from behind because the spawn faces the sea. This is the view
+     that proves the bare GLB table stays inside moments.js's linen skirt
+     (r .68→.72, cloth disc at .755….805 over a .785 timber top). */
+  ['roof-brunch-tables', 0, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP, t = S.HOTEL_ROOF.brunchTables[2];
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    /* ⚠ r − 3.0 is IN THE WATER (the pool's back wall is 96.75 and the tables
+       are at 99.2) — the harness's feet column says so, 25.32 not 26.6.
+       Back off tangentially instead of radially. */
+    const cth = t.th - 3.0 / t.r;
+    return { x: acx + Math.sin(cth) * (t.r - 1.9), z: acz + Math.cos(cth) * (t.r - 1.9),
+             y: R.deckY,
+             lookX: acx + Math.sin(t.th) * t.r, lookZ: acz + Math.cos(t.th) * t.r };
+  })()` }],
+  /* …and the SAME four-top BARE. The brunch view above is deliberately
+     identical before and after, because the linen hides the table entirely;
+     this is the one that actually shows the timber top, the pedestal and the
+     disc foot. Moment 2 is daylight and does not dress the roof. */
+  ['roof-four-top-bare', 2, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP, t = S.HOTEL_ROOF.brunchTables[2];
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    const cth = t.th - 2.6 / t.r;
+    return { x: acx + Math.sin(cth) * (t.r - 1.6), z: acz + Math.cos(cth) * (t.r - 1.6),
+             y: R.deckY,
+             lookX: acx + Math.sin(t.th) * t.r, lookZ: acz + Math.cos(t.th) * t.r };
+  })()` }],
+  /* the clubhouse pool deck: down the lounger row, umbrellas behind it.
+     ENCLAVE-LOCAL — this one IS in the enclave, unlike the five above. */
+  ['pool-loungers', 2, [-8.6, -4.6, Math.PI]],
+  /* the lagoon's parasol run — the OTHER half of the pool_umbrella swap, and
+     the one that carries the blue canopy tint (C.blue 2b7fc4) rather than the
+     clubhouse teal. Anchored on SITE.LAGOON's own ellipse; WORLD space, since
+     the river group is userData.worldSpace. */
+  ['lagoon-parasols', 2, { world: `(() => {
+    const L = S.SITE.LAGOON;
+    return { x: L.cx - L.rx - 8.0, z: L.cz - 3.0, y: 0,
+             lookX: L.cx - L.rx + 3.0, lookZ: L.cz - 0.5 };
+  })()` }],
+  /* the lagoon's kayak: found by name, so it follows SITE.RIVER.KAYAK */
+  ['lagoon-kayak', 2, { world: `(() => {
+    const k = G.scene.getObjectByName('river:kayak');
+    const v = new (Object.getPrototypeOf(G.scene.position).constructor)();
+    k.getWorldPosition(v);
+    return { x: v.x - 4.6, z: v.z - 3.4, y: 0, lookX: v.x, lookZ: v.z };
+  })()` }],
 ];
 
 (async () => {
@@ -67,10 +187,30 @@ const VIEWS = [
       const { CFG } = await import('./js/config.js');
       g.setMoment(mi);
       for (let i = 0; i < 6; i++) P.updatePlayer(G, 1 / 60);
-      if (pos) {
+      if (Array.isArray(pos)) {
         const w = S.enclaveToWorld(pos[0], pos[1]);
         G.player.pos.set(w.x, CFG.EYE_HEIGHT, w.z);
         P.setFacing(pos[2] + S.ENCLAVE.rotY);   // local yaw -> world yaw
+        for (let i = 0; i < 6; i++) P.updatePlayer(G, 1 / 60);
+      } else if (pos && pos.world) {
+        /* WORLD space — no enclaveToWorld, no ENCLAVE.rotY. See the note on
+           VIEWS: the hotel roof is not in the enclave and a view pushed
+           through it lands 90° away. */
+        const _m4 = new (Object.getPrototypeOf(G.scene.matrixWorld).constructor)();
+        const _v3 = new (Object.getPrototypeOf(G.scene.position).constructor)();
+        const pick = (name, i) => {
+          const im = G.scene.getObjectByName(name);
+          if (!im || !im.isInstancedMesh || i >= im.count) return null;
+          im.getMatrixAt(i, _m4);
+          _v3.setFromMatrixPosition(_m4);
+          im.updateWorldMatrix(true, false);
+          _v3.applyMatrix4(im.matrixWorld);
+          return { x: _v3.x, y: _v3.y, z: _v3.z };
+        };
+        const p = new Function('S', 'CFG', 'G', 'pick', 'return ' + pos.world)(S, CFG, G, pick);
+        G.player.pos.set(p.x, (p.y || 0) + CFG.EYE_HEIGHT, p.z);
+        P.setFacing(p.yaw !== undefined ? p.yaw
+          : Math.atan2(-(p.lookX - p.x), -(p.lookZ - p.z)));
         for (let i = 0; i < 6; i++) P.updatePlayer(G, 1 / 60);
       }
       /* let the light budget / detail cull settle, then measure one second */
