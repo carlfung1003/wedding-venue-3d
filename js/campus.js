@@ -133,6 +133,51 @@ function nightOnly(mesh) {
    canvas textures (the CAMPUS is procedural; the dressing props in
    moments.js are Blender-authored GLBs since KAN-207 — see assets/blender/)
    ════════════════════════════════════════════════════════════════════════ */
+/* ── the casuarina's needle sheet ───────────────────────────────────────────
+   BOOT FALLBACK ONLY — assets/textures/casuarina.webp replaces it on load.
+   Fine strands hanging from the top of the tile and thinning toward the
+   bottom, so an alpha-cut cone is solid at its apex and ragged at its rim.
+   Wraps horizontally: the cone's u goes once around the circumference. */
+function casuNeedleTex() {
+  return tex(256, 256, (g, w, h) => {
+    const rnd = mulberry32(0xca50a1);
+    g.clearRect(0, 0, w, h);
+    for (let i = 0; i < 520; i++) {
+      const x = rnd() * w;
+      const len = h * (.34 + rnd() * .62);
+      const sway = (rnd() - .5) * 16;
+      const v = 58 + rnd() * 34;
+      g.strokeStyle = `rgba(${v * .78 | 0},${v | 0},${v * .74 | 0},${.72 + rnd() * .26})`;
+      g.lineWidth = .8 + rnd() * 1.2;
+      g.beginPath();
+      g.moveTo(x, 0);
+      g.quadraticCurveTo(x + sway * .5, len * .55, x + sway, len);
+      g.stroke();
+    }
+  });
+}
+
+/* Swap a generated photograph over a material's canvas map, once it arrives.
+   The material must ALREADY have a map (and its alphaTest) or this is a shader
+   recompile — see the banner at casuNeedle. Mirrors nature.js's photoMap(). */
+function photoTex(mat, file, repeat) {
+  new THREE.TextureLoader().load(
+    new URL(`../assets/textures/${file}`, import.meta.url).href,
+    (t) => {
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.anisotropy = 8;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      if (repeat) t.repeat.set(repeat[0], repeat[1]);
+      const old = mat.map;
+      mat.map = t;
+      mat.needsUpdate = true;
+      if (old && old.isCanvasTexture && old !== t) old.dispose();
+    },
+    undefined,
+    () => console.warn(`campus: ${file} did not load — keeping the canvas fallback`),
+  );
+}
+
 function tex(w, h, draw, repeat) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -2184,8 +2229,31 @@ function buildGrassGround(G) {
       color: 0xffffff, roughness: .92, flatShading: true }), 0x5c6b86);
     const casuBark = tint(new THREE.MeshStandardMaterial({
       color: 0x4c4238, roughness: .95 }), 0x6a7286);
+    /* ⚠ The needle mass is an ALPHA-CUT map, not a solid colour, and it is built
+       that way from the start on purpose. Three compiles USE_MAP and ALPHATEST
+       into the program; handing a bare material a map later is a recompile and a
+       new program, and the program count is asserted constant across all 24
+       views. So the cone gets a canvas needle sheet at build time and
+       assets/textures/casuarina.webp replaces it on load (same swap nature.js
+       makes for the palms — see photoMap there).
+
+       Why this is worth a texture at all: three stacked cones in flat dark green
+       read as a CONIFER, and once the palms became photographs these were the
+       least believable plants on the lawn — Christmas trees on a Hainan beach.
+       A casuarina is a fringe of fine needles that hangs; the map is dense at the
+       image's top and dissolves into separated strands at its bottom, and
+       flipY puts that dense end at the cone's APEX and the ragged end at its
+       base rim, so each tier breaks its own silhouette exactly where a real
+       tier's needles hang. Geometry, instance count and the rndB() draw order
+       are all untouched — this is a material change only.
+       Base colour is WHITE so the photograph carries the hue; the night tint
+       still multiplies over it. flatShading is off: a 10-sided cone facets
+       visibly once a fine texture is on it. */
     const casuNeedle = tint(new THREE.MeshStandardMaterial({
-      color: 0x3d4d38, roughness: .96, flatShading: true }), 0x59688a);
+      color: 0xffffff, roughness: .96, alphaTest: .5, side: THREE.DoubleSide,
+      map: casuNeedleTex(),
+    }), 0x59688a);
+    photoTex(casuNeedle, 'casuarina.webp');
     const CROTON = [0xa6522c, 0xc98f35, 0x86913a, 0x8f3c2c];
 
     /* a spiky rosette: seven splayed cones round one upright */
