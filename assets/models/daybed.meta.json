@@ -1,0 +1,17 @@
+{
+  "bytes": 38572,
+  "front": "-Z",
+  "material": "daybed",
+  "min": [
+    -1.65,
+    0.0,
+    -1.4
+  ],
+  "origin": "floor",
+  "size": [
+    3.3,
+    2.78,
+    2.8
+  ],
+  "tris": 3676
+}

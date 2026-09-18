@@ -1,0 +1,17 @@
+{
+  "bytes": 29576,
+  "front": "+Z",
+  "material": "dining_chair_rattan",
+  "min": [
+    -0.23,
+    0.0,
+    -0.249
+  ],
+  "origin": "floor",
+  "size": [
+    0.46,
+    1.072,
+    0.499
+  ],
+  "tris": 1330
+}

@@ -1,0 +1,17 @@
+{
+  "bytes": 16336,
+  "front": "-Z",
+  "material": "bar_stool",
+  "min": [
+    -0.23,
+    0.0,
+    -0.228
+  ],
+  "origin": "floor",
+  "size": [
+    0.46,
+    0.824,
+    0.455
+  ],
+  "tris": 1104
+}

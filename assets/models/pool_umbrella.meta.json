@@ -1,0 +1,17 @@
+{
+  "bytes": 10152,
+  "front": "-Z",
+  "material": "pool_umbrella",
+  "min": [
+    -1.573,
+    0.0,
+    -1.573
+  ],
+  "origin": "floor",
+  "size": [
+    3.145,
+    2.86,
+    3.146
+  ],
+  "tris": 664
+}

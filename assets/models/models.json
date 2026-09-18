@@ -16,6 +16,23 @@
     ],
     "tris": 1264
   },
+  "bar_stool": {
+    "bytes": 16336,
+    "front": "-Z",
+    "material": "bar_stool",
+    "min": [
+      -0.23,
+      0.0,
+      -0.228
+    ],
+    "origin": "floor",
+    "size": [
+      0.46,
+      0.824,
+      0.455
+    ],
+    "tris": 1104
+  },
   "bead_chandelier": {
     "bytes": 125028,
     "front": "-Z",
@@ -305,6 +322,23 @@
     ],
     "tris": 1898
   },
+  "daybed": {
+    "bytes": 38572,
+    "front": "-Z",
+    "material": "daybed",
+    "min": [
+      -1.65,
+      0.0,
+      -1.4
+    ],
+    "origin": "floor",
+    "size": [
+      3.3,
+      2.78,
+      2.8
+    ],
+    "tris": 3676
+  },
   "dessert_counter": {
     "bytes": 14004,
     "front": "-Z",
@@ -321,6 +355,23 @@
       1.06
     ],
     "tris": 1188
+  },
+  "dining_chair_rattan": {
+    "bytes": 29576,
+    "front": "+Z",
+    "material": "dining_chair_rattan",
+    "min": [
+      -0.23,
+      0.0,
+      -0.249
+    ],
+    "origin": "floor",
+    "size": [
+      0.46,
+      1.072,
+      0.499
+    ],
+    "tris": 1330
   },
   "dj_booth": {
     "bytes": 13876,
@@ -390,8 +441,25 @@
     ],
     "tris": 3052
   },
+  "four_top": {
+    "bytes": 9780,
+    "front": "-Z",
+    "material": "four_top",
+    "min": [
+      -0.675,
+      0.0,
+      -0.671
+    ],
+    "origin": "floor",
+    "size": [
+      1.35,
+      0.785,
+      1.343
+    ],
+    "tris": 772
+  },
   "hat_rack": {
-    "bytes": 88644,
+    "bytes": 92508,
     "front": "-Z",
     "material": "hat_rack",
     "min": [
@@ -474,6 +542,23 @@
       1.783
     ],
     "tris": 29433
+  },
+  "kayak": {
+    "bytes": 11640,
+    "front": "+Z",
+    "material": "kayak",
+    "min": [
+      -1.082,
+      0.0,
+      -1.5
+    ],
+    "origin": "floor",
+    "size": [
+      2.163,
+      0.632,
+      3.0
+    ],
+    "tris": 930
   },
   "lilac_cluster": {
     "bytes": 121896,
@@ -645,6 +730,40 @@
     ],
     "tris": 108
   },
+  "pool_umbrella": {
+    "bytes": 10152,
+    "front": "-Z",
+    "material": "pool_umbrella",
+    "min": [
+      -1.573,
+      0.0,
+      -1.573
+    ],
+    "origin": "floor",
+    "size": [
+      3.145,
+      2.86,
+      3.146
+    ],
+    "tris": 664
+  },
+  "pool_umbrella_canopy": {
+    "bytes": 8164,
+    "front": "-Z",
+    "material": "canopy_tint",
+    "min": [
+      -1.553,
+      2.025,
+      -1.553
+    ],
+    "origin": "floor",
+    "size": [
+      3.106,
+      0.735,
+      3.106
+    ],
+    "tris": 576
+  },
   "round_bar": {
     "bytes": 98312,
     "front": "-Z",
@@ -696,8 +815,25 @@
     ],
     "tris": 1056
   },
+  "sun_lounger": {
+    "bytes": 25036,
+    "front": "-Z",
+    "material": "sun_lounger",
+    "min": [
+      -0.41,
+      0.0,
+      -1.032
+    ],
+    "origin": "floor",
+    "size": [
+      0.819,
+      0.901,
+      2.063
+    ],
+    "tris": 1072
+  },
   "wheelbarrow": {
-    "bytes": 75704,
+    "bytes": 76116,
     "front": "-Z",
     "material": "wheelbarrow",
     "min": [

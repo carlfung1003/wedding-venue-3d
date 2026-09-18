@@ -1,0 +1,17 @@
+{
+  "bytes": 25036,
+  "front": "-Z",
+  "material": "sun_lounger",
+  "min": [
+    -0.41,
+    0.0,
+    -1.032
+  ],
+  "origin": "floor",
+  "size": [
+    0.819,
+    0.901,
+    2.063
+  ],
+  "tris": 1072
+}
