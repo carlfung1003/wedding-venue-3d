@@ -40,11 +40,19 @@ no rotation to negate.
 THE SPLIT. `MT.lampShade` is `glow(…, .05, 1.5)` — a #2a2320 drum that lights up
 at night — and `MT.downlight` is the hot disc in its mouth. An emissive key may
 not be mixed with lit ones in one GLB (`wv_bake.apply_baked` raises), so the
-glowing mouth is `build_shade()` -> **`table_lamp_shade`, material name
-`shade_emit`**, which is what the loader's `/_emit$/` rule keys on
-(js/models.js:60) to keep it emissive. It shares this module's origin, so both
-halves drop in at the same point. The dark drum stays in `table_lamp`: it is the
-lamp's silhouette, and baking it emissive would make the whole shade a lantern.
+whole SHADE — drum and mouth together — is `build_shade()` -> **`table_lamp_shade`,
+material name `shade_emit`**, which is what the loader's `/_emit$/` rule keys on
+(js/models.js:60). `table_lamp` is then the BRASS half only, foot and stem. Both
+share this module's origin, so they drop in at the same point.
+
+⚠ The drum belongs on the emissive half and that is not a detail. The first cut
+left it in `table_lamp` as a plain dielectric with only the mouth disc glowing,
+and the lamps read DARK at night — a real regression in the suite's night scenes.
+The mouth disc is recessed (r .126 at z .218 inside a rim of r .185 at z .210),
+so no eye in the game ever sees it, and the primitive's whole drum is what lights
+up. `suite.js` re-registers the shared material through its own `glow(mat, .05,
+1.5)` so it stays charcoal by day, because the loader forces any `*_emit`
+material to `emissiveIntensity >= 1`.
 
 ⚠ `shade_emit` is not a `wv_lib.PALETTE` key and `M()` refuses unknown keys, so
 the mouth is built on `bulb_emit` (#fff0cf, emission 2.2 — the warm white the
@@ -59,17 +67,14 @@ in-engine shot, where the base read as ivory plastic. `_interior.brass()` gains
 which reads as satin antique brass as a pure dielectric. Shade in `dj_dark`
 #2b2a26, which is `MT.lampShade`'s #2a2320 to within a point.
 
-⚠ **THE DRUM MUST CARRY MORE FACES THAN THE BRASS, and that is load-bearing.**
-`wv_bake.apply_baked` takes the baked material's roughness AND metalness from
-whichever key covers the MOST faces. At the first cut the 20-sided foot plus its
-stem came to 148 faces against the shade's 80, so the metal key won and the whole
-lamp shipped at metalness .55 — which strips a dark dielectric of its diffuse and
-baked the shade PURE BLACK instead of `MT.lampShade`'s charcoal (visible in the
-first in-engine shot). The drum is 32-sided and the foot 18 now (128 faces
-against 100), so `dj_dark` wins and the shade renders matte at roughness .70,
-with the brass carrying its own gained albedo instead of a metalness. Change
-either segment count and check that `MATERIAL table_lamp:` still prints a bigger
-count for `dj_dark` than for `brass_turned`.
+⚠ **`apply_baked` takes the baked material's roughness AND metalness from whichever
+palette key covers the MOST faces.** With the drum still in `build()` this was
+load-bearing and fragile: a 20-sided foot plus stem came to 148 faces against the
+shade's 80, the metal key won, and the whole lamp shipped at metalness .55 — which
+strips a dark dielectric of its diffuse and baked the shade PURE BLACK. Now that
+`build()` is brass only there is one key in it and nothing to lose, but the rule
+still applies to every other multi-key asset: check that `MATERIAL <name>:` prints
+the key you expect.
 """
 import math
 
@@ -82,7 +87,7 @@ ATLAS = 256
 BEVEL = 0
 AO_DIST = 0.30
 AO_STRENGTH = 0.5
-TRIS = 900                # module-wide; the shade GLB's own budget is 300
+TRIS = 900                # module-wide; the shade GLB now carries the drum too
 FRONT = "-Z"
 ORIGIN = "base"
 
@@ -121,22 +126,52 @@ def build():
     for o in parts:
         L.cylindrical_uv(o, axis=2, repeat=2.0)
 
-    # ---- the dark drum shade: an OPEN tapered shell, 4 mm of wall
-    shell = R.loft("shade", [_ring(SHADE_R0, SHADE_Z0, SHADE_SEG),
-                             _ring(SHADE_R1, SHADE_Z1, SHADE_SEG)],
-                   dark, close_start=False, close_end=False)
-    L.solidify(shell, 0.004)
-    parts.append(shell)
-
+    # ---- the brass half only. The drum moved to build_shade(): see there.
     root = L.join(parts, NAME, origin="floor")     # radially symmetric: = "base"
     L.shade_smooth(root, angle=34)
     return root
 
 
 def build_shade():
-    """The glowing mouth — `MT.downlight`'s disc, kept emissive by the loader.
-    Same frame as build(): origin=None leaves it at the lamp's own foot plane."""
+    """The DRUM and its mouth, together, on the one emissive material.
+
+    ⚠ CORRECTED after the first integration: the drum used to live in build()
+    as a plain dielectric and only the mouth disc came here, and the result was
+    a lamp that reads DARK at night — the regression the suite's night scenes
+    showed. Two reasons it could never work. The mouth disc sits at r .126,
+    z .218, INSIDE a bottom rim of r .185 at z .210, so it is recessed and
+    invisible to any eye above the shade line, which is every eye in the game.
+    And the primitive it replaces lights the WHOLE DRUM: `MT.lampShade` is
+    `glow(mat, .05, 1.5)` — a charcoal shell that becomes a lantern after dark.
+    That is the effect, not a side effect, so the drum belongs on the emissive
+    material and the earlier note here arguing the opposite was simply wrong.
+
+    The loader forces `emissiveIntensity >= 1` on any `*_emit` material, which
+    would light the drum in daylight too, so `suite.js` re-registers this
+    material through its own `glow(mat, .05, 1.5)` — the primitive's exact day
+    and night values. One shared material, registered once.
+
+    Same frame as build(): origin=None leaves it at the lamp's own foot plane.
+    """
     mat = L.M("bulb_emit")
     mat["wv_key"] = "shade_emit"                   # -> the GLB material's name
+    # ⚠ A LAMPSHADE IS DARK UNTIL IT IS LIT. `bulb_emit`'s BASE colour is the same
+    # warm white as its emission, which is right for a bulb and wrong for a drum:
+    # at the .05 daytime intensity suite.js registers, the emission contributes
+    # almost nothing and all that is left is the base, so the shades rendered as
+    # pale cream cylinders where the primitive's `MT.lampShade` is #2a2320
+    # charcoal. Keep the warm EMISSION and darken the BASE to that charcoal, so
+    # the drum reads unlit by day and lights up after dark.
+    bsdf = mat.node_tree.nodes.get("Principled BSDF")
+    if bsdf is not None:
+        dark_lin = tuple(L.srgb_to_linear(c) for c in L.PALETTE["dj_dark"])
+        bsdf.inputs["Base Color"].default_value = (*dark_lin, 1.0)
+        mat.diffuse_color = (*dark_lin, 1.0)       # Workbench preview
+    shell = R.loft("shade", [_ring(SHADE_R0, SHADE_Z0, SHADE_SEG),
+                             _ring(SHADE_R1, SHADE_Z1, SHADE_SEG)],
+                   mat, close_start=False, close_end=False)
+    L.solidify(shell, 0.004)
     disc = L.cyl("mouth", MOUTH_R, MOUTH_H, (0, 0, MOUTH_Z), mat, n=18)
-    return L.join([disc], NAME + "_shade", origin=None)
+    root = L.join([shell, disc], NAME + "_shade", origin=None)
+    L.shade_smooth(root, angle=34)
+    return root

@@ -17,6 +17,7 @@
 import * as THREE from 'three';
 import { SITE, MOMENT_PLACES, worldToEnclave, ARRIVAL_LOBBY_Y } from './site.js';
 import { mulberry32 } from './materials.js';
+import * as models from './models.js';
 
 /* ══════════════════════════════════════════════════════════════════════
    1 · DIMENSIONS — everything derived from SITE.SUITE
@@ -197,6 +198,45 @@ function box(parent, mat, w, h, d, x, y, z, ry = 0) {
 function cyl(parent, mat, rt, rb, h, x, y, z, seg = 16, open = false) {
   const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg, 1, open), mat);
   m.position.set(mx(x), y, z);
+  parent.add(m);
+  return m;
+}
+
+/* ── the Blender-authored interiors (assets/models/, ASSET_SPEC Group G) ─────
+   This file has no bucket system — campus.js instances, water.js clones, and
+   suite.js builds plain Meshes into groups through slab()/box()/cyl(). So a
+   GLB comes in the same way it does in water.js: ONE CLONE per prop, sharing
+   the template's geometry and material, put through the SAME mirror the
+   primitives use. `mdl()` is deliberately `box()`'s tail — x reflects through
+   mx(), and ry is NEGATED exactly as box() negates its last argument — so a
+   call site's yaw arithmetic reads identically whether it is drawing a box or
+   a model, and §1a's rule ("every primitive reflects its X on the way out")
+   keeps holding with nothing new to remember.
+
+   ⚠ The mirror is a no-op on the SHAPE of all eight Group G assets: each is
+   symmetric about its own X centre plane, so reflecting its centre is a true
+   reflection of it, exactly as it is for a box. It is NOT automatically a
+   no-op on the YAW — see the modular sofa in buildSecondFloor, which is the
+   one asset in this file whose yaw is neither 0 nor π.
+
+   `haveM(name)` is the ONE gate (assets/blender/INTEGRATION.md §1): true only
+   when the GLB actually loaded AND came in as a single mesh. EVERY call site
+   below keeps its old primitive path as the `else` branch — models.preload()
+   never rejects, so a missing GLB degrades to slabs, not to an empty room.
+
+   ⚠ Nothing here adds, removes or moves a light. A GLB never carries one; the
+   table lamp's glowing mouth is an EMISSIVE MATERIAL (`table_lamp_shade`,
+   whose name ends `_emit`), which is what the four cylinders were too. The
+   suite's eight real PointLights are REAL_LIGHTS and nothing below touches
+   them. And no collider moves: every asset was modelled to the primitive's
+   own envelope (ASSET_SPEC Group G quotes the file:line of each). */
+const haveM = (name) => models.has(name) && !!models.geometry(name);
+function mdl(parent, name, x, y, z, ry = 0, s = 1) {
+  const m = models.get(name);
+  if (!m) return null;
+  m.position.set(mx(x), y, z);
+  m.rotation.y = -ry;
+  if (s !== 1) m.scale.setScalar(s);
   parent.add(m);
   return m;
 }
@@ -918,11 +958,33 @@ function buildGreatRoom(root) {
   const sx = LIVING_X, sz = -21.2;
   slab(g, MT.espresso, sx - 3, sx + 3, 0, .32, sz - 2, sz + 2);
   slab(g, MT.espressoPlain, sx - 3.02, sx + 3.02, .3, .34, sz - 2.02, sz + 2.02);
-  /* shared central backrest */
-  slab(g, MT.ivory, sx - 1.5, sx + 1.5, .32, 1.06, sz - .95, sz - .5);
-  /* two seat platforms, back to back */
-  slab(g, MT.ivory, sx - 1.5, sx + 1.5, .32, .70, sz - .5, sz + .55);
-  slab(g, MT.ivory, sx - 1.5, sx + 1.5, .32, .70, sz - 1.95, sz - .95);
+  /* THE ISLAND'S THREE MODULES. `suite_sofa` is ONE 1.00 m slice of the
+     back-to-back chaise — the shared low back plus the 1.00 m TV-side seat
+     and the 1.05 m pool-side seat — so three of them at sx − 1, sx, sx + 1
+     rebuild the 3.00 m run the three slabs below drew.
+     · ORIGIN is the footprint centre AT THE PLINTH'S TOP FACE, y .32, which
+       is why the plinth above stays: it is the ground here, and
+       colRect(LIVING_X ± 2.85, −23.05 … −19.35, r .22) is measured on it.
+     · z = sz − .70 puts the module's own 2.50 m over the platforms' own
+       sz −1.95 … +.55, and .32 + .743 tops out at 1.063 against the
+       backrest's 1.06.
+     · FRONT −Z is the TV-facing chaise, which is this room's −z: ry = 0, and
+       0 is its own negative, so the file's mirror is a no-op on the yaw. The
+       module is X-symmetric, so it is a no-op on the shape too, and mx()
+       carries {−1, 0, +1} to {+1, 0, −1} — the same three places.
+     NOT in the GLB and still drawn below: the plinth and its cap (above), the
+     two ARM blocks (the island's ends — a repeating module cannot carry one)
+     and the ~12 teal pillows (a per-instance tint stream one baked atlas
+     cannot reproduce). */
+  if (haveM('suite_sofa')) {
+    for (const k of [-1, 0, 1]) mdl(g, 'suite_sofa', sx + k, .32, sz - .70, 0);
+  } else {
+    /* shared central backrest */
+    slab(g, MT.ivory, sx - 1.5, sx + 1.5, .32, 1.06, sz - .95, sz - .5);
+    /* two seat platforms, back to back */
+    slab(g, MT.ivory, sx - 1.5, sx + 1.5, .32, .70, sz - .5, sz + .55);
+    slab(g, MT.ivory, sx - 1.5, sx + 1.5, .32, .70, sz - 1.95, sz - .95);
+  }
   /* arm blocks */
   for (const ax of [sx - 1.5, sx + 1.5]) {
     slab(g, MT.ivory, ax - .18, ax + .18, .32, .82, sz - 1.95, sz + .55);
@@ -935,9 +997,20 @@ function buildGreatRoom(root) {
     const p2 = box(g, i % 2 ? MT.tealDeep : MT.teal, .42, .42, .16, px, .88, sz - 1.07, .12 * (i % 2 ? -1 : 1));
     p2.rotation.x = .22;
   }
-  /* the big ribbed coffee table, pool side */
-  slab(g, MT.espresso, sx - 1.3, sx + 1.3, .32, .60, sz + .9, sz + 1.9);
-  slab(g, MT.espressoPlain, sx - 1.34, sx + 1.34, .58, .63, sz + .86, sz + 1.94);
+  /* the big ribbed coffee table, pool side.
+     Origin is the plinth's top face too (it stands on the plinth, not on the
+     marble), so y .32 and z sz + 1.40 put its 2.68 × 1.08 × 0.31 exactly over
+     the two slabs' sx ± 1.34 / sz + .86 … + 1.94 / .32 … .63. The RIBS are
+     geometry in the GLB — MT.espresso's grooves are a canvas texture and a
+     baked atlas cannot carry a rib the model does not have. ry = 0 (symmetric
+     on both axes), its own negative under the mirror. No collider of its own:
+     the island's ring covers it. */
+  if (haveM('coffee_table')) {
+    mdl(g, 'coffee_table', sx, .32, sz + 1.40, 0);
+  } else {
+    slab(g, MT.espresso, sx - 1.3, sx + 1.3, .32, .60, sz + .9, sz + 1.9);
+    slab(g, MT.espressoPlain, sx - 1.34, sx + 1.34, .58, .63, sz + .86, sz + 1.94);
+  }
 
   /* a dark stone-clad pier between the closed and folded glazing (f016).
      Moved 1.9 m with GW.closedX1 when the plan was mirrored — it marks that
@@ -949,9 +1022,17 @@ function buildGreatRoom(root) {
 
   /* ── dining: 3.0 × 1.2 espresso table, 8 white high-back chairs ── */
   const dx = DINING_X, dz = -19.5;
-  slab(g, MT.espresso, dx - 1.5, dx + 1.5, .70, .77, dz - .6, dz + .6);
-  slab(g, MT.espressoPlain, dx - 1.05, dx - .55, 0, .70, dz - .42, dz + .42);
-  slab(g, MT.espressoPlain, dx + .55, dx + 1.05, 0, .70, dz - .42, dz + .42);
+  /* 3.000 × 1.200 × 0.770 on its two ribbed plinth legs, origin floor centre
+     and exact (top and both legs are symmetric about (dx, dz)); front −Z is
+     nominal, so ry = 0. colRect(DINING_X ± 1.50, −20.1, −18.9, r .36) is
+     measured on the TOP's footprint and nothing here exceeds it. */
+  if (haveM('suite_dining_table')) {
+    mdl(g, 'suite_dining_table', dx, 0, dz, 0);
+  } else {
+    slab(g, MT.espresso, dx - 1.5, dx + 1.5, .70, .77, dz - .6, dz + .6);
+    slab(g, MT.espressoPlain, dx - 1.05, dx - .55, 0, .70, dz - .42, dz + .42);
+    slab(g, MT.espressoPlain, dx + .55, dx + 1.05, 0, .70, dz - .42, dz + .42);
+  }
   for (let i = 0; i < 4; i++) {
     const cx = dx - 1.12 + i * .75;
     chair(g, cx, dz - 1.05, 0);
@@ -976,6 +1057,17 @@ function buildGreatRoom(root) {
 
 /** White high-back leather dining chair on dark legs. */
 function chair(parent, x, z, ry) {
+  /* `dining_chair_white` is the CHAIR FAMILY, the one exception to
+     ASSET_SPEC's "front faces −Z": its front is +Z, which is the same +Z this
+     helper's own back panel sits behind (z −.26 … −.18). So the caller's yaw
+     drops straight in — `chair(g, cx, dz − 1.05, 0)` still faces the table,
+     and the far row keeps its own π. The origin is the SEAT centre (not the
+     bbox: the back's 20 mm overhang would have put the group 10 mm out), which
+     is exactly where this group's origin was. mdl() applies the same mx() and
+     the same −ry the Group did, and the chair is X-symmetric, so the mirror is
+     a no-op on it. No collider of its own — the chairs are walked through
+     today and still will be. */
+  if (haveM('dining_chair_white')) return mdl(parent, 'dining_chair_white', x, 0, z, ry);
   const c = new THREE.Group();
   slab(c, MT.ivoryWhite, -.24, .24, .44, .50, -.24, .24);
   slab(c, MT.ivoryWhite, -.24, .24, .50, 1.10, -.26, -.18);
@@ -988,8 +1080,50 @@ function chair(parent, x, z, ry) {
   return c;
 }
 
+/* The shade's shared material is registered for day/night exactly ONCE, the
+   first time a lamp is built — see the ⚠ in tableLamp(). models.material()
+   hands out one material for every instance, so a second glow() registration
+   would double-apply the night intensity. */
+let _shadeGlowed = false;
+
 /** Table lamp: slim base, dark shade with a glowing mouth. */
 function tableLamp(parent, x, y, z, h = .42) {
+  /* TWO GLBs, one point. `table_lamp` is the BRASS half — foot and stem;
+     `table_lamp_shade` is the whole shade, drum and mouth together, on material
+     `shade_emit` — models.js's /_emit$/ rule keeps it emissive, and an
+     emissive material may not be mixed with lit ones inside one GLB. Both are
+     BASE-origin, so both go at (x, y, z) with y the SURFACE, exactly as the
+     four cylinders were placed. Front −Z is nominal: ry = 0.
+     ⚠ GATED ON BOTH. The shade is the whole reason this prop reads at night,
+     so if only half the pair loaded we keep all four primitives rather than
+     stand an unlit lamp on the sideboard.
+     ⚠ FOUR CALL SITES, THREE HEIGHTS — .30 at the west credenza, .42 at the
+     dining sideboard pair (which is what is modelled) and .40 on the 2F
+     console. The other two are a uniform h / .42 off it; no single mesh can
+     serve all three exactly, because the code scales the stem, shade and
+     mouth by h and leaves the foot and the stem's radius constant.
+     ⚠ NO LIGHT CHANGES HANDS. Both halves are meshes, as the cylinders were;
+     MT.downlight keeps its day/night registration for the ceiling grids that
+     downlights() draws, and the suite's eight PointLights are untouched.
+     ⚠ THE WHOLE DRUM IS THE LAMP. MT.lampShade below is EMISSIVE —
+     glow(.05, 1.5), DoubleSide, open-ended — so the primitive's entire drum
+     lights up after dark, and that is what a night scene reads as "the lamp is
+     on", not the mouth. The first cut of this prop left the drum in the brass
+     GLB as a plain dielectric and only lit the recessed mouth disc, and the
+     suite's lamps went dark at night. The drum is on the emissive half now, and
+     it takes the SAME day/night pair the primitive had, through the same
+     glow() registry — without which the loader's floor of emissiveIntensity 1
+     on any *_emit material would leave it lit in broad daylight. */
+  if (haveM('table_lamp') && haveM('table_lamp_shade')) {
+    const s = h / .42;
+    mdl(parent, 'table_lamp', x, y, z, 0, s);
+    mdl(parent, 'table_lamp_shade', x, y, z, 0, s);
+    if (!_shadeGlowed) {
+      const sm = models.material('table_lamp_shade');
+      if (sm) { glow(sm, .05, 1.5); _shadeGlowed = true; }
+    }
+    return;
+  }
   cyl(parent, MT.brass, .07, .1, .04, x, y + .02, z, 12);
   cyl(parent, MT.brass, .018, .018, h * .55, x, y + h * .3, z, 8);
   cyl(parent, MT.lampShade, h * .34, h * .44, h * .5, x, y + h * .75, z, 16, true);
@@ -1308,8 +1442,21 @@ function buildAnnex(root) {
   slab(g, MT.water, 11.6, 13.2, .74, .84, -25.4, -23.8);
   for (const hz of [-25.2, -24.0]) slab(g, MT.navy, 12.0, 12.55, .84, .92, hz - .1, hz + .1);
 
-  /* two navy massage beds on blond folding legs */
+  /* two navy massage beds on blond folding legs.
+     `massage_bed` is the whole table — pad, rolled bolster, tapered splayed
+     legs, apron and two stretchers. Origin floor centre, exact (the pad IS
+     the bbox in plan); FRONT −Z is the HEAD, the bolster end, which is this
+     room's −z, so ry = 0 and the mirror is a no-op on both the shape and the
+     yaw. z = −20.95 is the midpoint of the pad's own −21.90 … −20.00.
+     ⚠ colRect(11.5, −21.9, 13.4, −20.0, r .3) is ONE ring round BOTH beds and
+     it does not move: the GLB is 0.701 × 1.902 against the slabs' 0.700 ×
+     1.900, i.e. 0.5 mm proud a side, three hundred times inside the 0.15 m
+     the spec allows before a collider is even discussed. */
   for (const bx of [11.85, 13.05]) {
+    if (haveM('massage_bed')) {
+      mdl(g, 'massage_bed', bx, 0, -20.95, 0);
+      continue;
+    }
     slab(g, MT.navy, bx - .35, bx + .35, .62, .74, -21.9, -20.0);
     slab(g, MT.espressoPlain, bx - .3, bx + .3, .74, .82, -21.85, -21.55);   // bolster
     for (const bz of [-21.7, -20.2]) {
@@ -1333,6 +1480,50 @@ function buildAnnex(root) {
    12 · SECOND FLOOR — lounge + balcony + stair hall (+ a blocked-in bedroom
    wing that the video NEVER shows; see the UNVERIFIED note below)
    ══════════════════════════════════════════════════════════════════════ */
+/* ══ THE 2F MODULAR SOFA'S YAW — THE ONE PLACE THE MIRROR IS NOT A NO-OP ══
+   Every other Group G asset is placed at ry 0 or π, and those are their own
+   negatives, so §1a's reflection leaves them alone. This one is not, and the
+   sign here is the difference between a curved sofa and four boxes thrown at
+   a rug. ASSET_SPEC Group G and INTEGRATION both state the rule as
+   "rotation.y = a + Math.PI, i.e. the call site passes −(a + Math.PI)".
+   ⚠ THAT IS ONE SIGN OUT, and it is out because the premise under it is:
+   the spec says `rotation.y = a` "points the PRIMITIVE's +Z outward". It does
+   not. Measured off the live build before this pass (the four seat boxes'
+   own position/rotation, read out of the scene graph):
+
+       i   a        built centre            rotation.y   radial bearing
+       0  −1.05   ( 4.038, −18.131)           −1.05          +1.05
+       1  −0.53   ( 3.188, −17.272)           −0.53          +0.53
+       2  −0.01   ( 2.023, −16.950)           −0.01          +0.01
+       3  +0.51   ( 0.853, −17.249)           +0.51          −0.51
+
+   The modules sit on the ring at bearing −a (mx() negated the x that put them
+   there) while box() left their rotation at +a, so each primitive is 2a out of
+   radial — 120° at the ring's first module. The give-away in the old code is
+   `back.translateZ(−.42)`: it should put every backrest on r 1.93, and it puts
+   them on 2.588 / 2.176 / 1.930 / 2.161. The mirror pass reflected these
+   POSITIONS and kept their ROTATIONS, which is the half-mirrored state §1a
+   exists to prevent; it survived because four white boxes on a curve look
+   scattered either way, and the pillow rides the same wrong yaw so nothing
+   detaches.
+
+   An annulus sector does NOT survive that. Its two side faces are radial
+   planes, so it only abuts its neighbours when its own axis IS the radius:
+       front (−Z) must point at the radial bearing −a
+    →  rotation.y + π = −a
+    →  rotation.y = −a − π   (≡ π − a)
+   which is what this returns, since mdl() negates its argument exactly as
+   box() does. Shot both ways at the same camera before choosing: π − a is one
+   continuous crescent at the code's own r 1.79/2.85 and .52 rad pitch; the
+   spec's a + π is four separate blocks with gaps between them and the end
+   modules turned across the curve.
+
+   The PRIMITIVE fallback below is deliberately left exactly as it was — this
+   pass swaps furniture, it does not quietly re-point a fallback nobody will
+   see — and the teal accent pillow (not in the GLB) keeps its own yaw too.
+   All four pillows still land inside their own module's footprint. */
+const GLB_2F_RY = (a) => a + Math.PI;
+
 function buildSecondFloor(root) {
   const g = new THREE.Group();
   root.add(g);
@@ -1379,12 +1570,23 @@ function buildSecondFloor(root) {
   for (let i = 0; i < 4; i++) {
     const a = -1.05 + i * .52;
     const cx = arcC[0] + Math.sin(a) * R, cz = arcC[1] + Math.cos(a) * R;
-    const seat = box(g, MT.ivoryWhite, 1.25, .42, 1.0, cx, YF2 + .21, cz, -a);
-    const back = box(g, MT.ivoryWhite, 1.25, .5, .28, cx, YF2 + .55, cz - .0, -a);
-    back.translateZ(-.42);
+    /* ONE CURVED MODULE, origin on its own radial centre line at r 2.35 —
+       the point box() puts the straight module at — so it drops in at
+       (cx, YF2, cz) with no offset. The yaw is the whole story: see
+       GLB_2F_RY above. NOT in the GLB and still drawn below: the teal accent
+       pillow, the ottoman and the 2F coffee table. No colliders here at all
+       (buildColliders registers nothing upstairs but walls and stair), so
+       only the silhouette is load-bearing. */
+    if (haveM('modular_sofa_2f')) {
+      mdl(g, 'modular_sofa_2f', cx, YF2, cz, GLB_2F_RY(a));
+    } else {
+      const seat = box(g, MT.ivoryWhite, 1.25, .42, 1.0, cx, YF2 + .21, cz, -a);
+      const back = box(g, MT.ivoryWhite, 1.25, .5, .28, cx, YF2 + .55, cz - .0, -a);
+      back.translateZ(-.42);
+      void seat;
+    }
     box(g, i % 2 ? MT.teal : MT.tealDeep, .34, .32, .13, cx, YF2 + .52, cz, -a + .2)
       .translateZ(-.26);
-    void seat;
   }
   cyl(g, MT.ivoryWhite, .62, .6, .38, -3.4, YF2 + .19, -16.6, 20);       // round ottoman
   slab(g, MT.espressoPlain, -2.6, -.9, YF2 + .02, YF2 + .36, -17.3, -16.3);  // coffee table

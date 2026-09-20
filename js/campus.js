@@ -1482,8 +1482,10 @@ function modelI(key, name, m) {
        non-literal forwarding call inside the helper and misses both sites.
    Census all seven forms together, in one namespace, and ignore comments (this
    one included). Clean as of 2026-08-06: 138 keys, 0 collisions; as of
-   2026-09-18 (the resort furniture): 146 keys, 0 collisions; and as of
-   2026-09-20 (the pool wave, +subBarGlbI +subStoolGlbI): 148 keys, 0. */
+   2026-09-18 (the resort furniture): 146 keys, 0 collisions; as of
+   2026-09-20 (the pool wave, +subBarGlbI +subStoolGlbI): 148 keys, 0; and as
+   of 2026-09-20 (the interiors, +arrSofaGlbI): 149 keys, 0 — 420 placements
+   over seven call forms. */
 function flushBuckets(parent) {
   for (const [key, b] of BUCKETS) {
     if (!b.ms.length) continue;
@@ -3050,20 +3052,54 @@ function buildArrival(G, g, rnd) {
   const sofa = (cx, cz, cry, len) => {
     const c = Math.cos(cry), s = Math.sin(cry);
     const P = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
-    const seat = P(0, 0);
-    inst('arrSofaI', UNIT_BOX, MAT.ivory, mat4(seat[0], LY + .30, seat[1], len, .30, .95, cry));
-    const back = P(0, -.42);
-    inst('arrSofaI', UNIT_BOX, MAT.ivory, mat4(back[0], LY + .62, back[1], len, .66, .18, cry));
+    /* `lobby_sofa` — the whole piece: the seat band, its four loose cushions,
+       the low back, the leaning scatters and the four feet, one baked mesh.
+       ⚠ THE YAW IS THE TRAP. P() maps local +z to the sofa's OPEN side (the
+       back is drawn at P(0, −.42)), and a rotation.y of `cry` puts local +Z
+       there — but the GLB's FRONT is −Z, so `ry = cry` seats every sofa
+       facing the wall and nothing throws. `cry + π` is the change of basis.
+       ⚠ ONE NEW BUCKET KEY. inst() binds geometry AND material on a key's
+       first use across the whole builder, so a model — which carries both
+       halves of the pair — can never share a key with arrSofaI, arrCushI or
+       arrSofaFootI, which keep theirs for the fallback. `arrSofaGlbI` is the
+       `<room><Model>GlbI` name modelI() asks for.
+       ⚠ FOUR CALL SITES, TWO LENGTHS: 3.4 ×2 on the big rug, 2.8 ×2 south.
+       The model is the 3.4; the short pair is scale.x = len / 3.4 = 0.8235,
+       along its own length, which is its local X.
+       Origin is the sofa's own registration point (not the bbox — the back's
+       35 mm overhang would have shifted it 17.5 mm), so it goes at (cx, LY,
+       cz) exactly as P(0, 0) did, and its z runs −0.475 … +0.510 in P's frame
+       against the primitive's −0.51 … +0.475. rectCollider below is 3.70 ×
+       1.10 about the same centre and does not move. */
+    const glbSofa = have('lobby_sofa');
+    if (glbSofa) {
+      modelI('arrSofaGlbI', 'lobby_sofa',
+        mat4(cx, LY, cz, len / 3.4, 1, 1, cry + Math.PI));
+    } else {
+      const seat = P(0, 0);
+      inst('arrSofaI', UNIT_BOX, MAT.ivory, mat4(seat[0], LY + .30, seat[1], len, .30, .95, cry));
+      const back = P(0, -.42);
+      inst('arrSofaI', UNIT_BOX, MAT.ivory, mat4(back[0], LY + .62, back[1], len, .66, .18, cry));
+    }
     for (let k = 0; k < Math.round(len / .9); k++) {
       const px = -len / 2 + .55 + k * .9;
       const p = P(px, -.28);
-      inst('arrCushI', UNIT_BOX, MAT.ivoryWarm,
-        mat4(p[0], LY + .68, p[1], .52, .52, .2, cry + (rnd() - .5) * .2));
+      /* ⚠ THE SEEDED STREAM. This rnd() is drawn in BOTH paths and in the
+         same order — the scatter cushions are inside the GLB, but every draw
+         after this point on the campus (and there are thousands) depends on
+         the count, so the model may not skip one. */
+      const jitter = (rnd() - .5) * .2;
+      if (!glbSofa) {
+        inst('arrCushI', UNIT_BOX, MAT.ivoryWarm,
+          mat4(p[0], LY + .68, p[1], .52, .52, .2, cry + jitter));
+      }
     }
-    for (const lx of [-len / 2 + .18, len / 2 - .18]) {
-      for (const lz of [-.38, .38]) {
-        const p = P(lx, lz);
-        inst('arrSofaFootI', UNIT_BOX, MAT.white, mat4(p[0], LY + .075, p[1], .07, .15, .07, cry));
+    if (!glbSofa) {
+      for (const lx of [-len / 2 + .18, len / 2 - .18]) {
+        for (const lz of [-.38, .38]) {
+          const p = P(lx, lz);
+          inst('arrSofaFootI', UNIT_BOX, MAT.white, mat4(p[0], LY + .075, p[1], .07, .15, .07, cry));
+        }
       }
     }
     /* ⚠ ABOVE, for the mirror-image reason the lounge's furniture is BELOW:

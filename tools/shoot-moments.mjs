@@ -224,6 +224,63 @@ const VIEWS = [
     return { x: ax + Math.cos(th) * d, z: az + Math.sin(th) * d, y: 0,
              lookX: ax, lookZ: az };
   })()` }],
+  /* ── the GROUP G interiors (KAN-208). Nothing above stands INSIDE a room:
+        every view so far is a lawn, a deck, a roof or a pool. These seven are
+        the four rooms this wave furnishes, and the first of them is the one
+        that matters most — the opening dive LANDS in the great room, so the
+        sofa island is the first thing the game ever shows at eye level. ── */
+  /* THE LANDING. INTRO_PATH.land === MOMENT_PLACES.PREWEDDING, enclave-local
+     (1, −18) — the dive's own touch-down, facing the pool at yaw π. Turn
+     round (yaw .42, NNW) and this is the room: the three-module sofa island
+     at (−1, −21.2), the ribbed coffee table 1.4 m in front of it, the TV wall
+     behind. Moment 1 is the Prewedding, which is the moment the dive lands
+     in, and it is NIGHT — the state the lamps and the lit shade are for. */
+  ['suite-great-room', 1, [1, -18, 0.42]],
+  /* …the same frame in DAYLIGHT (moment 2 dresses a lawn 100 m away and
+     leaves the suite alone), because a baked albedo is judged by day. */
+  ['suite-great-room-day', 2, [1, -18, 0.42]],
+  /* the dining end: the 3.0 × 1.2 espresso table on its two plinth legs, all
+     EIGHT white high-back chairs (four near at z −18.45, four far at −20.55)
+     and the west sideboard beyond. Stood off the table's own collider rect. */
+  ['suite-dining', 2, [3.0, -17.0, -Math.PI / 4]],
+  /* the two dining-sideboard lamps AT NIGHT — the h = .42 pair the lamp is
+     modelled at, and the one view that proves `table_lamp_shade`'s mouth is
+     still lit (ASSET_SPEC: "Verify at NIGHT"). Camera is clear of both the
+     dining and the sofa-island collider rings. */
+  ['suite-dining-night', 1, [2.6, -18.6, -1.387]],
+  /* the 2F lounge's curved modular sofa, from the glass wall looking north
+     across the teal rug. WORLD form because `y` is load-bearing: the array
+     form spawns the camera at feet 0 and CFG.STEP_UP (0.40) will not climb
+     3.8 m, so it would shoot the great room from underneath. */
+  ['suite-2f-lounge', 2, { world: `(() => {
+    /* ⚠ FROM THE SOUTH-WEST, not head-on. The ring's own radius is 2.35 and
+       the lounge only runs to the glass at z −13.5, so a camera on the arc's
+       axis stands 2.3 m off the nearest module and shoots it from inside its
+       own cushion. The diagonal is the only 5 m sight line in the room. */
+    const c = S.enclaveToWorld(-2.2, -14.4), t = S.enclaveToWorld(2.2, -17.5);
+    return { x: c.x, z: c.z, y: S.SITE.SUITE.floorToFloor,
+             lookX: t.x, lookZ: t.z };
+  })()` }],
+  /* the check-in lobby's two big cream sofas facing each other over the dark
+     low table — campus.js's, not suite.js's, and the one Group G asset
+     outside the presidential suite. WORLD form for the same reason: the lobby
+     floor is ARRIVAL_LOBBY_Y (3.60), not 0. */
+  ['arrival-lobby-sofas', 2, { world: `(() => {
+    const LB = S.SITE.ARRIVAL.LOBBY;
+    const c = S.enclaveToWorld(LB.x0 + 9.4, -13.2);
+    const t = S.enclaveToWorld(LB.x0 + 4.4, -13.2);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z };
+  })()` }],
+  /* the spa's two navy massage beds, looking south down them from the gap
+     between the jacuzzi and their heads. The annex is ground level, so the
+     array form is right — but the room is only 3.8 × 6.6 m clear, and the
+     partition chain, the south wall, the spa sofa's rect and the beds' own
+     colRect between them leave one stand-point with 4.8 m of sight line: the
+     north-east corner beside the jacuzzi, shooting down the diagonal. The
+     jacuzzi surround is 0.90 m and the beds are 0.82 m at 4.4 m, so it sits
+     BELOW the sight line and occludes nothing. */
+  ['suite-spa-beds', 2, [-10.6, -25.2, 2.7155]],
+
   /* the beach pool's round island bar, from the landward side so the sand,
      the staved counter and the thatch all stand against the water. */
   ['river-island-bar', 2, { world: `(() => {

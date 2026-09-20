@@ -1071,38 +1071,38 @@
     "tris": 1812
   },
   "table_lamp": {
-    "bytes": 7816,
+    "bytes": 7312,
     "front": "-Z",
-    "material": "table_lamp",
+    "material": "brass_turned",
+    "min": [
+      -0.1,
+      0.0,
+      -0.098
+    ],
+    "origin": "base",
+    "size": [
+      0.2,
+      0.265,
+      0.197
+    ],
+    "tris": 196
+  },
+  "table_lamp_shade": {
+    "bytes": 5432,
+    "front": "-Z",
+    "material": "shade_emit",
     "min": [
       -0.185,
-      0.0,
+      0.208,
       -0.185
     ],
     "origin": "base",
     "size": [
       0.37,
-      0.42,
+      0.212,
       0.37
     ],
-    "tris": 452
-  },
-  "table_lamp_shade": {
-    "bytes": 4308,
-    "front": "-Z",
-    "material": "shade_emit",
-    "min": [
-      -0.124,
-      0.208,
-      -0.126
-    ],
-    "origin": "base",
-    "size": [
-      0.248,
-      0.02,
-      0.252
-    ],
-    "tris": 68
+    "tris": 324
   },
   "wheelbarrow": {
     "bytes": 76116,

@@ -1,17 +1,17 @@
 {
-  "bytes": 7816,
+  "bytes": 7312,
   "front": "-Z",
-  "material": "table_lamp",
+  "material": "brass_turned",
   "min": [
-    -0.185,
+    -0.1,
     0.0,
-    -0.185
+    -0.098
   ],
   "origin": "base",
   "size": [
-    0.37,
-    0.42,
-    0.37
+    0.2,
+    0.265,
+    0.197
   ],
-  "tris": 452
+  "tris": 196
 }
