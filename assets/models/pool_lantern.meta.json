@@ -1,0 +1,17 @@
+{
+  "bytes": 10440,
+  "front": "-Z",
+  "material": "label",
+  "min": [
+    -0.7,
+    0.0,
+    -0.7
+  ],
+  "origin": "floor",
+  "size": [
+    1.4,
+    1.204,
+    1.4
+  ],
+  "tris": 1698
+}

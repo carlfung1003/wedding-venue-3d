@@ -101,6 +101,23 @@
     ],
     "tris": 5528
   },
+  "cabana_daybed": {
+    "bytes": 26776,
+    "front": "-Z",
+    "material": "cabana_daybed",
+    "min": [
+      -0.938,
+      0.0,
+      -0.755
+    ],
+    "origin": "floor",
+    "size": [
+      1.877,
+      0.668,
+      1.509
+    ],
+    "tris": 1216
+  },
   "canape_table": {
     "bytes": 47608,
     "front": "-Z",
@@ -543,6 +560,23 @@
     ],
     "tris": 29433
   },
+  "island_bar": {
+    "bytes": 60532,
+    "front": "-Z",
+    "material": "island_bar",
+    "min": [
+      -5.825,
+      0.0,
+      -5.85
+    ],
+    "origin": "floor",
+    "size": [
+      11.65,
+      5.05,
+      11.7
+    ],
+    "tris": 2604
+  },
   "kayak": {
     "bytes": 11640,
     "front": "+Z",
@@ -730,6 +764,57 @@
     ],
     "tris": 108
   },
+  "pool_lantern": {
+    "bytes": 10440,
+    "front": "-Z",
+    "material": "label",
+    "min": [
+      -0.7,
+      0.0,
+      -0.7
+    ],
+    "origin": "floor",
+    "size": [
+      1.4,
+      1.204,
+      1.4
+    ],
+    "tris": 1698
+  },
+  "pool_lantern_lotus": {
+    "bytes": 12544,
+    "front": "-Z",
+    "material": "label",
+    "min": [
+      -0.868,
+      0.0,
+      -0.868
+    ],
+    "origin": "floor",
+    "size": [
+      1.736,
+      0.822,
+      1.736
+    ],
+    "tris": 1572
+  },
+  "pool_light": {
+    "bytes": 13372,
+    "front": "-Z",
+    "material": "pool_light",
+    "min": [
+      -0.243,
+      0.0,
+      -0.027
+    ],
+    "origin": "floor",
+    "size": [
+      0.486,
+      0.482,
+      0.117
+    ],
+    "tris": 776
+  },
   "pool_umbrella": {
     "bytes": 10152,
     "front": "-Z",
@@ -831,6 +916,40 @@
       2.063
     ],
     "tris": 1072
+  },
+  "swim_stool": {
+    "bytes": 8584,
+    "front": "-Z",
+    "material": "paint_w",
+    "min": [
+      -0.25,
+      0.0,
+      -0.25
+    ],
+    "origin": "floor",
+    "size": [
+      0.5,
+      0.745,
+      0.5
+    ],
+    "tris": 590
+  },
+  "swim_up_bar": {
+    "bytes": 62748,
+    "front": "-Z",
+    "material": "swim_up_bar",
+    "min": [
+      -4.2,
+      0.0,
+      -2.4
+    ],
+    "origin": "floor",
+    "size": [
+      8.4,
+      3.085,
+      4.8
+    ],
+    "tris": 1812
   },
   "wheelbarrow": {
     "bytes": 76116,

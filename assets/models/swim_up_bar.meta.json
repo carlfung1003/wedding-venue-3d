@@ -1,0 +1,17 @@
+{
+  "bytes": 62748,
+  "front": "-Z",
+  "material": "swim_up_bar",
+  "min": [
+    -4.2,
+    0.0,
+    -2.4
+  ],
+  "origin": "floor",
+  "size": [
+    8.4,
+    3.085,
+    4.8
+  ],
+  "tris": 1812
+}

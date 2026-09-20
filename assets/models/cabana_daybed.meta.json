@@ -1,0 +1,17 @@
+{
+  "bytes": 26776,
+  "front": "-Z",
+  "material": "cabana_daybed",
+  "min": [
+    -0.938,
+    0.0,
+    -0.755
+  ],
+  "origin": "floor",
+  "size": [
+    1.877,
+    0.668,
+    1.509
+  ],
+  "tris": 1216
+}

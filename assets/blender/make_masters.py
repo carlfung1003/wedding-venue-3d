@@ -43,7 +43,17 @@ def run_one(mod, fn, asset, atlas):
         f"{asset}: build() must return the joined mesh (use wv_lib.join)"
     root.name = asset
     pre = L.tris(root)
-    if not FAST:
+    # ⚠ BAKE = False — a GEOMETRY-ONLY asset. Some props hand the game their shape
+    # and nothing else: the pool lanterns are the signature night shot and their
+    # "lit from within" read is a three-material stack water.js owns (an emissive
+    # paper shell over an opaque hot core inside an additive back-side rim), which
+    # ONE baked atlas cannot reproduce — it would flatten the lantern into a
+    # painted ball. The game therefore takes models.geometry(name) and pairs it
+    # with its own material, and the bake would be worse than useless here:
+    # prepare_for_export smart-unwraps UV0 for the atlas, destroying the
+    # cylindrical layout the game's paper texture needs. So skip the whole stage
+    # and let the generator own its UVs.
+    if not FAST and getattr(mod, "BAKE", True) is not False:
         bw = getattr(mod, "BEVEL", None)
         if bw is None:
             bw = float(opts.get("bevel", 0.004))

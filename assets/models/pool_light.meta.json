@@ -1,0 +1,17 @@
+{
+  "bytes": 13372,
+  "front": "-Z",
+  "material": "pool_light",
+  "min": [
+    -0.243,
+    0.0,
+    -0.027
+  ],
+  "origin": "floor",
+  "size": [
+    0.486,
+    0.482,
+    0.117
+  ],
+  "tris": 776
+}

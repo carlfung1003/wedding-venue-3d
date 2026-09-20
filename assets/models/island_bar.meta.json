@@ -1,0 +1,17 @@
+{
+  "bytes": 60532,
+  "front": "-Z",
+  "material": "island_bar",
+  "min": [
+    -5.825,
+    0.0,
+    -5.85
+  ],
+  "origin": "floor",
+  "size": [
+    11.65,
+    5.05,
+    11.7
+  ],
+  "tris": 2604
+}
