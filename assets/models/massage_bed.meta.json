@@ -1,0 +1,17 @@
+{
+  "bytes": 15728,
+  "front": "-Z",
+  "material": "massage_bed",
+  "min": [
+    -0.351,
+    0.0,
+    -0.951
+  ],
+  "origin": "floor",
+  "size": [
+    0.701,
+    0.82,
+    1.902
+  ],
+  "tris": 1000
+}

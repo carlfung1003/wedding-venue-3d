@@ -1,0 +1,17 @@
+{
+  "bytes": 27820,
+  "front": "-Z",
+  "material": "suite_sofa",
+  "min": [
+    -0.5,
+    0.0,
+    -1.25
+  ],
+  "origin": "floor",
+  "size": [
+    1.0,
+    0.743,
+    2.5
+  ],
+  "tris": 1656
+}

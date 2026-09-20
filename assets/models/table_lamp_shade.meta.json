@@ -1,0 +1,17 @@
+{
+  "bytes": 4308,
+  "front": "-Z",
+  "material": "shade_emit",
+  "min": [
+    -0.124,
+    0.208,
+    -0.126
+  ],
+  "origin": "base",
+  "size": [
+    0.248,
+    0.02,
+    0.252
+  ],
+  "tris": 68
+}

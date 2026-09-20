@@ -1,0 +1,17 @@
+{
+  "bytes": 33164,
+  "front": "-Z",
+  "material": "lobby_sofa",
+  "min": [
+    -1.7,
+    0.0,
+    -0.475
+  ],
+  "origin": "floor",
+  "size": [
+    3.4,
+    0.95,
+    0.985
+  ],
+  "tris": 1512
+}

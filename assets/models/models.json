@@ -305,6 +305,23 @@
     ],
     "tris": 3008
   },
+  "coffee_table": {
+    "bytes": 6140,
+    "front": "-Z",
+    "material": "coffee_table",
+    "min": [
+      -1.34,
+      0.0,
+      -0.54
+    ],
+    "origin": "floor",
+    "size": [
+      2.68,
+      0.31,
+      1.08
+    ],
+    "tris": 344
+  },
   "crossback_chair": {
     "bytes": 15180,
     "front": "+Z",
@@ -389,6 +406,23 @@
       0.499
     ],
     "tris": 1330
+  },
+  "dining_chair_white": {
+    "bytes": 12972,
+    "front": "+Z",
+    "material": "dining_chair_white",
+    "min": [
+      -0.242,
+      0.0,
+      -0.26
+    ],
+    "origin": "floor",
+    "size": [
+      0.482,
+      1.1,
+      0.501
+    ],
+    "tris": 1152
   },
   "dj_booth": {
     "bytes": 13876,
@@ -611,6 +645,23 @@
     ],
     "tris": 4814
   },
+  "lobby_sofa": {
+    "bytes": 33164,
+    "front": "-Z",
+    "material": "lobby_sofa",
+    "min": [
+      -1.7,
+      0.0,
+      -0.475
+    ],
+    "origin": "floor",
+    "size": [
+      3.4,
+      0.95,
+      0.985
+    ],
+    "tris": 1512
+  },
   "long_table": {
     "bytes": 18636,
     "front": "-Z",
@@ -645,6 +696,23 @@
     ],
     "tris": 2316
   },
+  "massage_bed": {
+    "bytes": 15728,
+    "front": "-Z",
+    "material": "massage_bed",
+    "min": [
+      -0.351,
+      0.0,
+      -0.951
+    ],
+    "origin": "floor",
+    "size": [
+      0.701,
+      0.82,
+      1.902
+    ],
+    "tris": 1000
+  },
   "menu_easel": {
     "bytes": 11832,
     "front": "-Z",
@@ -678,6 +746,23 @@
       0.902
     ],
     "tris": 2264
+  },
+  "modular_sofa_2f": {
+    "bytes": 11164,
+    "front": "-Z",
+    "material": "modular_sofa_2f",
+    "min": [
+      -0.733,
+      0.0,
+      -0.5
+    ],
+    "origin": "floor",
+    "size": [
+      1.465,
+      0.8,
+      1.12
+    ],
+    "tris": 686
   },
   "parasol_round": {
     "bytes": 9344,
@@ -900,6 +985,40 @@
     ],
     "tris": 1056
   },
+  "suite_dining_table": {
+    "bytes": 12164,
+    "front": "-Z",
+    "material": "suite_dining_table",
+    "min": [
+      -1.5,
+      0.0,
+      -0.6
+    ],
+    "origin": "floor",
+    "size": [
+      3.0,
+      0.77,
+      1.2
+    ],
+    "tris": 944
+  },
+  "suite_sofa": {
+    "bytes": 27820,
+    "front": "-Z",
+    "material": "suite_sofa",
+    "min": [
+      -0.5,
+      0.0,
+      -1.25
+    ],
+    "origin": "floor",
+    "size": [
+      1.0,
+      0.743,
+      2.5
+    ],
+    "tris": 1656
+  },
   "sun_lounger": {
     "bytes": 25036,
     "front": "-Z",
@@ -950,6 +1069,40 @@
       4.8
     ],
     "tris": 1812
+  },
+  "table_lamp": {
+    "bytes": 7816,
+    "front": "-Z",
+    "material": "table_lamp",
+    "min": [
+      -0.185,
+      0.0,
+      -0.185
+    ],
+    "origin": "base",
+    "size": [
+      0.37,
+      0.42,
+      0.37
+    ],
+    "tris": 452
+  },
+  "table_lamp_shade": {
+    "bytes": 4308,
+    "front": "-Z",
+    "material": "shade_emit",
+    "min": [
+      -0.124,
+      0.208,
+      -0.126
+    ],
+    "origin": "base",
+    "size": [
+      0.248,
+      0.02,
+      0.252
+    ],
+    "tris": 68
   },
   "wheelbarrow": {
     "bytes": 76116,

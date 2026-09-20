@@ -1,0 +1,17 @@
+{
+  "bytes": 12972,
+  "front": "+Z",
+  "material": "dining_chair_white",
+  "min": [
+    -0.242,
+    0.0,
+    -0.26
+  ],
+  "origin": "floor",
+  "size": [
+    0.482,
+    1.1,
+    0.501
+  ],
+  "tris": 1152
+}

@@ -1,0 +1,17 @@
+{
+  "bytes": 12164,
+  "front": "-Z",
+  "material": "suite_dining_table",
+  "min": [
+    -1.5,
+    0.0,
+    -0.6
+  ],
+  "origin": "floor",
+  "size": [
+    3.0,
+    0.77,
+    1.2
+  ],
+  "tris": 944
+}

@@ -1,0 +1,17 @@
+{
+  "bytes": 11164,
+  "front": "-Z",
+  "material": "modular_sofa_2f",
+  "min": [
+    -0.733,
+    0.0,
+    -0.5
+  ],
+  "origin": "floor",
+  "size": [
+    1.465,
+    0.8,
+    1.12
+  ],
+  "tris": 686
+}
