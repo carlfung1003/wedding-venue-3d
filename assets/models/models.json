@@ -68,21 +68,21 @@
     "tris": 4204
   },
   "bottle_set": {
-    "bytes": 50180,
+    "bytes": 51048,
     "front": "-Z",
     "material": "bottle_set",
     "min": [
-      -0.696,
+      -0.695,
       0.0,
-      -0.198
+      -0.197
     ],
     "origin": "base",
     "size": [
-      1.391,
-      0.45,
-      0.395
+      1.389,
+      0.449,
+      0.394
     ],
-    "tris": 4296
+    "tris": 4550
   },
   "buffet_run": {
     "bytes": 123104,
@@ -102,7 +102,7 @@
     "tris": 5528
   },
   "cabana_daybed": {
-    "bytes": 26776,
+    "bytes": 26768,
     "front": "-Z",
     "material": "cabana_daybed",
     "min": [
@@ -765,17 +765,17 @@
     "tris": 686
   },
   "parasol_round": {
-    "bytes": 9344,
+    "bytes": 8672,
     "front": "-Z",
     "material": "parasol_round",
     "min": [
       -1.742,
       0.0,
-      -1.742
+      -1.743
     ],
     "origin": "floor",
     "size": [
-      3.484,
+      3.485,
       3.055,
       3.485
     ],
@@ -816,7 +816,7 @@
     "tris": 6456
   },
   "plinth_fluted": {
-    "bytes": 8752,
+    "bytes": 5356,
     "front": "-Z",
     "material": "flute",
     "min": [
@@ -935,7 +935,7 @@
     "tris": 576
   },
   "round_bar": {
-    "bytes": 98312,
+    "bytes": 93480,
     "front": "-Z",
     "material": "round_bar",
     "min": [
@@ -949,7 +949,7 @@
       1.13,
       2.48
     ],
-    "tris": 4000
+    "tris": 3936
   },
   "round_table": {
     "bytes": 29584,

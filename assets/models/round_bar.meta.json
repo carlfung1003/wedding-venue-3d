@@ -1,5 +1,5 @@
 {
-  "bytes": 98312,
+  "bytes": 93480,
   "front": "-Z",
   "material": "round_bar",
   "min": [
@@ -13,5 +13,5 @@
     1.13,
     2.48
   ],
-  "tris": 4000
+  "tris": 3936
 }

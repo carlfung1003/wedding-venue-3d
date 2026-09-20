@@ -1,15 +1,15 @@
 {
-  "bytes": 9344,
+  "bytes": 8672,
   "front": "-Z",
   "material": "parasol_round",
   "min": [
     -1.742,
     0.0,
-    -1.742
+    -1.743
   ],
   "origin": "floor",
   "size": [
-    3.484,
+    3.485,
     3.055,
     3.485
   ],

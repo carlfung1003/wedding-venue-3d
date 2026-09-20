@@ -527,21 +527,40 @@ def _check_art_uvs(objs):
     import wv_lib as L
     bad = []
     for o in objs:
-        has_image = any(
-            s.material and s.material.use_nodes and s.material.node_tree
-            and any(n.type == 'TEX_IMAGE' for n in s.material.node_tree.nodes)
-            for s in o.material_slots)
-        if not has_image:
+        me = o.data
+        lay = me.uv_layers.get(L.ART_UV)
+        # which slots carry an image material at all
+        img_slots = {
+            i for i, s in enumerate(o.material_slots)
+            if s.material and s.material.use_nodes and s.material.node_tree
+            and any(n.type == 'TEX_IMAGE' for n in s.material.node_tree.nodes)}
+        if not img_slots:
             continue
-        lay = o.data.uv_layers.get(L.ART_UV)
         if lay is None or len(lay.data) == 0:
             bad.append(f"{o.name}: image material but no '{L.ART_UV}' layer")
             continue
-        us = [d.uv[0] for d in lay.data]
-        vs = [d.uv[1] for d in lay.data]
-        if (max(us) - min(us)) < 1e-6 and (max(vs) - min(vs)) < 1e-6:
-            bad.append(f"{o.name}: '{L.ART_UV}' is degenerate at "
-                       f"({us[0]:.3f}, {vs[0]:.3f}) — it will bake one texel")
+        # ⚠ PER SLOT, not per mesh. build() has already join()ed everything into ONE
+        # object by the time this runs, so a whole-mesh bbox passes as soon as ANY
+        # part was unwrapped — which is exactly the part that is fine. The part you
+        # forgot is a handful of faces sharing the same mesh, and only its own
+        # material slot's loops reveal it.
+        span = {}
+        for p in me.polygons:
+            if p.material_index not in img_slots:
+                continue
+            for li in p.loop_indices:
+                u, v = lay.data[li].uv
+                lo_u, lo_v, hi_u, hi_v = span.get(p.material_index,
+                                                  (u, v, u, v))
+                span[p.material_index] = (min(lo_u, u), min(lo_v, v),
+                                          max(hi_u, u), max(hi_v, v))
+        for idx, (lo_u, lo_v, hi_u, hi_v) in span.items():
+            if (hi_u - lo_u) < 1e-6 and (hi_v - lo_v) < 1e-6:
+                mat = o.material_slots[idx].material
+                bad.append(
+                    f"{o.name}: material '{mat.name if mat else idx}' is image-mapped "
+                    f"but its '{L.ART_UV}' collapses to ({lo_u:.3f}, {lo_v:.3f}) — "
+                    f"those faces would bake ONE texel of the picture")
     if bad:
         raise RuntimeError(
             "art UV check failed — these parts would bake a single texel of their "
