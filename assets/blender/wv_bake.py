@@ -507,6 +507,48 @@ def meshes_of(root):
     return [o for o in [root] + list(root.children_recursive) if o.type == 'MESH']
 
 
+def _check_art_uvs(objs):
+    """Fail loudly when an image-mapped face has no art UV to sample.
+
+    ⚠ `join()` merges meshes whose UV-LAYER SETS differ, and the parts that never
+    had an `art` layer get one filled with (0, 0). An image material on those faces
+    then samples a single corner TEXEL of the photograph and bakes as one flat
+    colour — usually black, because a texture's corner usually is. It never warns.
+
+    Measured cost: thirty canopy slats on the swim-up bar came back solid black
+    from one corner of pine_planks.webp, and the island bar's inner shelf and the
+    cabana daybed's reveal had the same defect. Every one of them looked like a
+    lighting or a bake bug and was neither.
+
+    So: any mesh carrying an image material must have a NON-DEGENERATE art UV
+    bbox. The fix in a generator is always the same — call planar_uv /
+    cylindrical_uv / spherical_uv on that part.
+    """
+    import wv_lib as L
+    bad = []
+    for o in objs:
+        has_image = any(
+            s.material and s.material.use_nodes and s.material.node_tree
+            and any(n.type == 'TEX_IMAGE' for n in s.material.node_tree.nodes)
+            for s in o.material_slots)
+        if not has_image:
+            continue
+        lay = o.data.uv_layers.get(L.ART_UV)
+        if lay is None or len(lay.data) == 0:
+            bad.append(f"{o.name}: image material but no '{L.ART_UV}' layer")
+            continue
+        us = [d.uv[0] for d in lay.data]
+        vs = [d.uv[1] for d in lay.data]
+        if (max(us) - min(us)) < 1e-6 and (max(vs) - min(vs)) < 1e-6:
+            bad.append(f"{o.name}: '{L.ART_UV}' is degenerate at "
+                       f"({us[0]:.3f}, {vs[0]:.3f}) — it will bake one texel")
+    if bad:
+        raise RuntimeError(
+            "art UV check failed — these parts would bake a single texel of their "
+            "picture:\n  " + "\n  ".join(bad) +
+            "\nCall planar_uv / cylindrical_uv / spherical_uv on them.")
+
+
 def prepare_for_export(root, size=512, bevel_width=0.004, ao_dist=0.5, ao_strength=0.5,
                        margin=0.015, mat_name=None):
     """bevel -> unwrap -> bake -> single material. Call once, at master-build time."""
@@ -514,6 +556,7 @@ def prepare_for_export(root, size=512, bevel_width=0.004, ao_dist=0.5, ao_streng
     objs = meshes_of(root)
     if not objs:
         return None
+    _check_art_uvs(objs)
     if bevel_width > 0:
         L.bevel(objs, width=bevel_width)
     unwrap(objs, margin=margin, size=size)      # the island gap is in PIXELS of THIS atlas
