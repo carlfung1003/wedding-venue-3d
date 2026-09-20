@@ -1476,9 +1476,14 @@ function modelI(key, name, m) {
      · SINCE THE GROUP E PASS there is a SIXTH form, `modelI(key, 'model', m)`.
        Both halves of its pair are the model, so count it as the triple
        (glb:model, glb:model) — a reused modelI key collides with everything.
-   Census all six forms together, in one namespace, and ignore comments (this
-   one included). Clean as of 2026-08-06: 138 keys, 0 collisions; and as of
-   2026-09-18 (the resort furniture): 146 keys, 0 collisions. */
+     · AND SINCE GROUP F a SEVENTH: buildSwimUpBar's `putM(key, 'model', u, y,
+       v)`, which is that function's (u, v) frame wrapped round modelI. Count
+       it exactly like modelI; a naive grep for `modelI(` sees only the one
+       non-literal forwarding call inside the helper and misses both sites.
+   Census all seven forms together, in one namespace, and ignore comments (this
+   one included). Clean as of 2026-08-06: 138 keys, 0 collisions; as of
+   2026-09-18 (the resort furniture): 146 keys, 0 collisions; and as of
+   2026-09-20 (the pool wave, +subBarGlbI +subStoolGlbI): 148 keys, 0. */
 function flushBuckets(parent) {
   for (const [key, b] of BUCKETS) {
     if (!b.ms.length) continue;
@@ -5671,10 +5676,33 @@ function buildSwimUpBar(G, root) {
      campus has been built — one of this file's cheaper ways to lose an hour. */
   const put = (key, geo, mat, u, y, v, su, sy, sv, dry = 0, col = null) =>
     inst(key, geo, mat, mat4(wx(u, v), y, wz(u, v), su, sy, sv, ry + dry), col);
+  /* the same signature for a Blender-authored prop — `modelI` carries BOTH
+     halves of the (geometry, material) pair, so its key can never collide */
+  const putM = (key, name, u, y, v, dry = 0) =>
+    modelI(key, name, mat4(wx(u, v), y, wz(u, v), 1, 1, 1, ry + dry));
 
   const WY = R.BASIN_Y;                 // 0.045 — the lagoon's water surface
   const FLOOR = .16;                    // the bar's own service floor
   const TOP = 1.14;                     // counter top — 1.09 above the water
+  const CN_U = 8.4, CN_V0 = -1.9, CN_V1 = 2.9, CANO = 3.0;   // the canopy, §4
+
+  /* ── the GLBs (ASSET_SPEC Group F) ───────────────────────────────────────
+     `swim_up_bar` is the counter + its stone cap, the back-bar case in bays
+     and the flat slatted canopy on four posts, in ONE mesh standing on the
+     bar's own service floor with its front (−Z) at the water. What is NOT in
+     it, each for a reason, stays below: the plinth and the stepped apron (they
+     are ground and carry the rectCollider); the "POOL BAR" plane, whose
+     counter front is modelled FLAT AND PLAIN behind it — the boards are
+     REVEALS, not proud staves, exactly so a sign plane 12 mm off the face
+     still sits right; the per-instance-tinted bottles; the emissive shelf
+     reveals; the bowl planter and the stone apron.
+     ⚠ THE FOUR POST COLLIDERS ARE PUSHED EITHER WAY — they are measured
+     against the primitive and may not move. */
+  const glbBar = have('swim_up_bar');
+  const glbStool = have('swim_stool');
+  if (glbBar) {
+    putM('subBarGlbI', 'swim_up_bar', 0, FLOOR, (CN_V0 + CN_V1) / 2);
+  }
 
   /* ── 1 · the plinth the bar stands on, skirted down past the basin floor ── */
   const PL_U = 7.6, PL_V0 = -.9, PL_V1 = 2.9;
@@ -5689,9 +5717,11 @@ function buildSwimUpBar(G, root) {
 
   /* ── 2 · the counter, and the "POOL BAR" lettering across its front ── */
   const CT_U = 6.6, CT_V = -.1, CT_D = .9;
-  put('subWhiteI', UNIT_BOX, MAT.white, 0, (FLOOR + TOP - .08) / 2, CT_V,
-    CT_U, TOP - .08 - FLOOR, CT_D);
-  put('subCapI', UNIT_BOX, MAT.stoneCap, 0, TOP - .04, CT_V, CT_U + .22, .08, CT_D + .22);
+  if (!glbBar) {
+    put('subWhiteI', UNIT_BOX, MAT.white, 0, (FLOOR + TOP - .08) / 2, CT_V,
+      CT_U, TOP - .08 - FLOOR, CT_D);
+    put('subCapI', UNIT_BOX, MAT.stoneCap, 0, TOP - .04, CT_V, CT_U + .22, .08, CT_D + .22);
+  }
   {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(2.9, .46), MAT.poolBar);
     p.position.set(wx(-.4, CT_V - CT_D / 2 - .012), .82, wz(-.4, CT_V - CT_D / 2 - .012));
@@ -5701,18 +5731,22 @@ function buildSwimUpBar(G, root) {
 
   /* ── 3 · the back wall of bottle shelving ── */
   const SH_U = 6.2, SH_V = 1.7, SH_TOP = 2.35;
-  put('subDarkI', UNIT_BOX, MAT.dark, 0, (FLOOR + SH_TOP) / 2, SH_V + .16,
-    SH_U, SH_TOP - FLOOR, .1);
-  for (const s of [-1, 1]) {                      // the case's end stiles
-    put('subTimberI', UNIT_BOX, MAT.slatWarm, s * (SH_U / 2 - .09),
-      (FLOOR + SH_TOP) / 2, SH_V, .18, SH_TOP - FLOOR, .42);
+  if (!glbBar) {
+    put('subDarkI', UNIT_BOX, MAT.dark, 0, (FLOOR + SH_TOP) / 2, SH_V + .16,
+      SH_U, SH_TOP - FLOOR, .1);
+    for (const s of [-1, 1]) {                    // the case's end stiles
+      put('subTimberI', UNIT_BOX, MAT.slatWarm, s * (SH_U / 2 - .09),
+        (FLOOR + SH_TOP) / 2, SH_V, .18, SH_TOP - FLOOR, .42);
+    }
   }
   const shelfY = [];
   for (let i = 0; i < 5; i++) {
     const y = FLOOR + .28 + i * .42;
     shelfY.push(y);
-    put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, y, SH_V, SH_U - .3, .05, .4);
-    /* the lit reveal behind each shelf — emissive, not a light */
+    if (!glbBar) put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, y, SH_V, SH_U - .3, .05, .4);
+    /* the lit reveal behind each shelf — emissive, not a light. It stands
+       15 mm proud of the case's back panel (held at v 1.81 in the GLB too),
+       so it survives the swap unchanged. */
     put('subLitI', UNIT_BOX, MAT.inLight, 0, y + .06, SH_V + .12, SH_U - .5, .04, .05);
   }
   /* the bottles. ⚠ per-instance tints ride MAT.bottle, whose base is WHITE on
@@ -5738,21 +5772,27 @@ function buildSwimUpBar(G, root) {
     }
   }
 
-  /* ── 4 · the flat SLATTED canopy on four slender timber posts ── */
-  const CN_U = 8.4, CN_V0 = -1.9, CN_V1 = 2.9, CANO = 3.0;
+  /* ── 4 · the flat SLATTED canopy on four slender timber posts ──
+        ⚠ the posts carry r .28 colliders and MAY NOT MOVE, so the push is
+        outside the primitive guard. In the GLB the slats are 85 mm deep, not
+        the code's 140: at the code's own 145 mm pitch a 140 mm slat leaves a
+        5 mm gap, i.e. a solid black plate, and the photograph is a canopy you
+        see sky through. Count, pitch, span and top plane are unchanged. ── */
   for (const su of [-1, 1]) for (const sv of [-1, 1]) {
     const u = su * (CN_U / 2 - .65), v = sv < 0 ? -.15 : 2.55;
-    put('subTimberI', UNIT_BOX, MAT.slatWarm, u, (FLOOR + CANO) / 2, v,
-      .19, CANO - FLOOR, .19);
+    if (!glbBar) {
+      put('subTimberI', UNIT_BOX, MAT.slatWarm, u, (FLOOR + CANO) / 2, v,
+        .19, CANO - FLOOR, .19);
+    }
     G.colliders.push({ x: wx(u, v), z: wz(u, v), r: .28 });
   }
-  for (const sv of [-1, 1]) {                     // the two edge beams
-    put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, CANO + .09,
-      sv < 0 ? CN_V0 + .16 : CN_V1 - .16, CN_U, .18, .22);
-  }
-  put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, CANO + .06, (CN_V0 + CN_V1) / 2,
-    CN_U, .12, .22);
-  {
+  if (!glbBar) {
+    for (const sv of [-1, 1]) {                   // the two edge beams
+      put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, CANO + .09,
+        sv < 0 ? CN_V0 + .16 : CN_V1 - .16, CN_U, .18, .22);
+    }
+    put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, CANO + .06, (CN_V0 + CN_V1) / 2,
+      CN_U, .12, .22);
     const n = 30, span = CN_V1 - CN_V0;
     for (let i = 0; i < n; i++) {
       put('subTimberI', UNIT_BOX, MAT.slatWarm, 0, CANO + .21,
@@ -5760,12 +5800,22 @@ function buildSwimUpBar(G, root) {
     }
   }
 
-  /* ── 5 · the submerged stools ── */
+  /* ── 5 · the submerged stools ──
+        `swim_stool` is ONE continuous turned pedestal from the basin floor to
+        the seat, which fixes something the primitive had wrong: its column ran
+        −1.25…−0.55 against a seat at −.395…−.305, so 155 mm of open water
+        floated every seat while 200 mm of column was buried under the basin
+        floor. The Ø .50 seat, its .09 thickness and its −.305 top are
+        unchanged, and the stools carry no collider of their own. ── */
   for (let i = 0; i < 5; i++) {
     const u = (i / 4 - .5) * 5.0;
-    put('subWhiteCylI', UNIT_CYL, MAT.white, u, -.35, PL_V0 - .55, .5, .09, .5);
-    put('subWhiteCylI', UNIT_CYL, MAT.white, u, (-.35 - R.DEPTH) / 2 - .2,
-      PL_V0 - .55, .17, R.DEPTH - .35, .17);
+    if (glbStool) {
+      putM('subStoolGlbI', 'swim_stool', u, -R.DEPTH, PL_V0 - .55);
+    } else {
+      put('subWhiteCylI', UNIT_CYL, MAT.white, u, -.35, PL_V0 - .55, .5, .09, .5);
+      put('subWhiteCylI', UNIT_CYL, MAT.white, u, (-.35 - R.DEPTH) / 2 - .2,
+        PL_V0 - .55, .17, R.DEPTH - .35, .17);
+    }
   }
 
   /* ── 6 · the white bowl planter of bougainvillea, on its own curved pier.

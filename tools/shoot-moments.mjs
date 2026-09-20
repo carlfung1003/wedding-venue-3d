@@ -159,6 +159,82 @@ const VIEWS = [
     k.getWorldPosition(v);
     return { x: v.x - 4.6, z: v.z - 3.4, y: 0, lookX: v.x, lookZ: v.z };
   })()` }],
+
+  /* ── the GROUP F pool wave (KAN-208). Nothing above stands at the hero pool
+        AT NIGHT, which is the one shot this wave exists for: moment 1 is the
+        prewedding, `night: true`, and the nine lanterns are burning on it. ── */
+  /* THE SIGNATURE SHOT. On the turf band at the pool's north (suite) end,
+     looking straight down its 25 m length: the two files of lanterns recede
+     either side of the centreline and the far wall's fittings close the view.
+     Enclave-local — the hero pool IS in the enclave. */
+  ['prewedding-lanterns', 1, [0, -5.6, Math.PI]],
+  /* one lotus at guest distance, from the open west lawn. seats[2] is the
+     first lotus (i % 3 === 2) and sits at pool-local (−2.4, 0) → enclave
+     (−2.4, 9); the camera is 4.6 m off it on the grass. */
+  ['pool-lantern-lotus', 1, [-6.2, 6.4, Math.atan2(-3.8, -2.6)]],
+  /* the underwater fittings. They face INTO the basin, so the only sight line
+     is from inside it: stand in the pool on the x = 2.8 fitting's own line,
+     5 m off the north wall. setFacing pins pitch to 0, so the distance is what
+     puts a thing 1.87 m below the eye inside the 29° half-FOV — closer and the
+     fitting falls out of the bottom of the frame. */
+  ['pool-light-fittings', 1, [2.8, 1.6, 0]],
+  /* the lagoon's swim-up bar, raked from the west end of the bank so the
+     counter front, the canopy and the back-bar all read at once. The (u, v)
+     frame is buildSwimUpBar's own, re-derived here from SITE.LAGOON so the
+     camera follows the bar if the umbrella count ever moves it. */
+  ['lagoon-swim-up-bar', 2, { world: `(() => {
+    const L = S.SITE.LAGOON, TAU = Math.PI * 2;
+    const T = (7.5 + .35) / L.umbrellas * TAU;          // campus.js SUB_UMB_PHASE
+    const rimX = L.cx + L.rx * Math.cos(T), rimZ = L.cz + L.rz * Math.sin(T);
+    let nX = (rimX - L.cx) / (L.rx * L.rx), nZ = (rimZ - L.cz) / (L.rz * L.rz);
+    const nL = Math.hypot(nX, nZ); nX /= nL; nZ /= nL;
+    const tX = nZ, tZ = -nX, U0 = .8;
+    const wx = (u, v) => rimX + (u + U0) * tX + v * nX;
+    const wz = (u, v) => rimZ + (u + U0) * tZ + v * nZ;
+    return { x: wx(-9.4, .4), z: wz(-9.4, .4), y: 0,
+             lookX: wx(0, -.1), lookZ: wz(0, -.1) };
+  })()` }],
+  /* …and the counter FRONT, from the water — the one view that shows the
+     "POOL BAR" plane the GLB deliberately does not carry. water.js's
+     swimMouth() opens the interior grid over |u| ≤ 7, −11 ≤ v ≤ 0.6, so this
+     camera stands in swimmable water instead of being walked out of it. */
+  ['lagoon-swim-up-bar-front', 2, { world: `(() => {
+    const L = S.SITE.LAGOON, TAU = Math.PI * 2;
+    const T = (7.5 + .35) / L.umbrellas * TAU;
+    const rimX = L.cx + L.rx * Math.cos(T), rimZ = L.cz + L.rz * Math.sin(T);
+    let nX = (rimX - L.cx) / (L.rx * L.rx), nZ = (rimZ - L.cz) / (L.rz * L.rz);
+    const nL = Math.hypot(nX, nZ); nX /= nL; nZ /= nL;
+    const tX = nZ, tZ = -nX, U0 = .8;
+    const wx = (u, v) => rimX + (u + U0) * tX + v * nX;
+    const wz = (u, v) => rimZ + (u + U0) * tZ + v * nZ;
+    return { x: wx(-3.0, -4.2), z: wz(-3.0, -4.2), y: 0,
+             lookX: wx(-.4, -.56), lookZ: wz(-.4, -.56) };
+  })()` }],
+  /* a cabana pod, head-on. SITE.LAGOON.ISLE.styles[3] is a 'pod' and its
+     bearing is θ = π, i.e. it opens due −X at the lagoon's west rim — so the
+     camera stands on the sand deck outside the basin and looks straight into
+     the dome's missing wedge, which is where the daybed has to be facing. */
+  ['lagoon-cabana-pod', 2, { world: `(() => {
+    const L = S.SITE.LAGOON, I = L.ISLE;
+    const cx = L.cx + I.dx * L.rx, cz = L.cz + I.dz * L.rz;
+    const i = 3;                                    // styles[3] === 'pod'
+    const th = (i + .5) / I.styles.length * Math.PI * 2;
+    const ax = cx + Math.cos(th) * I.ringR, az = cz + Math.sin(th) * I.ringR;
+    const d = 10.0;                                 // clear of the rim colliders
+    return { x: ax + Math.cos(th) * d, z: az + Math.sin(th) * d, y: 0,
+             lookX: ax, lookZ: az };
+  })()` }],
+  /* the beach pool's round island bar, from the landward side so the sand,
+     the staved counter and the thatch all stand against the water. */
+  ['river-island-bar', 2, { world: `(() => {
+    const B = S.SITE.RIVER.BAR, W = S.SITE.RIVER.WEST;
+    /* away from the pool, or the camera stands in the basin and the interior
+       collider grid walks it somewhere else */
+    const dx = B.cx - W.cx, dz = B.cz - W.cz, L = Math.hypot(dx, dz);
+    const d = 10.5;
+    return { x: B.cx + dx / L * d, z: B.cz + dz / L * d, y: 0,
+             lookX: B.cx, lookZ: B.cz };
+  })()` }],
 ];
 
 (async () => {

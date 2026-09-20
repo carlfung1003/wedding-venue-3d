@@ -1051,9 +1051,45 @@ function buildHeroPool(G) {
   uwGlowMat.color = new THREE.Color(0x7fdcee);
   const uwGlowGeo = new THREE.PlaneGeometry(6.4, 4.6);
 
+  /* `pool_light` — the stainless flange, stepped bezel and dished white throat
+     the lens is set into (ASSET_SPEC Group F). THE GLOWING DISC STAYS THE
+     GAME'S: `discMat` is night-driven, `haloMat` is its corona and the 6.4 ×
+     4.6 additive quad is the water volume. This is the housing only, and it
+     carries no light of its own.
+     ⚠ ITS ROTATION IS THE INVERSE OF THE DISC'S. A CircleGeometry faces its
+     own +Z, so the lens uses `side < 0 ? 0 : π`; this asset's front is −Z, so
+     it needs `side < 0 ? π : 0`. Backwards buries the bezel in the wall and
+     nothing throws.
+     One InstancedMesh for all eight — the fitting is the same object at every
+     wall — so the housing costs exactly one draw call. */
+  const fitGeo = (have('pool_light') && models.geometry('pool_light')) || null;
+  const fitMat = fitGeo ? models.material('pool_light') : null;
+  const fits = [];
+
   for (const x of [-8.4, -2.8, 2.8, 8.4]) {
     for (const side of [-1, 1]) {
       const y = P.waterY - .62;
+      /* The flange is circular, so the LENS AXIS is exactly size.y/2 above the
+         model's foot; glTF z 0 is the lens plane, with the bezel standing
+         proud of it. Hence the disc's own (x, z) and y − size.y/2.
+
+         ⚠ AND THE HOUSING IS ONLY EMITTED WHERE THERE IS A WALL TO SET IT IN.
+         Found by this pass, NOT fixed by it: the x list above is ±2.8 / ±8.4,
+         which is four evenly spaced fittings along a wall of HALF-LENGTH 12.5
+         — the pool's z axis. It is applied to x, whose half-width is 5. So the
+         two outboard pairs stand 3.4 m BEYOND the basin, in the lawn. It is
+         the same leftover the lanterns carry a comment about: the pool was
+         built 25 wide × 10 deep and rotated on 2026-08-02 (site.js, "Long axis
+         = Z. Do not swap these back"); buildLanterns was re-derived for it and
+         says so, this list was not. Nothing shows today because the lens sits
+         at y −0.22, under an opaque lawn — but a 0.49 m stainless flange there
+         tops out 21 mm ABOVE grade and would be four bright discs in the
+         grass. The real fix is to swap the axes (put the fittings, their
+         halos and their volume quads on the x = ∓hw walls at z ±2.8 / ±8.4),
+         which MOVES 24 live objects and changes how the pool reads at night —
+         a look call, not an integration one. Reported instead; the housing
+         goes only where its own row's "in the long walls" is true. */
+      if (fitGeo && Math.abs(x) <= hw) fits.push([x, y, side]);
       const dsc = new THREE.Mesh(discGeo, discMat);
       dsc.position.set(x, y, side * (hd - .02));
       dsc.rotation.y = side < 0 ? 0 : Math.PI;
@@ -1075,6 +1111,22 @@ function buildHeroPool(G) {
       uw.renderOrder = 4;
       g.add(uw);
     }
+  }
+  if (fitGeo && fitMat && fits.length) {
+    const im = new THREE.InstancedMesh(fitGeo, fitMat, fits.length);
+    im.name = 'pool:lightFittings';
+    const d = new THREE.Object3D();
+    const fitH = (models.info('pool_light') || { size: [0, .482, 0] }).size[1];
+    fits.forEach(([x, y, side], i) => {
+      d.position.set(x, y - fitH / 2, side * (hd - .02));
+      d.rotation.set(0, side < 0 ? Math.PI : 0, 0);
+      d.scale.set(1, 1, 1);
+      d.updateMatrix();
+      im.setMatrixAt(i, d.matrix);
+    });
+    im.instanceMatrix.needsUpdate = true;
+    im.computeBoundingSphere();
+    g.add(im);
   }
   /* the only two real underwater lights (budget) */
   for (const x of [-6.5, 6.5]) {
@@ -1762,6 +1814,33 @@ function buildLanterns(G) {
   const streakGeo = new THREE.PlaneGeometry(R * 1.5, R * 4.4);
   streakGeo.translate(0, -R * 2.2, 0);          // hangs from the waterline down
 
+  /* ── THE TWO LANTERNS ARE THE PROJECT'S ONLY GEOMETRY-ONLY GLBs ──────────
+     `pool_lantern` and `pool_lantern_lotus` ship with BAKE = False and NO
+     atlas at all (ASSET_SPEC Group F, "THE GEOMETRY-ONLY RULE"), because the
+     "lit from within" read is the three-material stack built above — an
+     emissive paper shell at opacity .88 that still depth-writes, an opaque
+     hot core inside it, and a BackSide additive rim whose far hemisphere
+     depth-fails to a glowing edge. One baked albedo×AO atlas cannot be any of
+     that; it would flatten a lantern into a painted ball with its own shadows
+     burnt in. So the game takes the GEOMETRY and keeps its own materials:
+
+         new THREE.Mesh(models.geometry('pool_lantern') || globeGeo, shellMat)
+
+     The `|| globeGeo` is the fallback rule — a GLB that fails to load leaves
+     the primitive sphere and the pool still lights up. The shell's UV0 is a
+     cylindrical wrap (u once around with the seam at the back, v foot to
+     crown) authored FOR `paperTex()`; do not touch it.
+
+     Everything else on a lantern stays a game object: the core, the rim, the
+     halo, the pool-glow disc, the streak — and, on the globe, the dark float
+     ring (`baseGeo`/`baseMat`). The ring is deliberately NOT in the GLB: one
+     mesh means one material, and `shellMat` would render a bitumen ring as
+     glowing paper. The lotus's ring IS in its GLB, because the primitive
+     lotus never had a dark one — it was all `petalMat` and still is. */
+  const glbShell = (have('pool_lantern') && models.geometry('pool_lantern')) || null;
+  const glbLotus = (have('pool_lantern_lotus') && models.geometry('pool_lantern_lotus')) || null;
+  const shellGeo = glbShell || globeGeo;
+
   const hy = R * 1.10;                          // shell centre above the waterline
   const halfY = R * .86;                        // shell vertical half-extent
 
@@ -1789,40 +1868,74 @@ function buildLanterns(G) {
 
     const isLotus = i % 3 === 2;
     if (isLotus) {
-      const pad = new THREE.Mesh(new THREE.CircleGeometry(R * 1.24, 20), petalMat);
-      pad.rotation.x = -Math.PI / 2;
-      pad.position.y = R * .14;
-      lot.add(pad);
-      for (let k = 0; k < 8; k++) {
-        const a = k / 8 * Math.PI * 2;
-        const p = new THREE.Mesh(petalGeo, petalMat);
-        p.position.set(Math.cos(a) * R * .57, R * .62, Math.sin(a) * R * .57);
-        /* Euler XYZ: rotation.z = -0.78 tips the cone's axis toward +X, then
-           rotation.y = -a swings that tip round to the petal's own bearing —
-           so every petal leans OUTWARD, not across the flower. */
-        p.rotation.set(0, -a, -.78);
-        lot.add(p);
+      if (glbLotus) {
+        /* 22 keeled petals in three whorls on a dished pad over the float
+           ring, as ONE mesh. Its origin is the WATERLINE and `lot` already
+           stands there, so the drop-in is y = 0 — ASSET_SPEC's declared 35 mm
+           deviation (the ring's lowest point is the model's foot, where the
+           primitive sank the ring 35 mm) is invisible on a lantern bobbing
+           ±35 mm/s in tickLanterns.
+           ⚠ petalMat, NOT shellMat, and the choice is not cosmetic: (a) the
+           primitive's pad AND petals were both petalMat, so this stays a
+           geometry-only swap; (b) petalMat is opaque DoubleSide, which is what
+           an open flower with the hot core sitting IN it needs — shellMat's
+           .88 transparency exists so a CLOSED paper globe's core glows
+           through, and on an open flower it would just make the petals thin;
+           (c) the night registry dims petalMat to .8× the globe's emissive on
+           purpose, so a lotus reads warmer and softer than a paper balloon —
+           lighting it with shellMat would erase that difference; and (d)
+           paperTex is a rice-paper wrap authored at globe scale, which on a
+           1.74 m lily pad tiles as visible grain. */
+        const flower = new THREE.Mesh(glbLotus, petalMat);
+        lot.add(flower);
+      } else {
+        const pad = new THREE.Mesh(new THREE.CircleGeometry(R * 1.24, 20), petalMat);
+        pad.rotation.x = -Math.PI / 2;
+        pad.position.y = R * .14;
+        lot.add(pad);
+        for (let k = 0; k < 8; k++) {
+          const a = k / 8 * Math.PI * 2;
+          const p = new THREE.Mesh(petalGeo, petalMat);
+          p.position.set(Math.cos(a) * R * .57, R * .62, Math.sin(a) * R * .57);
+          /* Euler XYZ: rotation.z = -0.78 tips the cone's axis toward +X, then
+             rotation.y = -a swings that tip round to the petal's own bearing —
+             so every petal leans OUTWARD, not across the flower. */
+          p.rotation.set(0, -a, -.78);
+          lot.add(p);
+        }
       }
       const core = new THREE.Mesh(coreGeo, coreMat);
       core.position.y = R * .71;
       lot.add(core);
     } else {
-      const shell = new THREE.Mesh(globeGeo, shellMat);
-      shell.scale.set(1, .86, 1);
-      shell.position.y = hy;
+      const shell = new THREE.Mesh(shellGeo, shellMat);
+      if (glbShell) {
+        /* origin at the FOOT and the model's whole extent IS the shell, so the
+           shell centre lands on hy from the spec's own arithmetic:
+           R×.24 + .602 = R×1.10. No scale — the .86 squash is modelled in. */
+        shell.position.y = R * .24;
+      } else {
+        shell.scale.set(1, .86, 1);
+        shell.position.y = hy;
+      }
       lot.add(shell);
       const rim = new THREE.Mesh(rimGeo, rimMat);
       rim.scale.set(1, .86, 1);
       rim.position.y = hy;
       rim.renderOrder = 5;             // after the water sheet (3), before the halo
       lot.add(rim);
-      /* three bamboo ribs, sized to the sphere's silhouette at their height */
-      for (const f of [.28, .5, .72]) {
-        const rib = new THREE.Mesh(ribGeo, baseMat);
-        rib.rotation.x = Math.PI / 2;
-        rib.position.y = hy + halfY * (2 * f - 1);
-        rib.scale.setScalar(Math.sin(Math.PI * f) * .99 + .04);
-        lot.add(rib);
+      /* three bamboo ribs, sized to the sphere's silhouette at their height.
+         ⚠ ONLY on the primitive: the GLB has no horizontal hoops at all (a
+         hoop does not bulge paper), it pinches the radius on twelve vertical
+         rib meridians instead — ASSET_SPEC's first declared deviation. */
+      if (!glbShell) {
+        for (const f of [.28, .5, .72]) {
+          const rib = new THREE.Mesh(ribGeo, baseMat);
+          rib.rotation.x = Math.PI / 2;
+          rib.position.y = hy + halfY * (2 * f - 1);
+          rib.scale.setScalar(Math.sin(Math.PI * f) * .99 + .04);
+          lot.add(rib);
+        }
       }
       const core = new THREE.Mesh(coreGeo, coreMat);
       core.position.y = hy;
@@ -2826,17 +2939,38 @@ function buildRiverIslands(G, g, basins, R, L) {
      dark timber counter and a low conical roof on four posts. Its soffit is
      the river's one warm light at night. */
   const BA = R.BAR;
-  const terr = new THREE.Mesh(new THREE.CylinderGeometry(BA.r, BA.r + .25, .42, 26), MAT.sandM);
-  terr.position.set(BA.cx, .21, BA.cz);
-  g.add(terr);
-  const counter = new THREE.Mesh(
-    new THREE.CylinderGeometry(BA.r * .58, BA.r * .58, 1.1, 20, 1, true), MAT.darkWood);
-  counter.position.set(BA.cx, .97, BA.cz);
-  g.add(counter);
-  const roofM = new THREE.MeshStandardMaterial({ color: 0x7a5637, roughness: .93 });
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(BA.r * .95, 1.5, 14), roofM);
-  roof.position.set(BA.cx, BA.h + .4, BA.cz);
-  g.add(roof);
+  /* `island_bar` — the sand terrace, the STAVED counter, the four posts and
+     the thatch, as one mesh (ASSET_SPEC Group F). Three declared deviations
+     ride in it: a 20.6° palapa pitch (apex 5.05, not 4.55 — 1.5 m of rise over
+     a 5.32 m eaves radius read as a mushroom cap), posts that stop AT the
+     eaves instead of spearing 180 mm through the thatch, and post bearings
+     mirrored for the Blender +Y → glTF −Z flip. THE EAVES IS UNCHANGED at
+     3.05, so head clearance, the soffit and the r 5.90 collider are all where
+     they were. ry = 0: the model is radially symmetric and already carries
+     the mirrored bearings. */
+  if (have('island_bar')) {
+    const m = mdl('island_bar');
+    m.position.set(BA.cx, 0, BA.cz);
+    g.add(m);
+  } else {
+    const terr = new THREE.Mesh(new THREE.CylinderGeometry(BA.r, BA.r + .25, .42, 26), MAT.sandM);
+    terr.position.set(BA.cx, .21, BA.cz);
+    g.add(terr);
+    const counter = new THREE.Mesh(
+      new THREE.CylinderGeometry(BA.r * .58, BA.r * .58, 1.1, 20, 1, true), MAT.darkWood);
+    counter.position.set(BA.cx, .97, BA.cz);
+    g.add(counter);
+    const roofM = new THREE.MeshStandardMaterial({ color: 0x7a5637, roughness: .93 });
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(BA.r * .95, 1.5, 14), roofM);
+    roof.position.set(BA.cx, BA.h + .4, BA.cz);
+    g.add(roof);
+    for (let i = 0; i < 4; i++) {
+      const a = i / 4 * TAU + .4;
+      box(g, .14, BA.h - .3, .14,
+        BA.cx + Math.cos(a) * BA.r * .78, (BA.h - .3) / 2 + .4,
+        BA.cz + Math.sin(a) * BA.r * .78, MAT.darkWood);
+    }
+  }
   const soffitM = new THREE.MeshStandardMaterial({
     color: 0x6b4a30, roughness: .9, side: THREE.DoubleSide,
     emissive: RC.lampWarm, emissiveIntensity: 0,
@@ -2845,13 +2979,11 @@ function buildRiverIslands(G, g, basins, R, L) {
   soffit.rotation.x = Math.PI / 2;
   soffit.position.set(BA.cx, BA.h - .32, BA.cz);
   g.add(soffit);
+  /* ⚠ THE SOFFIT STAYS THE GAME'S — it is the river's ONE warm light at night,
+     and a baked atlas cannot be emissive. That is also why the GLB's thatch
+     closes at the eaves with an ANNULUS down to r 4.90 rather than a disc:
+     this 5.04 m disc covers the hole from below with 140 mm to spare. */
   nightBits.push(on => { soffitM.emissiveIntensity = on ? 1.6 : 0; });
-  for (let i = 0; i < 4; i++) {
-    const a = i / 4 * TAU + .4;
-    box(g, .14, BA.h - .3, .14,
-      BA.cx + Math.cos(a) * BA.r * .78, (BA.h - .3) / 2 + .4,
-      BA.cz + Math.sin(a) * BA.r * .78, MAT.darkWood);
-  }
   G.colliders.push(worldCollider(BA.cx, BA.cz, BA.r + .3));
 
   /* planting for the island, handed to the shared instanced bucket below */
@@ -2949,7 +3081,8 @@ function buildLagoonIsle(G, g, b, R, L) {
   g.add(rim);
 
   const timberB = boxBucket(), whiteB = boxBucket(), rattanB = boxBucket();
-  const roofs = [], domes = [];
+  const roofs = [], domes = [], beds = [];
+  const glbBed = have('cabana_daybed');
 
   /* the deck bridges the islet's edge to open water: its depth is DERIVED as
      twice the gap between the islet and the ring, so its inner edge lands
@@ -2994,9 +3127,20 @@ function buildLagoonIsle(G, g, b, R, L) {
     } else {
       /* the rattan pod: a dome on an arched frame over a white daybed */
       domes.push({ x: ax, y: deckY + .06, z: az, r: I.cab * .50, h: I.cab * .62, yaw });
-      put(whiteB, 0, deckY + .26, 0, I.cab * .72, .34, I.cab * .58);      // the bed
-      for (const sx of [-1, 1])
-        put(whiteB, sx * I.cab * .18, deckY + .52, -I.cab * .18, .52, .18, .34);  // pillows
+      if (glbBed) {
+        /* `cabana_daybed` — the woven plinth, the deep bowed mattress and the
+           three bolsters as one mesh, standing on the deck's top face.
+           ⚠ ry = yaw + π, AND THAT π IS THE WHOLE RISK. This pod is authored
+           with local +Z OUTWARD, at the water (yaw = π/2 − th), and the dome's
+           missing wedge is centred on that same +Z — while the asset's front
+           faces −Z like every other prop in the kit. `ry = yaw` seats the bed
+           backwards inside a dome that opens the other way, silently. */
+        beds.push({ x: ax, y: deckY, z: az, yaw: yaw + Math.PI });
+      } else {
+        put(whiteB, 0, deckY + .26, 0, I.cab * .72, .34, I.cab * .58);      // the bed
+        for (const sx of [-1, 1])
+          put(whiteB, sx * I.cab * .18, deckY + .52, -I.cab * .18, .52, .18, .34);  // pillows
+      }
       /* a low rattan kerb round the pod's foot, which is what the arched
          wicker frame reads as from anywhere but inside it */
       put(rattanB, 0, deckY + .10, -I.cab * .30, I.cab * .78, .20, .10);
@@ -3051,6 +3195,19 @@ function buildLagoonIsle(G, g, b, R, L) {
     dm.instanceMatrix.needsUpdate = true; dm.computeBoundingSphere();
     dm.name = 'lagoon-isle:pods';
     g.add(dm);
+  }
+  if (beds.length) {
+    const bm = new THREE.InstancedMesh(
+      models.geometry('cabana_daybed'), models.material('cabana_daybed'), beds.length);
+    beds.forEach((bed, i) => {
+      dummy.position.set(bed.x, bed.y, bed.z);
+      dummy.rotation.set(0, bed.yaw, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix(); bm.setMatrixAt(i, dummy.matrix);
+    });
+    bm.instanceMatrix.needsUpdate = true; bm.computeBoundingSphere();
+    bm.name = 'lagoon-isle:daybeds';
+    g.add(bm);
   }
 
   /* one collider for the whole assembly. It stands in open water that the
