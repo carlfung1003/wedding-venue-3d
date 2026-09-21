@@ -1066,37 +1066,42 @@ function buildHeroPool(G) {
   const fitMat = fitGeo ? models.material('pool_light') : null;
   const fits = [];
 
-  for (const x of [-8.4, -2.8, 2.8, 8.4]) {
+  /* ⚠ FIXED 2026-09-20: these four spacings are the LONG axis, and they were
+     being applied to the short one.
+     The pool is w 10 × d 25, so `hw` is 5 and `hd` is 12.5. Four fittings at
+     ±2.8 / ±8.4 leave a 4.1 m end margin and sit 5.6 m apart — a considered
+     layout for a 25 m wall, and nonsense across a 10 m one. Applied to `x`
+     they put the outboard pair 3.4 m BEYOND the basin, out in the lawn, and
+     put every fitting in an END wall while this block's own first line says
+     they are "in the long walls". Same leftover the lanterns carry a comment
+     about: the pool was built 25 wide × 10 deep and rotated on 2026-08-02
+     (site.js, "Long axis = Z. Do not swap these back"); `buildLanterns` was
+     re-derived for that and says so, this loop never was.
+     So the list is `z` now and the wall is `x = ±(hw − .02)`. Nothing else in
+     the block changes shape — only which coordinate each number lands on, and
+     the facings that follow from it:
+       lens + halo   a CircleGeometry faces its own +Z, so facing INWARD across
+                     x is ry = side < 0 ? +π/2 : −π/2
+       housing       front is −Z, so it stays the exact inverse: ∓π/2
+     The volume quads keep their 6.4-along-X × 4.6-along-Z footprint, which is
+     the right way round here: 6.4 spans the 10 m width from x ±2.6 with real
+     overlap down the centre line, where turning them would have left a dark
+     stripe there. */
+  for (const z of [-8.4, -2.8, 2.8, 8.4]) {
     for (const side of [-1, 1]) {
       const y = P.waterY - .62;
       /* The flange is circular, so the LENS AXIS is exactly size.y/2 above the
          model's foot; glTF z 0 is the lens plane, with the bezel standing
          proud of it. Hence the disc's own (x, z) and y − size.y/2.
-
-         ⚠ AND THE HOUSING IS ONLY EMITTED WHERE THERE IS A WALL TO SET IT IN.
-         Found by this pass, NOT fixed by it: the x list above is ±2.8 / ±8.4,
-         which is four evenly spaced fittings along a wall of HALF-LENGTH 12.5
-         — the pool's z axis. It is applied to x, whose half-width is 5. So the
-         two outboard pairs stand 3.4 m BEYOND the basin, in the lawn. It is
-         the same leftover the lanterns carry a comment about: the pool was
-         built 25 wide × 10 deep and rotated on 2026-08-02 (site.js, "Long axis
-         = Z. Do not swap these back"); buildLanterns was re-derived for it and
-         says so, this list was not. Nothing shows today because the lens sits
-         at y −0.22, under an opaque lawn — but a 0.49 m stainless flange there
-         tops out 21 mm ABOVE grade and would be four bright discs in the
-         grass. The real fix is to swap the axes (put the fittings, their
-         halos and their volume quads on the x = ∓hw walls at z ±2.8 / ±8.4),
-         which MOVES 24 live objects and changes how the pool reads at night —
-         a look call, not an integration one. Reported instead; the housing
-         goes only where its own row's "in the long walls" is true. */
-      if (fitGeo && Math.abs(x) <= hw) fits.push([x, y, side]);
+         Every fitting now has a wall to sit in, so the housing needs no gate. */
+      if (fitGeo) fits.push([z, y, side]);
       const dsc = new THREE.Mesh(discGeo, discMat);
-      dsc.position.set(x, y, side * (hd - .02));
-      dsc.rotation.y = side < 0 ? 0 : Math.PI;
+      dsc.position.set(side * (hw - .02), y, z);
+      dsc.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
       g.add(dsc);
       const hl = new THREE.Mesh(haloGeo, haloMat);
-      hl.position.set(x, y, side * (hd - .06));
-      hl.rotation.y = side < 0 ? 0 : Math.PI;
+      hl.position.set(side * (hw - .06), y, z);
+      hl.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
       hl.renderOrder = 2;
       g.add(hl);
       /* The fitting's light spreading through the water volume. renderOrder 4
@@ -1107,7 +1112,7 @@ function buildHeroPool(G) {
          Still depth-tested against the basin, so it stays inside the water. */
       const uw = new THREE.Mesh(uwGlowGeo, uwGlowMat);
       uw.rotation.x = -Math.PI / 2;
-      uw.position.set(x, P.waterY - .72, side * (hd - 2.4));   // stays inside the basin
+      uw.position.set(side * (hw - 2.4), P.waterY - .72, z);   // stays inside the basin
       uw.renderOrder = 4;
       g.add(uw);
     }
@@ -1117,9 +1122,9 @@ function buildHeroPool(G) {
     im.name = 'pool:lightFittings';
     const d = new THREE.Object3D();
     const fitH = (models.info('pool_light') || { size: [0, .482, 0] }).size[1];
-    fits.forEach(([x, y, side], i) => {
-      d.position.set(x, y - fitH / 2, side * (hd - .02));
-      d.rotation.set(0, side < 0 ? Math.PI : 0, 0);
+    fits.forEach(([z, y, side], i) => {
+      d.position.set(side * (hw - .02), y - fitH / 2, z);
+      d.rotation.set(0, side < 0 ? -Math.PI / 2 : Math.PI / 2, 0);
       d.scale.set(1, 1, 1);
       d.updateMatrix();
       im.setMatrixAt(i, d.matrix);
@@ -1128,10 +1133,14 @@ function buildHeroPool(G) {
     im.computeBoundingSphere();
     g.add(im);
   }
-  /* the only two real underwater lights (budget) */
-  for (const x of [-6.5, 6.5]) {
+  /* the only two real underwater lights (budget)
+     ⚠ Same axis leftover, same fix: ±6.5 on a half-width of 5 put both lights
+     1.5 m OUTSIDE the basin, lighting the coping from the wrong side. They are
+     ±6.5 down the length now, inside a half-length of 12.5. The COUNT is
+     unchanged — two lights, as the budget allows; only where they stand. */
+  for (const z of [-6.5, 6.5]) {
     const L = new THREE.PointLight(0x7fe0ec, 0, 14, 2);
-    L.position.set(x, P.waterY - .5, 0);
+    L.position.set(0, P.waterY - .5, z);
     g.add(L);
     nightBits.push(on => { L.intensity = on ? TUNE.UW_LIGHT_NIGHT : 0; });
   }
