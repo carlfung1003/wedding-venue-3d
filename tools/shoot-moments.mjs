@@ -337,6 +337,45 @@ const VIEWS = [
     return { x: B.cx + Math.cos(a) * d, z: B.cz + Math.sin(a) * d, y: 0,
              lookX: B.cx, lookZ: B.cz };
   })()` }],
+
+  /* ── KAN-208 WAVE 2 — the planting: palms, hedges, topiary at guest distance.
+        Enclave-local views where the planting is enclave-local; pick() on the
+        live buckets for the topiary so the camera finds the instance that is
+        actually there. ── */
+  /* in the spine path's gap through the palm belt, looking west along it —
+     the belt palms 3–10 m away, the hero palms a guest walks between */
+  ['palms-belt', 2, [-2, 52.4, Math.PI / 2]],
+  /* …and after dark (the After Party): MAT.frond / MAT.bark's night tint */
+  ['palms-belt-crowns-night', 5, [-6, 69, 0]],
+  /* the grand lawn's west flank palms from the lawn */
+  ['palms-lawn-flank', 2, [-33, 37, Math.PI / 2 + .35]],
+  /* the belt's crowns from the beachfront lawn, ~12–18 m back — the distance
+     the ceremony guests see them at */
+  ['palms-belt-crowns', 2, [-6, 69, 0]],
+  /* the sea-edge band's clipped hedge (hedgeBlobI) from the beachfront lawn */
+  ['hedge-sea-band', 3, [-31, 71.2, Math.PI]],
+  /* nature's cabana hedge wall (hedge_run), down its length from the north */
+  ['hedge-cabana-wall', 2, [17.4, 24.5, Math.atan2(2.4, 12)]],
+  /* the planted terrace edge's blocks + a topiary (hedgeI / topiaryI) */
+  ['hedge-terrace-topiary', 2, { world: `(() => {
+    const p = pick('campus:topiaryI', 0), l = S.worldToEnclave(p.x, p.z);
+    const c = S.enclaveToWorld(l.x + 3.5, l.z + 6.5);
+    return { x: c.x, z: c.z, lookX: p.x, lookZ: p.z };
+  })()` }],
+  /* the second pool's pavilion hedges + topiary (spHedgeI / spTopiaryI) */
+  ['hedge-pavilion-topiary', 2, { world: `(() => {
+    const p = pick('campus:spTopiaryI', 0), q = pick('campus:spTopiaryI', 3);
+    const mx = (p.x + q.x) / 2, mz = (p.z + q.z) / 2;
+    const dx = p.x - mx, dz = p.z - mz, L = Math.hypot(dx, dz) || 1;
+    return { x: p.x + dx / L * 4.5, z: p.z + dz / L * 4.5, lookX: mx, lookZ: mz };
+  })()` }],
+  /* the arrival court from the car park: the court's clipped batter hedges */
+  ['hedge-arrival-court', 2, { world: `(() => {
+    const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(62.3, AR.stalls.z0 + 1.5 * AR.stalls.pitch);
+    const f = S.enclaveToWorld((AR.fore.x0 + AR.fore.x1) / 2, (AR.fore.z0 + AR.fore.z1) / 2);
+    return { x: c.x, z: c.z, y: AR.terraceY, lookX: f.x, lookZ: f.z };
+  })()` }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 

@@ -420,10 +420,97 @@ colliders and feet identical at every view; guest journey 0 stalls, every beat,
 5. **Before-shots of a NEW view need the old build**: `git worktree add --detach
    <dir> HEAD` + `python3 serve.py 8811` there, then `VENUE_URL=http://127.0.0.1:8811/`.
 
+### KAN-208 WAVE 2 — PALMS, HEDGES, TOPIARY: THE PROTOTYPES (2026-09-25)
+
+Shots: before `reference/photos/shots-wave2-before/` (the HEAD worktree on :8811),
+after `shots-wave2/` — 51 views, the 42 of wave 1 plus nine planting views
+(`palms-belt`, `palms-belt-crowns` (+`-night`), `palms-lawn-flank`,
+`hedge-sea-band`, `hedge-cabana-wall`, `hedge-terrace-topiary`,
+`hedge-pavilion-topiary`, `hedge-arrival-court`). **Read `assets/blender/ASSET_SPEC.md`
+Group H** for every prototype's frame, UV layout and budget.
+
+Ten **geometry-only** GLBs (`BAKE = False`, 30 KB together) replace the
+instanced prototypes and nothing else: `palm_{tall,mid,young}` (+ `_crown`) for
+nature.js's three palm silhouettes, `hedge_run` for nature's hedge segment,
+`hedge_block` / `hedge_mass` / `topiary_ball` for campus.js's `UNIT_BOX` /
+`UNIT_BLOB` in the six clipped-hedge buckets. The game keeps its own
+materials, so the photographs, the frond alphaTest, the night tints and the
+per-instance hedge colours are untouched, and no program is added.
+
+| | before | after |
+|---|---|---|
+| tris per palm (tall / mid / young) | 346 / 318 / 266 | **776 / 728 / 448** (≲ 800 budget) |
+| hedge cell tris (run / block / mass / topiary) | 48 / 12 / 80 / 80 | 236 / 250 / 300 / 300 |
+| triangles, all 51 views | 22,754,579 | 29,263,597 (**+28.6 %**, +17k…+163k a view, mean +128k) |
+| draw calls, all 51 views | 16,593 | 16,594 (+1, stable, at `hedge-arrival-court` only) |
+| shader programs | 116 | **116 at every view, day and night** |
+| colliders / feet / night flags | | identical at all 51 views |
+| lights (guest journey) | 40 / 12 | 40 / 12 |
+
+The triangle rise is almost flat across views because the palm and hedge
+buckets are campus-wide InstancedMeshes (one bounding sphere, never frustum-
+culled per instance, never touched by `detailcull.js`): ~+121k per pass for the
+325 palms, ~+41k for the 183 hedge cells, wherever any of them is on screen.
+**fps did not move**: repeated A/B at the six uncapped views (pool lights,
+cabana wall, belt crowns, pavilion, arrival court, island bar) sits inside the
+±5 % run-to-run noise; everything else is vsync-capped at 120 both ways.
+
+**Scatter proof: `node tools/scatter-probe.mjs <url> <out.json>`** (new) —
+before and after print the same `allMatrixHash a79ae12f4089` over all 283
+InstancedMeshes (matrices + instance colours, palm sway pinned by calling
+nature's ticker at t = 0) and the same `colliderHash 026674019d51` over 10,797
+colliders; the only per-bucket differences are prototype tris and the campus
+hedge material gaining its map.
+
+**What changed in code** — `nature.js` swaps each palm variant's trunk/crown and
+the hedge segment for the GLB when `models.has()` (the procedural geometry is
+the fallback); `campus.js` swaps the six hedge buckets' geometry **at flush, by
+key** (`HEDGE_PROTO`), so every call site still says `UNIT_BOX`/`UNIT_BLOB`, no
+key is added and the ONE-KEY-PER-PAIR census is unchanged; campus `MAT.hedge`
+became `hedge.webp` (canvas stand-in at boot, photo on load, white base,
+flatShading off). NOT touched, deliberately: water.js's two hedge BOXES (the
+pool's south hedge and the pavilion run — plain meshes with their own canvas
+map), the river dressing's shrub blobs, nature's shrub / bougainvillea /
+ground-cover blobs, the atrium's cloud topiary, the casuarinas.
+
+⚠ **What this wave learned:**
+1. **The procedural prototype builders DRAW FROM THE SEEDED STREAM.**
+   `crownGeo()` takes five `rnd()` per frond and four per coconut from the SAME
+   stream buildPalms then places every palm with; the hedge box's top-jitter loop
+   takes one per top vertex from the stream the colours, shrubs, bougainvillea
+   and ground cover share. So `palmVariants(rnd)` and the jitter loop STILL RUN
+   and their geometry is disposed. Skip them and all ~325 palms move.
+2. **glTF UV v is flipped against a TextureLoader map.** A GLB whose UVs are laid
+   out for a game-owned map (`flipY = true`) must be authored with `v → 1 − v`
+   in Blender, or it samples upside down (memory: gltf-uv-v-runs-down). The first
+   crown read the frond atlas's brown coconut strip along every leaflet edge.
+3. **DoubleSide + a low sun decide which way custom foliage normals may point.**
+   three flips the normal on back faces; with radial-up normals the flipped
+   ones faced the golden-hour sun behind the palms, and with up-dominant ones
+   the up faces took grazing Fresnel glare from it — both lit a third of every
+   backlit crown flat khaki (same with `envMapIntensity 0` and roughness 1, so
+   it was the sun's specular). Normals OUT and a little DOWN — toward the guest
+   — fixed it. Judge foliage looking TOWARD the sun: every wedding view faces
+   the sea, which is where the sun is.
+4. **The frond texture was squeezed 4× across.** crownGeo drew a 4.6 m frond
+   0.95 m wide onto an atlas whose leaflet band is ~0.85× its length — that,
+   not the triangle count, is why the old crowns read as green straps. The new
+   ribbons are ~0.38 L wide and cut to the atlas's measured alpha envelope.
+5. **A unit prototype that is non-uniformly scaled stretches its texture per
+   instance.** The campus terrace blocks (up to 4.4 × 1.35 × 1.0 m) show
+   horizontally stretched leaves on their long faces; no per-instance UV scale
+   exists without a shader change (= a new program). Accepted.
+6. The ONE extra draw call at `hedge-arrival-court` is stable across reruns; the
+   six hedge buckets' main-camera frustum tests are identical before and after
+   there, so it is most likely a palm/hedge bucket whose larger prototype bounds
+   now cross the SHADOW camera — not isolated further.
+
 ### Not in this pass (next)
 
-Palms, hedges, topiary and every `nature.js`/`water.js`/`campus.js` object; the
-welcome board (procedural + the new art plate); the cocktail glassware (tinted
+(Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above.) The
+shrub / bougainvillea / ground-cover blobs and the river dressing's planting;
+water.js's two pool hedge boxes; the atrium's cloud topiary; every other
+`nature.js`/`water.js`/`campus.js` object; the welcome board (procedural + the new art plate); the cocktail glassware (tinted
 opaque liquid inside transparent glass — a bake cannot ship it); the pearl
 catenaries; adopting the tight pack and the metallic fix in the library; the
 viewer's hook lift; `linen_ivory`'s pressed-fold crease tiles at ~0.7 m on every

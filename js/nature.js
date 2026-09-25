@@ -1,6 +1,8 @@
 // nature.js — the living half of the campus: ground, beach, ocean, palms and
-// planting. Everything HERE is procedural geometry + CanvasTexture (the
-// Blender GLB props live in moments.js / assets/models). Coordinates come
+// planting. Procedural geometry + photographic maps, EXCEPT the palm and
+// hedge PROTOTYPES, which are Blender-authored since KAN-208 wave 2
+// (assets/models/palm_*.glb, hedge_run.glb — geometry only; the materials,
+// the scatter and every rnd() draw are still this file's). Coordinates come
 // from site.js (SITE.*) — nothing here invents its own.
 //
 // Reference: reference/photos/clubhouse-aerial.jpeg + westin-site-map.jpeg —
@@ -43,6 +45,11 @@ import * as THREE from 'three';
 import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave, VILLA_ZONES, MOMENT_PLACES } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
+/* KAN-208 wave 2: the palm + hedge PROTOTYPES are Blender-authored (assets/
+   blender/generators/palm_*.py, hedge_run.py) — GEOMETRY ONLY. The materials,
+   the photographic maps, the scatter and every rnd() draw stay here. main.js
+   awaits models.preload() before buildWorld, so geometry() is ready. */
+import * as models from './models.js';
 
 /* ═══════════════════════════════════════════════════════════════════════
    tuning — these want to live in CFG one day (see report); keeping them
@@ -1223,9 +1230,34 @@ function placePalms(G, blocked, preColliders) {
   return out;
 }
 
+/* ── THE BLENDER PALMS (KAN-208 wave 2) ──────────────────────────────────────
+   palm_tall / palm_mid / palm_young (+ each one's `_crown`) replace the three
+   procedural silhouettes ONE FOR ONE, in the same order, in the same frame: the
+   trunk foot at the origin, the crown's base at (bendX, h, bendZ) — so each
+   variant's `spec` (which variantForHeight and requestPalms' lean-aiming read)
+   is unchanged and nothing in the scatter can tell the difference.
+
+   ⚠ palmVariants(rnd) STILL RUNS FIRST, and must: crownGeo() draws from the
+   same seeded stream buildPalms goes on to place every palm with (five draws
+   per frond, four per coconut). Skip it and all ~325 palms move. The
+   procedural geometry it returns is simply disposed when the GLB is there.
+
+   GEOMETRY ONLY: the GLBs ship no material we use. MAT.bark and MAT.frond keep
+   bark.webp / frond.webp, the alphaTest, DoubleSide and the night tints, so
+   the shader programs are the ones already compiled (116, unchanged). The
+   generators lay UV0 out for those two textures (_flora.py's banner). */
+const PALM_GLB = ['palm_tall', 'palm_mid', 'palm_young'];
+const glbGeo = (name) => (models.has(name) ? models.geometry(name) : null);
+
 function buildPalms(G, blocked, preColliders) {
   const rnd = mulberry32(CFG.SEED ^ (NAT.SEEDS.palm + 7));
   const variants = palmVariants(rnd);
+  variants.forEach((V, i) => {
+    const t = glbGeo(PALM_GLB[i]), c = glbGeo(PALM_GLB[i] + '_crown');
+    if (!t || !c) return;                  // a missing GLB keeps the procedural palm
+    V.trunk.dispose(); V.crown.dispose();
+    V.trunk = t; V.crown = c;
+  });
 
   MAT.bark = new THREE.MeshStandardMaterial({ map: barkTex(), roughness: .88, metalness: 0 });
   MAT.frond = new THREE.MeshStandardMaterial({
@@ -1460,7 +1492,15 @@ function buildUnderstory(G, blocked, enc) {
     if (hp.getY(i) > .4) hp.setY(i, hp.getY(i) + (rnd() - .5) * .1);
   }
   hgeo.computeVertexNormals();
-  const hedge = new THREE.InstancedMesh(hgeo, MAT.hedge, segs.length);
+  /* KAN-208 wave 2: the SEGMENT is Blender's `hedge_run` — the same unit cell
+     (±0.5, local Z along the run), rounded shoulders, flat ends that join the
+     next segment without a notch, leafy lumps periodic in z. The jitter loop
+     above still runs FIRST: its rnd() draws (one per top vertex) feed the
+     colour loop below and the whole shrub / bougainvillea / cover stream after
+     it. The box it roughed is kept only as the fallback. */
+  const hRun = glbGeo('hedge_run');
+  if (hRun) hgeo.dispose();
+  const hedge = new THREE.InstancedMesh(hRun || hgeo, MAT.hedge, segs.length);
   hedge.castShadow = hedge.receiveShadow = true;
   const col = new THREE.Color();
   segs.forEach((s, i) => {

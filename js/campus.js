@@ -189,6 +189,19 @@ function tex(w, h, draw, repeat) {
   if (repeat) t.repeat.set(repeat[0], repeat[1]);
   return t;
 }
+/* the clipped hedges' boot map — replaced by assets/textures/hedge.webp on load
+   (see MAT.hedge). Leaf-scale mottle round the photograph's mean, #305027. */
+function texHedgeStandIn() {
+  return tex(64, 64, (g, w, h) => {
+    const rnd = mulberry32(0x4ed9e);
+    g.fillStyle = '#305027'; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 260; i++) {
+      const l = rnd();
+      g.fillStyle = l < .4 ? 'rgba(20,40,18,.7)' : l < .8 ? 'rgba(62,98,46,.7)' : 'rgba(98,132,60,.6)';
+      g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2, 1 + rnd() * 2);
+    }
+  });
+}
 /** same canvas, different tiling — cheap variant of an existing map */
 function retile(t, rx, ry) {
   const c = t.clone();
@@ -1104,7 +1117,15 @@ function makeMaterials() {
     stone: tint(new THREE.MeshStandardMaterial({ map: stone, roughness: .88 }), 0x818898),
     turf: tint(new THREE.MeshStandardMaterial({ map: turf, roughness: .98 }), 0x5b6b82),
     turfStrip: tint(new THREE.MeshStandardMaterial({ map: retile(turf, 2, 6), roughness: .98 }), 0x5b6b82),
-    hedge: tint(new THREE.MeshStandardMaterial({ color: 0x2f5a2c, roughness: 1, flatShading: true }), 0x5c6b86),
+    /* KAN-208 wave 2: the clipped hedges wear nature.js's photograph
+       (hedge.webp), not a flat faceted green. Built WITH a map from the start
+       (a canvas stand-in of the same mean colour) — a map handed over later
+       is a recompile — and photoTex() swaps the photograph in on load. White
+       base so the picture carries the hue (its mean is balanced to #305027,
+       the old flat 0x2f5a2c); tint() still derives the night colour from it,
+       which lands where the old one did (0x5c6b86 × the same mean). Not
+       flatShading any more: the Blender hedge prototypes are smooth. */
+    hedge: tint(new THREE.MeshStandardMaterial({ map: texHedgeStandIn(), color: 0xffffff, roughness: .95 }), 0x5c6b86),
     bougain: tint(new THREE.MeshStandardMaterial({ color: 0xbf3f79, roughness: .92, flatShading: true }), 0x7a6a8c),
     white: tint(new THREE.MeshStandardMaterial({ color: 0xf2efe6, roughness: .72 }), 0x8f96a6),
     umbrella: tint(new THREE.MeshStandardMaterial({ color: 0x1f8fa5, roughness: .85, side: THREE.DoubleSide }), 0x76839a),
@@ -1509,9 +1530,24 @@ const haveRoofParasol = () => have('roof_parasol') && have('roof_parasol_canopy'
    2026-09-20 (the pool wave, +subBarGlbI +subStoolGlbI): 148 keys, 0; and as
    of 2026-09-20 (the interiors, +arrSofaGlbI): 149 keys, 0 — 420 placements
    over seven call forms. */
+/* ── KAN-208 wave 2: the clipped-hedge buckets take Blender PROTOTYPES ─────────
+   Every call site still says UNIT_BOX / UNIT_BLOB and still pushes the same
+   matrix — the swap happens HERE, per key, at flush time. Each prototype keeps
+   the unit envelope of the primitive it replaces (±0.5, centred), so no
+   matrix, collider or rnd() draw changes, and ONE key still means ONE
+   (geometry, material) pair — the census rule above holds by construction.
+   GEOMETRY ONLY: MAT.hedge stays ours (hedge.webp). A missing GLB leaves the
+   primitive. */
+const HEDGE_PROTO = {
+  hedgeI: 'hedge_block', arrHedgeI: 'hedge_block', spHedgeI: 'hedge_block',
+  hedgeBlobI: 'hedge_mass',
+  topiaryI: 'topiary_ball', spTopiaryI: 'topiary_ball',
+};
 function flushBuckets(parent) {
   for (const [key, b] of BUCKETS) {
     if (!b.ms.length) continue;
+    const proto = HEDGE_PROTO[key];
+    if (proto && models.has(proto) && models.geometry(proto)) b.geo = models.geometry(proto);
     const im = new THREE.InstancedMesh(b.geo, b.mat, b.ms.length);
     im.name = 'campus:' + key;
     for (let i = 0; i < b.ms.length; i++) {
@@ -5967,6 +6003,7 @@ export function buildCampus(G) {
   BUCKETS.clear();
   NIGHT.tint.length = 0; NIGHT.glow.length = 0; NIGHT.lights.length = 0;
   MAT = makeMaterials();
+  photoTex(MAT.hedge, 'hedge.webp');       // KAN-208 wave 2 — see MAT.hedge
 
   const root = new THREE.Group();
   root.name = 'campus';

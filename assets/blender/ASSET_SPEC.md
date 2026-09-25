@@ -291,9 +291,56 @@ nine GLBs** (eight assets plus `table_lamp_shade`); **66 assets in
 944/1,200; every GLB one mesh / one primitive / one material; zero console errors
 in the in-engine shots, day and night.
 
+### Group H — the planting (KAN-208 wave 2): palms, hedges, topiary — GEOMETRY ONLY
+
+Ten GLBs that replace the **instanced prototypes** of the campus's planting —
+~325 coconut palms and ~180 clipped hedge / topiary cells — and nothing else.
+Every one is **`BAKE = False`** (the Group F lantern rule above): the game keeps
+its OWN materials — `nature.js` `MAT.bark` / `MAT.frond` / `MAT.hedge` and
+`campus.js` `MAT.hedge` — because those carry the photographic maps
+(`assets/textures/bark.webp`, `frond.webp`, `hedge.webp`), the frond alphaTest,
+the night tints and the per-instance hedge colours, all compiled into programs
+that already exist. The generators own UV0 and lay it out for those textures
+(`generators/_flora.py`'s banner has the three layouts). Shape logic is all in
+`generators/_flora.py`; each generator is a few lines.
+
+**THE CONTRACT IS THE UNIT CELL, NOT A SIZE.** Every call site scales these
+through its existing instance matrix, and the proof that nothing else moved is
+`tools/scatter-probe.mjs` (all 283 InstancedMeshes' matrices + colours and
+`G.colliders` hash identical before/after). So each prototype keeps the frame
+and envelope of the primitive it replaces:
+
+| name | replaces (file:fn) | frame / envelope / origin | UV0 (for the game's map) | tris (was) |
+|---|---|---|---|---|
+| `palm_tall` + `palm_tall_crown` | `nature.js` `palmVariants()` spec 0 — `trunkGeo()` + `crownGeo()` | **h 11.5, rTop .17, rBot .34, bend (1.9, .5)** — trunkGeo's exact radius law, root collar and crown swell; the crown's base at **(bendX, h, bendZ)** where crownGeo() translated it. Both halves in ONE frame, **origin = the trunk foot** (`join(origin=None)`), so one instance matrix drives both and `requestPalms()`'s lean-aiming (`atan2(bendZ, bendX)`) and `variantForHeight()` (spec.h) are unchanged. 14 fronds, 6 coconuts. | trunk: u once round, v 0 foot → 1 crown (CylinderGeometry's; `MAT.bark` repeat 1.2 × 16). crown: frond.webp — u butt → tip, rachis v .575, leaflets v .15…1 cut to the texture's MEASURED alpha envelope (+.06), coconuts in the brown patch v .02….10 | 264 + 512 = **776** (126 + 220 = 346) |
+| `palm_mid` + `palm_mid_crown` | spec 1 | **h 8.6, rTop .18, rBot .33, bend (−1.3, 1.1)**; 13 fronds, 5 coconuts | as above | 264 + 464 = **728** (126 + 192 = 318) |
+| `palm_young` + `palm_young_crown` | spec 2 | **h 5.8, rTop .20, rBot .32, bend (.7, −.9)**; 10 fronds, no coconuts; 9 trunk rings | as above | 168 + 280 = **448** (126 + 140 = 266) |
+| `hedge_run` | `nature.js` `buildUnderstory()` hedge segment, `BoxGeometry(1,1,1,2,2,2)` | unit cell **±0.5, centred**; **local Z ALONG the run** (hedgeRun: `rotation.y = atan2(dx, dz)`, scale (t, h, w)); ±Z ends FLAT and FULL and the leafy lumps PERIODIC in z (period 1), so neighbours (6 cm overlap) join without a notch; rounded top shoulders (r .17 of the section), 3.5 % batter; open underside | u = z + .5 along; v = arc length round the section (one 0…1 tile per face like the box; `MAT.hedge` repeat 2 × 1); caps planar | **236** (48) |
+| `hedge_block` | `campus.js` `UNIT_BOX` in buckets **`hedgeI`, `arrHedgeI`, `spHedgeI`** | unit cell ±0.5, centred; every vertical and top edge rounded (r .13), square base, faint lumps. Rounds its ENDS too — these blocks stand apart (1.9 m gaps; the arrival cells leave .1 m) | per cube face box projection × **2 tiles per unit** (campus `MAT.hedge` repeat 1 × 1) | **250** (12) |
+| `hedge_mass` | `campus.js` `UNIT_BLOB` = `IcosahedronGeometry(.5, 1)` in bucket **`hedgeBlobI`** (sea-edge band, villa masses, rooftop planters + screen + bar canopy greenery) | unit sphere envelope ±0.5, centred; cube-sphere on a **p = 3.5 superellipsoid** — flat clipped top, full shoulders (the icosahedron was a faceted lens tapering to points) | per cube face × 2 | **300** (80) |
+| `topiary_ball` | `UNIT_BLOB` in **`topiaryI`**, **`spTopiaryI`** | unit sphere envelope ±0.5, centred; **p = 2.3** — a trimmed ball | per cube face × 2.2 | **300** (80) |
+
+⚠ **UV0 IS WRITTEN WITH V FLIPPED** (`Buf.to_object`): everything above is in
+three's convention (v = 0 at the image bottom, TextureLoader `flipY`), and the
+glTF exporter writes `v = 1 − v_blender`, which three uses as-is. Unflipped, the
+first in-engine crown sampled the frond atlas upside down — every leaflet edge
+read the brown coconut patch.
+
+⚠ **THE FROND NORMALS ARE CUSTOM, AND THEIR DIRECTION WAS MEASURED** — see
+`_flora.palm_crown`'s `nrm()`. Out-and-DOWN (toward where a guest stands) is the
+one that survives the venue's low golden-hour sun plus three's DoubleSide
+normal flip; radial-up and up-dominant both lit a third of every backlit crown
+flat khaki.
+
+Budget: **≲ 800 tris per palm** (Carl's steer for ~325 instanced palms). All
+ten GLBs are **30 KB** together.
+
 ## What is deliberately NOT in this wave
 
-Palms, hedges, topiary and the whole `nature.js` scatter; the buildings; the
+(Palms, hedges and topiary are Group H since KAN-208 wave 2 — their PROTOTYPES;
+the `nature.js` scatter itself, the shrub / bougainvillea / ground-cover blobs,
+the river dressing's planting and the atrium's cloud topiary are still
+procedural.) The buildings; the
 floating lanterns and loungers in `water.js`; the campus furniture (rooftop
 four-tops, bar-room dining, check-in lobby); the welcome board (kept procedural —
 the art pass supplies a better board face); the festoon cables and bulbs; the
