@@ -586,5 +586,20 @@
     "post": "tile-blend; y axis only 0.06; balanced to #3a382a",
     "prompt": "Photograph of a bougainvillea bush in flower taken straight on from half a metre away, filling the whole frame: papery bracts in deep magenta and rose-pink, each flower a rosette of three thin triangular bracts with a tiny cream-white trumpet at its centre, carried in loose clusters scattered over a dense mass of small dark-green pointed leaves and fine reddish woody stems. Roughly ONE THIRD flower and TWO THIRDS dark foliage — the leaves dominate and the bracts are an accent through them, not a solid sheet of pink — with deep shadow pockets between the clusters so the bush reads as deep rather than flat. No wall, no sky, no ground, no pot: foliage and flower fill the frame to every edge. Even soft daylight, sharp focus.",
     "note": "⚠ NOT keyed and NOT shot on a chroma backdrop — the subject IS magenta. The one-third/two-thirds weighting is deliberate: nature.js tints every mound with setHSL(.9…, .55…, .45…) on top of this map, so a bract-heavy texture comes out fluorescent, which is the exact note Carl gave on the first bougainvillea pass."
+  },
+  "palm_thatch": {
+    "kind": "texture",
+    "out": "thatch_palm.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 1024,
+    "tile": "fill",
+    "blend": 0.10,
+    "flatten": 0.18,
+    "flatten_amount": 0.5,
+    "balance": { "target": "#8a6c49", "ref": "mean" },
+    "post": "tile-blend; flattened 0.18; balanced to #8a6c49",
+    "prompt": "Photograph looking straight at the sloping outer surface of a tropical beach-bar palapa roof thatched with dried alang-alang grass, the camera square to the roof so the whole frame is thatch: thick shaggy courses of dry grass laid in overlapping layers, every coarse strand running straight DOWN the frame from top to bottom, dense and roughly parallel, some strands splayed a little. Exactly four courses from top to bottom: each course ends in a ragged, uneven fringe of loose strand tips that hangs over the top of the course below, so four irregular horizontal fringe lines cross the frame. Weathered sun-bleached golden-brown and grey-brown dry straw with darker umber depth between the bundles, individual strands clearly visible, matte, dry, sharp focus.",
+    "note": "KAN-208 wave 1: island_bar's roof read as smooth shingles with straw_weave (a hat braid) planar-projected on it. This is REAL thatch, strands running down v, four fringe courses per tile; island_bar.py maps it with a slant-length UV so the strands run down the slope."
   }
 }

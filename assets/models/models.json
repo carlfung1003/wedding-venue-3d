@@ -595,7 +595,7 @@
     "tris": 29433
   },
   "island_bar": {
-    "bytes": 60532,
+    "bytes": 295092,
     "front": "-Z",
     "material": "island_bar",
     "min": [
@@ -606,10 +606,10 @@
     "origin": "floor",
     "size": [
       11.65,
-      5.05,
+      5.45,
       11.7
     ],
-    "tris": 2604
+    "tris": 3702
   },
   "kayak": {
     "bytes": 11640,
@@ -933,6 +933,40 @@
       3.106
     ],
     "tris": 576
+  },
+  "roof_parasol": {
+    "bytes": 12400,
+    "front": "-Z",
+    "material": "roof_parasol",
+    "min": [
+      -1.738,
+      0.0,
+      -1.74
+    ],
+    "origin": "floor",
+    "size": [
+      3.476,
+      3.228,
+      3.48
+    ],
+    "tris": 1030
+  },
+  "roof_parasol_canopy": {
+    "bytes": 8688,
+    "front": "-Z",
+    "material": "canopy_tint",
+    "min": [
+      -1.755,
+      2.125,
+      -1.755
+    ],
+    "origin": "floor",
+    "size": [
+      3.51,
+      0.995,
+      3.51
+    ],
+    "tris": 768
   },
   "round_bar": {
     "bytes": 93480,

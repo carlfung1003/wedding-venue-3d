@@ -98,6 +98,9 @@ find out.
   edge ≥ 40°, so bevel individual parts with `L.bevel([part], …)` when that is wrong,
   as `plinth_fluted` does) · `AO_DIST` 0.5 (0.15 for enclosed interiors — room-scale
   AO bakes them black) · `AO_STRENGTH` 0.5 · `TRIS` · `FRONT` · `ORIGIN` · `MAT_NAME`.
+  · `UV_WEIGHT` `{material name: factor}` — scales those faces' atlas islands before
+  the pack, so a flat part (the island bar's sand terrace, `0.30`) cedes texels to a
+  photographed one (its thatch). Islands otherwise split the atlas by 3-D area.
 - **Determinism.** `rnd = L.rng(NAME)`; `jitter(o, amount, rnd)`. Never `random.random()`.
 - **Bake device.** Cycles picks the Apple GPU (Metal) and falls back to CPU if the
   device is missing or a bake throws. The FIRST GPU bake of a session compiles Metal

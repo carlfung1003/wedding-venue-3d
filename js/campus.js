@@ -1458,6 +1458,29 @@ const have = (name) => models.has(name) && !!models.geometry(name);
 function modelI(key, name, m) {
   return inst(key, models.geometry(name), models.material(name), m);
 }
+/* The rooftop parasol's canopy (`roof_parasol_canopy`, KAN-208 wave 1) is the
+   ONE baked model on this roof that takes a colour: its sole key is
+   `canopy_tint`, a PURE WHITE bake, and the teal is ours. ONE clone of it,
+   coloured MAT.umbrella's day teal and put on the night-tint registry with the
+   same night multiplier the cones had — so the parasols dim with the roof. The
+   clone shares the bake's program (same map, same side), which is why the
+   program count does not move. Built lazily INSIDE buildWorld, after the night
+   registry has been reset. */
+let _roofCanopyMat = null;
+function roofCanopyMat() {
+  if (!_roofCanopyMat) {
+    _roofCanopyMat = models.material('roof_parasol_canopy').clone();
+    _roofCanopyMat.color.copy(MAT.umbrella.color);   // built by day: the day teal
+    tint(_roofCanopyMat, 0x76839a);                   // MAT.umbrella's own night tint
+  }
+  return _roofCanopyMat;
+}
+/* stand one rooftop parasol: `m` is the pole-foot matrix, shared by both halves */
+function roofParasolI(m) {
+  modelI('rtParasolGlbI', 'roof_parasol', m);
+  inst('rtParasolCanopyGlbI', models.geometry('roof_parasol_canopy'), roofCanopyMat(), m);
+}
+const haveRoofParasol = () => have('roof_parasol') && have('roof_parasol_canopy');
 
 /* HOW TO CENSUS THE KEYS (the check that proves the rule above still holds):
    collect every call site's (key, geometry, material) triple and group by key —
@@ -4217,8 +4240,15 @@ function buildHotelRoof(G, g, acx, acz) {
     if (i % 2 === 0 && i + 1 < LG.th.length && Math.abs(LG.th[i + 1] - th) < LG.pitch * 1.5) {
       const pth = th + (LG.th[i + 1] - th) / 2;
       const px = WX(pth, R.loungeR + 1.35), pz = WZ(pth, R.loungeR + 1.35);
-      inst('poleI', UNIT_CYL, MAT.dark, mat4(px, DY + 1.25, pz, .11, 2.5, .11));
-      inst('rtUmbI', UNIT_CONE, MAT.umbrella, mat4(px, DY + 2.72, pz, 3.5, .8, 3.5));
+      /* `roof_parasol` + its tinted canopy — authored AT this cone's envelope
+         (r 1.75, rim 2.32, apex 3.12, pole Ø .11), so scale 1. Pole foot on
+         the deck; ry = pth only turns the ribs, the parasol is round. */
+      if (haveRoofParasol()) {
+        roofParasolI(mat4(px, DY, pz, 1, 1, 1, pth));
+      } else {
+        inst('poleI', UNIT_CYL, MAT.dark, mat4(px, DY + 1.25, pz, .11, 2.5, .11));
+        inst('rtUmbI', UNIT_CONE, MAT.umbrella, mat4(px, DY + 2.72, pz, 3.5, .8, 3.5));
+      }
     }
   });
 
@@ -4389,16 +4419,43 @@ function buildHotelRoof(G, g, acx, acz) {
       inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + .36, z, .14, .72, .14));
       inst('rtTopI', UNIT_CYL, MAT.marble, mat4(x, DY + .75, z, 1.35, .07, 1.35));
     }
-    for (let c = 0; c < 4; c++) {                       // four white chairs
+    for (let c = 0; c < 4; c++) {                       // four chairs
       const ca = c * Math.PI / 2 + .4;
       const cxp = x + Math.cos(ca) * 1.05, czp = z - Math.sin(ca) * 1.05;
+      /* `dining_chair_rattan` — THE SAME CHAIR as the bar room's dining
+         terrace (KAN-208 wave 1, a deliberate look decision): the pool room
+         and the dining terrace are one roof, and one chair is what makes them
+         read as one restaurant. Same seat point (1.05 m out, facing in) and the
+         same change of basis as diningChair(): ca is the OUTWARD bearing and
+         the GLB's front is local +Z, so ry = ca − π/2.
+         ⚠ ITS BACK IS 1.07 m, NOT THE BOXES' 0.87. That is the real height of
+         a dining chair at a .785 table, and moments.js's brunch slipcovers are
+         cut to THIS back (they used to be radial fins, like the boxes' backs —
+         see dressWelcomeBrunch). The footprint is 0.46 × 0.50 against the boxes'
+         0.50 × 0.50, so the back still stops at r 1.30 = TABLE_R + PLAYER_R and
+         roofColliders() rings nothing differently. */
+      if (have('dining_chair_rattan')) {
+        modelI('rtBrunchChairGlbI', 'dining_chair_rattan',
+          mat4(cxp, DY, czp, 1, 1, 1, ca - Math.PI / 2));
+        continue;
+      }
       inst('rtWhiteI', UNIT_BOX, MAT.white, mat4(cxp, DY + .23, czp, .5, .46, .5, ca));
       inst('rtWhiteI', UNIT_BOX, MAT.white,
         mat4(x + Math.cos(ca) * 1.28, DY + .62, z - Math.sin(ca) * 1.28, .5, .5, .08, ca));
     }
     if (k % 2 === 0) {                                   // a parasol over every other one
-      inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + 1.35, z, .09, 2.7, .09));
-      inst('rtUmbI', UNIT_CONE, MAT.umbrella, mat4(x, DY + 2.86, z, 3.0, .7, 3.0));
+      /* `roof_parasol` scaled onto THIS cone's envelope (r 1.50, rim 2.51,
+         pole Ø .09) from the lounger row's (r 1.75, rim 2.32, Ø .11):
+         (1.50/1.75, 2.51/2.32, 1.50/1.75). Three's instancing normalises a
+         non-uniform scale for the normals. The pole foot is the table centre:
+         the scaled base (Ø .39 × .05) hides inside four_top's Ø .62 × .055
+         disc foot, and the pole rises through the pedestal and the top. */
+      if (haveRoofParasol()) {
+        roofParasolI(mat4(x, DY, z, 1.5 / 1.75, 2.51 / 2.32, 1.5 / 1.75, th));
+      } else {
+        inst('poleI', UNIT_CYL, MAT.dark, mat4(x, DY + 1.35, z, .09, 2.7, .09));
+        inst('rtUmbI', UNIT_CONE, MAT.umbrella, mat4(x, DY + 2.86, z, 3.0, .7, 3.0));
+      }
     }
   });
 

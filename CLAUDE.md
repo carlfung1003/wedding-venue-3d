@@ -375,13 +375,50 @@ live page, because the crescent is `x ≥ 84`, fails `isEnclaveLocal`, and a roo
 camera pushed through `enclaveToWorld` lands 90° away. Its `feet` column caught
 two new cameras standing in the pool and off the terrace edge.
 
-**Deliberately still primitive here:** the rooftop parasols over the lounger row
-(a different envelope from the modelled Ø3.1 one), the river dressing's lounger
-slabs (an explicit distance LOD — "at 60 m up that is exactly as much lounger as
-reads"), and the brunch four-tops' four white box chairs — moments.js slipcovers
-those for the event, so in the only moment a guest is on that roof they read as
-slipcovered chairs. Swapping them is a look decision, not a drop-in: the GLB back
-is 1.07 m against the box's 0.87 m.
+**Deliberately still primitive here:** the river dressing's lounger slabs (an
+explicit distance LOD — "at 60 m up that is exactly as much lounger as reads").
+(The rooftop parasols and the brunch four-tops' box chairs that used to be listed
+here were done in KAN-208 wave 1 — see below.)
+
+### KAN-208 WAVE 1 — BRUNCH CHAIRS, ROOFTOP PARASOLS, ISLAND-BAR THATCH (2026-09-25)
+
+Shots: before `reference/photos/shots-wave1-before/`, after `shots-wave1/` (41+1
+views; new ones `roof-brunch-chairs`, `roof-lounger-parasols` (+`-night`),
+`river-island-bar-thatch`). Programs 116 at every view, both lighting states;
+colliders and feet identical at every view; guest journey 0 stalls, every beat,
+`ERRORS []`.
+
+- **Brunch chairs → `dining_chair_rattan`** (the dining terrace's own chair,
+  `rtBrunchChairGlbI`, ry = ca − π/2). One chair across the roof is the look
+  decision; the 1.07 m back is absorbed by recutting moments.js's slipcover to it.
+- **Rooftop parasols → `roof_parasol` + `roof_parasol_canopy`** (new, 1,030 + 768
+  tris), authored at the lounger cone's envelope; the brunch ones are the same GLB
+  at a non-uniform scale. The canopy is a white `canopy_tint` bake tinted by ONE
+  cloned material on the night-tint registry.
+- **Island bar thatch** — generated `thatch_palm.webp`, slant UV, ragged fringe
+  courses, topknot, 2048 atlas with `UV_WEIGHT`. 3,702 tris / 288 KB.
+- Cost: +16 draw calls (12,741 → 12,757) and +4.8 % triangles (17.90 M → 18.76 M) summed over 41 views. The roof's GLB
+  buckets are InstancedMeshes, which `detailcull.js` never hides, so the distant
+  views that can see the roof (champagne, dinner-table, lagoon, the suite great
+  room) each gain ~+59k tris / +2 calls. fps unchanged at every view (vsync-capped
+  120 where it was before).
+
+⚠ **What this wave learned:**
+1. **A `mat4(…, sx, sy, sz, ry)` box with `ry = ca` lays its X side along the
+   RADIUS `(cos ca, −sin ca)`.** The brunch box chairs' backs (`.5 × .5 × .08`)
+   and moments.js's slipcovers (`.54 × .56 × .10`, `rotation.y = ca`) were both
+   radial FINS, which is why they never read as chair backs. A tangential panel
+   at bearing `ca` needs `ry = ca − π/2` (or swap the X/Z sizes).
+2. **A rib tip at the rim pokes THROUGH the canopy's top edge** — eight little
+   posts on the parasol's rim in the first in-engine shot. Tuck tip caps inside
+   the valance.
+3. **A photographed material on a large baked prop is atlas-starved**: islands
+   split the atlas by 3-D area, and a flat one-colour terrace took ~half. Hence
+   `UV_WEIGHT` (README) and the 2048 atlas.
+4. **`ONLY=a,b node tools/shoot-moments.mjs`** runs a subset — and writes
+   `stats-only.json` (an early version overwrote a full run's `stats.json`).
+5. **Before-shots of a NEW view need the old build**: `git worktree add --detach
+   <dir> HEAD` + `python3 serve.py 8811` there, then `VENUE_URL=http://127.0.0.1:8811/`.
 
 ### Not in this pass (next)
 

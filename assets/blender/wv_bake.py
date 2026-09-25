@@ -224,7 +224,7 @@ def _activate_atlas_layer(me):
     return lay
 
 
-def unwrap(objs, margin=0.015, size=512, px=3.0):
+def unwrap(objs, margin=0.015, size=512, px=3.0, uv_weight=None):
     """Smart-project and pack, with the gap between islands measured in PIXELS.
 
     ⚠ The margin must be ADDITIVE, not normalised, and this is measured, not
@@ -254,6 +254,8 @@ def unwrap(objs, margin=0.015, size=512, px=3.0):
     bpy.ops.mesh.select_all(action='SELECT')
     bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=0.0,
                              scale_to_bounds=False)
+    if uv_weight:
+        _weight_islands(objs, uv_weight)
     bpy.ops.uv.select_all(action='SELECT')
     try:
         bpy.ops.uv.pack_islands(margin=gap, margin_method='ADD', rotate=True,
@@ -261,6 +263,35 @@ def unwrap(objs, margin=0.015, size=512, px=3.0):
     except TypeError:                      # older Blender: no margin_method
         bpy.ops.uv.pack_islands(margin=gap, rotate=True)
     bpy.ops.object.mode_set(mode='OBJECT')
+
+
+def _weight_islands(objs, uv_weight):
+    """Scale the atlas UVs of every face whose material is named in `uv_weight`
+    ({material name: linear factor}) BEFORE the pack, so those islands get
+    factor x their fair share of texels and everything else gets the rest.
+
+    smart_project leaves islands at a uniform texel density and pack_islands
+    keeps their RELATIVE sizes, so the atlas is split by 3-D area. On the island
+    bar that hands ~half the atlas to a flat sand terrace (one colour + AO) and
+    starves the thatch, the only surface with a photograph worth resolving.
+    Scaling about the UV origin is enough: the pack re-positions every island.
+    (KAN-208 wave 1.)"""
+    import bmesh
+    for o in objs:
+        me = o.data
+        names = [s.material.name if s.material else "" for s in o.material_slots]
+        idx = {i: uv_weight[n] for i, n in enumerate(names) if n in uv_weight}
+        if not idx:
+            continue
+        bm = bmesh.from_edit_mesh(me)
+        uv = bm.loops.layers.uv.active
+        for f in bm.faces:
+            k = idx.get(f.material_index)
+            if k is None:
+                continue
+            for lp in f.loops:
+                lp[uv].uv = lp[uv].uv * k
+        bmesh.update_edit_mesh(me)
 
 
 def _image(name, size, alpha=False):
@@ -569,7 +600,7 @@ def _check_art_uvs(objs):
 
 
 def prepare_for_export(root, size=512, bevel_width=0.004, ao_dist=0.5, ao_strength=0.5,
-                       margin=0.015, mat_name=None):
+                       margin=0.015, mat_name=None, uv_weight=None):
     """bevel -> unwrap -> bake -> single material. Call once, at master-build time."""
     import wv_lib as L
     objs = meshes_of(root)
@@ -578,7 +609,7 @@ def prepare_for_export(root, size=512, bevel_width=0.004, ao_dist=0.5, ao_streng
     _check_art_uvs(objs)
     if bevel_width > 0:
         L.bevel(objs, width=bevel_width)
-    unwrap(objs, margin=margin, size=size)      # the island gap is in PIXELS of THIS atlas
+    unwrap(objs, margin=margin, size=size, uv_weight=uv_weight)      # the island gap is in PIXELS of THIS atlas
     atlas = bake_atlas(objs, root.name, size=size, ao_dist=ao_dist, ao_strength=ao_strength)
     apply_baked(objs, root.name, atlas, mat_name=mat_name)
     root["wv_baked"] = 1

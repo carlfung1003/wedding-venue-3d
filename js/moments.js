@@ -1591,14 +1591,31 @@ export function initMoments(G) {
         const fl = cyl(.030, .16, glassy, 8);
         fl.position.set(p.x + Math.cos(ca + .5) * .52, DY + .89, p.z - Math.sin(ca + .5) * .52);
         g.add(fl);
-        /* campus.js's chairs are bare white blocks — right for pool furniture,
-           thin for a table you now stand two metres from. A linen slip over the
-           back and a blush sash is what turns them into event chairs. */
-        const bx = p.x + Math.cos(ca) * 1.28, bz = p.z - Math.sin(ca) * 1.28;
-        const slip = box(.54, .56, .10, linen);
-        slip.position.set(bx, DY + .64, bz); slip.rotation.y = ca; g.add(slip);
-        const sash = box(.56, .09, .13, blush);
-        sash.position.set(bx, DY + .50, bz); sash.rotation.y = ca; g.add(sash);
+        /* A linen slip over the chair's back and a blush sash round it is what
+           turns resort furniture into event chairs.
+           ⚠ KAN-208 wave 1: campus.js seats these tables on the bar room's
+           `dining_chair_rattan` now (back stiles + a curved top rail at radial
+           1.23…1.31, woven panel y .565…965, top rail to y 1.075, cushion top
+           .58). The slip is cut to THAT back — .50 wide ACROSS the chair (its
+           yaw is the chair's own, ca − π/2, so local x is tangential), y .60 …
+           1.10, clear of the cushion. The old slip had yaw ca, which lays a box's
+           long side along the RADIUS: it and the box chair's back were both
+           radial fins, which is why they never looked like a chair back. The
+           fallback (no GLB → campus.js's box chairs) keeps the old fin, which
+           still matches ITS back. */
+        if (models.has('dining_chair_rattan')) {
+          const bx = p.x + Math.cos(ca) * 1.27, bz = p.z - Math.sin(ca) * 1.27;
+          const slip = box(.50, .50, .10, linen);
+          slip.position.set(bx, DY + .85, bz); slip.rotation.y = ca - Math.PI / 2; g.add(slip);
+          const sash = box(.52, .08, .12, blush);
+          sash.position.set(bx, DY + .72, bz); sash.rotation.y = ca - Math.PI / 2; g.add(sash);
+        } else {
+          const bx = p.x + Math.cos(ca) * 1.28, bz = p.z - Math.sin(ca) * 1.28;
+          const slip = box(.54, .56, .10, linen);
+          slip.position.set(bx, DY + .64, bz); slip.rotation.y = ca; g.add(slip);
+          const sash = box(.56, .09, .13, blush);
+          sash.position.set(bx, DY + .50, bz); sash.rotation.y = ca; g.add(sash);
+        }
       }
       /* ⚠ 1.35 → 0.95 with the short pool (2026-08-04). The eight four-tops are
          one row on a 3.16 m pitch now; at r 1.35 each table claimed 1.70 m with

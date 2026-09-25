@@ -48,22 +48,33 @@ to spare, and from above the roof is still solid.
    symmetric enough that it would not have shown, but it costs nothing to be
    right and it is the sign that catches people on this campus.
 
-Finish: `straw_weave.webp` gained down to a weathered brown for the thatch (the
-primitive's roof is 0x7a5637, darker than any straw key), `oak_light.webp` gained
+Finish: (KAN-208 wave 1) the thatch is `thatch_palm.webp`, a generated photograph
+of real alang-alang thatch (art_manifest `palm_thatch`), slant-mapped so its
+strands run down the slope, on five shaggy courses with ragged fringe tips and a
+bound topknot — see THATCH_* below; it used to be `straw_weave.webp`, a hat braid,
+planar-projected onto smooth frusta, and read as timber shingles. The thatch
+atlas is 2048 with the sand terrace's islands weighted to 0.30 (UV_WEIGHT) so the
+photograph resolves at guest distance. `oak_light.webp` gained
 down to a dark timber for the counter's staves and the posts (`MAT.darkWood`),
 and `cream` for the sand terrace — `flute` rendered as a white
 dinner plate under the venue's 2.1 sun, the wedding pass's "measure, then look".
-The thatch takes a HARD gain down (×0.21 red) for the same reason: at ×0.38 the
-in-engine shot came back pale straw, nothing like the primitive's 0x7a5637. The counter is STAVED, not a smooth drum: a
+The old straw_weave thatch took a HARD gain down (×0.21 red); the photograph is
+already a weathered brown, and THATCH_GAIN (×0.31 red) was tuned in-engine to a
+sun-bleached grey-gold — lighter than the primitive's 0x7a5637 on purpose, since
+a palapa reads as dry grass, not as timber. The counter is STAVED, not a smooth drum: a
 cylinder reads as a bucket, thirty vertical boards read as a bar — the round_bar
 lesson, at a quarter of its triangles.
 """
 import math
+import bmesh
 import wv_lib as L
 import _pool as P
 
 NAME = "island_bar"
-ATLAS = 1024              # the thatch and 26 counter staves want the resolution
+ATLAS = 2048              # KAN-208: the thatch PHOTOGRAPH wants the resolution — see below
+# the sand terrace is one flat colour + AO and ~half the model's surface; give its
+# islands a third of their fair share of the atlas so the thatch gets the texels
+UV_WEIGHT = {"cream": 0.30}
 BEVEL = 0                 # per part; a 4,000-tri roof cannot take a joined bevel
 AO_DIST = 0.5
 AO_STRENGTH = 0.5
@@ -82,10 +93,130 @@ APEX = 5.05               # ⚠ RAISED from the cone's 4.55 — see the banner
 POST_R = BR * 0.78        # 4.368                         js/water.js:2855
 SOFFIT_R = BR * 0.9       # 5.04 — the game's emissive disc; do not occlude it
 
+# ── KAN-208 wave 1: THE THATCH. It used to be straw_weave.webp (a HAT BRAID) planar-
+#    projected from above onto five smooth frusta, which in-engine read as brown
+#    timber shingles. Now: a generated photograph of real alang-alang thatch
+#    (art_manifest `palm_thatch`, strands running DOWN the image, ragged fringe
+#    courses), mapped with a SLANT UV so the strands run down the slope and
+#    converge at the crown, on SIX courses whose lips hang in a ragged fringe of
+#    uneven tips instead of a machined step. Plus a bound topknot at the apex.
+THATCH_TEX = "thatch_palm.webp"
+THATCH_GAIN = (0.31, 0.255, 0.225)   # linear, on straw_d; tuned in-engine (see docstring)
+THATCH_K = 22                      # texture repeats round the eaves (~1.5 m each)
+THATCH_TV = 1.55                   # metres of slope per texture repeat (~4 fringes)
+
+
+def _thatch_uv(o, apex_z):
+    """u = K x bearing / 2pi (the strands converge on the crown, as real thatch
+    does), v = -(slant distance from the apex) / TV (down the slope = down the
+    image). Written per LOOP with the bearing unwrapped across each face, so the
+    one seam bearing does not smear a whole face across the texture."""
+    me = o.data
+    uvl, was = L._art_layer(me, L.ART_UV)
+    for poly in me.polygons:
+        vs = [me.vertices[me.loops[li].vertex_index].co for li in poly.loop_indices]
+        angs = []
+        for c in vs:
+            r = math.hypot(c.x, c.y)
+            angs.append(math.atan2(c.y, c.x) if r > 1e-4 else None)
+        known = [a for a in angs if a is not None]
+        ref = known[0] if known else 0.0
+        fixed = []
+        for a in angs:
+            if a is None:
+                a = ref
+            while a - ref > math.pi:
+                a -= 2 * math.pi
+            while a - ref < -math.pi:
+                a += 2 * math.pi
+            fixed.append(a)
+        # the apex vertex (no bearing) takes the face's mean bearing
+        mean = sum(fixed) / len(fixed)
+        for k, li in enumerate(poly.loop_indices):
+            c = vs[k]
+            a = fixed[k] if angs[k] is not None else mean
+            s = math.hypot(math.hypot(c.x, c.y), apex_z - c.z)
+            uvl.data[li].uv = (THATCH_K * a / (2 * math.pi), -s / THATCH_TV)
+    L._restore_active(me, was)
+
+
+def _shaggy_thatch(name, r, h, z0, mat, n=44, courses=6, eaves_inner=None):
+    """A palapa cone laid in `courses` of bundles. Each course is three rings:
+      tip  — the fringe: flared out past the cone and hanging BELOW the course
+             line by a per-vertex RAGGED drop (teeth of uneven length, not a
+             machined step — the one thing that separates thatch from shingles
+             in silhouette),
+      body — back on the cone just above the fringe, bulged per bundle,
+      top  — the cone line where the next course's fringe overlaps it.
+    The top of each course and the next course's tip make a face that points
+    DOWN and OUT: the shadowed underside of the fringe above it.
+    Closed at the eaves with an annulus to `eaves_inner` (the game's soffit)."""
+    rnd = L.rng(NAME + ":thatch")
+    bm = bmesh.new()
+    ang = P.ring_of(n, phase=0.11)
+
+    def cone_r(t):
+        return max(r * 0.05, r * (1 - t))
+
+    rings = []
+    for c in range(courses):
+        t0, t1 = c / courses, (c + 1) / courses
+        zc0, zc1 = z0 + h * t0, z0 + h * t1
+        k = 1 - c / courses                          # lower courses are shaggier
+        flare = 0.10 + 0.10 * k
+        drop = 0.10 + 0.24 * k
+        tip, body = [], []
+        for i, a in enumerate(ang):
+            jag = rnd.uniform(0.2, 1.0) * (0.45 if i % 2 else 1.0)
+            rt = cone_r(t0) + flare * rnd.uniform(0.75, 1.15)
+            zt = zc0 - drop * jag
+            tip.append(bm.verts.new((math.cos(a) * rt, math.sin(a) * rt, zt)))
+            bulge = 0.035 * k * (0.6 + 0.4 * math.sin(a * 7 + c * 1.3)) + rnd.uniform(0, 0.02)
+            tb = t0 + (t1 - t0) * 0.18
+            rb = cone_r(tb) + flare * 0.55 + bulge
+            body.append(bm.verts.new((math.cos(a) * rb, math.sin(a) * rb, z0 + h * tb)))
+        top = [bm.verts.new((math.cos(a) * cone_r(t1), math.sin(a) * cone_r(t1), zc1))
+               for a in ang]
+        rings += [tip, body, top]
+    for j in range(len(rings) - 1):
+        A, B = rings[j], rings[j + 1]
+        for i in range(n):
+            i2 = (i + 1) % n
+            try:
+                bm.faces.new([A[i], A[i2], B[i2], B[i]])
+            except ValueError:
+                pass
+    apex = bm.verts.new((0, 0, z0 + h))
+    last = rings[-1]
+    for i in range(n):
+        bm.faces.new([last[i], last[(i + 1) % n], apex])
+    if eaves_inner is not None:
+        first = rings[0]
+        inner = [bm.verts.new((math.cos(a) * eaves_inner, math.sin(a) * eaves_inner, z0))
+                 for a in ang]
+        for i in range(n):
+            i2 = (i + 1) % n
+            bm.faces.new([first[i], inner[i], inner[i2], first[i2]])
+    o = L.from_bmesh(name, bm, (0, 0, 0), mat)
+    _thatch_uv(o, z0 + h)
+    return o
+
+
+def _crown(name, apex, mat):
+    """The bound topknot every palapa carries: the last bundles gathered, tied,
+    and flared a little above the tie. Thatch material, cylindrical UV."""
+    o = L.lathe(name, [
+        (0.85, apex - 0.50), (0.52, apex - 0.14), (0.33, apex + 0.04),
+        (0.29, apex + 0.13), (0.34, apex + 0.18), (0.38, apex + 0.30),
+        (0.20, apex + 0.38), (0.0, apex + 0.40),
+    ], (0, 0, 0), mat, n=16)
+    L.cylindrical_uv(o, repeat=3.0)
+    return o
+
 
 def build():
-    thatch_m = P.tex("bar_thatch", "straw_weave.webp", roughness=0.92,
-                     fallback="straw_d", tint_to="straw_d", gain=(0.21, 0.165, 0.145))
+    thatch_m = P.tex("bar_thatch", THATCH_TEX, roughness=0.95,
+                     fallback="straw_d", tint_to="straw_d", gain=THATCH_GAIN)
     timber = P.tex("bar_timber", "oak_light.webp", roughness=0.80,
                    fallback="oak_d", tint_to="oak_d", gain=(0.40, 0.31, 0.24))
     sand = L.M("cream")
@@ -129,10 +260,10 @@ def build():
 
     # ── the thatch. Closed at the eaves with an ANNULUS to r 4.90 so the game's
     #    emissive soffit (r 5.04) still shows — see the banner.
-    roof = P.thatch("thatch", ROOF_R, APEX - EAVES, EAVES, thatch_m,
-                    n=28, courses=5, step=0.075, eaves_inner=4.90)
-    P.metric_uv(roof, 0, 2, tile=0.55)
+    roof = _shaggy_thatch("thatch", ROOF_R, APEX - EAVES, EAVES, thatch_m,
+                          n=56, courses=5, eaves_inner=4.90)
     parts.append(roof)
+    parts.append(_crown("crown", APEX, thatch_m))
 
     root = L.join(parts, NAME, origin="floor")
     L.shade_smooth(root, angle=36)

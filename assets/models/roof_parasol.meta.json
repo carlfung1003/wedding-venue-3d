@@ -1,0 +1,17 @@
+{
+  "bytes": 12400,
+  "front": "-Z",
+  "material": "roof_parasol",
+  "min": [
+    -1.738,
+    0.0,
+    -1.74
+  ],
+  "origin": "floor",
+  "size": [
+    3.476,
+    3.228,
+    3.48
+  ],
+  "tris": 1030
+}

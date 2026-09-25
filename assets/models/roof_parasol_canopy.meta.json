@@ -1,0 +1,17 @@
+{
+  "bytes": 8688,
+  "front": "-Z",
+  "material": "canopy_tint",
+  "min": [
+    -1.755,
+    2.125,
+    -1.755
+  ],
+  "origin": "floor",
+  "size": [
+    3.51,
+    0.995,
+    3.51
+  ],
+  "tris": 768
+}

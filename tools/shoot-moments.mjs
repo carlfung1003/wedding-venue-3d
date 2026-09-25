@@ -292,7 +292,53 @@ const VIEWS = [
     return { x: B.cx + dx / L * d, z: B.cz + dz / L * d, y: 0,
              lookX: B.cx, lookZ: B.cz };
   })()` }],
+
+  /* ── KAN-208 wave 1 (2026-09-25): the brunch chairs, the rooftop parasols,
+        the island bar's thatch. ── */
+  /* the brunch four-top's chairs DRESSED (slipcovers + sash), closer than
+     roof-brunch-tables and from the other side, so the backs face the camera */
+  ['roof-brunch-chairs', 0, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP, t = S.HOTEL_ROOF.brunchTables[3];
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    const cth = t.th + 2.4 / t.r;
+    return { x: acx + Math.sin(cth) * (t.r - 1.5), z: acz + Math.cos(cth) * (t.r - 1.5),
+             y: R.deckY,
+             lookX: acx + Math.sin(t.th) * t.r, lookZ: acz + Math.cos(t.th) * t.r };
+  })()` }],
+  /* a lounger-row parasol from the open deck seaward of the row. The th list
+     is loungerRow()'s (campus.js), re-derived: the third parasol, i = 4/5. */
+  ['roof-lounger-parasols', 2, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP, C = Math.PI / 2;
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    const pitch = 4.39 / R.loungeR;
+    const maxOff = Math.max(...S.HOTEL_ROOF.brunchTables.map(t => Math.abs(t.th - C)));
+    const pth = C - (maxOff + 5.3 / R.loungeR) - 4.5 * pitch;
+    const pr = R.loungeR + 1.35, cth = pth + 5.0 / 95.6;
+    return { x: acx + Math.sin(cth) * 95.6, z: acz + Math.cos(cth) * 95.6, y: R.deckY,
+             lookX: acx + Math.sin(pth) * pr, lookZ: acz + Math.cos(pth) * pr };
+  })()` }],
+  /* …and after dark: the canopy clone is on campus.js's night-tint registry */
+  ['roof-lounger-parasols-night', 5, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP, C = Math.PI / 2;
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    const pitch = 4.39 / R.loungeR;
+    const maxOff = Math.max(...S.HOTEL_ROOF.brunchTables.map(t => Math.abs(t.th - C)));
+    const pth = C - (maxOff + 5.3 / R.loungeR) - 4.5 * pitch;
+    const pr = R.loungeR + 1.35, cth = pth + 5.0 / 95.6;
+    return { x: acx + Math.sin(cth) * 95.6, z: acz + Math.cos(cth) * 95.6, y: R.deckY,
+             lookX: acx + Math.sin(pth) * pr, lookZ: acz + Math.cos(pth) * pr };
+  })()` }],
+  /* the island bar from the open sand on the far side, closer than
+     river-island-bar (whose camera stands in the shrubs) */
+  ['river-island-bar-thatch', 2, { world: `(() => {
+    const B = S.SITE.RIVER.BAR, W = S.SITE.RIVER.WEST;
+    const dx = B.cx - W.cx, dz = B.cz - W.cz, L = Math.hypot(dx, dz);
+    const a = Math.atan2(dz, dx) + 2.0, d = 11.5;
+    return { x: B.cx + Math.cos(a) * d, z: B.cz + Math.sin(a) * d, y: 0,
+             lookX: B.cx, lookZ: B.cz };
+  })()` }],
 ];
+const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 
 (async () => {
   const browser = await chromium.launch({ args: ['--use-angle=metal'] });
@@ -313,6 +359,7 @@ const VIEWS = [
 
   const stats = [];
   for (const [name, mi, pos] of VIEWS) {
+    if (ONLY && !ONLY.has(name)) continue;
     const s = await page.evaluate(async ([mi, pos]) => {
       const g = window.__game, G = g.G;
       const P = await import('./js/player.js');
@@ -368,7 +415,8 @@ const VIEWS = [
     stats.push({ view: name, ...s });
     console.log(name.padEnd(24), JSON.stringify(s));
   }
-  writeFileSync(`${OUT}stats.json`, JSON.stringify({ url: SITE_URL, when: new Date().toISOString(), stats, errors: bad }, null, 2));
+  /* an ONLY= run writes stats-only.json, so it never clobbers a full run's record */
+  writeFileSync(`${OUT}${ONLY ? 'stats-only' : 'stats'}.json`, JSON.stringify({ url: SITE_URL, when: new Date().toISOString(), stats, errors: bad }, null, 2));
   console.log('\nerrors:', bad.length ? bad : 'none');
   console.log('wrote', OUT);
   await browser.close();
