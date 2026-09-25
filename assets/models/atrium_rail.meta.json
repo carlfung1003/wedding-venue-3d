@@ -1,0 +1,17 @@
+{
+  "bytes": 4524,
+  "front": "-Z",
+  "material": "at_copper",
+  "min": [
+    -0.038,
+    0.0,
+    -0.5
+  ],
+  "origin": "base",
+  "size": [
+    0.076,
+    0.045,
+    1.0
+  ],
+  "tris": 212
+}

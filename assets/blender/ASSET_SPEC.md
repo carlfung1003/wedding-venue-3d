@@ -464,6 +464,62 @@ once, cause not isolated: the node was wired in the saved master and the baked
 atlas was the raw cedar orange. Darken in the picture (`panel_walnut.webp`), not
 in the node tree, until someone finds out why.
 
+### Group L — ARCHITECTURE (KAN-211 wave B): the atrium
+
+Thirteen GLBs (ten generators; `atrium_bay.py` builds four via `build_<suffix>`)
+replacing `js/atrium.js`'s visual primitives. Same contract as Group K (visual
+only; numbers read from the live `js/site.js` — `_arch.atrium()` mirrors
+atrium.js's derived consts: X0…CZ1, H1/H2, SOF1/SOF2, STAIR, WELL; every
+replaced primitive keeps its old path as the `else`), with two frames:
+
+- **SITE FRAME, atrium anchor** — `with _arch.frame("atrium"):` puts the origin
+  at `(SITE.ATRIUM.cx, 0, cz)` = `(8, 0, −41)`; atrium.js places ONE identity
+  instance there (`anchorM()`). The context manager restores the frame, so a
+  batch that builds an atrium GLB then an arrival one cannot leak the origin.
+- **MODULE frame** — `frame("local")` (anchor 0): a repeated element authored
+  once in its own frame and INSTANCED by atrium.js (`glbPut()` → one
+  InstancedMesh per GLB, `flushGlb()`).
+
+Every GLB is an InstancedMesh on its own baked material — the instanced
+baked-map program; finish per GLB in atrium.js `bakeMat()` (roughness,
+metalness, and env day/night on the atrium's own ENVM registry — the atrium
+never tints, it dims env + lights).
+
+| name | frame · instances | replaces (atrium.js) | what is modelled (reference) | keys | atlas | tris |
+|---|---|---|---|---|---|---|
+| `atrium_column` | module, foot origin · 18 | the H2 shaft box + two bronze bands | 0.84/0.72 stepped plinth; 0.56 shaft clad in ~0.9 m courses over a 0.545 joint core (real recessed joints, 6 mm arrises); a capital + black fillet under each soffit's BOARDS; a collar at the 2F deck (clubhouse-atrium.jpeg: the plinth-based gallery column) | `at_col`, `at_col_b`, `at_joint`, `at_black` | 1024 | 544 |
+| `atrium_soffit_panel` | module, top origin · 296 (both soffits) | the slab's painted underside | 8 real boards, 92 mm + 8 mm joint, 22 mm deep, 3 mm chamfered bottom arrises, 2 m long (z-scaled to the gallery depth); each board its own mahogany tone; a chamfered PROFILE extrusion, no caps/top (10 tris a board) | `at_wood0…5` (v2 ×0.8 + redder, measured) | 1024 | 80 |
+| `atrium_downlight` | module, top origin · 153 | (new) — the `E.down` disc drops into it | Ø .20 black bezel, 8 mm proud of the boards, a conical reflector to the lamp plane; 12-sided | `at_black` | 256 | 96 |
+| `atrium_frame` | site · 1 | the copper reveals' slab edge | the court-edge BEAMS, both storeys: 0.30 wide, 0.28 under the soffit, 20 mm shadow reveal to the boards; ground-floor west beam only south of the stairwell (the flight's glass) | `at_beam`, `at_black` | 1024 | 2,068 |
+| `atrium_ponds` | site · 1 (both) | buildPond's granite sides + coping | 12 mm cladding tiles ~0.6 m (5 mm joints, two tones) on a joint core; the inner lip over the water; polished coping slabs ~0.72 m, 20 mm overhang, 8 mm eased edge, top at RIM + .035 as before; a 35 mm shadow plinth; footprints = `SITE.ATRIUM.PONDS` (the colliders' rectangles) | `at_granite(_b)`, `at_coping`, `at_joint` | 2048 | 11,088 |
+| `atrium_stair` | site · 1 | the two stringer boxes, the treads, the copper lips | 16 × 70 mm honed treads 0.40 deep, tops EXACTLY (i+1)·H1/16; a steel cleat under each; both stringer plates as sloped profiles cut level at the court and plumb at the landing (the west one on the colliders' stringer line x −8.87); the landing nosing | `at_col`, `at_steel` | 1024 | 2,052 |
+| `atrium_rail` | module, base origin · 9 (7 gallery runs + the flight + its landing) | the round copper tube | the FLAT 76 mm copper cap with a glazing channel, 1 m, z-stretched to the run, tilted on the stair (metalness .75 in-game) | `at_copper` | 256 | 212 |
+| `atrium_baluster` | module, foot · 62 | the steel posts | Ø 42 mm stainless post to the cap, Ø 100 base flange, two pairs of glass clamps along the run; plumb on the stair, stretched 1/cos to the tilted cap | `at_inox` | 256 | 176 |
+| `atrium_door` | module, hole-centre origin (+X along wall, +Z into the room) · 12 | buildRoomDoor's piers, header, copper reveal, threshold, folded glass leaves | coursed stone piers, lintel, projecting architrave, bronze casing, stone sill, two TIMBER leaves open into the room, bronze plaque plate — the lit number now 3 mm proud of it (it sat 0.10 m INSIDE the pier). Authored at the N/S bay (44/15); W/E x-scale 0.985 | `at_col(_b)`, `at_joint`, `ar_bronze`, `at_door`, `at_black` | 1024 | 812 |
+| `atrium_bay` | module, bay-centre on the wall's court face · 45 | the even bays' bronze slab + glass leaves + buried glow | closed pair of timber doors in a bronze frame, transom, grooves, long pulls, sill | `ar_bronze`, `at_door`, `at_black`, `at_col_b` | 1024 | 264 |
+| `atrium_bay_slate` | module · 13 | slate panel + cap | stacked-slate panel on `slate_stack.webp` (1.3 m tile), bronze cap, shadow plinth | `slate` (image), `ar_bronze`, `at_black` | 1024 | 100 |
+| `atrium_bay_screen` | module · 11 | the canvas-striped screen + rails | 31 real 45 × 60 mm battens on a black ground, every fifth a darker tone, bronze head/foot rails | `at_batten`, `at_wood1`, `at_black`, `ar_bronze` | 1024 | 472 |
+| `atrium_bay_glazing` | module · 10 | the mullion + rails | bronze jambs/head/sill, centre mullion, transom — glass + glow stay the game's | `ar_bronze` | 1024 | 264 |
+
+Instance counts are the live build's (`tools/scatter-probe.mjs`). The bay
+counts follow the facade's own `rnd()` pick (unchanged draw).
+
+**Textures (`venue-arch`, 2 × 1K, $0.26):** `gravel_crushed.webp` (manifest
+`gravel_crushed`, RUNTIME — `assets/textures/`, loaded by atrium.js onto the
+court's gravel materials; balanced `#5d5f63`, graded ×0.6 in-game) and
+`slate_stack.webp` (`slate_stack`, bake input, tile-blend x only).
+
+⚠ **Group L lessons:**
+1. **Instance count × tris is the budget, not the GLB's tris.** One bounding
+   sphere per InstancedMesh means every instance is drawn whenever the atrium is
+   in frustum (44 of 90 views). The first pass cost +145k tris a view; the
+   downlight (24 → 12 sides, 288 → 96), baluster (280 → 176) and screen battens
+   (bevels off, 1,464 → 472) took it to +98k.
+2. **A bevelled box board is 44 tris; a chamfered profile extrusion without
+   hidden caps is 10.** For anything laid by the hundred, extrude the profile.
+3. `make_masters` names a suffix build `<NAME>_<suffix>` — the entry bay is
+   therefore `atrium_bay`, not `atrium_bay_entry`.
+
 ## What is deliberately NOT in this wave
 
 (Palms, hedges and topiary are Group H since KAN-208 wave 2 — their PROTOTYPES;

@@ -29,7 +29,7 @@ own coordinates. Change the layout there, never in a builder.
 | `js/foliage.js` | (KAN-208 wave 4) the understory's shared leaf-card materials (`leafMat('shrub'|'boug')`), `protoGeo()` (a GLB prototype, optionally a scaled clone) and `fringeFor()` (a leaf-card bucket on a core bucket's matrices) — used by nature.js, water.js, campus.js and atrium.js |
 | `js/water.js` | The hero pool (raised plinth, infinity edge, caustics), **the floating lanterns**, the deck + turf + "THE WESTIN" letters, cabana pavilions, loungers, lounge pool, lagoon, villa plunge pools |
 | `js/campus.js` | The entrance pavilion (the 酒廊 at grade + the check-in lobby above), the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), **the grass ground** (`buildGrassGround` — the mown lawn panels, the spine + cross paths, the planted terrace edge, the fire pit), event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
-| `js/atrium.js` | The clubhouse's central courtyard AND its corridor — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, and the **ten real guest-room doors** (`buildRoomDoor`) with their lit number plaques |
+| `js/atrium.js` | The clubhouse's central courtyard AND its corridor — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, and the **ten real guest-room doors** (`buildRoomDoor`) with their lit number plaques — since KAN-211 wave B drawn as Blender GLBs (ASSET_SPEC Group L), primitives kept as the fallback |
 | `js/suite.js` | The presidential suite, inside and out — folding glass wall, great room, dining, pantry, the L-stair with its chandelier, the spa, the 2F lounge and balcony |
 | `js/introcam.js` | The opening: a drone orbit of the enclave behind the title card, then a bezier dive over the pool and in through the glass wall, handing the look state to `player.js` on landing |
 | `js/materials.js` | Shared CanvasTexture recipes + `M.*`; also exports `mulberry32` (seeded PRNG). Builders define their own local materials — only `mulberry32` is universally imported. |
@@ -847,6 +847,97 @@ ceiling / floors (still `box()` + canvas maps), the lounge's breakfast
 furniture, the internal stair, the upper walkway (LINK / SLOT / HEAD) and its
 pergola, the terrace retaining wall and lane, the gate, the dracaena bowls and
 batter planting (still blobs), the check-in staff.
+
+### KAN-211 WAVE B — THE ATRIUM AS BLENDER ARCHITECTURE (2026-09-25)
+
+`js/atrium.js`'s visual primitives → **13 GLBs, ASSET_SPEC Group L** (every row
+there): `atrium_column` ×18, `atrium_soffit_panel` ×296 (eight REAL boards per
+0.8 m module, both soffits), `atrium_downlight` ×153 bezels, `atrium_frame`
+(the court-edge beams, both storeys), `atrium_ponds` (laid cladding tiles +
+polished coping slabs, both ponds), `atrium_stair` (treads at the published
+heights, cleats, both stringer plates), `atrium_rail` ×9 (the FLAT copper cap,
+the stair's tilted) + `atrium_baluster` ×62, `atrium_door` ×12 (the ten keys'
+portals + the 3-BRs' upper pair), and the facade's four bay types `atrium_bay`
+/ `_slate` / `_screen` / `_glazing` (×45 / 13 / 11 / 10). Plus the court's
+gravel as a PHOTOGRAPH (`assets/textures/gravel_crushed.webp`). Cloud topiary
+untouched (KAN-208 wave 4). Shots: before `reference/photos/shots-archB-before/`
+(40fdfae in a worktree on :8811), after `shots-archB/` — 90 views, the 80 of
+wave A plus ten `archB-*` (corridor + night, column, pond, stair, door + night,
+2F gallery, high, and `archB-photo`, framed on clubhouse-atrium.jpeg), fixed
+enclave-local cameras. `shots-archB/compare-archB-*.jpg` are the side-by-sides,
+`compare3-archB-photo.jpg` the 3-way (photo | before | after).
+`tools/shoot-moments.mjs` gained `opt.pitch` and `opt.fly` (and now re-asserts
+walk mode per view — a fly view leaked into the next one, since setMoment
+early-returns on the same moment).
+
+**Two frames** (`generators/_arch.py`): SITE-frame singletons use `with
+A.frame("atrium")` → origin (SITE.ATRIUM.cx, 0, cz) = (8, 0, −41), one identity
+instance (`anchorM()`); MODULES use `frame("local")` and atrium.js instances
+them (`glbPut()` / `flushGlb()`, one InstancedMesh per GLB). `_arch.atrium()`
+derives X0…CZ1, H1/H2, SOF1/SOF2, STAIR and WELL with atrium.js's own
+arithmetic from the live site.js. Every replaced primitive keeps its path as
+the `else` of an `HB.<part>` flag (all false = the pre-wave-B build).
+
+| 90 views | before (40fdfae) | after |
+|---|---|---|
+| draw calls (sum) | 31,154 | 31,142 (**−12**; −8…+9 a view) |
+| triangles (sum) | 59,234,626 | 62,872,674 (**+6.1 %**; +0 at 44 views, +12k…+98.6k where the atrium is in frustum, mean +79k) |
+| shader programs | 113 | **113 at every view, day and night** |
+| colliders / feet / night flags | | identical at all 90 views |
+| `colliderHash` (scatter-probe) | `026674019d51` (10,797) | **`026674019d51` (10,797)** |
+| floorY, 28 probes (4 corridors, court path + gravel 0.000; 4 galleries + the link 3.600; stair foot 0 / low .35 / mid 1.8 / top 3.5 / landing 3.6; all 10 room thresholds 0.220; A1/A2 upper 3.600) | | **byte-identical** |
+| lights (guest journey) | 40 / 12 | 40 / 12 |
+| guest journey | | 0 stalls, every beat, Check-in PROMPT ✓, slot → gallery 3.600, `ERRORS []` |
+
+Scatter: `allMatrixHash adea03c440d3 → 734a3385c106`. 190 of 191 (name, chain)
+keys byte-identical; the one changed key is the atrium root's unnamed
+buckets, and every change in it is intended — the column uplight discs (moved
+off the 0.84 plinths), the two downlight-disc buckets (dropped 26 mm into the
+bezels, 16-sided), the plaque buckets (the real doors' plaques out of the pier,
+the bays' 5.5 cm proud of the new frames). The pebbles' matrices are
+identical; the planting colliders are in the unchanged hash, so the facade's
+`rnd()` stream held (the GLB path draws the same `kind = rnd()`).
+
+fps: vsync 120 wherever it was; A/B reruns at the two views that read lower
+(palms-belt-crowns 75.3/73.3 → 72.8/71.5 with +98k tris; arrival-lobby-sofas
+91.8/93.0 → 91.9/90.4) are within about 3 %.
+
+**Colour, MEASURED against clubhouse-atrium.jpeg** (`archB-photo`): soffit
+render (95,64,54) → board tones ×0.8 and redder, env .55 → .32 → **(79,52,45)**
+vs the photo's (68,42,35); columns **(37,34,33)** vs (30,28,28); coping /
+cladding ~100 vs (103–108); gravel (154) → photo map ×0.6 → **(108,101,101)**
+vs shade 52 / sun 102; paths 159 → 121; pond water (day env 2.1 → 1.0)
+**(80,77,75)** vs (63,70,69).
+
+Image generation (`venue-arch`, cap $15): **+2 images** (gravel_crushed,
+slate_stack, 1K); running total **6 images, $0.80**.
+
+⚠ **What this wave learned:**
+1. **For instanced architecture the budget is instances × tris.** One bounding
+   sphere per InstancedMesh: all 153 bezels draw whenever the atrium is on
+   screen. First pass +145k tris a view; slimming three modules (see ASSET_SPEC
+   Group L ⚠1) → +98k.
+2. **A laid board is a profile extrusion, not a bevelled box** (10 tris vs 44).
+3. **The real doors' number plaques were buried 0.10 m INSIDE their piers**
+   (plz −.05 against a pier face at −.15) since 2026-08-02 — the "03" you could
+   read beside B2 was a DECORATIVE bay's plaque. They now stand 3 mm proud of
+   a bronze plate.
+4. **The court's "pale beige gravel" is the photo's SUNLIGHT**, not a second
+   gravel: the two patches are the same photographed stones, warm-tinted.
+5. **The painted pond reflection read as flames from above** (the copper-rail
+   streaks at alpha .75): now .28 / .18.
+6. **`atrium_bay` not `atrium_bay_entry`** — a suffix build is
+   `<NAME>_<suffix>`.
+
+**Found, not changed:** the decorative entry bays still carry cycling number
+plaques (`doorNo`, 01…12 per storey), so a fake "03" stands beside room 04's
+real door — the plaque mechanism is untouched here; Carl's call whether the
+decorative bays should be numbered at all. The gallery DECKING (texDeck
+canvas) is now the most off-tone surface in the atrium views (bright orange
+against the photo's darker glossy boards) — not in this wave's brief.
+**Not in this wave:** the suite portal and the 2F link door (still primitives,
+M.column / darkWall), the gallery decking, the slab edge above the beams, the
+pond water's painted texture beyond the streak alpha, the topiary planters.
 
 ### Not in this pass (next)
 
@@ -2972,6 +3063,13 @@ makes the campus "look tidier" by undoing one, it is wrong:
   Group K or the building and its colliders part company. Build long faces in
   ≤ 5 m pieces (the longest island caps the atlas density) and never bake a
   hidden core at full weight (`UV_WEIGHT` it to ~0.03).
+
+- **KAN-211 wave B: `_arch.atrium()` re-derives atrium.js's consts** (X0…CZ1,
+  H1/H2, SOF1/SOF2, STAIR, WELL) with the same arithmetic. Change one of those
+  consts in atrium.js and mirror it there, then re-run `make_masters.py` +
+  `export_all.py` for Group L — or the stair treads, beams and pond edging part
+  company with their colliders. The soffit now HANGS 22 mm boards
+  (`BOARD`): anything meant to sit flush on a soffit sits at `SOF − BOARD`.
 
 - **`js/site.js` is the ONLY place coordinates live.** Six builder modules were
   written in parallel against it; the moment any of them hard-codes a position,

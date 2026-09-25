@@ -1,0 +1,17 @@
+{
+  "bytes": 20320,
+  "front": "-Z",
+  "material": "atrium_door",
+  "min": [
+    -1.467,
+    0.0,
+    -0.19
+  ],
+  "origin": "site",
+  "size": [
+    2.933,
+    3.6,
+    1.47
+  ],
+  "tris": 812
+}

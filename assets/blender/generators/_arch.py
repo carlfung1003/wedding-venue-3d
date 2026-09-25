@@ -59,16 +59,69 @@ def site():
         js = os.path.join(ROOT, "js", "site.js")
         code = (f"const m = await import({json.dumps(js)});"
                 "console.log(JSON.stringify({AR: m.SITE.ARRIVAL, LY: m.ARRIVAL_LOBBY_Y,"
-                " CY: m.ARRIVAL_LOUNGE_CEIL, XS: m.SITE.EXT_STAIR}));")
+                " CY: m.ARRIVAL_LOUNGE_CEIL, XS: m.SITE.EXT_STAIR,"
+                " AT: m.SITE.ATRIUM, RD: m.ROOM_DOORS, AD: m.ARRIVAL_ATRIUM_DOOR,"
+                " VD: m.SITE.VILLA.doorClear}));")
         out = subprocess.run([_node(), "--input-type=module", "-e", code],
                              capture_output=True, text=True, check=True)
         _SITE = json.loads(out.stdout.strip().splitlines()[-1])
     return _SITE
 
 
+_FRAME = "arrival"
+
+
 def anchor():
+    """The shared origin of the current FRAME. Wave A's is the arrival anchor
+    (33, 0, −8); wave B's atrium GLBs use `with frame("atrium"):` → the atrium
+    centre (SITE.ATRIUM.cx, 0, SITE.ATRIUM.cz) = (8, 0, −41). The context
+    manager restores the frame, so a batch run that builds an atrium GLB and
+    then an arrival one cannot hand the second the first's origin."""
+    if _FRAME == "local":          # an instanced MODULE GLB: glTF-local = the frame
+        return (0.0, 0.0, 0.0)
+    if _FRAME == "atrium":
+        AT = site()["AT"]
+        return (AT["cx"], 0.0, AT["cz"])
     AR = site()["AR"]
     return (AR["backX"], 0.0, AR["axisZ"])
+
+
+class frame:
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        global _FRAME
+        self.was, _FRAME = _FRAME, self.name
+        return self
+
+    def __exit__(self, *a):
+        global _FRAME
+        _FRAME = self.was
+        return False
+
+
+def atrium():
+    """SITE.ATRIUM plus the derived numbers atrium.js computes from it, in ONE
+    place, with the same arithmetic (see the matching consts at the top of
+    js/atrium.js — a change there must be mirrored here)."""
+    T = dict(site()["AT"])
+    T["X0"], T["X1"] = T["cx"] - T["w"] / 2, T["cx"] + T["w"] / 2
+    T["Z0"], T["Z1"] = T["cz"] - T["d"] / 2, T["cz"] + T["d"] / 2
+    T["CX0"], T["CX1"] = T["cx"] - T["courtW"] / 2, T["cx"] + T["courtW"] / 2
+    T["CZ0"], T["CZ1"] = T["cz"] - T["courtD"] / 2, T["cz"] + T["courtD"] / 2
+    T["H1"] = T["floorH"]
+    T["H2"] = T["floorH"] * T["floors"]
+    T["SLAB"] = 0.35
+    T["SOF1"], T["SOF2"] = T["H1"] - 0.35, T["H2"] - 0.35
+    st = T["stair"]
+    S = {"x": st["x"], "w": 1.6, "risers": 16, "rise": T["H1"] / 16, "going": 0.45,
+         "zFoot": st["z"] + 3.1}
+    S["zTop"] = S["zFoot"] - S["risers"] * S["going"]
+    S["angle"] = math.atan2(T["H1"], S["risers"] * S["going"])
+    T["STAIR"] = S
+    T["WELL"] = {"x0": S["x"] - 1.0, "x1": T["CX0"], "z0": S["zTop"], "z1": -42.5}
+    return T
 
 
 def B_(x, y, z):
@@ -98,6 +151,26 @@ ARCH = {
     "ar_bamboo":   ("c29c62", "wood",    0.65),   # the desk's slat front
     "ar_screen":   ("121315", "paint",   0.35),   # the monitor
     "ar_cedar":    ("a15a2f", "wood",    0.65),   # cedar_soffit.webp's own mean, the fallback
+    # ── KAN-211 wave B: the atrium (clubhouse-atrium.jpeg, measured) ──
+    "at_col":      ("262528", "stone",   0.35),   # honed near-black column cladding
+    "at_col_b":    ("1c1b1d", "stone",   0.35),   # plinth / capital, a shade darker
+    "at_wood0":    ("5a2a17", "wood",    0.45),   # soffit boards — six tones (v2 ×0.8 + redder: the v1
+    "at_wood1":    ("652f1a", "wood",    0.45),   #   bake rendered (95,64,54) against the photo's shade
+    "at_wood2":    ("522614", "wood",    0.45),   #   (55..70, 31..42, 21..35) / lit
+    "at_wood3":    ("60301c", "wood",    0.45),   #   (101, 71, 64)
+    "at_wood4":    ("562816", "wood",    0.45),
+    "at_wood5":    ("6a341d", "wood",    0.45),
+    "at_beam":     ("1f1f21", "paint",   0.55),   # the dark edge beams / fascias
+    "at_granite":  ("4b4d50", "stone",   0.25),   # pond edging cladding tiles
+    "at_granite_b": ("434548", "stone",  0.25),
+    "at_coping":   ("575a5d", "stone",   0.25),   # the polished coping slabs
+    "at_joint":    ("151617", "paint",   0.80),   # tile / slab joints
+    "at_steel":    ("2b2e31", "metal_p", 0.40),   # stringers, shoes, channels
+    "at_inox":     ("9ea3a8", "metal_p", 0.30),   # stainless posts + glass clamps
+    "at_copper":   ("b0643a", "metal_p", 0.30),   # the copper cap rail
+    "at_door":     ("4e2c1e", "wood",    0.50),   # guest-room door leaves
+    "at_batten":   ("8a4b2c", "wood",    0.60),   # the timber screens' battens
+    "at_black":    ("121214", "paint",   0.50),   # downlight bezels, reveals
 }
 for k, (hx, fam, rough) in ARCH.items():
     L.PALETTE[k] = L._hex(hx)

@@ -1,0 +1,17 @@
+{
+  "bytes": 186372,
+  "front": "-Z",
+  "material": "atrium_ponds",
+  "min": [
+    -16.52,
+    0.0,
+    -2.77
+  ],
+  "origin": "site",
+  "size": [
+    28.04,
+    0.435,
+    7.54
+  ],
+  "tris": 11088
+}

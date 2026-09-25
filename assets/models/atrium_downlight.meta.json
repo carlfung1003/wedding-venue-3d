@@ -1,0 +1,17 @@
+{
+  "bytes": 2772,
+  "front": "-Z",
+  "material": "at_black",
+  "min": [
+    -0.1,
+    -0.008,
+    -0.1
+  ],
+  "origin": "top",
+  "size": [
+    0.2,
+    0.008,
+    0.2
+  ],
+  "tris": 96
+}

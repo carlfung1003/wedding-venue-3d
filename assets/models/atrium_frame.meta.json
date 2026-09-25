@@ -1,0 +1,17 @@
+{
+  "bytes": 23788,
+  "front": "-Z",
+  "material": "atrium_frame",
+  "min": [
+    -15.3,
+    2.97,
+    -7.8
+  ],
+  "origin": "site",
+  "size": [
+    30.6,
+    3.88,
+    15.6
+  ],
+  "tris": 2068
+}

@@ -687,5 +687,43 @@
     "post": "key-green",
     "prompt": "One single branch tip of a frangipani (plumeria) tree, cut and laid flat, photographed from directly above so it fills about three quarters of the frame and sits in the middle of it: a rosette of eight to ten large glossy paddle-shaped mid-green leaves, each long and oval with a pale midrib and fine parallel side veins, radiating outward from the centre like the spokes of a wheel, the leaf tips separate from each other at the rim with backdrop between them; at the centre a small cluster of five or six five-petalled frangipani flowers, some white with a yellow centre and some soft pink. Photographed on a completely flat, solid, evenly lit pure cobalt-blue backdrop, the same blue in every part of the frame the subject does not cover, with no gradient, no shadow on the backdrop, no border and no frame; nothing blue on the plant itself. Even soft daylight, sharp focus.",
     "note": "KAN-211 wave A2: the ALPHA CARD for the arrival court's frangipani crowns (generators/frangipani.py, leafMat('frangi') in js/foliage.js). Cobalt + --mode flat like boug_leaf_card: the leaves are green (no green screen) and the flowers are pink (no magenta)."
+  },
+  "gravel_crushed": {
+    "kind": "texture",
+    "out": "gravel_crushed.webp",
+    "dir": "assets/textures",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "tile": "fill",
+    "blend": 0.12,
+    "flatten": 0.25,
+    "flatten_amount": 0.6,
+    "balance": {
+      "target": "#5d5f63",
+      "ref": "mean"
+    },
+    "post": "tile-blend (both axes — gravel has no direction); flattened 0.25 x0.6; balanced to #5d5f63",
+    "prompt": "Photograph looking straight down at a bed of angular crushed stone landscape gravel, the camera square to the ground so the whole frame is gravel: densely packed sharp-edged broken stones 2 to 5 centimetres across, mostly cool mid-grey and blue-grey with some darker charcoal and a few paler grey pieces, small dark gaps and crisp shadows between the stones. Even coverage edge to edge, no larger rocks, no leaves, no soil patches, no plants. Soft even overcast daylight, sharp focus.",
+    "note": "KAN-211 wave B: the atrium court's gravel (clubhouse-atrium.jpeg: blue-grey angular crushed stone, measured shade (52,53,56) / sun (102,101,100)). RUNTIME texture — atrium.js loads it onto M.gravel (canvas stand-in first, so no program is added); dir assets/textures so it deploys."
+  },
+  "slate_stack": {
+    "kind": "texture",
+    "out": "slate_stack.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "tile": "fill",
+    "blend": 0.1,
+    "flatten": 0.2,
+    "flatten_amount": 0.6,
+    "blend_axis": "x",
+    "balance": {
+      "target": "#3c3e41",
+      "ref": "mean"
+    },
+    "post": "tile-blend (x only — a y cross-fade would double the courses); flattened 0.2 x0.6; balanced to #3c3e41",
+    "prompt": "Photograph looking straight at a flat feature wall of dark stacked slate ledgestone, the camera square to the wall so the whole frame is stone: many thin horizontal courses of split charcoal-grey slate, each course 1 to 4 centimetres tall, the pieces of varying length with rough split edges, some pieces standing slightly proud, deep thin shadow lines between the courses, tones from near-black to mid slate grey. The courses run perfectly horizontal from the left edge to the right edge. No mortar, no grout, no joints between panels, no edges of the wall. Soft even daylight, sharp focus.",
+    "note": "KAN-211 wave B: the atrium's stacked-slate feature panels (clubhouse-atrium.jpeg + atrium-water-feature.jpg: the tall charcoal ledgestone blocks by the stair). Bake input for atrium_bay_slate, mapped at ~1.3 m a tile."
   }
 }

@@ -322,8 +322,11 @@ function texPondMirror() {
     streak(w * .36, 20, 0, h * .82, '4,7,8', .8);
     streak(w * .62, 24, 0, h * .9, '3,6,7', .82);
     // the copper handrail — the one bright line in the photo's reflection
-    streak(w * .45, 6, h * .06, h * .5, '214,122,54', .75);
-    streak(w * .49, 3, h * .1, h * .42, '246,168,96', .5);
+    /* KAN-211 wave B: at .75 / .5 these two read as orange FLAMES on the
+       water from the gallery and from above; the photo's reflection of the
+       rail is a thin warm glint, not a fire */
+    streak(w * .45, 6, h * .06, h * .5, '214,122,54', .28);
+    streak(w * .49, 3, h * .1, h * .42, '246,168,96', .18);
     // faint green algae mottling near the edges
     for (let i = 0; i < 120; i++) {
       g.fillStyle = `rgba(26,54,42,${.03 + rnd() * .07})`;
@@ -372,6 +375,10 @@ function texPortalPlaque() {
 
 let root = null;
 let night = false;
+/* which wave-B GLBs loaded (set at the top of buildAtrium; the sub-builders
+   read it) — every flag false means the pre-wave-B build, primitive for
+   primitive */
+let HB = {};
 
 const EMIS = [];    // { m, d, n }  — emissiveIntensity day/night
 const ENVM = [];    // { m, d, n }  — envMapIntensity day/night (daylight response)
@@ -525,6 +532,65 @@ function colRect(out, x0, z0, x1, z1, r) {
 const inRect = (x, z, R, pad = 0) =>
   x > R.x0 - pad && x < R.x1 + pad && z > R.z0 - pad && z < R.z1 + pad;
 
+/* ── KAN-211 WAVE B: THE ATRIUM AS BLENDER ARCHITECTURE ──────────────────────
+   assets/blender/generators/atrium_*.py (ASSET_SPEC Group L). Two kinds:
+     · SITE-FRAME singletons (atrium_frame, atrium_ponds, atrium_stair) —
+       authored in enclave-local metres with their origin at the atrium centre
+       (A.cx, 0, A.cz), each ONE identity instance there (`anchorM()`); their
+       generators read js/site.js through node (_arch.atrium()), so they
+       cannot drift from these consts.
+     · MODULES, instanced wherever the old primitive stood: atrium_column
+       (18), atrium_soffit_panel (8 real boards, every gallery, both soffits),
+       atrium_downlight (every buildDownlights point), atrium_rail +
+       atrium_baluster (every balustrade, the stair's too), atrium_door (the
+       twelve real door portals), atrium_bay / _slate / _screen / _glazing
+       (every facade bay, the SAME rnd() draw picking the type).
+   VISUAL ONLY: every collider, floorY region, spawn, interactable and rnd()
+   draw below is untouched; each replaced primitive keeps its old path as the
+   `else` for a missing GLB. Every GLB is an InstancedMesh on its own baked
+   material — the one instanced baked-map program the props compile — and its
+   finish (roughness / metalness / env day↔night) is set once in bakeMat(). */
+const haveM = (n) => models.has(n) && !!models.geometry(n);
+const BAY_AUTH = 44 / 15;               // the bay width the door / bay GLBs are authored at
+const GLBI = new Map();                 // name -> Matrix4[] for this build
+const _m4 = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
+const _p = new THREE.Vector3(), _s = new THREE.Vector3();
+function glbPut(name, x, y, z, ry = 0, sx = 1, sy = 1, sz = 1) {
+  _e.set(0, ry, 0); _q.setFromEuler(_e);
+  _m4.compose(_p.set(x, y, z), _q, _s.set(sx, sy, sz));
+  glbPutM(name, _m4);
+}
+function glbPutM(name, m) {
+  if (!GLBI.has(name)) GLBI.set(name, []);
+  GLBI.get(name).push(m.clone());
+}
+const anchorM = () => new THREE.Matrix4().makeTranslation(A.cx, 0, A.cz);
+/* one InstancedMesh per GLB, children of the atrium root (added after the
+   static batching, which leaves InstancedMeshes alone anyway) */
+function flushGlb(parent) {
+  for (const [name, list] of GLBI) {
+    const im = new THREE.InstancedMesh(models.geometry(name), models.material(name), list.length);
+    list.forEach((m, i) => im.setMatrixAt(i, m));
+    im.instanceMatrix.needsUpdate = true;
+    im.computeBoundingSphere();
+    im.name = 'atrium:' + name;
+    parent.add(im);
+  }
+  GLBI.clear();
+}
+/* the finish a baked atlas cannot carry: one roughness / metalness per GLB,
+   and envMapIntensity on the atrium's own day↔night registry (ENVM) — the
+   night look of every atrium material is env + the lights, never a tint */
+function bakeMat(name, rough, envD, envN, metal = 0) {
+  const m = models.material(name);
+  if (!m) return;
+  if (!m.userData.kan211b) {
+    m.userData.kan211b = true;
+    m.roughness = rough; m.metalness = metal;
+  }
+  ENVM.push({ m, d: envD, n: envN });
+}
+
 /* ═══════════════════════════════════════════════════════════════ builder ══ */
 
 export function buildAtrium(G) {
@@ -533,6 +599,18 @@ export function buildAtrium(G) {
   EMIS.length = 0; ENVM.length = 0; PLIGHT.length = 0;
   waterMats = [];
   const rnd = mulberry32(20270320);
+  HB = {
+    col: haveM('atrium_column'),
+    sof: haveM('atrium_soffit_panel') && haveM('atrium_downlight'),
+    frame: haveM('atrium_frame'),
+    ponds: haveM('atrium_ponds'),
+    rail: haveM('atrium_rail') && haveM('atrium_baluster'),
+    stair: haveM('atrium_stair') && haveM('atrium_rail') && haveM('atrium_baluster'),
+    door: haveM('atrium_door'),
+    bay: haveM('atrium_bay') && haveM('atrium_bay_slate') && haveM('atrium_bay_screen')
+      && haveM('atrium_bay_glazing'),
+  };
+  GLBI.clear();
 
   /* ────────────────────────────────────────────────────────── materials ── */
 
@@ -565,7 +643,8 @@ export function buildAtrium(G) {
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     }), 0.85, 0.26),
     pebble: reg(new THREE.MeshStandardMaterial({
-      color: 0x7c7e82, roughness: .88, metalness: .04, flatShading: true,
+      /* wave B: 0x7c7e82 read as white chips on the photographed gravel */
+      color: haveM('atrium_ponds') ? 0x55575b : 0x7c7e82, roughness: .88, metalness: .04, flatShading: true,
     }), 0.9, 0.3),
     slate: reg(new THREE.MeshStandardMaterial({
       map: texSlate(), roughness: .78, metalness: .1,
@@ -660,8 +739,13 @@ export function buildAtrium(G) {
       color: 0xffffff, roughness: .025, metalness: .0, reflectivity: 1.0,
       clearcoat: 1, clearcoatRoughness: .0, ior: 1.5,
     });
-    m.envMapIntensity = 2.1;
-    ENVM.push({ m, d: 2.1, n: 1.0 });
+    /* KAN-211 wave B: day env 2.1 → 1.0 when the wave-B court is in. At 2.1
+       the room environment's bright walls sat on the water as a pale grey
+       sheet; the photo's ponds are dark teal (63, 70, 69) mirroring the dark
+       soffit and columns round them */
+    const envD = HB.ponds ? 1.0 : 2.1;
+    m.envMapIntensity = envD;
+    ENVM.push({ m, d: envD, n: 1.0 });
     EMIS.push({ m, d: .12, n: .5 });
     waterMats.push(m);
     return m;
@@ -672,8 +756,9 @@ export function buildAtrium(G) {
   const court = new THREE.Group();
   root.add(court);
 
-  mkPlate(court, A.courtW, A.courtD,
-    retile(M.gravel, A.courtW / 3.2, A.courtD / 3.2), A.cx, Y_GRAVEL, A.cz);
+  const gravelCourt = retile(M.gravel, A.courtW / 3.2, A.courtD / 3.2);
+  mkPlate(court, A.courtW, A.courtD, gravelCourt, A.cx, Y_GRAVEL, A.cz);
+  const gravelPatches = [];
 
   // paler beige gravel patches — the photo's warm patch in the grey field
   for (const p of [[17.4, -45.0, 2.8], [1.6, -45.9, 2.5]]) {
@@ -692,10 +777,34 @@ export function buildAtrium(G) {
     }
     pos.needsUpdate = true;
     g.computeVertexNormals();
-    const m = new THREE.Mesh(g, retile(M.gravelPale, p[2] / 1.6, p[2] / 1.6));
+    const pm = retile(M.gravelPale, p[2] / 1.6, p[2] / 1.6);
+    gravelPatches.push([pm, p[2]]);
+    const m = new THREE.Mesh(g, pm);
     m.rotation.x = -Math.PI / 2;
     m.position.set(p[0], Y_GRAVEL + 0.012, p[1]);
     court.add(m);
+  }
+
+  /* ── wave B: the court's gravel is PHOTOGRAPHED crushed stone ────────────
+     clubhouse-atrium.jpeg: blue-grey angular stones 2–5 cm (measured shade
+     (52,53,56), sun (102,101,100)); the canvas speckle read as white chips.
+     gravel_crushed.webp (Vertex, KAN-211 wave B) replaces the MAP only — the
+     materials already carry a map, so no program is added — at ~1.1 m a tile.
+     The two pale patches are the photo's SUN patches: the same stones, warm. */
+  if (HB.ponds) {
+    new THREE.TextureLoader().load(new URL('../assets/textures/gravel_crushed.webp', import.meta.url).href, (t) => {
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      const put = (m, rx, ry, col) => {
+        const tt = t.clone(); tt.repeat.set(rx, ry); tt.needsUpdate = true;
+        m.map = tt; m.color.setHex(col); m.needsUpdate = true;
+      };
+      put(gravelCourt, A.courtW / 1.1, A.courtD / 1.1, 0x9a9a9c);
+      for (const [pm, r] of gravelPatches) put(pm, 2 * r / 1.1, 2 * r / 1.1, 0xc4bcb0);
+    });
+    /* the paths' honed stone: mid grey, not the old near-white (it out-shone
+       the coping and read as snow beside the dark gravel) */
+    M.paving.color.setHex(0x5c5e61);
   }
 
   // stone paving on the walking routes (the T through the court)
@@ -722,6 +831,7 @@ export function buildAtrium(G) {
   /* ────────────────────────────────────────────── the two reflecting ponds ── */
 
   const pondLightPos = [];
+  if (HB.ponds) glbPutM('atrium_ponds', anchorM());
   for (let i = 0; i < A.PONDS.length; i++) {
     buildPond(root, M, E, waterMat(), A.PONDS[i], i);
     pondLightPos.push([A.PONDS[i][0], A.PONDS[i][1]]);
@@ -744,6 +854,7 @@ export function buildAtrium(G) {
   const colMat = retile(M.column, 1, H2 / 2.4);
   const capMat = M.bronze;
   for (const [x, z] of colPts) {
+    if (HB.col) { glbPut('atrium_column', x, 0, z); continue; }   // plinth, courses, capitals
     mkBox(root, COL, H2, COL, colMat, x, H2 / 2, z);
     mkBox(root, COL + .1, .06, COL + .1, capMat, x, .05, z);   // base shoe
     mkBox(root, COL + .08, .05, COL + .08, capMat, x, H1 - .04, z);
@@ -755,7 +866,8 @@ export function buildAtrium(G) {
     const inst = new THREE.InstancedMesh(g, E.uplight, colPts.length);
     const d = new THREE.Object3D();
     colPts.forEach(([x, z], i) => {
-      d.position.set(x + COL / 2 + .13, Y_DECK + .012, z);
+      /* wave B: the plinth is 0.84 square — the disc moves off it */
+      d.position.set(x + (HB.col ? .42 + .15 : COL / 2 + .13), Y_DECK + .012, z);
       d.rotation.set(-Math.PI / 2, 0, 0);
       d.scale.set(1, 1, 1);
       d.updateMatrix();
@@ -788,17 +900,41 @@ export function buildAtrium(G) {
   for (const [ax, az, bx, bz] of slab2) buildSlab(root, M, ax, az, bx, bz, H2, true);
 
   // slim copper reveal along the court edge of the 2F slab (the photo's warm line)
-  const rev = [
-    [A.cx, CZ0 - .03, A.courtW, .06], [A.cx, CZ1 + .03, A.courtW, .06],
-  ];
-  for (const [x, z, w, t] of rev) mkBox(root, w, .1, t, M.copper, x, H1 - SLAB - .05, z);
-  mkBox(root, .06, .1, A.courtD, M.copper, CX0 - .03, H1 - SLAB - .05, A.cz);
-  mkBox(root, .06, .1, A.courtD, M.copper, CX1 + .03, H1 - SLAB - .05, A.cz);
+  if (HB.frame) {
+    /* wave B: the court edge is a deep dark BEAM now (atrium_frame, 0.28 under
+       the soffit, 0.30 wide, both storeys) and the copper line rides its court
+       face, 8 cm under the boards — the west one only where the beam runs
+       (south of the stairwell) */
+    glbPutM('atrium_frame', anchorM());
+    const yC = SOF1 - .10, BW = .30;
+    mkBox(root, A.courtW + 2 * BW, .035, .012, M.copper, A.cx, yC, CZ0 + .006);
+    mkBox(root, A.courtW + 2 * BW, .035, .012, M.copper, A.cx, yC, CZ1 - .006);
+    mkBox(root, .012, .035, A.courtD, M.copper, CX1 - .006, yC, A.cz);
+    mkBox(root, .012, .035, CZ1 - WELL.z1, M.copper, CX0 + .006, yC, (CZ1 + WELL.z1) / 2);
+  } else {
+    const rev = [
+      [A.cx, CZ0 - .03, A.courtW, .06], [A.cx, CZ1 + .03, A.courtW, .06],
+    ];
+    for (const [x, z, w, t] of rev) mkBox(root, w, .1, t, M.copper, x, H1 - SLAB - .05, z);
+    mkBox(root, .06, .1, A.courtD, M.copper, CX0 - .03, H1 - SLAB - .05, A.cz);
+    mkBox(root, .06, .1, A.courtD, M.copper, CX1 + .03, H1 - SLAB - .05, A.cz);
+  }
 
   /* ──────────────────────────────────── recessed downlights in both soffits ── */
 
-  buildDownlights(root, E.down, SOF1 - .01, true);
-  buildDownlights(root, E.down, SOF2 - .01, false);
+  if (HB.sof) {
+    /* wave B: real boards hang BOARD under each soffit, so the lamp discs drop
+       with them into the atrium_downlight bezels (Ø .11 at 4 mm up inside a
+       Ø .20 trim that stands 8 mm proud of the boards) */
+    for (const [sof, f1] of [[SOF1, true], [SOF2, false]]) {
+      const pts = buildDownlights(root, E.down, sof - BOARD - .004, f1, .056);
+      for (const [x, z] of pts) glbPut('atrium_downlight', x, sof - BOARD, z);
+      laySoffit(sof, f1);
+    }
+  } else {
+    buildDownlights(root, E.down, SOF1 - .01, true);
+    buildDownlights(root, E.down, SOF2 - .01, false);
+  }
 
   /* ─────────────────────────────────────────────────── perimeter facades ── */
 
@@ -1106,6 +1242,25 @@ export function buildAtrium(G) {
   // ~950 little boxes collapse into one mesh per material.
   const batched = batchLocal(root);
 
+  /* wave B: the GLB instances (after the batching — it skips instanced
+     meshes, this just keeps the two passes readable) + their finishes.
+     Roughness is the photo's: satin boards, honed stone, polished coping,
+     brushed stainless, warm polished copper. */
+  flushGlb(root);
+  bakeMat('atrium_column', .38, .55, .22);
+  bakeMat('atrium_soffit_panel', .6, .32, .14);
+  bakeMat('atrium_downlight', .6, .4, .15);
+  bakeMat('atrium_frame', .55, .5, .2);
+  bakeMat('atrium_ponds', .22, .9, .4);
+  bakeMat('atrium_stair', .35, .6, .25);
+  bakeMat('atrium_rail', .3, 1.1, .5, .75);
+  bakeMat('atrium_baluster', .3, 1.1, .5, .8);
+  bakeMat('atrium_door', .4, .6, .25);
+  bakeMat('atrium_bay', .45, .55, .22);
+  bakeMat('atrium_bay_slate', .8, .5, .2);
+  bakeMat('atrium_bay_screen', .6, .5, .2);
+  bakeMat('atrium_bay_glazing', .35, .8, .3, .5);
+
   /* ───────────────────────────────────────────────────────────── tickers ── */
 
   const tickers = (G.tickers ||= []);
@@ -1150,7 +1305,9 @@ export function buildAtrium(G) {
 function buildSlab(parent, M, ax, az, bx, bz, yTop, isRoof) {
   const w = bx - ax, d = bz - az;
   const side = isSideRun(az, bz);
-  const soffit = retile(M.soffit, w / 5.0, d / 5.0, side);
+  /* wave B: with real boards hung below, the slab's underside is only seen
+     through the 8 mm joints — the dark backing behind them */
+  const soffit = HB.sof ? M.darkWall : retile(M.soffit, w / 5.0, d / 5.0, side);
   const top = isRoof ? M.roofTop : retile(M.deck, w / 2.6, d / 2.6, side);
   const edge = isRoof ? M.fascia : M.darkWall;
   const mats = [edge, edge, top, soffit, edge, edge];
@@ -1160,8 +1317,39 @@ function buildSlab(parent, M, ax, az, bx, bz, yTop, isRoof) {
   return m;
 }
 
-/* recessed warm downlights punched into a soffit plane, gallery ring only */
-function buildDownlights(parent, mat, y, isFloor1) {
+/* ── wave B: the soffit as real boards ─────────────────────────────────────
+   atrium_soffit_panel is 0.8 m of eight boards, 2 m long (local z), hanging
+   BOARD below its top. Every gallery of the ring is laid with them edge to
+   edge, boards running ACROSS the walk (N/S galleries: along z; W/E: along x
+   — the old retile() grain rule, isSideRun), each run x-scaled to fit a whole
+   number of panels (≤ ±12 %, only in the stairwell's 2 m strip), every other
+   panel turned 180° so the eight tones read as sixteen. The ground soffit
+   steps round the stairwell exactly as slab1 does. */
+const BOARD = 0.022, PANEL_W = 0.8;
+function laySoffit(y, well) {
+  const runs = [];                               // [alongZ?, a0, a1, b0, b1]
+  if (well) {
+    runs.push([true, X0, WELL.x0, Z0, CZ0], [true, WELL.x0, WELL.x1, Z0, WELL.z0],
+      [true, WELL.x1, X1, Z0, CZ0]);
+    runs.push([false, CZ0, WELL.z1, X0, WELL.x0], [false, WELL.z1, CZ1, X0, CX0]);
+  } else {
+    runs.push([true, X0, X1, Z0, CZ0], [false, CZ0, CZ1, X0, CX0]);
+  }
+  runs.push([true, X0, X1, CZ1, Z1], [false, CZ0, CZ1, CX1, X1]);
+  for (const [alongZ, a0, a1, b0, b1] of runs) {
+    const len = a1 - a0, n = Math.max(1, Math.round(len / PANEL_W));
+    const sx = len / n / PANEL_W, sz = (b1 - b0) / 2, bm = (b0 + b1) / 2;
+    for (let k = 0; k < n; k++) {
+      const c = a0 + (k + .5) * len / n, flip = (k & 1) ? Math.PI : 0;
+      if (alongZ) glbPut('atrium_soffit_panel', c, y, bm, flip, sx, 1, sz);
+      else glbPut('atrium_soffit_panel', bm, y, c, Math.PI / 2 + flip, sx, 1, sz);
+    }
+  }
+}
+
+/* recessed warm downlights punched into a soffit plane, gallery ring only.
+   Returns the points (wave B lays a bezel on each); `r` the disc radius. */
+function buildDownlights(parent, mat, y, isFloor1, r = .085) {
   const pts = [];
   for (let x = X0 + 1.55; x <= X1 - 1.4; x += 2.7) {
     for (let z = Z0 + 1.55; z <= Z1 - 1.4; z += 2.7) {
@@ -1171,7 +1359,7 @@ function buildDownlights(parent, mat, y, isFloor1) {
       pts.push([x, z]);
     }
   }
-  const g = new THREE.CircleGeometry(.085, 10);
+  const g = new THREE.CircleGeometry(r, r < .085 ? 16 : 10);
   const inst = new THREE.InstancedMesh(g, mat, pts.length);
   const d = new THREE.Object3D();
   pts.forEach(([x, z], i) => {
@@ -1184,7 +1372,7 @@ function buildDownlights(parent, mat, y, isFloor1) {
   inst.instanceMatrix.needsUpdate = true;
   inst.computeBoundingSphere();
   parent.add(inst);
-  return inst;
+  return pts;
 }
 
 /* a still reflecting pool: raised black granite edging, fine mitred lighter
@@ -1199,6 +1387,10 @@ function buildPond(parent, M, E, water, spec, idx) {
   g.name = `pond${idx}`;
   parent.add(g);
 
+  /* wave B: the edging is atrium_ponds (laid cladding tiles, polished coping
+     slabs, the foot reveal), ONE site-frame GLB for both ponds — placed once
+     by the caller. The basin floor, the water and the lamps stay here. */
+  if (!HB.ponds) {
   const gm = retile(M.granite, pw / 1.2, RIM / 1.2);
   // four sides of the raised basin
   mkBox(g, pw, RIM, T, gm, pcx, RIM / 2, pcz - pd / 2 + T / 2);
@@ -1216,6 +1408,7 @@ function buildPond(parent, M, E, water, spec, idx) {
   mkBox(g, pw + .1, CH, CW, cm, pcx, RIM + CH / 2, pcz + pd / 2 - T / 2);
   mkBox(g, CW, CH, shortLen, cm, pcx - pw / 2 + T / 2, RIM + CH / 2, pcz);
   mkBox(g, CW, CH, shortLen, cm, pcx + pw / 2 - T / 2, RIM + CH / 2, pcz);
+  }
 
   // dark basin floor so nothing shows through at grazing angles
   mkBox(g, pw - T * 2, .06, pd - T * 2, M.darkWall, pcx, .04, pcz);
@@ -1323,6 +1516,29 @@ function buildFacade(parent, M, E, plaqueMats, plaques, wall, gaps, y0, h, rnd, 
     put(mw, h, WALL_T, M.darkWall, lx, h / 2, WALL_T / 2);
 
     const isDoor = i % 2 === 0;
+    /* wave B: the bay GLBs. The rnd() draw below is taken EXACTLY as before
+       (only even bays draw, and they still draw), so the planting downstream
+       sees the same stream. Glass and the warm glow stay primitives. */
+    if (HB.bay) {
+      const at = [wx(lx, 0), y0, wz(lx, 0), ry, mw / BAY_AUTH];
+      if (isDoor) {
+        glbPut('atrium_bay', ...at);
+        plaques.push({
+          x: wx(lx + mw * .43, -.095), y: y0 + 1.55, z: wz(lx + mw * .43, -.095),
+          ry, v: (doorNo++) % plaqueMats.length,
+        });
+        continue;
+      }
+      const kind = rnd();
+      if (kind < .42) glbPut('atrium_bay_slate', ...at);
+      else if (kind < .72) glbPut('atrium_bay_screen', ...at);
+      else {
+        glbPut('atrium_bay_glazing', ...at);
+        put(mw * .92, h - .35, .03, M.glass, lx, h / 2, -.05);
+        put(mw * .84, (h - .35) * .8, .02, E.doorGlow, lx, h / 2, -.015);
+      }
+      continue;
+    }
     if (isDoor) {
       /* ── a villa entry: bronze frame, two glass leaves, warm glow behind ── */
       const dw = mw * .78, dh = h - .55;
@@ -1454,6 +1670,27 @@ function buildRoomDoor(parent, M, E, plaqueMats, plaques, hole, no, y0) {
 
   const dh = H1 - .95;                       // door head, under the soffit
   const pier = (along - clear) / 2;
+  if (HB.door) {
+    /* wave B: atrium_door — stone piers in courses, lintel, architrave,
+       bronze casing, sill, the two timber leaves open into the room, and the
+       bronze plaque plate the lit number now stands on. Authored at the N/S
+       bay (BAY_AUTH); W/E bays scale x by along / BAY_AUTH (0.985). */
+    g.removeFromParent();
+    glbPut('atrium_door', cx, y0, cz, hole.ry, along / BAY_AUTH);
+    /* the warm spill: a lit line in the door head's soffit, not a bar hung
+       20 cm under it */
+    const cs0 = Math.cos(hole.ry), sn0 = Math.sin(hole.ry);
+    const sl = new THREE.Mesh(boxGeo(clear - .12, .02, .05), E.portalStrip);
+    sl.position.set(cx + .15 * sn0, y0 + dh - .05, cz + .15 * cs0);
+    sl.rotation.y = hole.ry;
+    parent.add(sl);
+    const plx = (along / 2 - pier / 2), plz = -(.15 + .013 + .003);
+    plaques.push({
+      x: cx + plx * cs0 + plz * sn0, y: y0 + 1.55, z: cz - plx * sn0 + plz * cs0,
+      ry: hole.ry, v: (no - 1) % plaqueMats.length,
+    });
+    return null;
+  }
   for (const s of [-1, 1]) {
     mkBox(g, pier, H1, WALL_T + .30, M.column, s * (along - pier) / 2, H1 / 2, WALL_T / 2);
   }
@@ -1524,9 +1761,33 @@ function buildBalustrade(parent, M, ax, az, bx, bz, y, tilt, runLen) {
   outer.add(g);
 
   const RH = 1.05;
+  const posts = Math.max(2, Math.round(len / 2.1));
+  if (HB.rail) {
+    /* wave B: frameless 20 mm glass from the shoe up INTO the copper cap
+       (atrium_rail, a flat 76 mm cap at 1.0 → 1.045, stretched to the run),
+       plumb stainless posts (atrium_baluster) at the old post stations — on
+       the stair, each post stands on the pitch line and is stretched 1/cos to
+       meet the tilted cap. The matrices are composed here in the PARENT's
+       frame (root or the stair group, both identity under the root). */
+    mkBox(g, .02, .88, len - .12, M.glass, 0, .56, 0);               // glass infill
+    mkBox(g, .07, .07, len, M.steel, 0, .1, 0);                      // bottom shoe
+    const mo = new THREE.Matrix4().compose(outer.position,
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(1, 1, 1));
+    const mg = new THREE.Matrix4().makeRotationX(tilt || 0);
+    glbPutM('atrium_rail', mo.clone().multiply(mg)
+      .multiply(new THREE.Matrix4().makeTranslation(0, 1.0, 0))
+      .multiply(new THREE.Matrix4().makeScale(1, 1, len)));
+    const ct = Math.cos(tilt || 0), st = Math.sin(tilt || 0);
+    for (let i = 0; i <= posts; i++) {
+      const t = -len / 2 + (len * i) / posts;
+      glbPutM('atrium_baluster', mo.clone()
+        .multiply(new THREE.Matrix4().makeTranslation(0, -t * st, t * ct))
+        .multiply(new THREE.Matrix4().makeScale(1, 1 / ct, 1)));
+    }
+    return g;
+  }
   mkBox(g, .05, .78, len - .12, M.glass, 0, .5, 0);                 // glass infill
   mkBox(g, .07, .07, len, M.steel, 0, .1, 0);                       // bottom shoe
-  const posts = Math.max(2, Math.round(len / 2.1));
   for (let i = 0; i <= posts; i++) {
     const t = -len / 2 + (len * i) / posts;
     mkBox(g, .05, RH, .05, M.steel, 0, RH / 2, t);
@@ -1549,6 +1810,17 @@ function buildStair(parent, M, E) {
   const { x, w, risers, rise, going, zFoot, angle } = STAIR;
   const slope = Math.hypot(risers * going, H1);
 
+  if (HB.stair) {
+    /* wave B: atrium_stair — 70 mm honed treads at the published heights,
+       steel cleats, both stringer plates, the landing nosing (site frame).
+       The step lights, the glass and the balustrade modules stay below. */
+    glbPutM('atrium_stair', anchorM());
+    for (let i = 0; i < risers; i++) {
+      if (i % 3 !== 1) continue;
+      const ty = (i + 1) * rise, tz = zFoot - (i + .5) * going;
+      mkBox(g, .05, .035, going * .5, E.step, x - w / 2 - .1, ty - .12, tz);
+    }
+  } else {
   // stringer — one plate on the gallery side, treads cantilever off it
   const st = new THREE.Mesh(boxGeo(.1, .42, slope + .3), M.steel);
   st.position.set(x - w / 2 - .07, H1 / 2 - .12, (zFoot + STAIR.zTop) / 2);
@@ -1571,6 +1843,7 @@ function buildStair(parent, M, E) {
     if (i % 3 === 1) {                                                  // step light
       mkBox(g, .05, .035, going * .5, E.step, x - w / 2 - .1, ty - .12, tz);
     }
+  }
   }
 
   // sloped glass balustrade + copper handrail on the open (court) side.

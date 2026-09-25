@@ -477,6 +477,30 @@ const VIEWS = [
   ['archA-lounge-deck', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
     const c = S.enclaveToWorld(AR.DECK.x0 + .9, AR.bldg.z1 + .8), t = S.enclaveToWorld(AR.backX - .4, -16);
     return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }],
+  /* ── KAN-211 WAVE B — THE ATRIUM as Blender architecture. Enclave-local
+        cameras (a(lx, lz, feetY, tx, tz)), no pick(), so the SAME camera
+        stands in the before build. opt.pitch tilts the look (radians, + up);
+        opt.fly holds the camera in the air (the high view). ── */
+  ['archB-corridor', 2, { world: `(() => { const c = S.enclaveToWorld(27.6, -51.3), t = S.enclaveToWorld(-12, -51.3);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .06 }],
+  ['archB-corridor-night', 1, { world: `(() => { const c = S.enclaveToWorld(27.6, -51.3), t = S.enclaveToWorld(-12, -51.3);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: .06 }],
+  ['archB-column', 2, { world: `(() => { const c = S.enclaveToWorld(13.3, -31.2), t = S.enclaveToWorld(11, -33.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.18 }],
+  ['archB-pond', 2, { world: `(() => { const c = S.enclaveToWorld(3.4, -34.6), t = S.enclaveToWorld(-1.5, -40.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.38 }],
+  ['archB-stair', 2, { world: `(() => { const c = S.enclaveToWorld(-4.0, -41.2), t = S.enclaveToWorld(-8, -48.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .16 }],
+  ['archB-door', 2, { world: `(() => { const c = S.enclaveToWorld(10.3, -50.6), t = S.enclaveToWorld(8, -54);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.02 }],
+  ['archB-door-night', 1, { world: `(() => { const c = S.enclaveToWorld(10.3, -50.6), t = S.enclaveToWorld(8, -54);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: -.02 }],
+  ['archB-gallery-2f', 2, { world: `(() => { const c = S.enclaveToWorld(0.5, -30.9), t = S.enclaveToWorld(16, -35.5);
+    return { x: c.x, z: c.z, y: S.SITE.ATRIUM.floorH, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.12 }],
+  ['archB-high', 2, { world: `(() => { const c = S.enclaveToWorld(8, -30.5), t = S.enclaveToWorld(8, -41);
+    return { x: c.x, z: c.z, y: 10.5, lookX: t.x, lookZ: t.z }; })()` }, { fly: true, pitch: -.72 }],
+  ['archB-photo', 2, { world: `(() => { const c = S.enclaveToWorld(-10.4, -33.0), t = S.enclaveToWorld(-1.0, -44.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .10 }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 
@@ -533,9 +557,15 @@ const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
         };
         const p = new Function('S', 'CFG', 'G', 'pick', 'return ' + pos.world)(S, CFG, G, pick);
         G.player.pos.set(p.x, (p.y || 0) + CFG.EYE_HEIGHT, p.z);
+        /* setMoment early-returns on the current index, so a fly view would
+           leak its mode into the next view: re-assert it both ways */
+        G.setMode(opt && opt.fly ? 'fly' : 'walk', { quiet: true });
+        G.player.pos.set(p.x, (p.y || 0) + CFG.EYE_HEIGHT, p.z);
         P.setFacing(p.yaw !== undefined ? p.yaw
           : Math.atan2(-(p.lookX - p.x), -(p.lookZ - p.z)));
         for (let i = 0; i < 6; i++) P.updatePlayer(G, 1 / 60);
+        /* wave B: a tilted look (setFacing zeroes pitch; applyLook adds −dy·sens) */
+        if (opt && opt.pitch) P.applyLook(0, -opt.pitch, 1);
       }
       /* let the light budget / detail cull settle, then measure one second */
       await new Promise(r => setTimeout(r, 700));

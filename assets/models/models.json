@@ -118,6 +118,227 @@
     ],
     "tris": 2100
   },
+  "atrium_baluster": {
+    "bytes": 4772,
+    "front": "-Z",
+    "material": "at_inox",
+    "min": [
+      -0.048,
+      0.0,
+      -0.061
+    ],
+    "origin": "floor",
+    "size": [
+      0.095,
+      1.0,
+      0.123
+    ],
+    "tris": 176
+  },
+  "atrium_bay": {
+    "bytes": 13652,
+    "front": "-Z",
+    "material": "atrium_bay",
+    "min": [
+      -1.244,
+      0.0,
+      -0.1
+    ],
+    "origin": "site",
+    "size": [
+      2.488,
+      3.16,
+      0.12
+    ],
+    "tris": 264
+  },
+  "atrium_bay_glazing": {
+    "bytes": 8552,
+    "front": "-Z",
+    "material": "ar_bronze",
+    "min": [
+      -1.409,
+      0.095,
+      -0.12
+    ],
+    "origin": "site",
+    "size": [
+      2.819,
+      3.41,
+      0.12
+    ],
+    "tris": 264
+  },
+  "atrium_bay_screen": {
+    "bytes": 18264,
+    "front": "-Z",
+    "material": "atrium_bay_screen",
+    "min": [
+      -1.408,
+      0.14,
+      -0.12
+    ],
+    "origin": "site",
+    "size": [
+      2.816,
+      3.3,
+      0.12
+    ],
+    "tris": 472
+  },
+  "atrium_bay_slate": {
+    "bytes": 121364,
+    "front": "-Z",
+    "material": "atrium_bay_slate",
+    "min": [
+      -1.418,
+      -0.0,
+      -0.21
+    ],
+    "origin": "site",
+    "size": [
+      2.836,
+      3.53,
+      0.21
+    ],
+    "tris": 100
+  },
+  "atrium_column": {
+    "bytes": 12556,
+    "front": "-Z",
+    "material": "atrium_column",
+    "min": [
+      -0.42,
+      0.0,
+      -0.42
+    ],
+    "origin": "floor",
+    "size": [
+      0.84,
+      7.2,
+      0.84
+    ],
+    "tris": 544
+  },
+  "atrium_door": {
+    "bytes": 20320,
+    "front": "-Z",
+    "material": "atrium_door",
+    "min": [
+      -1.467,
+      0.0,
+      -0.19
+    ],
+    "origin": "site",
+    "size": [
+      2.933,
+      3.6,
+      1.47
+    ],
+    "tris": 812
+  },
+  "atrium_downlight": {
+    "bytes": 2772,
+    "front": "-Z",
+    "material": "at_black",
+    "min": [
+      -0.1,
+      -0.008,
+      -0.1
+    ],
+    "origin": "top",
+    "size": [
+      0.2,
+      0.008,
+      0.2
+    ],
+    "tris": 96
+  },
+  "atrium_frame": {
+    "bytes": 23788,
+    "front": "-Z",
+    "material": "atrium_frame",
+    "min": [
+      -15.3,
+      2.97,
+      -7.8
+    ],
+    "origin": "site",
+    "size": [
+      30.6,
+      3.88,
+      15.6
+    ],
+    "tris": 2068
+  },
+  "atrium_ponds": {
+    "bytes": 186372,
+    "front": "-Z",
+    "material": "atrium_ponds",
+    "min": [
+      -16.52,
+      0.0,
+      -2.77
+    ],
+    "origin": "site",
+    "size": [
+      28.04,
+      0.435,
+      7.54
+    ],
+    "tris": 11088
+  },
+  "atrium_rail": {
+    "bytes": 4524,
+    "front": "-Z",
+    "material": "at_copper",
+    "min": [
+      -0.038,
+      0.0,
+      -0.5
+    ],
+    "origin": "base",
+    "size": [
+      0.076,
+      0.045,
+      1.0
+    ],
+    "tris": 212
+  },
+  "atrium_soffit_panel": {
+    "bytes": 7948,
+    "front": "-Z",
+    "material": "at_wood0",
+    "min": [
+      -0.396,
+      -0.022,
+      -1.0
+    ],
+    "origin": "top",
+    "size": [
+      0.792,
+      0.022,
+      2.0
+    ],
+    "tris": 80
+  },
+  "atrium_stair": {
+    "bytes": 24868,
+    "front": "-Z",
+    "material": "atrium_stair",
+    "min": [
+      -16.876,
+      0.0,
+      -10.18
+    ],
+    "origin": "site",
+    "size": [
+      1.732,
+      3.612,
+      7.33
+    ],
+    "tris": 2052
+  },
   "bar_stool": {
     "bytes": 16336,
     "front": "-Z",

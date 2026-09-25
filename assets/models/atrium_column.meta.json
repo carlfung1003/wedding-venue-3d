@@ -1,0 +1,17 @@
+{
+  "bytes": 12556,
+  "front": "-Z",
+  "material": "atrium_column",
+  "min": [
+    -0.42,
+    0.0,
+    -0.42
+  ],
+  "origin": "floor",
+  "size": [
+    0.84,
+    7.2,
+    0.84
+  ],
+  "tris": 544
+}

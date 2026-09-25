@@ -1,0 +1,17 @@
+{
+  "bytes": 24868,
+  "front": "-Z",
+  "material": "atrium_stair",
+  "min": [
+    -16.876,
+    0.0,
+    -10.18
+  ],
+  "origin": "site",
+  "size": [
+    1.732,
+    3.612,
+    7.33
+  ],
+  "tris": 2052
+}

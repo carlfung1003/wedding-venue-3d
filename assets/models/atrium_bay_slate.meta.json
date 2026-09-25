@@ -1,0 +1,17 @@
+{
+  "bytes": 121364,
+  "front": "-Z",
+  "material": "atrium_bay_slate",
+  "min": [
+    -1.418,
+    -0.0,
+    -0.21
+  ],
+  "origin": "site",
+  "size": [
+    2.836,
+    3.53,
+    0.21
+  ],
+  "tris": 100
+}
