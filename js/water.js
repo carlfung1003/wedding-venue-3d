@@ -51,6 +51,8 @@ import { initMirrorFrustum } from './mirrorfrustum.js';
    every call site below reads models.geometry()/material() synchronously while
    the water is being built, exactly as moments.js does after it. */
 import * as models from './models.js';
+import { leafMat, protoGeo, fringeFor } from './foliage.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /* ─────────────────────────────── constants ─────────────────────────────── */
 
@@ -514,7 +516,19 @@ function buildMaterials() {
   MAT.whiteFrame = new THREE.MeshStandardMaterial({ color: 0xf6f5f0, roughness: .72 });
   MAT.darkWood = new THREE.MeshStandardMaterial({ color: 0x2a1c14, roughness: .62 });
   MAT.chrome = new THREE.MeshStandardMaterial({ color: 0xdadfe4, metalness: 1, roughness: .25 });
-  MAT.hedge = new THREE.MeshStandardMaterial({ map: hedgeTex(10, 1), color: 0xcfe0c4, roughness: .95 });
+  /* KAN-208 wave 4: the canvas hedge is the BOOT map only; hedge.webp (the
+     campus's clipped-hedge photograph) replaces it on load at nature.js's
+     repeat — same program (USE_MAP was already compiled). The colour is
+     nature's mean per-instance hedge tint, since this is one Mesh, not an
+     instanced bucket. */
+  MAT.hedge = new THREE.MeshStandardMaterial({
+    map: hedgeTex(2, 1), color: new THREE.Color().setHSL(.26, .40, .39), roughness: .92,
+  });
+  new THREE.TextureLoader().load(new URL('../assets/textures/hedge.webp', import.meta.url).href, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1);
+    MAT.hedge.map = t; MAT.hedge.needsUpdate = true;
+  });
   MAT.teal = new THREE.MeshStandardMaterial({ color: C.teal, roughness: .68, side: THREE.DoubleSide });
   MAT.blue = new THREE.MeshStandardMaterial({ color: C.blue, roughness: .68, side: THREE.DoubleSide });
   MAT.sandM = new THREE.MeshStandardMaterial({ map: sand(1, 1), roughness: .96 });
@@ -760,6 +774,33 @@ function box(parent, w, h, d, x, y, z, mat, ry = 0) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.position.set(x, y, z);
   if (ry) m.rotation.y = ry;
+  parent.add(m);
+  return m;
+}
+
+/* A clipped hedge running along local X — the pool's south hedge and the
+   pavilion run (KAN-208 wave 4). These were plain BoxGeometry slabs wearing
+   the canvas hedge; they are now wave 2's `hedge_run` cells laid end to end
+   (≈2 m each, the 6 cm overlap nature.js's hedgeRun uses, local Z of each cell
+   turned onto the run) and MERGED into ONE Mesh on MAT.hedge — the same one
+   draw call and the same program as the box, rounded shoulders instead of a
+   brick. MAT.hedge wears hedge.webp at nature's repeat (2 × 1). A missing GLB
+   falls back to the box. */
+function hedgeRunX(parent, len, h, t, x, y, z) {
+  const cell = models.has('hedge_run') ? models.geometry('hedge_run') : null;
+  if (!cell) return box(parent, len, h, t, x, y, z, MAT.hedge);
+  const n = Math.max(1, Math.round(len / 2.0));
+  const w = len / n;
+  const parts = [];
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+  for (let i = 0; i < n; i++) {
+    m4.compose(new THREE.Vector3(-len / 2 + (i + .5) * w, 0, 0), q, new THREE.Vector3(t, h, w + .06));
+    parts.push(cell.clone().applyMatrix4(m4));
+  }
+  const geo = mergeGeometries(parts);
+  for (const p of parts) p.dispose();
+  const m = new THREE.Mesh(geo, MAT.hedge);
+  m.position.set(x, y, z);
   parent.add(m);
   return m;
 }
@@ -1310,7 +1351,7 @@ function buildDeckAndTurf(G) {
 
   /* hedge closing the far (south) end of the pool — the pavilion run has its
      own hedge along the east side, added in buildPavilions */
-  box(g, APRON * 2, .95, 1.1, 0, .475, SOUTH - .55, MAT.hedge);
+  hedgeRunX(g, APRON * 2, .95, 1.1, 0, .475, SOUTH - .55);
   return g;
 }
 
@@ -1618,7 +1659,7 @@ function buildPavilions(G) {
   slab(g, bwX1 - 3.2, -1.75, bwX1 - 0.2, -1.1, .1, MAT.coping, .22);
 
   /* clipped hedge behind the run */
-  box(g, run + 4, .95, 1.1, 0, .475, 3.3, MAT.hedge);
+  hedgeRunX(g, run + 4, .95, 1.1, 0, .475, 3.3);
 
   /* ── local → world: face west across the pool, sit on the east long side ── */
   g.rotation.y = Math.PI / 2;                 // local −Z → world −X
@@ -3610,12 +3651,35 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
      `instanceColor` compiles USE_INSTANCING_COLOR into the material's program,
      so it must never be set on a material a non-instanced mesh also uses —
      MAT.greenery is shared, this one is not. */
-  const plantM = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .92, metalness: 0 });
+  /* KAN-208 wave 4: the river shrubs wear the SAME photograph as nature.js's
+     shrub masses (shrub.webp, repeat 2 × 2, a canvas stand-in until it
+     arrives — the map must be there from the first compile). With a map and
+     an instance colour this lands on nature's MAT.shrub program, so nothing
+     new compiles. The per-instance PALETTE below was authored as the WHOLE
+     colour; a photograph multiplies in at ~0.12 mean luminance, so the base
+     colour is an exposure of ~7 that puts palette × photo back on the
+     palette's own brightness while the photo supplies the leaves. */
+  const plantStand = document.createElement('canvas');
+  plantStand.width = plantStand.height = 4;
+  { const c = plantStand.getContext('2d'); c.fillStyle = '#2f4a26'; c.fillRect(0, 0, 4, 4); }
+  const plantTex = new THREE.CanvasTexture(plantStand);
+  plantTex.colorSpace = THREE.SRGBColorSpace;
+  const plantM = new THREE.MeshStandardMaterial({ map: plantTex, roughness: .92, metalness: 0 });
+  plantM.color.setScalar(7);
+  new THREE.TextureLoader().load(new URL('../assets/textures/shrub.webp', import.meta.url).href, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+    t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2);
+    plantM.map = t; plantM.needsUpdate = true; plantTex.dispose();
+  });
   /* Detail-1 icosahedron (80 tris). This is over half the river's triangle
      budget and a 6×4 sphere would be 36 — but a 6-segment sphere seen from
      STRAIGHT ABOVE is a hexagon, and the whole point of this planting is the
      plan view. Trim the count before you trim the mesh. */
-  const plantMesh = inst(new THREE.IcosahedronGeometry(1, 1), plantM, shrubs, (i, d) => {
+  /* KAN-208 wave 4: the prototype is Blender's `shrub_core` (same radius-1
+     frame, same 80 tris, five lobes) and a leaf-card FRINGE rides the same
+     matrices (js/foliage.js). The colour loop below and its rnd() draws are
+     untouched — the fringe carries no instance colour by design. */
+  const plantMesh = inst(protoGeo('shrub_core') || new THREE.IcosahedronGeometry(1, 1), plantM, shrubs, (i, d) => {
     const [x, z, s, sy] = shrubs[i];
     d.position.set(x, s * sy * .78, z);
     d.rotation.set((i % 5) * .09, i * 1.13, (i % 7) * .07);
@@ -3635,6 +3699,7 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
       plantMesh.setColorAt(i, col);
     }
     if (plantMesh.instanceColor) plantMesh.instanceColor.needsUpdate = true;
+    fringeFor(plantMesh, ['shrub_fringe', 'shrub_fringe_b'], leafMat('shrub'), g, 'river:shrubFringe');
   }
 
   /* (the bank palms used to be instanced here — two meshes, a bare pole and a

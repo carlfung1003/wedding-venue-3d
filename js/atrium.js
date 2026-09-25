@@ -17,6 +17,8 @@
 import * as THREE from 'three';
 import { SITE, ROOM_DOORS, ARRIVAL_ATRIUM_DOOR } from './site.js';
 import { mulberry32 } from './materials.js';
+import * as models from './models.js';
+import { leafMat as foliageLeaf, fringeFor } from './foliage.js';
 
 /* ────────────────────────────────────────────────────────────── footprint ── */
 
@@ -1620,6 +1622,42 @@ function buildPlanting(parent, M, rnd, colliders) {
   });
   ENVM.push({ m: leafMat, d: .95, n: .32 });
 
+  /* ── KAN-208 wave 4: the niwaki's clouds wear wave 2's clipped look ──────
+     Each cloud was a flat-shaded 8×6 SphereGeometry in a flat green — the one
+     planting on the campus still reading as coloured low-poly. It is now the
+     `topiary_ball` GLB (the campus topiary's p 2.3 clipped superellipsoid,
+     ±0.5 unit) scaled to the cloud's own diameter, on hedge.webp at the campus
+     repeat (1 × 1 — the ball's UVs carry 2.2 tiles a unit). Four clipped-green
+     tints stand in for the four flat greens, one per plant exactly as before
+     (same rnd() pick). The map is on the material FROM THE START (a canvas
+     stand-in until the photograph arrives) so no program is added — this is
+     the plain non-instanced map program the campus already compiles. The
+     broad-leaf pond-edge clusters keep foliageMats / leafMat. A missing GLB
+     keeps the spheres and the flat greens. */
+  const ballGeo = models.has('topiary_ball') ? models.geometry('topiary_ball') : null;
+  const clipMats = [];
+  if (ballGeo) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 4;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#35552b'; cx.fillRect(0, 0, 4, 4);
+    const stand = new THREE.CanvasTexture(cv);
+    stand.colorSpace = THREE.SRGBColorSpace;
+    for (let i = 0; i < 4; i++) {
+      const m = new THREE.MeshStandardMaterial({
+        map: stand, color: new THREE.Color().setHSL(.27 - i * .012, .36 + i * .04, .36 + i * .03),
+        roughness: .9, metalness: 0,
+      });
+      clipMats.push(m);
+      ENVM.push({ m, d: .9, n: .3 });
+    }
+    new THREE.TextureLoader().load(new URL('../assets/textures/hedge.webp', import.meta.url).href, (t) => {
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      for (const m of clipMats) { m.map = t; m.needsUpdate = true; }
+      stand.dispose();
+    });
+  }
+
   const placed = [];
   // Rejection sampling into a fairly narrow band (the gravel between the pond
   // edging and the walking routes), so give it plenty of attempts — running out
@@ -1669,7 +1707,8 @@ function buildPlanting(parent, M, rnd, colliders) {
       base: 0, amp: .012 + rnd() * .012, spd: .5 + rnd() * .5, ph: rnd() * 6.28,
     };
     g.add(canopy);
-    const fm = foliageMats[Math.floor(rnd() * foliageMats.length)];  // one green per plant
+    const fi = Math.floor(rnd() * foliageMats.length);              // one green per plant
+    const fm = ballGeo ? clipMats[fi] : foliageMats[fi];
     const clouds = 3 + Math.floor(rnd() * 3);
     let y = .24 + th * .72;
     for (let c = 0; c < clouds; c++) {
@@ -1687,9 +1726,10 @@ function buildPlanting(parent, M, rnd, colliders) {
         br.rotation.x = -Math.atan2(bz, .16) * .85;
         g.add(br);
       }
-      const cl = new THREE.Mesh(new THREE.SphereGeometry(rr, 8, 6), fm);
+      const cl = new THREE.Mesh(ballGeo || new THREE.SphereGeometry(rr, 8, 6), fm);
       cl.position.set(bx, y, bz);
       cl.scale.set(1 + rnd() * .28, .56 + rnd() * .2, 1 + rnd() * .28);
+      if (ballGeo) cl.scale.multiplyScalar(rr * 2);   // unit ball ±.5 → the cloud's radius
       cl.rotation.set(rnd() * .4, rnd() * 6.28, rnd() * .4);
       canopy.add(cl);
       y += rr * (.62 + rnd() * .35);
@@ -1698,7 +1738,36 @@ function buildPlanting(parent, M, rnd, colliders) {
     colliders.push({ x, z, r: pr + .18 });
   }
 
-  /* ── broad-leaf shrub clusters right at the pond edge ── */
+  /* ── broad-leaf shrub clusters right at the pond edge ──
+     KAN-208 wave 4: next to the clipped clouds the flat-shaded pale spheres
+     read as the last low-poly planting in the courtyard, so each blob is the
+     understory's `shrub_core` (five lobes, radius 1 → r) on shrub.webp at
+     nature's repeat (2 × 2), in the two greens the rnd() pick already chose.
+     Opaque on purpose: an alpha-cut fringe on a NON-instanced mesh would be a
+     program nobody compiles yet (the leaf cards ride the instanced one). */
+  const coreGeo = models.has('shrub_core') ? models.geometry('shrub_core') : null;
+  let broadMats = null;
+  if (coreGeo) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 4;
+    const cx = cv.getContext('2d'); cx.fillStyle = '#3a5a2c'; cx.fillRect(0, 0, 4, 4);
+    const stand = new THREE.CanvasTexture(cv);
+    stand.colorSpace = THREE.SRGBColorSpace;
+    const mk = (hsl) => {
+      const m = new THREE.MeshStandardMaterial({
+        map: stand, color: new THREE.Color().setHSL(...hsl), roughness: .86, metalness: 0,
+      });
+      ENVM.push({ m, d: .9, n: .3 });
+      return m;
+    };
+    broadMats = new Map([[leafMat, mk([.25, .42, .52])], [foliageMats[3], mk([.27, .36, .40])]]);
+    new THREE.TextureLoader().load(new URL('../assets/textures/shrub.webp', import.meta.url).href, (t) => {
+      t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2);
+      for (const m of broadMats.values()) { m.map = t; m.needsUpdate = true; }
+      stand.dispose();
+    });
+  }
   for (let i = 0; i < 7; i++) {
     const at = tryPlace(.55, 1.3, 1.5);
     if (!at) break;
@@ -1712,15 +1781,29 @@ function buildPlanting(parent, M, rnd, colliders) {
     parent.add(g);
     const blobs = 6 + Math.floor(rnd() * 4);
     const bm = rnd() < .5 ? leafMat : foliageMats[3];
+    const core = coreGeo ? new THREE.InstancedMesh(coreGeo, broadMats.get(bm), blobs) : null;
     for (let b = 0; b < blobs; b++) {
       const r = .34 + rnd() * .4;
-      const m = new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), bm);
+      const m = coreGeo ? new THREE.Object3D()
+                        : new THREE.Mesh(new THREE.SphereGeometry(r, 7, 5), bm);
       m.position.set((rnd() - .5) * 1.5, r * .58 + rnd() * .35, (rnd() - .5) * 1.5);
       m.scale.set(1 + rnd() * .5, .5 + rnd() * .26, 1 + rnd() * .5);
+      if (coreGeo) m.scale.multiplyScalar(r);          // unit radius 1 → the blob's r
       m.rotation.set(rnd() * .5, rnd() * 6.28, rnd() * .5);
-      g.add(m);
+      if (core) { m.updateMatrix(); core.setMatrixAt(b, m.matrix); } else g.add(m);
     }
-    batchLocal(g);                         // blobs → one mesh, still swayable
+    if (core) {
+      /* INSTANCED, so the leaf-card fringe can ride the palm fronds' program
+         (instanced + map + alphaTest + DoubleSide) — one core + one fringe
+         InstancedMesh per cluster, children of the swaying group */
+      core.instanceMatrix.needsUpdate = true;
+      core.computeBoundingSphere();
+      core.name = 'atrium:broadLeaf';
+      g.add(core);
+      fringeFor(core, ['shrub_fringe'], foliageLeaf('shrub'), g, 'atrium:broadLeafFringe');
+    } else {
+      batchLocal(g);                       // blobs → one mesh, still swayable
+    }
     colliders.push({ x, z, r: 1.0 });
   }
 }

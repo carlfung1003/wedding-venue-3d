@@ -367,12 +367,46 @@ GAME's frame (glTF Y-up, y = height); every row carries the call site.
   `stringLights` is deleted. The cable stays the 1-px `LineSegments`: a tube of
   a real cable's 6 mm is sub-pixel at 5 m and aliases away.
 
+### Group J — the understory (KAN-208 wave 4): shrub / cover cores + leaf-card fringes, casuarina tiers — GEOMETRY ONLY
+
+Six GLBs, all **`BAKE = False`** (Group H's rule): the game keeps its own
+materials. Shape logic is `generators/_flora.py` § "KAN-208 WAVE 4"; each
+generator is a few lines. **THE CONTRACT IS STILL THE UNIT CELL**: the CORE
+replaces an existing blob bucket's prototype under unchanged matrices (proof:
+`tools/scatter-probe.mjs`, all 293 pre-existing InstancedMeshes byte-identical),
+and the FRINGE is a new InstancedMesh built by `js/foliage.js` `fringeFor()`
+from the core's own matrices.
+
+| name | replaces / pairs with (file:fn) | frame / envelope / origin | UV0 | tris (was) |
+|---|---|---|---|---|
+| `shrub_core` | the prototype of `nature.js` shrub masses (`blobGeo(…, 1, .5)`, 825) + bougainvillea (`blobGeo(…, 1, .42)`, 19), `water.js` river shrubs (`IcosahedronGeometry(1, 1)`, 263), `campus.js` `bougain` / `bougI` / `subBougI` (`UNIT_BLOB`, r .5 — `protoGeo('shrub_core', .5)`, a scaled clone), `atrium.js` pond-edge clusters (× r) | **radius-1 unit, centred** (the icosahedron's frame): an 80-tri icosahedron pushed onto a union of five lobes (`_SHRUB_LOBES`), max radius .86 — so the fringe overhangs it. Size 1.52 × 1.27 × 1.59. Normals radial (smooth, like PolyhedronGeometry's). | per-face box projection, .5 tile per unit (× the game's repeat 2 = one shrub.webp tile per unit). Materials: MAT.shrub / MAT.boug (photos, per-instance colour), water `plantM` (now shrub.webp, colour × 7), campus boug photo mat, atrium broad mats | **80** (80) |
+| `shrub_fringe` + `shrub_fringe_b` | NEW buckets over every `shrub_core` bucket (index even → a, odd → b; the atrium uses a only) on `leafMat('shrub')` / `leafMat('boug')` | same frame and the SAME lobe layout (one seed stream, `shrub`); each variant its own card draw. 16 cards × 2 tris, each on a Fibonacci-spiral direction over the upper cap (y ≥ −.25), centred .62–.9 of the lobe radius, .62–.86 wide, tilted .35–1.2 rad off facing-out (so the silhouette's cards stick OUT), image spun at random. Custom normals .7 radial + .3 card normal, wound to agree. | one card = the whole image (0…1, ClampToEdge): `shrub_leaf.webp` / `boug_leaf.webp`, alphaTest .5 | **32** (—) |
+| `cover_core` | nature.js ground cover (`blobGeo(…, 0, .55)`, 350, instance-squashed to .22–.38 tall) | radius-1 unit, centred; the icosahedron at detail 0 on the `cover` lobes | as shrub_core | **20** (20) |
+| `cover_fringe` | NEW bucket over the cover on `leafMat('shrub')` | 10 cards on the top cap only (y ≥ .2), tilted 0–.5 rad (near LEVEL: a steep card would be flattened by the ~5× y-squash), .7–1.0 wide, centred .75–1.0 of the lobe radius so they overhang the rim | whole image | **20** (—) |
+| `casuarina_tier` | `campus.js` `casuLeafI` — `ConeGeometry(.5, 1, 10)`, three per tree (flush-time swap, `WAVE4_PROTO`) | the cone's envelope: radius .5 at y −.5, apex +.5, centred. 13 outer + 4 inner needle curtains leaving the axis near the apex, arcing out (r ∝ t^.6) and drooping (y ∝ t^1.3) to the rim, widening as they fall; 3 segments each; NO base cap. Normals out-and-down (the palm crown's measured rule). | `casuarina.webp` (repeat 1): v = 1 at the attachment (the map's dense top) → 0 at the hanging tip (its wispy strand ends); a random .22–.3 u-window per curtain | **102** (20) |
+
+**Textures** (`assets/textures/`, runtime — never `assets/blender/textures/`):
+`shrub_leaf.webp` (manifest `shrub_leaf_card`, magenta, key-magenta, bleed 16)
+and `boug_leaf.webp` (`boug_leaf_card`, a flat COBALT backdrop keyed `--mode flat`
+tol 100 / soft 30 + `drop_backdrop_hue: "blue"` — never magenta: the bracts are
+magenta). `casuarina.webp` re-graded in place by `regrade_foliage.py` to opaque
+mean `#44583a` (it was a grey-sage `#6d6f61` with magenta spill).
+
+⚠ **The fringe material has NO instance colour and must never get one** — see
+`js/foliage.js`: instanced + map + alphaTest + DoubleSide without
+instancingColor is the palm fronds' program; with it, two new programs.
+
+⚠ **Not GLBs, same wave:** the atrium's cloud topiary uses Group H's
+`topiary_ball` × each cloud's diameter; water.js's two hedge boxes are Group H's
+`hedge_run` cells merged into one Mesh (`hedgeRunX`).
+
 ## What is deliberately NOT in this wave
 
 (Palms, hedges and topiary are Group H since KAN-208 wave 2 — their PROTOTYPES;
-the `nature.js` scatter itself, the shrub / bougainvillea / ground-cover blobs,
-the river dressing's planting and the atrium's cloud topiary are still
-procedural.) The buildings; the
+the `nature.js` scatter itself is still procedural; the shrub / bougainvillea /
+ground-cover blobs, the river dressing's shrubs, the casuarina tiers and — via
+Group H's prototypes — the atrium's cloud topiary are Group J since wave 4. The
+shade-tree crowns, the croton and agave accents are still primitives.) The buildings; the
 floating lanterns and loungers in `water.js`; the campus furniture (rooftop
 four-tops, bar-room dining, check-in lobby); the welcome board (kept procedural —
 the art pass supplies a better board face — its frame + foot are Group I since

@@ -169,6 +169,23 @@
     ],
     "tris": 280
   },
+  "casuarina_tier": {
+    "bytes": 2336,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -0.47,
+      -0.526,
+      -0.5
+    ],
+    "origin": "centre",
+    "size": [
+      1.0,
+      1.007,
+      0.969
+    ],
+    "tris": 102
+  },
   "centrepiece_low": {
     "bytes": 83820,
     "front": "-Z",
@@ -355,6 +372,40 @@
       1.08
     ],
     "tris": 344
+  },
+  "cover_core": {
+    "bytes": 1880,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -0.712,
+      -0.514,
+      -0.689
+    ],
+    "origin": "centre",
+    "size": [
+      1.444,
+      1.146,
+      1.279
+    ],
+    "tris": 20
+  },
+  "cover_fringe": {
+    "bytes": 1632,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -0.95,
+      -0.341,
+      -0.914
+    ],
+    "origin": "centre",
+    "size": [
+      1.886,
+      1.17,
+      1.795
+    ],
+    "tris": 20
   },
   "crossback_chair": {
     "bytes": 15180,
@@ -1256,6 +1307,57 @@
       1.92
     ],
     "tris": 1638
+  },
+  "shrub_core": {
+    "bytes": 3480,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -0.689,
+      -0.551,
+      -0.729
+    ],
+    "origin": "centre",
+    "size": [
+      1.515,
+      1.274,
+      1.589
+    ],
+    "tris": 80
+  },
+  "shrub_fringe": {
+    "bytes": 1792,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -0.933,
+      -0.643,
+      -0.957
+    ],
+    "origin": "centre",
+    "size": [
+      1.888,
+      1.64,
+      1.83
+    ],
+    "tris": 32
+  },
+  "shrub_fringe_b": {
+    "bytes": 1800,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -0.909,
+      -0.505,
+      -0.97
+    ],
+    "origin": "centre",
+    "size": [
+      1.834,
+      1.352,
+      1.935
+    ],
+    "tris": 32
   },
   "speaker": {
     "bytes": 12232,

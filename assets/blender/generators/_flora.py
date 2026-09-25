@@ -547,3 +547,217 @@ def palm_part(variant, part, name):
         cb = palm_crown(sp, rnd, cfg["fronds"], cfg["nuts"])
         o = cb.to_object(name, "leaf")
     return L.join([o], name, origin=None)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#   KAN-208 WAVE 4 — THE UNDERSTORY: shrub masses, ground cover, bougainvillea,
+#   the river dressing's shrubs, the casuarinas
+# ═══════════════════════════════════════════════════════════════════════════
+# Two-part shrubs. The SCATTER stays exactly what it was: nature.js / water.js /
+# campus.js keep every matrix, every instance colour and every rnd() draw, and
+# swap only the prototype geometry of the old blob bucket (the CORE). The
+# silhouette comes from a second, NEW bucket fed the very same matrices: the
+# FRINGE, alpha-cut leaf-clump cards on a foliage material (js/foliage.js) that
+# rides the program the palm fronds and the casuarinas already compiled
+# (instanced + map + alphaTest + DoubleSide, no instance colour) — so no
+# shader program is added. See ASSET_SPEC Group J.
+#
+# UNIT FRAME: the core and the fringe replace THREE.IcosahedronGeometry(1, …),
+# i.e. a radius-1 blob centred on the origin (nature.js blobGeo radius .69–1.31;
+# water.js IcosahedronGeometry(1, 1)). campus.js's UNIT_BLOB is radius .5 and
+# takes a .5-scaled clone in the game.
+#
+# CARD UV: one card = the whole leaf-clump image (shrub_leaf.webp /
+# boug_leaf.webp): opaque centre, ragged leaf-tip rim cut by alphaTest.
+
+# the mass: a union of five spheres (centre, radius) — lobes, not a ball
+_SHRUB_LOBES = [((0.0, 0.05, 0.0), .62), ((.40, -.02, .22), .50), ((-.36, .02, .30), .50),
+                ((.06, .04, -.44), .50), ((.10, .34, -.04), .46)]
+
+
+def _lobe_radius(d, lobes):
+    """distance along unit direction d from the origin to the far side of the union
+    of spheres (the largest ray-sphere exit among the lobes the ray meets)"""
+    best = .2
+    for (c, r) in lobes:
+        c = Vector(c)
+        b = d.dot(c)
+        disc = b * b - (c.length_squared - r * r)
+        if disc >= 0:
+            best = max(best, b + math.sqrt(disc))
+    return best
+
+
+def shrub_core(rnd, scale=.86, flat=None, uvk=.5, detail=1):
+    """The opaque CORE of a shrub: an icosahedron (detail 1, 80 tris — the very
+    triangle count of the blob it replaces) pushed out onto a union of five
+    lobes, so the mass has real clefts between rounded lobes instead of one
+    faceted lump. Normals are the RADIAL direction (smooth, like the blob's own
+    PolyhedronGeometry normals — the reason the old blob stopped reading as
+    crumpled foil, see nature.js blobGeo). UVs: a per-face box projection at
+    `uvk` tiles per unit (× the game's repeat 2 = one shrub.webp tile per
+    metre of unit), so the photograph is no longer stretched pole-to-pole the
+    way the icosahedron's own UVs stretched it. `flat` squashes y (the cover)."""
+    ico_v, ico_f = _icosahedron()
+    # subdivide once (detail 1): 20 → 80 faces
+    verts = [Vector(v) for v in ico_v]
+    cache = {}
+
+    def mid(i, j):
+        k = (min(i, j), max(i, j))
+        if k not in cache:
+            verts.append(((verts[i] + verts[j]) / 2).normalized())
+            cache[k] = len(verts) - 1
+        return cache[k]
+    faces = []
+    for (a, b_, c) in ico_f:
+        if detail == 0:
+            faces.append((a, b_, c))
+            continue
+        ab, bc, ca = mid(a, b_), mid(b_, c), mid(c, a)
+        faces += [(a, ab, ca), (b_, bc, ab), (c, ca, bc), (ab, bc, ca)]
+    rot = rnd.uniform(0, 2 * math.pi)
+    lobes = []
+    for (c, r) in _SHRUB_LOBES:
+        x, y, z = c
+        lobes.append(((x * math.cos(rot) - z * math.sin(rot), y, x * math.sin(rot) + z * math.cos(rot)),
+                      r * rnd.uniform(.94, 1.06)))
+    pts = []
+    for d in verts:
+        rr = _lobe_radius(d, lobes)
+        p = d * rr
+        pts.append(p)
+    m = max(p.length for p in pts)
+    k = scale / m
+    b = Buf()
+    for (i0, i1, i2) in faces:
+        P = [pts[i] * k for i in (i0, i1, i2)]
+        if flat:
+            P = [Vector((p.x, p.y * flat, p.z)) for p in P]
+        fn = (P[1] - P[0]).cross(P[2] - P[0])
+        ax = max(range(3), key=lambda i: abs(fn[i]))
+        ua, va = [(2, 1), (0, 2), (0, 1)][ax]
+        ids, uvs = [], []
+        for p, i in zip(P, (i0, i1, i2)):
+            n = Vector(verts[i]).normalized()
+            ids.append(b.vert(tuple(p), tuple(n)))
+            uvs.append((p[ua] * uvk + .5, p[va] * uvk + .5))
+        b.face(ids, uvs)
+    b.orient_to_normals()
+    return b, lobes, k
+
+
+def leaf_cards(rnd, n, lobes, k, size=(.62, .86), out=(.62, .9), ymin=-.25,
+               tilt=(.35, 1.2), flat=None, nrm_mix=.7):
+    """`n` alpha-cut leaf-clump CARDS (2 tris each) standing out of the lobes:
+    each card is centred on a point just inside the lobe surface (`out` × its
+    radius) along a direction biased upward (the bottom of every shrub is in
+    the ground), and TILTED `tilt` radians off facing-out toward a radial fin —
+    so from any side some cards are broad-on (the leafy face) and the ones on
+    the silhouette stick OUT past the core, which is what breaks the outline.
+
+    Normals: the radial direction from the shrub centre mixed with the card's
+    own face normal (nrm_mix radial), wound to agree (orient_to_normals). The
+    radial term makes a clump of cards shade like one leafy volume instead of
+    a stack of lit and unlit planes (the palm crown's lesson, KAN-208 wave 2)."""
+    b = Buf()
+    GA = math.radians(137.508)
+    for i in range(n):
+        # a Fibonacci spiral over the upper cap, jittered — even coverage
+        t = (i + .5) / n
+        y = 1 - t * (1 - ymin)
+        y = max(-.95, min(.97, y + rnd.uniform(-.06, .06)))
+        az = i * GA + rnd.uniform(-.3, .3)
+        rxz = math.sqrt(max(0, 1 - y * y))
+        d = Vector((math.cos(az) * rxz, y, math.sin(az) * rxz)).normalized()
+        R = _lobe_radius(d, lobes) * k
+        c = d * R * rnd.uniform(*out)
+        up = Vector((0, 1, 0))
+        t1 = up.cross(d)
+        if t1.length < 1e-3:
+            t1 = Vector((1, 0, 0))
+        t1.normalize()
+        t1 = t1 * math.cos(rnd.uniform(0, math.pi)) + d.cross(t1) * math.sin(rnd.uniform(0, math.pi))
+        t1 = (t1 - d * t1.dot(d)).normalized()
+        w = d.cross(t1).normalized()
+        a = rnd.uniform(*tilt)
+        nn = (d * math.cos(a) + w * math.sin(a)).normalized()
+        u_ax = t1
+        v_ax = nn.cross(u_ax).normalized()
+        s = rnd.uniform(*size) / 2
+        rot = rnd.uniform(0, 2 * math.pi)          # spin the image on the card
+        cu, cv = math.cos(rot), math.sin(rot)
+        U = u_ax * cu + v_ax * cv
+        V = -u_ax * cv + v_ax * cu
+        corners = [c - U * s - V * s, c + U * s - V * s, c + U * s + V * s, c - U * s + V * s]
+        if flat:
+            corners = [Vector((p.x, p.y * flat, p.z)) for p in corners]
+        ids = []
+        for p in corners:
+            rad = Vector(p).normalized() if Vector(p).length > 1e-4 else d
+            nv = (rad * nrm_mix + nn * (1 - nrm_mix)).normalized()
+            ids.append(b.vert(tuple(p), tuple(nv)))
+        uv = ((0, 0), (1, 0), (1, 1), (0, 1))
+        b.face((ids[0], ids[1], ids[2]), (uv[0], uv[1], uv[2]))
+        b.face((ids[0], ids[2], ids[3]), (uv[0], uv[2], uv[3]))
+    b.orient_to_normals()
+    return b
+
+
+def shrub_part(name, part, seed_name, cards=16, detail=1, variant=0, **kw):
+    """ONE lobe layout per shrub family (seed_name), shared by the core and every
+    fringe variant so the cards sit on the bush they belong to; each fringe
+    variant draws its cards from its own stream. `part` picks the half."""
+    rnd = L.rng(seed_name)
+    core, lobes, k = shrub_core(rnd, detail=detail)
+    if part == "core":
+        o = core.to_object(name, "leaf")
+    else:
+        crnd = L.rng(f"{seed_name}_cards{variant}")
+        o = leaf_cards(crnd, cards, lobes, k, **kw).to_object(name, "leaf")
+    return L.join([o], name, origin=None)
+
+
+def casuarina_tier(rnd, strands=13, inner=4, segs=3):
+    """One needle TIER of a casuarina, in THREE.ConeGeometry(.5, 1, 10)'s exact
+    envelope (radius .5 at y −.5, apex at y +.5, centred) because campus.js
+    scales each tier (wf, hf, wf) through that cone's matrix.
+
+    A casuarina tier is not a cone: it is a spray of fine needle curtains that
+    hang from the branch and fan out, so the tier is `strands` curved RIBBONS
+    that leave the axis near the apex, arc out and droop to the rim, plus
+    `inner` shorter ones inside them — each a strip of casuarina.webp with the
+    image's dense top at the attachment (v = 1) and its wispy strand ends at
+    the hanging tip (v = 0), a random u-window so no two ribbons repeat. No
+    base cap: the cone's cap sampled the whole map as a flat disc — the grey
+    "saucers" stuck on every trunk in the before shots. Normals out-and-down
+    (the palm crown's measured rule, KAN-208 wave 2)."""
+    b = Buf()
+    GA = math.radians(137.508)
+    specs = [(1.0, 1.0)] * strands + [(.62, .8)] * inner
+    for i, (reach, drop) in enumerate(specs):
+        az = i * GA + rnd.uniform(-.2, .2)
+        d = Vector((math.cos(az), 0, math.sin(az)))
+        side = Vector((-d.z, 0, d.x))
+        y0 = .5 - rnd.uniform(0, .18) - (0 if reach == 1 else .12)
+        rr = .5 * reach * rnd.uniform(.86, 1.05)
+        yb = -.5 * drop + rnd.uniform(-.04, .06)
+        hw = rnd.uniform(.11, .16) * (1 if reach == 1 else .8)
+        u0 = rnd.uniform(0, .7)
+        uw = rnd.uniform(.22, .3)
+        rows = []
+        for j in range(segs + 1):
+            t = j / segs
+            # out quickly, then hang: radius ~ sqrt(t), height ~ linear w/ sag
+            r = rr * (t ** .6)
+            y = y0 + (yb - y0) * (t ** 1.3)
+            pc = d * r + Vector((0, y, 0))
+            w = hw * (.45 + .55 * t)                 # the curtain widens as it falls
+            n = (d * 1.0 + Vector((0, -.35, 0))).normalized()
+            v = 1 - t
+            rows.append((b.vert(tuple(pc - side * w), tuple(n)), b.vert(tuple(pc + side * w), tuple(n)), v))
+        for j in range(segs):
+            (a0, a1, va), (b0, b1, vb) = rows[j], rows[j + 1]
+            b.face((a0, b0, b1, a1), ((u0, va), (u0, vb), (u0 + uw, vb), (u0 + uw, va)))
+    b.orient_to_normals()
+    return b

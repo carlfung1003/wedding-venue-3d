@@ -640,6 +640,10 @@ def install(name, spec):
         args = [sys.executable, KEY, raw, dest, "--max", str(spec.get("max", 2048))]
         if post == "key-magenta":
             args += ["--mode", "magenta", "--bleed", str(spec.get("bleed", 12))]
+        elif spec.get("bleed"):
+            # a foliage card keyed off any other backdrop (the cobalt `flat` plate of
+            # boug_leaf_card, KAN-208 wave 4) needs the same mip insurance
+            args += ["--bleed", str(spec["bleed"])]
         for k in ("tol", "soft", "despill", "pad"):
             if k in spec:
                 args += [f"--{k}", str(spec[k])]
@@ -652,6 +656,20 @@ def install(name, spec):
         if spec.get("erode"):
             args += ["--erode", str(spec["erode"])]
         print("  " + run(args).replace("\n", "\n  "))
+        if spec.get("drop_backdrop_hue") == "blue":
+            # KAN-208 wave 4 (boug_leaf_card): the flat key clears the lit cobalt, but
+            # the backdrop SHADOWED between leaves is a darker blue the distance key
+            # cannot reach without eating the dark leaves. Nothing on a bougainvillea
+            # is blue-dominant, so drop those pixels outright and re-bleed.
+            sys.path.insert(0, str(Path(KEY).parent))
+            import chroma_key as _ck
+            a = np.asarray(Image.open(dest).convert("RGBA")).copy()
+            r_, g_, b_ = (a[..., i].astype(np.int16) for i in range(3))
+            blue = (b_ > g_ + 12) & (b_ > r_ + 12)
+            a[..., 3][blue] = 0
+            a = _ck.bleed_rgb(a, int(spec.get("bleed", 12)))
+            _ck.save(Image.fromarray(a), dest)
+            print(f"  dropped {int(blue.sum())} blue-dominant px")
         checker_preview(Image.open(dest), RAW / f"{name}.check.png")
         return
 

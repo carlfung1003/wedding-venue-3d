@@ -413,6 +413,40 @@ const VIEWS = [
     return { x: p.x + 2.6, z: p.z + 3.6, y: p.y, lookX: p.x, lookZ: p.z };
   })()` }],
   ['apron-cars', 2, { world: `({ x: 52, z: -71.5, y: 0, lookX: 60, lookZ: -78 })` }],
+
+  /* ── KAN-208 WAVE 4 — the planting wave 2 left behind: the shrub masses, the
+        ground cover, the bougainvillea, the casuarinas, the river dressing's
+        shrubs, the atrium's cloud topiary and water.js's two hedge boxes, each
+        at guest distance. Fixed coordinates (no pick()), so the SAME camera
+        stands in the before build, which has none of the new buckets. ── */
+  /* the north apron's big shrub clump beside the cars, ~5 m off */
+  ['shrubs-apron', 2, { world: `({ x: 56.2, z: -69.6, y: 0, lookX: 61.4, lookZ: -73.6 })` }],
+  ['shrubs-apron-night', 2, { world: `({ x: 56.2, z: -69.6, y: 0, lookX: 61.4, lookZ: -73.6 })` }, { night: true }],
+  /* the dune scrub + a ground-cover bed seaward of the cocktail lawn's band */
+  ['shrubs-dune', 3, { world: `(() => {
+    const c = S.enclaveToWorld(6.5, 75.6), t = S.enclaveToWorld(10.5, 80.5);
+    return { x: c.x, z: c.z, lookX: t.x, lookZ: t.z };
+  })()` }],
+  /* a ground-cover bed on the open lawn east of the grand lawn */
+  ['cover-beds', 2, { world: `(() => {
+    const c = S.enclaveToWorld(31.5, 66.5), t = S.enclaveToWorld(36.5, 71.3);
+    return { x: c.x, z: c.z, lookX: t.x, lookZ: t.z };
+  })()` }],
+  /* the bougainvillea on the planted terrace edge, from the grand lawn */
+  ['boug-terrace', 2, { world: `(() => {
+    const c = S.enclaveToWorld(-20.5, 28.4), t = S.enclaveToWorld(-24.0, 22.5);
+    return { x: c.x, z: c.z, lookX: t.x, lookZ: t.z };
+  })()` }],
+  /* the sea band's casuarinas from the beachfront lawn, ~7 m back */
+  ['casuarina-band', 2, [-8.5, 71.2, Math.PI]],
+  ['casuarina-band-night', 5, [-8.5, 71.2, Math.PI]],
+  /* the atrium courtyard's cloud-pruned topiary between the ponds */
+  ['atrium-topiary', 2, { world: `({ x: 6.9, z: 81.2, lookX: 11.2, lookZ: 76.6 })` }],
+  /* water.js's hedge across the hero pool's SOUTH end, from the grand lawn */
+  ['pool-hedge-south', 2, { world: `(() => {
+    const c = S.enclaveToWorld(-6.5, 25.9), t = S.enclaveToWorld(3.5, 24.3);
+    return { x: c.x, z: c.z, lookX: t.x, lookZ: t.z };
+  })()` }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 

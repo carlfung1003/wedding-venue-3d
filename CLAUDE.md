@@ -26,6 +26,7 @@ own coordinates. Change the layout there, never in a builder.
 | `js/world.js` | **The integrator.** Builds nothing itself: calls each builder in order, owns `floorY(x,z)` (delegates to `siteFloorY`), owns the day↔night fan-out (`setNight`/`toggleNight`), and runs `G.tickers` each frame. |
 | `js/sky.js` | Sky dome (day + night gradients), sun/moon, stars, fog, and the whole global lighting rig |
 | `js/nature.js` | Ground, beach, animated ocean, the palm population, hedges, topiary, bougainvillea |
+| `js/foliage.js` | (KAN-208 wave 4) the understory's shared leaf-card materials (`leafMat('shrub'|'boug')`), `protoGeo()` (a GLB prototype, optionally a scaled clone) and `fringeFor()` (a leaf-card bucket on a core bucket's matrices) — used by nature.js, water.js, campus.js and atrium.js |
 | `js/water.js` | The hero pool (raised plinth, infinity edge, caustics), **the floating lanterns**, the deck + turf + "THE WESTIN" letters, cabana pavilions, loungers, lounge pool, lagoon, villa plunge pools |
 | `js/campus.js` | The entrance pavilion (the 酒廊 at grade + the check-in lobby above), the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), **the grass ground** (`buildGrassGround` — the mown lawn panels, the spine + cross paths, the planted terrace edge, the fire pit), event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
 | `js/atrium.js` | The clubhouse's central courtyard AND its corridor — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, and the **ten real guest-room doors** (`buildRoomDoor`) with their lit number plaques |
@@ -590,12 +591,110 @@ unchanged — the seeded stream did not move (nothing new draws `rnd()`).
    `carBodyGlbI`, `carGlassGlbI`, `carTrimGlbI`, `carRimGlbI`, each bound once
    in `parkedCar()` — not re-run with a script this wave.
 
+### KAN-208 WAVE 4 — THE UNDERSTORY: SHRUBS, COVER, BOUGAINVILLEA, CASUARINAS, ATRIUM, POOL HEDGES (2026-09-25)
+
+Shots: before `reference/photos/shots-wave4-before/` (the HEAD worktree on :8811),
+after `shots-wave4/` — 72 views, the 63 of wave 3 plus nine: `shrubs-apron`
+(+`-night`), `shrubs-dune`, `cover-beds`, `boug-terrace`, `casuarina-band`
+(+`-night`, the After Party), `atrium-topiary`, `pool-hedge-south`. They use
+fixed coordinates (no `pick()`), so the same camera stands in the old build.
+**Read ASSET_SPEC Group J** and `js/foliage.js`'s banner.
+
+**The move: CORE + FRINGE.** Every blob bucket keeps its matrices, instance
+colours, material and rnd() draws and only swaps its prototype (the CORE:
+`shrub_core`, five lobes, the same 80 tris; `cover_core`, the same 20). The
+silhouette is a NEW bucket fed the very same matrices (`fringeFor()`): 16
+alpha-cut leaf-clump cards (`shrub_fringe` / `_b`, alternating by index; 10
+near-level ones for the cover, which is squashed ~5× in y) on `leafMat()` —
+a generated leaf clump (`shrub_leaf.webp`, magenta-keyed; `boug_leaf.webp`,
+shot on COBALT and keyed `--mode flat` because the bracts ARE magenta). The
+fringe casts no shadow and has NO instance colour, on purpose: instanced + map
++ alphaTest + DoubleSide without instancingColor is the palm fronds' / the
+casuarinas' existing program. Colour it per instance and three compiles two
+new programs.
+
+| item | what changed | tris (was) |
+|---|---|---|
+| shrub masses (nature, 825 incl. dune scrub) | `shrub_core` + fringe a/b (413 + 412) on `leafMat('shrub')` | 80 + 32 (80) |
+| ground cover (nature, 350) | `cover_core` + `cover_fringe` | 20 + 20 (20) |
+| bougainvillea (nature 19; campus `bougain` 13, `bougI` 2, `subBougI` 9) | `shrub_core` (campus: a .5 clone — UNIT_BLOB is r .5) + fringe on `leafMat('boug')`; the CAMPUS core also trades flat-shaded `MAT.bougain` (a solid pink ball; shared with the band's guitarist, so not changed) for a boug.webp photo material | 80 + 32 (80) |
+| river-dressing shrubs (water, 263) | `shrub_core` + fringe; `plantM` gains shrub.webp (lands on nature's MAT.shrub program) at an exposure of 7 so the authored PALETTE × photo keeps the palette's brightness | 80 + 32 (80) |
+| casuarinas (campus `casuLeafI`, 18 tiers) | ⚠ the map WAS applied — casuarina.webp was a grey-sage (opaque mean 109,111,97) with magenta spill, installed without a balance. `regrade_foliage.py` despills and balances it to `#44583a`. Geometry: `casuarina_tier` — 17 drooping needle curtains in the cone's envelope, no base cap (the cap sampled the whole map as a flat disc: the grey "saucers" on every trunk) | 102 (20) |
+| atrium cloud topiary (14 plants) | each cloud is `topiary_ball` × its diameter on hedge.webp (repeat 1 × 1, a canvas stand-in from the start), four clipped-green tints for the four flat greens, same rnd() pick | 300 / cloud (80) |
+| atrium pond-edge broad-leaf clusters (7) | not asked for, but next to the new topiary they were the last flat pale spheres: now an INSTANCED `shrub_core` bucket per cluster (so its fringe can ride the instanced leaf program) + fringe, children of the swaying group; shrub.webp in two greens | 80 + 32 (56) |
+| water.js hedges (pool south end, pavilion run) | `hedgeRunX()`: `hedge_run` cells (~2 m, 6 cm overlap) merged into ONE Mesh on MAT.hedge — same draw call — and MAT.hedge now wears hedge.webp (repeat 2 × 1) in nature's mean hedge tint | 236 / cell (12 / box) |
+
+| 72 views | before | after |
+|---|---|---|
+| triangles (sum) | 42,584,717 | 45,516,957 (**+6.9 %**; +0…+65k a view, mean +41k) |
+| draw calls (sum) | 21,628 | 22,185 (+557; 0…+18 a view) |
+| shader programs | 115 | **113 at every view, day and night** (⚠ 1) |
+| colliders / feet / night flags | | identical at all 72 views; `colliderHash 026674019d51` (10,797) both |
+| lights (guest journey) | 40 / 12 | 40 / 12 |
+| guest journey | | 0 stalls, every beat, `ERRORS []` |
+
+The +41k is almost all the fringe on the campus-wide buckets (825 × 32 +
+263 × 32 + 350 × 20 ≈ 42k), drawn wherever any shrub is on screen (one
+bounding sphere per InstancedMesh, never culled per instance). fps: vsync 120
+where it was; A/B reruns at the uncapped views (belt crowns, arrival court,
+swim-up bar, island-bar thatch, after-party festoon, brunch spawn) are inside
+the ±5 % noise except the arrival court / swim-up bar, which read ~−4 % on
+some runs (alpha-tested overdraw), not isolated further.
+
+**Scatter proof** (`tools/scatter-probe.mjs`): before `allMatrixHash
+bd5620632a1c` (wave 3's own), after `85493acb365f` — as it must be, 27 new
+buckets. Matched per InstancedMesh: **all 293 old buckets have byte-identical
+matrices and instance colours**; the only differences are prototype tris
+(`casuLeafI` 20 → 102; the blobs 80 → 80 / 20 → 20 with new geometry) and
+five buckets gaining a map (`river` plants, `bougain`, `bougI`, `subBougI`,
+and `casuLeafI` already had one). The new buckets are 13 fringes (nature
+shrub a/b, cover, boug a/b; river a/b; campus bougain / bougI / subBougI a/b)
+and the atrium's 7 cluster cores + 7 fringes. A runtime check (every fringe's
+matrix k == its core's matrix `v + k·n`, AFTER world.js's enclave cull and
+water.js's river cull) passes for all 20 fringes: both culls sweep
+`root.children`, so a collapsed shrub collapses in both buckets.
+
+⚠ **What this wave learned:**
+1. **Programs went 115 → 113, and that is a REMOVAL.** The atrium's flat-shaded
+   colour foliage (`foliageMats` / `leafMat`, `flatShading: true`, non-instanced)
+   was the only user of that program pair (main + mirror colour space); nothing
+   draws it now. Verified by decoding `renderer.info.programs` cache keys before
+   and after: the ONLY difference is those two. If 115 reappears, something is
+   flat-shading a plain mesh again.
+2. **A leaf card that needs per-instance colour cannot share the frond
+   program.** That is why the tint lives on the core and the card textures are
+   graded (and `leafMat` carries a slight warm-green day colour).
+3. **Decode `program.cacheKey` before designing a material**: the two trailing
+   integers are three's two boolean masks (instancing = bit 1, instancingColor
+   = bit 2, alphaTest = bit 10 of the first; flatShading = bit 2, doubleSided =
+   bit 11 of the second). That is how the fringe was placed on an existing
+   program instead of discovered afterwards.
+4. **A bougainvillea cannot be shot on magenta**, and on green its leaves key
+   out. A flat cobalt backdrop + `--mode flat` works, but the backdrop SHADOWED
+   between the leaves is a darker blue the distance key cannot clear without
+   eating dark leaves — `gen_art.py`'s new `drop_backdrop_hue: "blue"` drops
+   blue-dominant texels after the key and re-bleeds.
+5. `casuarina.webp` had no raw plate and no manifest entry, so gen_art cannot
+   re-install it; `assets/blender/regrade_foliage.py` grades a keyed RGBA map
+   in place (despill + opaque-mean balance, alpha untouched). Re-run it only on
+   the ORIGINAL file (git show 9c9331a:assets/textures/casuarina.webp).
+6. The before shot of a view that is REFRAMED after the full before-run is
+   stale: `pool-hedge-south` was re-shot alone on :8811 and merged into
+   `shots-wave4-before/stats.json` (noted in the file).
+7. Only the six new GLBs were exported (each within TRIS, 1 mesh / 1 primitive /
+   1 material); manifest 91 entries. The campus key census is unchanged — the
+   fringes are born in `flushBuckets`, never through `inst()`.
+
 ### Not in this pass (next)
 
-(Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above.) The
-shrub / bougainvillea / ground-cover blobs and the river dressing's planting;
-water.js's two pool hedge boxes; the atrium's cloud topiary; every other
-`nature.js`/`water.js`/`campus.js` object; (the welcome board's frame, the
+(Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above; the
+shrub / bougainvillea / ground-cover blobs, the river dressing's shrubs, the
+casuarinas, the atrium's topiary + pond-edge clusters and water.js's two hedge
+boxes: KAN-208 wave 4, above.) Still primitive planting: the two SHADE TREES'
+crowns (water.js `shadeTree`, four flat-green icosahedra — the big green dome
+in the lagoon views), campus.js's sea-band `crotonI` (flat orange blobs) and
+`agaveI` rosettes (pale cones);
+every other `nature.js`/`water.js`/`campus.js` object; (the welcome board's frame, the
 cocktail glassware, the pearl swags, the festoon and the parked cars: done in
 KAN-208 wave 3, above); the check-in staff / human figures; the festoon cable as
 real geometry (still 1-px lines — a 6 mm tube is sub-pixel at 5 m); the far

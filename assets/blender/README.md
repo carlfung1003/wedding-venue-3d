@@ -48,6 +48,8 @@ $B --background --factory-startup --python assets/blender/export_all.py    # [--
 $B --background --factory-startup --python assets/blender/preview_all.py   # [-- names] [turn=4]
 node tools/shoot-models.mjs                            # [names...]  NIGHT=1 for the night rig
 python3 ~/blender-assets/scripts/verify_glb.py assets/models/<name>.glb   # one mesh, one material?
+# re-grade an already-keyed RGBA foliage map in place (despill + opaque-mean balance; KAN-208 wave 4)
+python3 assets/blender/regrade_foliage.py assets/textures/<map>.webp "#44583a"
 ```
 
 `export_all.py` exits 1 (after exporting everything it can) when a GLB exceeds its

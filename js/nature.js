@@ -49,6 +49,7 @@ import { mulberry32 } from './materials.js';
    blender/generators/palm_*.py, hedge_run.py) — GEOMETRY ONLY. The materials,
    the photographic maps, the scatter and every rnd() draw stay here. main.js
    awaits models.preload() before buildWorld, so geometry() is ready. */
+import { leafMat, protoGeo, fringeFor, setFoliageNight } from './foliage.js';
 import * as models from './models.js';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -1576,8 +1577,14 @@ function buildUnderstory(G, blocked, enc) {
   }
 
   MAT.shrub = new THREE.MeshStandardMaterial({ map: shrubTex(), roughness: .9, metalness: 0 });
+  /* KAN-208 wave 4: the prototype is Blender's `shrub_core` (five lobes, the
+     same 80 tris) and the silhouette is a FRINGE bucket of leaf-clump cards on
+     the same matrices, added below. blobGeo draws from its OWN mulberry32, not
+     from `rnd`, so building it or not moves nothing; it stays as the fallback. */
   const sgeo = blobGeo(mulberry32(NAT.SEEDS.plant + 3), 1, .5);
-  const shrub = new THREE.InstancedMesh(sgeo, MAT.shrub, Math.max(1, shrubs.length));
+  const sCore = protoGeo('shrub_core');
+  if (sCore) sgeo.dispose();
+  const shrub = new THREE.InstancedMesh(sCore || sgeo, MAT.shrub, Math.max(1, shrubs.length));
   shrub.castShadow = shrub.receiveShadow = true;
   shrubs.forEach((s, i) => {
     const y = siteFloorY(s.x, s.z);
@@ -1600,6 +1607,10 @@ function buildUnderstory(G, blocked, enc) {
   if (shrub.instanceColor) shrub.instanceColor.needsUpdate = true;
   shrub.computeBoundingSphere();
   root.add(shrub);
+  /* the leaf-clump fringe: two card layouts alternating by index. It sits on
+     the nature root beside the core, so world.js's enclave cull and water.js's
+     river cull (both sweep root.children) collapse the same instances in both. */
+  fringeFor(shrub, ['shrub_fringe', 'shrub_fringe_b'], leafMat('shrub'), root, 'nature:shrubFringe');
 
   /* ── bougainvillea — a SPARSE ACCENT, not a hedge ──────────────────────
      This used to place 128 mounds at up to 1.9× scale and the aerial read as
@@ -1658,7 +1669,9 @@ function buildUnderstory(G, blocked, enc) {
 
   MAT.boug = new THREE.MeshStandardMaterial({ map: bougTex(), roughness: .86, metalness: 0 });
   const bgeo = blobGeo(mulberry32(NAT.SEEDS.plant + 5), 1, .42);
-  const boug = new THREE.InstancedMesh(bgeo, MAT.boug, bougs.length);
+  const bCore = protoGeo('shrub_core');              // wave 4 — see the shrubs
+  if (bCore) bgeo.dispose();
+  const boug = new THREE.InstancedMesh(bCore || bgeo, MAT.boug, bougs.length);
   boug.castShadow = boug.receiveShadow = true;
   bougs.forEach((b, i) => {
     /* ground height is a WORLD function — sample it at the mapped position,
@@ -1678,6 +1691,9 @@ function buildUnderstory(G, blocked, enc) {
   if (boug.instanceColor) boug.instanceColor.needsUpdate = true;
   boug.computeBoundingSphere();
   enc.add(boug);                     // enclave-local — rides the group transform
+  /* pink bract cards over the pink-photo core (boug_leaf.webp keeps its pink:
+     it was shot on cobalt, never magenta) */
+  fringeFor(boug, ['shrub_fringe', 'shrub_fringe_b'], leafMat('boug'), enc, 'nature:bougFringe');
 
   /* ── low ground-cover beds — GLOBAL, same rules as the shrubs ─────── */
   const cover = [];
@@ -1696,7 +1712,9 @@ function buildUnderstory(G, blocked, enc) {
   }
   MAT.cover = new THREE.MeshStandardMaterial({ map: shrubTex(), roughness: .95, metalness: 0 });
   const cgeo = blobGeo(mulberry32(NAT.SEEDS.plant + 8), 0, .55);
-  const covr = new THREE.InstancedMesh(cgeo, MAT.cover, Math.max(1, cover.length));
+  const cCore = protoGeo('cover_core');              // wave 4 — same 20 tris
+  if (cCore) cgeo.dispose();
+  const covr = new THREE.InstancedMesh(cCore || cgeo, MAT.cover, Math.max(1, cover.length));
   covr.receiveShadow = true;
   cover.forEach((c2, i) => {
     const y = siteFloorY(c2.x, c2.z);
@@ -1712,6 +1730,8 @@ function buildUnderstory(G, blocked, enc) {
   if (covr.instanceColor) covr.instanceColor.needsUpdate = true;
   covr.computeBoundingSphere();
   root.add(covr);
+  /* near-level leaf cards that survive the bed's ~5x y-squash (cover_fringe) */
+  fringeFor(covr, ['cover_fringe'], leafMat('shrub'), root, 'nature:coverFringe');
 
   return { hedges: segs.length, shrubs: shrubs.length, bougs: bougs.length, cover: cover.length };
 }
@@ -1844,6 +1864,7 @@ export function setNatureNight(on) {
     applyNightTo(k, MAT[k], night);
   }
   if (MAT.foam) for (const m of MAT.foam) applyNightTo('foam', m, night);
+  setFoliageNight(night);            // the leaf-card fringe (js/foliage.js)
 
   /* the macro mottle is no longer a material of its own — it is a pair of
      uniforms inside MAT.grass (see buildGround). Same numbers, same table. */

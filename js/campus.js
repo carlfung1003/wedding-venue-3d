@@ -43,6 +43,7 @@ import { mulberry32 } from './materials.js';
    furniture). ⚠ main.js awaits models.preload() BEFORE buildWorld for this —
    the buckets below are filled synchronously from models.geometry()/material()
    while the roof is being built, exactly as moments.js fills its own. */
+import { leafMat, protoGeo, fringeFor } from './foliage.js';
 import * as models from './models.js';
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -1543,11 +1544,48 @@ const HEDGE_PROTO = {
   hedgeBlobI: 'hedge_mass',
   topiaryI: 'topiary_ball', spTopiaryI: 'topiary_ball',
 };
+/* ── KAN-208 wave 4: the casuarina tiers and the villa-wall bougainvillea ─────
+   Same move, same place. `casuLeafI` takes `casuarina_tier` (drooping needle
+   curtains in ConeGeometry(.5, 1)'s exact envelope, no base cap); the three
+   bougainvillea keys take `shrub_core` at .5 (UNIT_BLOB is radius .5, the GLB
+   radius 1) and gain a leaf-card FRINGE bucket on the same matrices
+   (js/foliage.js — boug_leaf.webp, the palm fronds' program, no instance
+   colour). The fringe is not a BUCKETS key: it is born here from the finished
+   bucket, so the census is unchanged, and world.js relocates its instances
+   one by one exactly as it does the core's (same positions, same verdict). */
+const WAVE4_PROTO = {
+  casuLeafI: ['casuarina_tier', 1],
+  bougain: ['shrub_core', .5], bougI: ['shrub_core', .5], subBougI: ['shrub_core', .5],
+};
+const WAVE4_FRINGE = { bougain: 'boug', bougI: 'boug', subBougI: 'boug' };
+/* …and the bougainvillea CORE trades MAT.bougain (a flat-shaded solid pink —
+   under the cards it still read as a pink plastic ball, and it is shared with
+   the band's guitarist, so it is not ours to change) for nature.js's own
+   bougainvillea photograph, boug.webp, on a white base. Instanced + map, no
+   instance colour: a program the hedge buckets already compile. Built with a
+   canvas map from the start (photoTex's rule), once, lazily inside buildWorld
+   so tint() registers it after the night registry reset. */
+let _bougPhotoMat = null;
+function bougPhotoMat() {
+  if (!_bougPhotoMat) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 4;
+    const c = cv.getContext('2d'); c.fillStyle = '#6a3048'; c.fillRect(0, 0, 4, 4);
+    const t = new THREE.CanvasTexture(cv);
+    t.colorSpace = THREE.SRGBColorSpace;
+    _bougPhotoMat = tint(new THREE.MeshStandardMaterial({ color: 0xffffff, map: t, roughness: .88 }), 0x6b5878);
+    photoTex(_bougPhotoMat, 'boug.webp', [2, 2]);
+  }
+  return _bougPhotoMat;
+}
 function flushBuckets(parent) {
   for (const [key, b] of BUCKETS) {
     if (!b.ms.length) continue;
     const proto = HEDGE_PROTO[key];
     if (proto && models.has(proto) && models.geometry(proto)) b.geo = models.geometry(proto);
+    const p4 = WAVE4_PROTO[key], g4 = p4 && protoGeo(p4[0], p4[1]);
+    if (g4) b.geo = g4;
+    if (g4 && WAVE4_FRINGE[key]) b.mat = bougPhotoMat();
     const im = new THREE.InstancedMesh(b.geo, b.mat, b.ms.length);
     im.name = 'campus:' + key;
     for (let i = 0; i < b.ms.length; i++) {
@@ -1558,6 +1596,10 @@ function flushBuckets(parent) {
     if (im.instanceColor) im.instanceColor.needsUpdate = true;
     im.computeBoundingSphere();
     parent.add(im);
+    if (g4 && WAVE4_FRINGE[key]) {
+      fringeFor(im, ['shrub_fringe', 'shrub_fringe_b'], leafMat(WAVE4_FRINGE[key]), parent,
+        'campus:' + key + 'Fringe', .5);
+    }
   }
   BUCKETS.clear();
 }
