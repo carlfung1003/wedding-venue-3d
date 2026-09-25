@@ -1,0 +1,17 @@
+{
+  "bytes": 58928,
+  "front": "-Z",
+  "material": "cocktail_drinks",
+  "min": [
+    -0.98,
+    0.013,
+    -0.648
+  ],
+  "origin": "base",
+  "size": [
+    1.844,
+    0.29,
+    0.502
+  ],
+  "tris": 4032
+}

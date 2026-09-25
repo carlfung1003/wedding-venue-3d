@@ -1,0 +1,17 @@
+{
+  "bytes": 12804,
+  "front": "-Z",
+  "material": "welcome_board_frame",
+  "min": [
+    -0.67,
+    0.0,
+    -0.192
+  ],
+  "origin": "floor",
+  "size": [
+    1.34,
+    2.07,
+    0.44
+  ],
+  "tris": 740
+}

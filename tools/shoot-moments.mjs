@@ -376,6 +376,43 @@ const VIEWS = [
     const f = S.enclaveToWorld((AR.fore.x0 + AR.fore.x1) / 2, (AR.fore.z0 + AR.fore.z1) / 2);
     return { x: c.x, z: c.z, y: AR.terraceY, lookX: f.x, lookZ: f.z };
   })()` }],
+
+  /* ── KAN-208 WAVE 3 — the wedding/arrival props: the welcome board, the
+        cocktail glassware, the pearl swags, the festoon, the parked cars.
+        A 4th element { night: true } flips the lighting AFTER setMoment (the
+        cocktail is a daylight moment; its glassware and festoon are also
+        judged after dark). ── */
+  /* the welcome board, ~3.6 m in front of its face (moments.js: sx = AX + 5.45
+     = −16.55, sz 66.8, rotation.y −2.44 → its face looks (−.645, −.764)) */
+  ['welcome-board', 2, [-16.55 - .645 * 2.5, 66.8 - .764 * 2.5, -2.44]],
+  /* the round bar's glassware at a guest's elbow: bar frame(4, 68, 0), the
+     four rows sit at local z −.2…−.55, i.e. the side facing this camera */
+  ['cocktail-glassware', 3, [4.15, 66.05, Math.PI]],
+  ['cocktail-glassware-night', 3, [4.15, 66.05, Math.PI], { night: true }],
+  /* the festoon over the cocktail lawn — three pole-to-pole runs */
+  ['cocktail-festoon', 3, [4, 56.6, Math.PI]],
+  ['cocktail-festoon-night', 3, [4, 56.6, Math.PI], { night: true }],
+  /* the pearl swags between the two tall plinths, 2.6 m off, from +X */
+  ['ceremony-pearls', 2, [-28.2, 63.6, Math.PI / 2]],
+  /* the dinner lawn's festoon lattice + the prewedding / after-party runs */
+  ['dinner-festoon', 4, [-17, -3, Math.PI * .92]],
+  ['setup-festoon', 1, [-1, -5.2, 0]],
+  ['afterparty-festoon', 5, [2, -5.4, 0]],
+  /* the arrival court's parked cars from the court, ~6 m off their noses */
+  ['arrival-cars', 2, { world: `(() => {
+    const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(57.2, -7.2);
+    const f = S.enclaveToWorld(62.3, AR.stalls.z0 + 1.2 * AR.stalls.pitch);
+    return { x: c.x, z: c.z, y: AR.terraceY, lookX: f.x, lookZ: f.z };
+  })()` }],
+  /* the north apron's row of twelve, from the road */
+  /* one court car at 3.5 m, three-quarter front (the body bucket's instance
+     13 is the arrival court's first car — pick() follows the live bucket) */
+  ['car-close', 2, { world: `(() => {
+    const p = pick('campus:carBodyGlbI', 13) || pick('campus:carI', 52);
+    return { x: p.x + 2.6, z: p.z + 3.6, y: p.y, lookX: p.x, lookZ: p.z };
+  })()` }],
+  ['apron-cars', 2, { world: `({ x: 52, z: -71.5, y: 0, lookX: 60, lookZ: -78 })` }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 
@@ -397,14 +434,18 @@ const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
   await page.waitForTimeout(800);
 
   const stats = [];
-  for (const [name, mi, pos] of VIEWS) {
+  for (const [name, mi, pos, opt] of VIEWS) {
     if (ONLY && !ONLY.has(name)) continue;
-    const s = await page.evaluate(async ([mi, pos]) => {
+    const s = await page.evaluate(async ([mi, pos, opt]) => {
       const g = window.__game, G = g.G;
       const P = await import('./js/player.js');
       const S = await import('./js/site.js');
       const { CFG } = await import('./js/config.js');
       g.setMoment(mi);
+      /* always re-assert the lighting: setMoment early-returns on the current
+         index, so a { night } view would otherwise leak into the next view */
+      (await import('./js/world.js')).setNight(G,
+        opt && opt.night !== undefined ? opt.night : !!CFG.MOMENTS[mi].night);
       for (let i = 0; i < 6; i++) P.updatePlayer(G, 1 / 60);
       if (Array.isArray(pos)) {
         const w = S.enclaveToWorld(pos[0], pos[1]);
@@ -449,7 +490,7 @@ const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
         night: !!G.night, colliders: G.colliders.length,
         feet: +(G.player.pos.y - CFG.EYE_HEIGHT).toFixed(3),
       };
-    }, [mi, pos]);
+    }, [mi, pos, opt]);
     await page.screenshot({ path: `${OUT}${name}.png` });
     stats.push({ view: name, ...s });
     console.log(name.padEnd(24), JSON.stringify(s));

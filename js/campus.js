@@ -5304,6 +5304,9 @@ function roofColliders(G, acx, acz) {
    ════════════════════════════════════════════════════════════════════════ */
 const CAR_PALETTE = [0x1c1f24, 0xd8d9dc, 0x8d9299, 0x2a3a52, 0x6d1f22, 0xe4e2dc, 0x3c4046];
 const _carCol = new THREE.Color();
+const CAR_RIM = new THREE.Color(0xb4b9bf);
+const haveCar = () => have('parked_car') && have('parked_car_glass')
+  && have('parked_car_trim') && have('parked_car_rims');
 function parkedCar(cx, cz, yaw, hex, baseY = 0) {
   /* local (lx, lz) → world, for a body yawed by `yaw`: local +X is
      (cos, 0, −sin) and local +Z is (sin, 0, cos) — the same basis every
@@ -5319,6 +5322,29 @@ function parkedCar(cx, cz, yaw, hex, baseY = 0) {
     inst(key, key === 'carWheelI' ? UNIT_CYL : UNIT_BOX, mat,
       mat4(PX(lx, lz), baseY + y, PZ(lx, lz), sx, sy, sz, yaw, 0, rz), col);
 
+  /* ── KAN-208 wave 3: the Blender saloon, GEOMETRY ONLY ────────────────────
+     Four GLBs in ONE frame (ASSET_SPEC Group I, generators/parked_car.py),
+     each on the campus material it replaces, so no program is added and the
+     per-instance body tint rides MAT.car exactly as before. Front is local +Z,
+     which is the chair-family exception the old boxes already used. The lamps
+     ride the rims GLB (silver) and the tail lamps stay our own carI boxes. Draws NO rnd() — the caller drew the colour. */
+  if (haveCar()) {
+    const m = mat4(cx, baseY, cz, 1, 1, 1, yaw);
+    inst('carBodyGlbI', models.geometry('parked_car'), MAT.car, m, body);
+    inst('carGlassGlbI', models.geometry('parked_car_glass'), MAT.carGlass, m);
+    inst('carTrimGlbI', models.geometry('parked_car_trim'), MAT.dark, m);
+    inst('carRimGlbI', models.geometry('parked_car_rims'), MAT.car, m, CAR_RIM);
+    /* the head-lamp lenses are IN parked_car_rims: a separate instance 2.2 m
+       ahead of the centre crosses world.js's per-instance isEnclaveLocal line
+       (z −77.4) on the north apron and gets rotated onto the lawn — which is
+       what the old boxes' bonnets, A-pillars and head lamps were doing. The
+       tail lamps sit behind the centre, on the world side of that line. */
+    for (const lx of [.58, -.58]) {
+      put('carI', MAT.car, lx, .87, -2.165, .36, .10, .06,
+        _carCol.setHex(0x8c1f18).clone());                          // tail lamps
+    }
+    return;
+  }
   // four wheels on two axles
   for (const lz of [1.34, -1.34]) for (const lx of [.80, -.80]) {
     put('carWheelI', MAT.dark, lx, .33, lz, .66, .24, .66, null, Math.PI / 2);

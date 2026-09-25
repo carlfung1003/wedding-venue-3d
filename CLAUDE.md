@@ -505,14 +505,103 @@ ground-cover blobs, the atrium's cloud topiary, the casuarinas.
    there, so it is most likely a palm/hedge bucket whose larger prototype bounds
    now cross the SHADOW camera — not isolated further.
 
+### KAN-208 WAVE 3 — WELCOME BOARD, COCKTAIL GLASSWARE, PEARLS, FESTOON, CARS (2026-09-25)
+
+Shots: before `reference/photos/shots-wave3-before/` (the HEAD worktree on :8811),
+after `shots-wave3/` — 63 views, the 51 of wave 2 plus twelve new ones:
+`welcome-board`, `cocktail-glassware` (+`-night`), `cocktail-festoon` (+`-night`),
+`ceremony-pearls`, `dinner-festoon`, `setup-festoon`, `afterparty-festoon`,
+`arrival-cars`, `car-close`, `apron-cars`. `shoot-moments.mjs` views take a 4th
+element `{ night: true }`, and EVERY view now re-asserts its moment's own
+lighting after `setMoment` (which early-returns on the current index, so a
+night view would otherwise leak into the next one). **Read ASSET_SPEC Group I.**
+
+| item | what changed | tris |
+|---|---|---|
+| welcome board | `welcome_board_frame` GLB (baked): an OAK moulding on the board's own Bézier outline + a white plinth foot, placed with the board's own transform — position (AX + 5.45, 66.8) and yaw −2.44 untouched (decor trap 3). Board, art plate and lettering stay ours; "Welcome" is now FITTED to 372 px (at a fixed 104 px it lost its W and e to the arch). "Carl & Rachel" unchanged. | +740 |
+| cocktail glassware | `cocktail_glassware` (GEOMETRY ONLY, on our `glassPale` via the new `K.mdlAs(name, mat)` bucket) + `cocktail_drinks` (baked): wine glasses / tulips / 10-facet highballs / rocks tumblers with real walls; liquids, coconut foam, ice, grapefruit + rosemary, mint + passion fruit, orange twists. Same fifteen positions. No transmission anywhere. | 5,696 + 4,032 |
+| pearl swags | PROCEDURAL, kept: arc-length strands at 2.6 cm pitch, 2.2 cm icosahedron pearls (`G_PEARL`, new `pearlS` bucket on `pearlM`), ~1,065 pearls, one call | 162 × 8 → 1,065 × 20 |
+| festoon | PROCEDURAL, kept: drop + dark socket (K.dark) + a real globe bulb (`G_BULB`, 48 tris) on the same always-emissive `bulb`; the three `stringLights()` sites (prewedding, cocktail, after party: 174 plain Meshes, no cable) are `festoon()` runs with the cable; `stringLights` deleted | — |
+| cars | `parked_car` + `_glass` + `_trim` + `_rims` (GEOMETRY ONLY on MAT.car tinted / MAT.carGlass / MAT.dark / MAT.car silver), one `mat4(cx, baseY, cz, 1,1,1, yaw)` per car, ALL 16 (the court's 4 + the north apron's 12 — one helper). Tail lamps stay carI boxes; head lamps are in `_rims`. Colliders untouched. | 1,612 / car (was ~200) |
+
+| 63 views | before | after |
+|---|---|---|
+| triangles (sum) | 36,703,125 | 37,588,062 (**+2.4 %**) |
+| draw calls (sum) | 20,330 | **19,855 (−475)** — `car-close` alone is −428 (its before camera stands elsewhere, ⚠ 7); cocktail views −21…−29, setup / after-party festoon −16…−21, most others +2 |
+| shader programs | 116 | **115 at every view, day and night** (⚠ 1) |
+| colliders / feet / night flags | | identical at all 63 views; `colliderHash 026674019d51` both |
+| lights (guest journey) | 40 / 12 | 40 / 12 |
+| guest journey | | 0 stalls, every beat, `ERRORS []` |
+
++19.6k tris and +2 calls at almost every view are the four campus-wide car
+buckets (InstancedMeshes: one bounding sphere, never culled per instance, never
+touched by `detailcull.js`) minus the retired carWheelI / carGlassI. fps:
+vsync-capped 120 at every view that was; A/B reruns at the uncapped ones
+(brunch-spawn, arrival-lobby-sofas) sit in the noise; `setup-festoon` read
+95.9 / 95.9 after vs 98.1 / 100.2 before (~−3 %, marginal, not isolated).
+
+**Scatter proof** (`tools/scatter-probe.mjs`): before prints wave 2's own
+`allMatrixHash a79ae12f4089`; after is `bd5620632a1c`, as it must be (new
+buckets). Matched per InstancedMesh (chain, count, matrix hash, colour hash):
+**270 of the 283 are byte-identical**, and the 13 that differ are exactly the
+intended buckets — the ceremony + cocktail pearls; the cocktail glass / rod /
+flute / flor / white buckets that held the old glassware; dinner's lamp bucket
+(now flames only) and its dark bucket; campus `darkI` (−80 = 5 parts × 16
+cars), `carI` (192 → 32), `carWheelI`, `carGlassI`. Every other bucket is
+unchanged — the seeded stream did not move (nothing new draws `rnd()`).
+
+⚠ **What this wave learned:**
+1. **Programs went 116 → 115, and that is a REMOVAL, not a leak.** The
+   non-instanced `bulb` program existed only because `stringLights()` added 174
+   plain bulb Meshes; with every run instanced it is never compiled. Nothing new
+   compiles: the glass shells ride the existing instanced `glassPale` program,
+   the car parts the existing campus materials, bulbs and pearls existing
+   materials, the two baked GLBs the shared baked-map program — so main.js's
+   warm-up needed no change. If a build ever shows 116 again, find what
+   re-introduced a plain emissive mesh.
+2. **world.js relocates campus instances ONE BY ONE by `isEnclaveLocal(x, z)`**,
+   so a multi-part prop that straddles the line is torn in half. The north
+   apron's cars sit at z ≈ −78 against the z −77.4 line: every part more than
+   ~0.6 m ahead of a car's centre (bonnet, A-pillars, mirrors, head lamps, front
+   wheels, bumper) was being rotated into the enclave and stood as a row of
+   floating car fronts on the lawn behind the cabanas — live since 2026-08-04,
+   found only because the new head lamps went missing. A one-instance GLB is
+   decided by its centre and cannot tear; the head lamps therefore live IN
+   `parked_car_rims`, never as separate carI boxes.
+3. **A frame must be a different VALUE from what it frames**: the first moulding
+   in `paint_w` vanished against the pale board; oak reads.
+4. **Liquid behind glassPale lifts ~40 % toward a cool white**: at the menu's
+   hues the drinks read peach / lime / pastel, and red-orange went SALMON (the
+   veil is blue-white). The cocktail palette keys in wv_lib.py are deliberately
+   deeper and yellower.
+5. **`bakeKit` iterates `Object.keys(K)`** — a function added to the kit
+   (`mdlAs`) must be skipped there, or `initMoments` throws (`bake` reads
+   `.rows` of a function) and the page never boots.
+6. The glass shells are ONE instance holding fifteen glasses, so three sorts them
+   as one transparent object; with FrontSide and the opaque drinks drawn first,
+   the far inner wall depth-fails behind the liquid and one glass layer veils it.
+7. `car-close` picks `campus:carBodyGlbI` instance 13, which does not exist on
+   the old build — its BEFORE shot fell back to a carI box and stands elsewhere.
+   Compare the cars with `arrival-cars` / `apron-cars`.
+8. Only the seven new GLBs were exported (each within its TRIS, 1 mesh / 1
+   primitive / 1 material); a full `export_all.py` was NOT re-run, to keep the
+   committed GLBs byte-stable. Manifest: 85 entries, 219,795 tris, 3.69 MB.
+9. The campus key census (the ONE-KEY-PER-PAIR rule) gains four keys —
+   `carBodyGlbI`, `carGlassGlbI`, `carTrimGlbI`, `carRimGlbI`, each bound once
+   in `parkedCar()` — not re-run with a script this wave.
+
 ### Not in this pass (next)
 
 (Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above.) The
 shrub / bougainvillea / ground-cover blobs and the river dressing's planting;
 water.js's two pool hedge boxes; the atrium's cloud topiary; every other
-`nature.js`/`water.js`/`campus.js` object; the welcome board (procedural + the new art plate); the cocktail glassware (tinted
-opaque liquid inside transparent glass — a bake cannot ship it); the pearl
-catenaries; adopting the tight pack and the metallic fix in the library; the
+`nature.js`/`water.js`/`campus.js` object; (the welcome board's frame, the
+cocktail glassware, the pearl swags, the festoon and the parked cars: done in
+KAN-208 wave 3, above); the check-in staff / human figures; the festoon cable as
+real geometry (still 1-px lines — a 6 mm tube is sub-pixel at 5 m); the far
+ends of the prewedding / after-party festoon runs, which still end in mid-air
+over the turf edge (dark cable in night moments — not visible in any shot, but
+not anchored either); adopting the tight pack and the metallic fix in the library; the
 viewer's hook lift; `linen_ivory`'s pressed-fold crease tiles at ~0.7 m on every
 skirt (reads as rental linen; drop the tile size if it bothers anyone).
 

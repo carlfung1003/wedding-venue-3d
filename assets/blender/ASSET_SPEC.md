@@ -335,6 +335,38 @@ flat khaki.
 Budget: **≲ 800 tris per palm** (Carl's steer for ~325 instanced palms). All
 ten GLBs are **30 KB** together.
 
+### Group I — the wedding + arrival leftovers (KAN-208 wave 3)
+
+Seven GLBs for the four still-primitive items a guest walks past: the welcome
+board's frame, the cocktail glassware, the parked cars. (The festoon and the
+pearl swags were judged and stayed PROCEDURAL — better prototypes on existing
+buckets beat a GLB at guest distance; see the bottom of this group.) Dims in the
+GAME's frame (glTF Y-up, y = height); every row carries the call site.
+
+| name | what | dims / origin / front | notes | budget |
+|---|---|---|---|---|
+| `welcome_board_frame` | the ceremony welcome board's OAK moulding (following the board's own arched outline) + a white plinth foot with a stone cap. The board, its canvas (`welcome-board-art.webp`) and its lettering ("Welcome / to our wedding / **Carl & Rachel** / 2027.03.20") stay the game's ExtrudeGeometry. | **1.34 × 2.07 × .44.** Moulding: the Shape's two cubic Béziers + two sides (`js/moments.js:1498-1513`, SW 1.14 × SH 2.02, depth .055), profile 5 cm out from the edge with a 1.2 cm inner lip, **9.1 cm deep centred on the board's mid-plane z .0275**, open at the foot. Foot 1.30 × .40 × .16 + cap 1.34 × .44 × .03 (top y .19). **Origin = the BOARD's own (0,0,0)** (`join(origin=None)`, not the bbox): x centred, y 0 at the grass, z through the board. Placed with the board's own transform: `put(K.mdl('welcome_board_frame'), sx, 0, sz, 1, [0, −2.44, 0])` at **(AX + 5.45, 66.8)** (`moments.js:1519`) — the framing constraint (CLAUDE.md decor trap 3) is untouched. | Baked, `oak` (moulding) + `paint_w` / `stone` (foot); material name = asset name. ⚠ First shot in `paint_w` vanished: white frame on a pale board. The foot hides the board's bottom 16 cm, below the date's baseline (~.43 m). | 740 / 512 / 0 |
+| `cocktail_glassware` | the fifteen glass SHELLS on the round bar, one mesh: 4 wine glasses (spritz), 3 stemmed tulips (pink), 4 ten-facet highballs, 4 heavy-based rocks tumblers — real walls (outer face, rolled rim, inner face down to the bowl floor) | **1.83 × .27 × .51.** Positions = `roundBar()`'s own arithmetic (`moments.js:1026` + the fallback loops under it), shared in `generators/_drinks.py` `POS`. Rocks Ø 9.2 × 9.5 (1.6 cm solid base); highball Ø 7.0 × 15.5; wine glass foot Ø 7.6, stem to 9.2, bowl Ø 9.2, rim 21; tulip foot Ø 7, rim 27. **Origin = the bar TOP at its centre**; placed `iput(K.mdlAs('cocktail_glassware', glassPale), 0, 1.13, 0)` in the bar's frame F. | ⚠ **GEOMETRY ONLY (`BAKE = False`)**, paired with moments.js's **`glassPale`** (transparent .45, NO transmission — "the transmission win") in the new `K.mdlAs(name, mat)` bucket; the instanced untinted glassPale program already existed (K.glass). No UVs (no map). Shading: smooth ≤ 30°, so the highball's 36° facets stay hard. | 5,696 / — / 0 |
+| `cocktail_drinks` | everything OPAQUE in and on those fifteen: the four liquids (aperol, cranberry-coconut pink, rum yellow, lychee-negroni amber), a 1.2 cm coconut-foam cap, 8 ice cubes, grapefruit half-wheels + rosemary sprigs, mint sprigs + passion-fruit halves, mint leaves + pink fruit slivers, orange twists over the rims | **1.84 × .29 × .50.** Each liquid is the solid the glass's INNER face bounds from the bowl floor to the fill line (rocks 7.0, highball 13.5, spritz 17.2, tall 22.8 cm), 1.2 mm inside the wall (the highball's inscribed in its facets ×.94). Same origin and placement as `cocktail_glassware`: `iput(K.mdl('cocktail_drinks'), 0, 1.13, 0)`. | Baked (512, AO_DIST .08). ⚠ **The liquid palette is DELIBERATELY deeper than the menu art** (`aperol e06800`, `cran_pink d84a78`, `rum_yellow d49400`, `negroni 8f2f08`): every liquid is seen through glassPale, which lifts it ~40 % toward a cool white — at the menu's own hues the first shot read peach / lime / pastel. Opaque renders first, so the colour reads THROUGH the glass. | 4,032 / 512 / 0 |
+| `parked_car` + `_glass` + `_trim` + `_rims` | a low-poly saloon in four GEOMETRY-ONLY parts, one frame: the painted shell (side-profile extrusion with real wheel arches, bevelled; roof panel, A/B/C pillars, a flank crease), the tapered greenhouse, the dark trim (bevelled tyres, underbody / arch liners, sills, valances, grille, lamp bezels, plates, mirrors), and the silver wheel faces + HEAD-LAMP lenses | **1.82 × 1.61 × 4.44** (shell; trim 2.13 wide at the mirrors, 4.50 long at the plates). Envelope = `parkedCar()`'s boxes (`js/campus.js:5310`): body 1.80 × 4.38, roof top 1.59, wheels r .33 × .23 at x ±.80, z ±1.34, bumpers z ±2.25. **Origin floor, footprint centre = parkedCar's (cx, cz)**; **front +Z** (the chair-family exception — parkedCar authors the head lamps at local +Z). Placed `mat4(cx, baseY, cz, 1, 1, 1, yaw)` (`campus.js:5331`) — NO extra rotation, both call sites (`campus.js:2708` court, yaw π/2 ± .025; `:5420` north apron, yaw ± .03). | ⚠ GEOMETRY ONLY: `MAT.car` **tinted per instance** (the CAR_PALETTE colour, bucket `carBodyGlbI`), `MAT.carGlass` (`carGlassGlbI`), `MAT.dark` (`carTrimGlbI`), `MAT.car` tinted `b4b9bf` (`carRimGlbI`). The red tail lamps stay the game's `carI` boxes. ⚠ **The head lamps are IN `_rims`**, not carI boxes: world.js relocates campus instances one by one by `isEnclaveLocal(x, z)`, and on the north apron (z ≈ −78; the line is z −77.4) anything 2.2 m ahead of a car's centre is rotated onto the enclave lawn. That was a LIVE bug: the old cars' bonnets, A-pillars, head lamps and front wheels stood as a row of floating debris on the lawn behind the cabanas. | 616 + 12 + 640 + 344 = **1,612** (was 15 boxes/cyl ≈ 200) |
+
+**The two kept procedural, on purpose** (`js/moments.js`):
+
+- **Pearl swags** (`plinthPair`, `moments.js:871`): same nine curves (y0, sag, z),
+  now walked by ARC LENGTH at a 2.6 cm pitch with a 2.2 cm icosahedron pearl
+  (`G_PEARL`, 20 tris) in a new `pearlS` bucket on `pearlM` — ~1,000 pearls, one
+  draw call. The old 18 octahedra per strand were 5 × 7 cm diamonds on one shared
+  x grid, so the nine strands lined up into vertical columns (a bead curtain). A
+  GLB would have been the same instances baked into one mesh, with no gain.
+- **Festoon** (`festoon()`, `moments.js:209`, prototype `G_BULB` at `:127`): every
+  bulb is now a 4 cm drop + a dark socket (K.dark) + a real 9 cm globe bulb
+  (`G_BULB`, a 48-tri lathe) on the SAME emissive `bulb` material — the night look
+  is unchanged (toneMapped off, glowing at every hour, as before). The three
+  `stringLights()` call sites (prewedding, cocktail, after party — bulbs as plain
+  Meshes with NO cable, 174 of them) became `festoon()` runs with the cable drawn;
+  `stringLights` is deleted. The cable stays the 1-px `LineSegments`: a tube of
+  a real cable's 6 mm is sub-pixel at 5 m and aliases away.
+
 ## What is deliberately NOT in this wave
 
 (Palms, hedges and topiary are Group H since KAN-208 wave 2 — their PROTOTYPES;
@@ -343,6 +375,6 @@ the river dressing's planting and the atrium's cloud topiary are still
 procedural.) The buildings; the
 floating lanterns and loungers in `water.js`; the campus furniture (rooftop
 four-tops, bar-room dining, check-in lobby); the welcome board (kept procedural —
-the art pass supplies a better board face); the festoon cables and bulbs; the
-cocktail glassware on the round bar (tinted opaque liquid inside transparent glass,
-which a bake cannot reproduce); pearl catenaries between the plinths.
+the art pass supplies a better board face — its frame + foot are Group I since
+wave 3); (the festoon, the cocktail glassware and the pearl catenaries are
+Group I since wave 3).

@@ -113,6 +113,23 @@ const G_DRAPE = new THREE.CylinderGeometry(1, .16, 1, 10, 1, true);
 const G_SKIRT = new THREE.CylinderGeometry(1, 1, 1, 20, 1, true);
 const G_CONE = new THREE.ConeGeometry(1, 1, 20);
 const G_FLUTE = new THREE.CylinderGeometry(1, 1, 1, 14);   // flatShading → flutes
+/* KAN-208 wave 3 — the festoon's bulb and the pearl swags' pearl, both REAL
+   size (scale 1 / a uniform radius), both on materials this file already
+   instances, so neither adds a program:
+   · G_BULB — a globe bulb with its neck, hanging DOWN from y 0 (the socket's
+     foot): a 9 cm globe centred 6.5 cm under the socket. 48 tris. The old
+     festoon hung an 11 × 14 cm SPHERE, which read as a ping-pong ball in the
+     day and a white disc at night.
+   · G_PEARL — an icosahedron (20 tris): round at 2.2 cm, where the octahedron
+     bead the swags used read as a DIAMOND — and at 7 cm the old ones were the
+     size of eggs, lined up in columns because all nine strands shared one x
+     grid (see plinthPair). */
+const G_BULB = new THREE.LatheGeometry([
+  new THREE.Vector2(0.0, 0.0), new THREE.Vector2(.014, 0.0), new THREE.Vector2(.014, -.018),
+  new THREE.Vector2(.024, -.030), new THREE.Vector2(.040, -.048), new THREE.Vector2(.045, -.068),
+  new THREE.Vector2(.040, -.090), new THREE.Vector2(.024, -.106), new THREE.Vector2(0.0, -.112),
+].reverse(), 8);
+const G_PEARL = new THREE.IcosahedronGeometry(1, 0);
 
 /* ── ONE DRAW CALL PER KIND OF THING, however many there are ────────────────
    This design IS repetition: sixty cross-back chairs, ~1,300 blooms, ~400
@@ -191,13 +208,19 @@ function bakeWires(w, group) {
  *  floating in mid-air. Now the cable is drawn, so it reads either way. */
 function festoon(K, x1, y1, z1, x2, y2, z2, sag, n) {
   wireRun(K.wire, x1, y1, z1, x2, y2, z2, sag, n);
+  /* KAN-208 wave 3: every bulb is a SOCKET (a dark 2.6 × 4.5 cm drum on a
+     4 cm drop off the cable, in the K.dark bucket) and a real globe bulb
+     (G_BULB) under it — two instances in buckets that already exist, so the
+     prototype costs no draw call and no program. `bulb` stays emissive at
+     every hour, exactly as before (the night look is unchanged: toneMapped
+     off, one warm-white point per bulb). */
   for (let i = 1; i < n; i++) {
     const t = i / n;
-    put(K.lamp,
-      x1 + (x2 - x1) * t,
-      y1 + (y2 - y1) * t - Math.sin(t * Math.PI) * sag - .075,
-      z1 + (z2 - z1) * t,
-      [.055, .07, .055]);
+    const x = x1 + (x2 - x1) * t, z = z1 + (z2 - z1) * t;
+    const y = y1 + (y2 - y1) * t - Math.sin(t * Math.PI) * sag;
+    put(K.dark, x, y - .02, z, [.004, .04, .004], null, 0x24211d);   // the drop
+    put(K.dark, x, y - .062, z, [.013, .045, .013], null, 0x24211d); // the socket
+    put(K.bulb, x, y - .084, z, 1);
   }
 }
 
@@ -260,7 +283,9 @@ function kit() {
     flor: bucket(G_BLOOM, bloomM, true),     // every bloom, leaf, fruit and coconut
     pearl: bucket(G_BEAD, pearlM),
     crystal: bucket(G_BEAD, crystalM),
-    lamp: bucket(G_BLOOM, bulb),                // festoon bulbs + candle flames
+    lamp: bucket(G_BLOOM, bulb),                // candle flames (+ the festoon fallback)
+    bulb: bucket(G_BULB, bulb),                 // festoon globe bulbs (wave 3)
+    pearlS: bucket(G_PEARL, pearlM),            // the plinth pearl swags (wave 3)
     petal: bucket(G_PETAL, petalM),
     chiffon: bucket(G_DRAPE, chiffon),
     glass: bucket(G_ROD, glassPale),
@@ -284,12 +309,25 @@ function kit() {
     }
     return mb.get(name);
   };
+  /* a GEOMETRY-ONLY GLB on one of OUR materials (KAN-208 wave 3 — the
+     cocktail glass shells on glassPale): same one-bucket-per-kind rule, keyed
+     by model AND material so a model can never be baked twice in two finishes
+     by accident. Reusing a material this file already instances is what keeps
+     the program count where it is. */
+  K.mdlAs = (name, mat, tinted = false) => {
+    const key = name + '@' + mat.uuid;
+    if (!mb.has(key)) {
+      const geo = models.geometry(name);
+      mb.set(key, geo ? bucket(geo, mat, tinted) : null);
+    }
+    return mb.get(key);
+  };
   K._mdl = mb;
   return K;
 }
 function bakeKit(K, g) {
   for (const k of Object.keys(K)) {
-    if (k === 'mdl' || k === '_mdl') continue;
+    if (k === 'mdl' || k === 'mdlAs' || k === '_mdl') continue;
     if (k === 'wire') bakeWires(K.wire, g);
     else bake(K[k], g);
   }
@@ -530,21 +568,8 @@ function highTopAt(K, g, x, z) {
   const t = highTop(); t.position.set(x, 0, z); g.add(t);
 }
 
-/* a catenary run of festoon bulbs between two points */
-function stringLights(x1, z1, x2, z2, y, sag = 1.1, n = 14) {
-  const g = new THREE.Group();
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    const b = new THREE.Mesh(new THREE.SphereGeometry(.055, 6, 5), bulb);
-    b.position.set(
-      x1 + (x2 - x1) * t,
-      y - Math.sin(t * Math.PI) * sag,
-      z1 + (z2 - z1) * t,
-    );
-    g.add(b);
-  }
-  return g;
-}
+/* (stringLights — bulbs as plain Meshes with no cable — was retired in KAN-208
+   wave 3: the prewedding, cocktail and after-party runs are festoon() now.) */
 
 function colLine(list, x1, z1, x2, z2, r) {
   const d = Math.hypot(x2 - x1, z2 - z1), n = Math.max(1, Math.ceil(d / r));
@@ -833,14 +858,31 @@ function plinthPair(K, g, C, F) {
     iflor(-1.65, .3, .28, .72, .34, .52, 30, 1.15);
     iflor(1.55, .3, .3, .68, .32, .5, 28, 1.1);
   }
-  /* the pearls: nine catenaries between the two tall plinths — instanced beads
-     either way; the GLB plinths carry none */
+  /* the pearls: nine catenaries between the two tall plinths — instanced,
+     either way; the GLB plinths carry none.
+     KAN-208 wave 3: STRUNG, not dotted. The render hangs strands of small
+     touching pearls; this used to hang 18 octahedra per strand, 5 × 7 cm
+     (egg-sized diamonds), on ONE shared x grid — so from the front the nine
+     strands' beads lined up into vertical columns and the swag read as a bead
+     curtain. Now each strand is walked by ARC LENGTH at a 2.6 cm pitch with a
+     2.2 cm round pearl (G_PEARL), so every strand has its own count and phase
+     (~1,000 pearls, one draw call — the same bucket kind as before). Same nine
+     curves (y0, sag, z), same plinth tops. No rnd(). */
+  const PEARL_R = .011, PITCH = .026;
   for (let s = 0; s < 9; s++) {
-    const y0 = 1.86 - s * .045, sag = .38 + s * .085, n = 17;
-    for (let i = 0; i <= n; i++) {
-      const t = i / n;
-      iput(K.pearl, -1.30 + t * 2.60, y0 - Math.sin(t * Math.PI) * sag, .06 + s * .012,
-        [.036, .05, .036], [0, t * 3, 0]);
+    const y0 = 1.86 - s * .045, sag = .38 + s * .085, pz = .06 + s * .012;
+    const cy = (t) => y0 - Math.sin(t * Math.PI) * sag;
+    const M = 96, len = [0];
+    for (let k = 1; k <= M; k++) {
+      const t0 = (k - 1) / M, t1 = k / M;
+      len.push(len[k - 1] + Math.hypot(2.60 / M, cy(t1) - cy(t0)));
+    }
+    const L = len[M], n = Math.floor(L / PITCH), off = (L - n * PITCH) / 2;
+    for (let i = 0, k = 1; i <= n; i++) {
+      const d = off + i * PITCH;
+      while (k < M && len[k] < d) k++;
+      const t = (k - 1 + (d - len[k - 1]) / (len[k] - len[k - 1])) / M;
+      iput(K.pearlS, -1.30 + t * 2.60, cy(t), pz, PEARL_R, null);
     }
   }
 }
@@ -974,34 +1016,46 @@ function roundBar(K, g, C, F) {
      心动的旋律 — pink cranberry-coconut (non-alc), tall stemmed glass, foam
      翠露晨光 — yellow rum highball, straight faceted glass, mint
      荔枝尼格罗尼 — amber lychee negroni, rocks tumbler, orange-peel twist */
-  for (let i = 0; i < 4; i++) {                    // amber rocks tumblers, far left
-    const x = -.92 + (i % 2) * .17, z = -.30 - Math.floor(i / 2) * .19 + (i % 2) * .06;
-    iput(K.glass, x, Y + .062, z, [.054, .124, .054]);
-    iput(K.rod, x, Y + .055, z, [.046, .1, .046], null, 0xb35a1a);
-    iput(K.flor, x + .025, Y + .128, z, [.03, .012, .014], [0, .7, .5], 0xe8923a);
-  }
-  for (let i = 0; i < 4; i++) {                    // yellow faceted highballs
-    const x = -.42 + (i % 2) * .16, z = -.42 - Math.floor(i / 2) * .2 + (i % 2) * .05;
-    iput(K.flute, x, Y + .095, z, [.04, .19, .04], null, 0xe6cf52);
-    iput(K.flor, x, Y + .205, z, [.024, .02, .024], null, 0x3e7a44);
-  }
-  for (let i = 0; i < 4; i++) {                    // orange spritz, stemmed wine
-    const x = .12 + (i % 2) * .17, z = -.34 - Math.floor(i / 2) * .21 + (i % 2) * .07;
-    iput(K.glass, x, Y + .004, z, [.038, .008, .038]);
-    iput(K.glass, x, Y + .055, z, [.009, .10, .009]);
-    iput(K.glass, x, Y + .145, z, [.048, .105, .048]);
-    iput(K.flor, x, Y + .135, z, [.041, .048, .041], null, 0xe8722c);
-    iput(K.flor, x + .03, Y + .185, z, [.028, .02, .011], [0, 0, .95], 0xf29079);
-    iput(K.flor, x - .012, Y + .225, z + .01, [.006, .052, .006], [.35, 0, -.25], 0x4a6b45);
-  }
-  for (let i = 0; i < 3; i++) {                    // pink talls, right, behind
-    const x = .66 + (i % 2) * .17, z = -.18 - i * .14;
-    iput(K.glass, x, Y + .004, z, [.036, .008, .036]);
-    iput(K.glass, x, Y + .07, z, [.008, .13, .008]);
-    iput(K.glass, x, Y + .20, z, [.041, .13, .041]);
-    iput(K.rod, x, Y + .185, z, [.034, .095, .034], null, 0xf09fb6);
-    iput(K.rod, x, Y + .25, z, [.03, .022, .03], null, 0xfdfbf6);
-    iput(K.white, x + .012, Y + .272, z, [.018, .016, .018], null, 0xfdfbf6);
+  /* KAN-208 wave 3: two GLBs in the bar's frame, origin on the top at its
+     centre — the fifteen glass SHELLS (geometry only, on OUR glassPale: the
+     instanced, untinted glassPale program already exists, and nothing here may
+     become a transmission material) and every OPAQUE thing in and on them
+     (baked: the four liquids, the coconut foam, ice, grapefruit, rosemary,
+     mint, passion fruit, the orange twist). Same fifteen positions as the
+     primitives below, which stay as the fallback. Neither path draws rnd(). */
+  if (have('cocktail_drinks') && models.geometry('cocktail_glassware')) {
+    iput(K.mdl('cocktail_drinks'), 0, Y, 0, 1, null);
+    iput(K.mdlAs('cocktail_glassware', glassPale), 0, Y, 0, 1, null);
+  } else {
+    for (let i = 0; i < 4; i++) {                    // amber rocks tumblers, far left
+      const x = -.92 + (i % 2) * .17, z = -.30 - Math.floor(i / 2) * .19 + (i % 2) * .06;
+      iput(K.glass, x, Y + .062, z, [.054, .124, .054]);
+      iput(K.rod, x, Y + .055, z, [.046, .1, .046], null, 0xb35a1a);
+      iput(K.flor, x + .025, Y + .128, z, [.03, .012, .014], [0, .7, .5], 0xe8923a);
+    }
+    for (let i = 0; i < 4; i++) {                    // yellow faceted highballs
+      const x = -.42 + (i % 2) * .16, z = -.42 - Math.floor(i / 2) * .2 + (i % 2) * .05;
+      iput(K.flute, x, Y + .095, z, [.04, .19, .04], null, 0xe6cf52);
+      iput(K.flor, x, Y + .205, z, [.024, .02, .024], null, 0x3e7a44);
+    }
+    for (let i = 0; i < 4; i++) {                    // orange spritz, stemmed wine
+      const x = .12 + (i % 2) * .17, z = -.34 - Math.floor(i / 2) * .21 + (i % 2) * .07;
+      iput(K.glass, x, Y + .004, z, [.038, .008, .038]);
+      iput(K.glass, x, Y + .055, z, [.009, .10, .009]);
+      iput(K.glass, x, Y + .145, z, [.048, .105, .048]);
+      iput(K.flor, x, Y + .135, z, [.041, .048, .041], null, 0xe8722c);
+      iput(K.flor, x + .03, Y + .185, z, [.028, .02, .011], [0, 0, .95], 0xf29079);
+      iput(K.flor, x - .012, Y + .225, z + .01, [.006, .052, .006], [.35, 0, -.25], 0x4a6b45);
+    }
+    for (let i = 0; i < 3; i++) {                    // pink talls, right, behind
+      const x = .66 + (i % 2) * .17, z = -.18 - i * .14;
+      iput(K.glass, x, Y + .004, z, [.036, .008, .036]);
+      iput(K.glass, x, Y + .07, z, [.008, .13, .008]);
+      iput(K.glass, x, Y + .20, z, [.041, .13, .041]);
+      iput(K.rod, x, Y + .185, z, [.034, .095, .034], null, 0xf09fb6);
+      iput(K.rod, x, Y + .25, z, [.03, .022, .03], null, 0xfdfbf6);
+      iput(K.white, x + .012, Y + .272, z, [.018, .016, .018], null, 0xfdfbf6);
+    }
   }
 
   /* ── the white menu easel, leaning beside the bar like the render ──
@@ -1171,7 +1225,14 @@ function texWelcomeSign() {
        runs y ≈ 262…718 (measured), so the block sits inside that band. */
     x.textAlign = 'center';
     x.fillStyle = '#7f8c97';
-    x.font = 'italic 600 104px Georgia, "Times New Roman", serif';
+    /* fitted to 372 px (≤ 88 px type), not a fixed 104 px: at 104 the italic
+       "Welcome" ran wider than the arch at that height and lost its W and e to
+       the board's own edge (and, since wave 3, to the moulding's inner lip) */
+    let fs = 88;
+    do {                                   // fit, whatever serif the OS supplies
+      x.font = `italic 600 ${fs}px Georgia, "Times New Roman", serif`;
+      fs -= 2;
+    } while (x.measureText('Welcome').width > 372 && fs > 40);
     x.fillText('Welcome', 256, 350);
     x.font = '600 26px Georgia, serif';
     x.fillText('T O   O U R   W E D D I N G', 256, 398);
@@ -1451,6 +1512,13 @@ function dressCeremonyDecor(K, g, CC, seated) {
     board.position.set(sx, 0, sz);
     board.rotation.y = -2.44;                    // faces back down the aisle
     g.add(board);
+    /* KAN-208 wave 3: the moulded frame + plinth foot (welcome_board_frame).
+       Authored in the BOARD's own frame — x centred, z through the board with
+       its mid-plane at .0275 — so it takes the board's position and turn
+       verbatim. The board, its canvas and its lettering stay ours. */
+    if (have('welcome_board_frame')) {
+      put(K.mdl('welcome_board_frame'), sx, 0, sz, 1, [0, -2.44, 0]);
+    }
     CC.push({ x: sx, z: sz, r: .55 });
     if (haveClusters()) {
       clusterAt(K, sx + .45, 0, sz - .3, 1.1, -2.44);
@@ -1787,7 +1855,7 @@ export function initMoments(G) {
     // festoon lights strung from the roof overhang out to the turf edge
     for (let i = 0; i < 5; i++) {
       const x = -7 + i * 3.5;
-      g.add(stringLights(x, D.z0 + .4, x + 1.6, SITE.TURF.z1, 3.6, .9, 10));
+      festoon(K, x, 3.6, D.z0 + .4, x + 1.6, 3.6, SITE.TURF.z1, .9, 10);   // was stringLights (no cable)
     }
     /* a welcome easel by the door — the same easel the cocktail bar uses, and
        the same blank-board contract, so the welcome sign hangs on the measured
@@ -1937,7 +2005,7 @@ export function initMoments(G) {
         p.position.set(px, 1.8, pz); g.add(p);
         cols.cocktail.push({ x: px, z: pz, r: .3 });
       }
-      g.add(stringLights(CX - 6, pz, CX + 10, pz, 3.5, .9, 14));
+      festoon(K, CX - 6, 3.5, pz, CX + 10, 3.5, pz, .9, 14);   // was stringLights (no cable)
     }
   }
 
@@ -2123,7 +2191,7 @@ export function initMoments(G) {
     // festoon criss-crossing the deck, denser than the prewedding rig
     for (let i = 0; i < 6; i++) {
       const x = -8 + i * 3.2;
-      g.add(stringLights(x, D.z0 + .4, x + 2.4, SITE.TURF.z1, 4.0, 1.0, 12));
+      festoon(K, x, 4.0, D.z0 + .4, x + 2.4, 4.0, SITE.TURF.z1, 1.0, 12);   // was stringLights (no cable)
     }
     // lounge seating out on the turf — the GLB sofa's front is −Z at yaw 0, so
     // yaw π turns it to +Z, toward the pool, as the boxes were read

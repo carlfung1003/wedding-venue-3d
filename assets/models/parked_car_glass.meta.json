@@ -1,0 +1,17 @@
+{
+  "bytes": 1368,
+  "front": "+Z",
+  "material": "glass_pale",
+  "min": [
+    -0.765,
+    0.99,
+    -1.26
+  ],
+  "origin": "floor",
+  "size": [
+    1.53,
+    0.545,
+    2.38
+  ],
+  "tris": 12
+}

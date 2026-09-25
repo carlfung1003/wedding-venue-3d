@@ -288,6 +288,40 @@
     ],
     "tris": 4273
   },
+  "cocktail_drinks": {
+    "bytes": 58928,
+    "front": "-Z",
+    "material": "cocktail_drinks",
+    "min": [
+      -0.98,
+      0.013,
+      -0.648
+    ],
+    "origin": "base",
+    "size": [
+      1.844,
+      0.29,
+      0.502
+    ],
+    "tris": 4032
+  },
+  "cocktail_glassware": {
+    "bytes": 17516,
+    "front": "-Z",
+    "material": "glass_pale",
+    "min": [
+      -0.966,
+      0.0,
+      -0.653
+    ],
+    "origin": "base",
+    "size": [
+      1.834,
+      0.271,
+      0.511
+    ],
+    "tris": 5696
+  },
   "coconut_rack": {
     "bytes": 41292,
     "front": "-Z",
@@ -968,6 +1002,74 @@
     ],
     "tris": 6456
   },
+  "parked_car": {
+    "bytes": 5012,
+    "front": "+Z",
+    "material": "paint_w",
+    "min": [
+      -0.911,
+      0.36,
+      -2.22
+    ],
+    "origin": "floor",
+    "size": [
+      1.822,
+      1.251,
+      4.44
+    ],
+    "tris": 616
+  },
+  "parked_car_glass": {
+    "bytes": 1368,
+    "front": "+Z",
+    "material": "glass_pale",
+    "min": [
+      -0.765,
+      0.99,
+      -1.26
+    ],
+    "origin": "floor",
+    "size": [
+      1.53,
+      0.545,
+      2.38
+    ],
+    "tris": 12
+  },
+  "parked_car_rims": {
+    "bytes": 3456,
+    "front": "+Z",
+    "material": "steel_l",
+    "min": [
+      -0.94,
+      0.13,
+      -1.545
+    ],
+    "origin": "floor",
+    "size": [
+      1.88,
+      0.66,
+      3.77
+    ],
+    "tris": 344
+  },
+  "parked_car_trim": {
+    "bytes": 5052,
+    "front": "+Z",
+    "material": "dark",
+    "min": [
+      -1.065,
+      0.0,
+      -2.25
+    ],
+    "origin": "floor",
+    "size": [
+      2.13,
+      1.135,
+      4.515
+    ],
+    "tris": 640
+  },
   "plinth_fluted": {
     "bytes": 5356,
     "front": "-Z",
@@ -1307,6 +1409,23 @@
       0.966
     ],
     "tris": 300
+  },
+  "welcome_board_frame": {
+    "bytes": 12804,
+    "front": "-Z",
+    "material": "welcome_board_frame",
+    "min": [
+      -0.67,
+      0.0,
+      -0.192
+    ],
+    "origin": "floor",
+    "size": [
+      1.34,
+      2.07,
+      0.44
+    ],
+    "tris": 740
   },
   "wheelbarrow": {
     "bytes": 76116,

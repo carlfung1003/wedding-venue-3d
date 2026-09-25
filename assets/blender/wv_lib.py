@@ -105,6 +105,23 @@ PALETTE = {
     "coconut":    _hex("7e9a52"),   # young green coconuts
     "coconut_cut": _hex("c4bf95"),  # their cut flat tops
     "candle":     _hex("f7f1e4"),   # taper wax
+    # the four wedding cocktails (KAN-208 wave 3, generators/cocktail_drinks.py).
+    # ⚠ DELIBERATELY DEEPER than the menu art: every liquid is seen through the
+    # game's glassPale (opacity .45, near-white), which lifts it ~40 % toward
+    # white. At the menu's own hues the first in-engine shot read peach / lime /
+    # pale pink — the same trap as the chair (measure, then look).
+    "aperol":     _hex("e06800"),   # 与我常在 — Aperol spritz
+    "cran_pink":  _hex("d84a78"),   # 心动的旋律 — cranberry-coconut
+    "rum_yellow": _hex("d49400"),   # 翠露晨光 — the rum highball
+    "negroni":    _hex("8f2f08"),   # 荔枝尼格罗尼 — amber lychee negroni
+    "foam":       _hex("fbf4ee"),   # coconut foam cap
+    "ice":        _hex("e4eef0"),   # ice cubes (opaque, frosted)
+    "grapefruit": _hex("e4574a"),   # pink grapefruit flesh
+    "rind":       _hex("f3c86a"),   # citrus rind / pith edge
+    "peel":       _hex("f09a2a"),   # the orange-peel twist
+    "herb":       _hex("4f7248"),   # rosemary
+    "mint":       _hex("5e9a4c"),   # mint leaves
+    "passion":    _hex("6e2c46"),   # passion-fruit shell
     # emissive — the loader keeps `*_emit` materials glowing (see js/models.js)
     "bulb":       _hex("fff0cf"),   # warm white festoon/candle glow (moments.js `bulb`)
     "bulb_emit":  _hex("fff0cf"),
@@ -128,6 +145,9 @@ ROUGH = {
     "canopy_tint": 0.70, "teal": 0.85, "leaf": 0.80, "leaf_d": 0.80, "label": 0.80,
     "flute": 0.82, "flute_d": 0.82, "straw": 0.85, "straw_d": 0.85, "white": 0.85,
     "cream": 0.85, "chiffon": 0.96,
+    "aperol": 0.22, "cran_pink": 0.30, "rum_yellow": 0.22, "negroni": 0.22,
+    "foam": 0.80, "ice": 0.25, "grapefruit": 0.55, "rind": 0.60, "peel": 0.55,
+    "herb": 0.70, "mint": 0.65, "passion": 0.50,
 }
 GLOSSY = {k for k, v in ROUGH.items() if v <= 0.30}
 
