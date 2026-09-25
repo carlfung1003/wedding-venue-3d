@@ -1,0 +1,17 @@
+{
+  "bytes": 152564,
+  "front": "-Z",
+  "material": "lounge_facade",
+  "min": [
+    -2.6,
+    0.0,
+    -14.35
+  ],
+  "origin": "site",
+  "size": [
+    2.99,
+    6.91,
+    24.9
+  ],
+  "tris": 1680
+}

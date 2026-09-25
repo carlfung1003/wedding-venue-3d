@@ -16,6 +16,91 @@
     ],
     "tris": 1264
   },
+  "arrival_entry": {
+    "bytes": 65108,
+    "front": "-Z",
+    "material": "arrival_entry",
+    "min": [
+      9.8,
+      2.9,
+      -11.9
+    ],
+    "origin": "site",
+    "size": [
+      4.34,
+      3.3,
+      16.44
+    ],
+    "tris": 936
+  },
+  "arrival_roof": {
+    "bytes": 242984,
+    "front": "-Z",
+    "material": "arrival_roof",
+    "min": [
+      -4.335,
+      6.872,
+      -14.135
+    ],
+    "origin": "site",
+    "size": [
+      16.305,
+      2.569,
+      24.47
+    ],
+    "tris": 664
+  },
+  "arrival_sconce": {
+    "bytes": 3980,
+    "front": "-Z",
+    "material": "gold",
+    "min": [
+      -0.106,
+      -0.4,
+      -0.106
+    ],
+    "origin": "centre",
+    "size": [
+      0.212,
+      0.8,
+      0.212
+    ],
+    "tris": 636
+  },
+  "arrival_shell": {
+    "bytes": 285412,
+    "front": "-Z",
+    "material": "arrival_shell",
+    "min": [
+      -0.057,
+      0.0,
+      -14.057
+    ],
+    "origin": "site",
+    "size": [
+      11.714,
+      9.03,
+      24.314
+    ],
+    "tris": 3528
+  },
+  "arrival_stair": {
+    "bytes": 28652,
+    "front": "-Z",
+    "material": "arrival_stair",
+    "min": [
+      10.1,
+      2.65,
+      -5.43
+    ],
+    "origin": "site",
+    "size": [
+      3.63,
+      1.01,
+      10.86
+    ],
+    "tris": 1956
+  },
   "bar_stool": {
     "bytes": 16336,
     "front": "-Z",
@@ -781,6 +866,23 @@
     ],
     "tris": 4814
   },
+  "lobby_desk": {
+    "bytes": 32708,
+    "front": "-Z",
+    "material": "lobby_desk",
+    "min": [
+      3.47,
+      3.6,
+      -13.64
+    ],
+    "origin": "site",
+    "size": [
+      4.68,
+      3.02,
+      1.8
+    ],
+    "tris": 1308
+  },
   "lobby_sofa": {
     "bytes": 33164,
     "front": "-Z",
@@ -814,6 +916,23 @@
       1.02
     ],
     "tris": 1140
+  },
+  "lounge_facade": {
+    "bytes": 152564,
+    "front": "-Z",
+    "material": "lounge_facade",
+    "min": [
+      -2.6,
+      0.0,
+      -14.35
+    ],
+    "origin": "site",
+    "size": [
+      2.99,
+      6.91,
+      24.9
+    ],
+    "tris": 1680
   },
   "lounge_sofa": {
     "bytes": 35428,

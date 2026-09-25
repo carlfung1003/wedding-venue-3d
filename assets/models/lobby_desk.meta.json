@@ -1,0 +1,17 @@
+{
+  "bytes": 32708,
+  "front": "-Z",
+  "material": "lobby_desk",
+  "min": [
+    3.47,
+    3.6,
+    -13.64
+  ],
+  "origin": "site",
+  "size": [
+    4.68,
+    3.02,
+    1.8
+  ],
+  "tris": 1308
+}

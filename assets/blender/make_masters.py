@@ -62,7 +62,8 @@ def run_one(mod, fn, asset, atlas):
                              ao_dist=getattr(mod, "AO_DIST", 0.5),
                              ao_strength=getattr(mod, "AO_STRENGTH", 0.5),
                              mat_name=getattr(mod, "MAT_NAME", None),
-                             uv_weight=getattr(mod, "UV_WEIGHT", None))
+                             uv_weight=getattr(mod, "UV_WEIGHT", None),
+                             pack_shape=getattr(mod, "PACK_SHAPE", "AABB"))
     L.save_master(root, asset,
                   front=getattr(mod, "FRONT", "-Z"),
                   origin=getattr(mod, "ORIGIN", "floor"),

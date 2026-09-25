@@ -1,0 +1,17 @@
+{
+  "bytes": 28652,
+  "front": "-Z",
+  "material": "arrival_stair",
+  "min": [
+    10.1,
+    2.65,
+    -5.43
+  ],
+  "origin": "site",
+  "size": [
+    3.63,
+    1.01,
+    10.86
+  ],
+  "tris": 1956
+}

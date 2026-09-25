@@ -400,6 +400,62 @@ instancingColor is the palm fronds' program; with it, two new programs.
 `topiary_ball` × each cloud's diameter; water.js's two hedge boxes are Group H's
 `hedge_run` cells merged into one Mesh (`hedgeRunX`).
 
+### Group K — ARCHITECTURE (KAN-211 wave A): the arrival pavilion + the check-in lobby
+
+Seven GLBs, and the first on this campus that are **buildings, not props**. Walls
+carry gameplay, so the contract is different from every group above:
+
+- **THE SITE FRAME.** Every Group K GLB is authored in enclave-local metres with
+  its origin at the ANCHOR `(SITE.ARRIVAL.backX, 0, SITE.ARRIVAL.axisZ)` =
+  `(33, 0, −8)` — NOT re-origined to its bbox (`ORIGIN = "site"`, `join(…,
+  origin=None)`). `generators/_arch.py` maps local `(x, y, z)` → Blender
+  `(x − 33, −(z + 8), y)`; the export's `(x, z, −y)` gives the identity back.
+  campus.js places each with ONE identity instance at the anchor (`ANCHOR()` in
+  `buildArrival`). `(33, −8)` answers true to `isEnclaveLocal()`, so world.js
+  carries every one into the enclave whole.
+- **THE NUMBERS ARE READ FROM THE LIVE `js/site.js`** (`_arch.site()` runs node on
+  it) — never re-typed. A GLB that disagrees with SITE.ARRIVAL is a bug here.
+- **VISUAL ONLY.** Colliders, WALK_REGIONS, spawns, interactables and every
+  `rnd()` draw stay the game's; each replaced primitive keeps its old path as the
+  `else` for a missing GLB. Proof per build: `tools/scatter-probe.mjs`
+  `colliderHash 026674019d51` (10,797) before and after, and floorY probes.
+- Baked atlases ride the ONE instanced baked-map program; roughness / env and the
+  night tint are set per GLB in campus.js (`archMat()`), both uniforms.
+- **`PACK_SHAPE = "CONCAVE"`** (new knob, `wv_bake.prepare_for_export`) and
+  **`_arch.spans()`** — long faces built in ≤ 5 m pieces — see ⚠ below.
+
+| name | replaces (campus.js buildArrival) | what is modelled (reference) | material keys | atlas | tris |
+|---|---|---|---|---|---|
+| `arrival_shell` | §C `arrCortenI` wings + end walls + the lounge's east wall | standing-seam corten skin (0.6 m panels, 45 × 48 mm seams, each panel its own patina shift), walls that now reach the roof's UNDERSIDE (the old 7.4 m boxes left a slot under the sloped roof), the courtyard band above the lobby glass (7.0 → roof), the plaque wing's corten FRAME with its recess cut (z −19.9 … bay.z0 − .4, y TY + .25 … + 3.55), walnut panelling on every interior face (f_001–f_005, clubhouse-lounge-checkin-balcony.jpg) | `corten` / `corten_seam` / `corten_in` (corten_weathered.webp, 2.4 m world tile), `panelling` (panel_walnut.webp) | 2048 | 3,528 |
+| `arrival_roof` | §C roof slab + `arrSoffitI` + front fascia + the fold plate | the SAME mono-pitch slab (.34 on eaveH 7.15 @ z −22 → ridgeH 9.20 @ z 2.2, x 28.7 … 44.9), standing seams down the slope, a 0.46 m fascia round all four edges, THE FOLD over the bay (a 0.55 m folded drop), the cedar soffit under the courtyard overhang at y_c − .26 (flush with the game's `arrDownI`) | `corten*`, `cedar` (cedar_soffit.webp, 1.2 m tile, boards along x) | 2048 | 664 |
+| `arrival_stair` | §B `arrBlackI` risers, landing, cheeks | 6 treads at EXACTLY terraceY + (i+1)·rise/6, 20 mm bevelled nosings, a pale anti-slip strip 40 mm back, the landing in 0.6 m slabs, the cheeks with a coping (f_011/f_013) | `ar_stone`, `ar_stone_l`, `ar_joint` — roughness .24, env 1.25 (glossy) | 1024 | 1,956 |
+| `arrival_entry` | §C canopy `arrCortenI` + `arr-soffit`, `arrBandI` piers + plaque panel, the door `darkI` frame/leaf rails, sconce `darkI` plates | canopy: corten top, bronze fascia, DARK slatted soffit (slats ∥ facade, a channel left for the six `arrDownI`); piers: glossy black courses with 30 mm projecting taupe ledges (f_013); bronze door frame whose head sits UNDER the soffit (lobbyY + 1.90); the parked leaves' bronze frames; sconce plates + arms; the banded plaque wall inside the recess | `ar_black`, `ar_taupe`, `ar_bronze`, `ar_dark`, `corten_top` / `corten_in` | 2048 | 936 |
+| `arrival_sconce` | §C `arrSconceI` (UNIT_CYL) | Ø .20 × .80 fluted cylinder (16 flutes) with two collars; **GEOMETRY ONLY** on the game's glowing `MAT.brassFlute`; origin CENTRE, stood at (44.44, 4.85, gap ± 1.9) | UV0 cylindrical, v up | — | 636 |
+| `lounge_facade` | §D lounge mullions/heads/folded-leaf heads, `arrLouvreI` ×2 storeys, `arrPierI`, the balcony slab box, `arrCapI` (beam + capping), `arrSoffitI` (balcony + the upper timber panel), §F lobby mullions/head | slim dark-grey folding-door frames (stiles + deep rails), the louvre band, the charcoal pier in ~0.77 × 0.81 m tiles with joints, the balcony's stone slab edge + 0.56 m pale fascia beam + cedar soffit + capping + glass shoes over RAIL, the lobby's frames + louvred transom, the cedar panel (clubhouse-lounge-checkin-balcony.jpg) | `ar_alu`, `ar_dark`, `ar_charcoal`, `ar_joint`, `ar_cap`, `ar_stone`, `cedar` | 2048 | 1,680 |
+| `lobby_desk` | §H `arrCabI`, `arrCabPlinthI`, `arrDeskI`, `arrSlatI` ×35, `arrDeskDarkI` | counter: dark carcass, recessed kick, a 60 mm bevelled top over 36 half-round bamboo slats, end returns; a slim monitor FACING THE STAFF (the old boxes faced sideways); four white flush cabinet panels with reveals and pull grooves on a dark plinth (compare-checkin-lobby-2026-08-04.jpg) | `ar_teak`, `ar_bamboo`, `ar_white`, `ar_screen`, `ar_dark` | 1024 | 1,308 |
+
+**Textures** (`textures/gen/`, bake inputs): `corten_weathered.webp` (manifest
+`corten_cladding`, 2K, tile-blend, balanced `#5f5247`), `cedar_soffit.webp`
+(`cedar_soffit`, 2K, **`blend_axis: "y"`** — a both-axis blend doubled every board
+joint across the tile's middle), and `panel_walnut.webp` — **DERIVED, not
+generated**: cedar_soffit.webp × (0.24, 0.19, 0.19) in linear space (numpy, one
+line — see `_arch.panelling()`).
+
+⚠ **Two atlas lessons (both cost a bake):**
+1. **The longest island caps the atlas's texel density.** `pack_islands(scale=True)`
+   scales every island by one factor, so a 24 m wall skin fits a 2048 atlas at
+   ~85 px/m however little else there is — the first shell bake left HALF the atlas
+   black. Long faces are built in ≤ 5 m pieces (`_arch.spans()`); the world-scale
+   art UV keeps the photograph continuous across them.
+2. **AABB packing starves hundreds of thin seam/slat islands** — `PACK_SHAPE =
+   "CONCAVE"` filled arrival_entry's atlas (the default stays AABB for every
+   earlier asset).
+
+⚠ **A Mix (multiply) node after the image did NOT reach the atlas** — observed
+once, cause not isolated: the node was wired in the saved master and the baked
+atlas was the raw cedar orange. Darken in the picture (`panel_walnut.webp`), not
+in the node tree, until someone finds out why.
+
 ## What is deliberately NOT in this wave
 
 (Palms, hedges and topiary are Group H since KAN-208 wave 2 — their PROTOTYPES;

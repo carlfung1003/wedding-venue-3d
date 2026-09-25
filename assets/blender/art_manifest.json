@@ -632,5 +632,42 @@
     "post": "key-green",
     "prompt": "One single loose rounded clump of flowering bougainvillea, a cut spray laid flat and photographed from directly above so that it fills about three quarters of the frame and sits in the middle of it: small pointed dark-green leaves on fine reddish stems radiating outward from the centre, with clusters of papery deep magenta and rose-pink bracts — each flower three thin triangular bracts around a tiny cream trumpet — scattered through it, roughly one third flower and two thirds leaf. Packed densely at the centre so no backdrop shows through there, loosening toward the rim so the outline is made of individual leaf tips and bract clusters with backdrop between them. Photographed on a completely flat, solid, evenly lit pure cobalt-blue backdrop, the same blue in every part of the frame the subject does not cover, with no gradient, no shadow on the backdrop, no border and no frame; nothing blue on the plant itself. Even soft daylight, sharp focus.",
     "note": "KAN-208 wave 4: the alpha card for the bougainvillea fringe (MAT.bougLeaf). NOT magenta — the bracts ARE magenta — and not green (the leaves); a flat COBALT backdrop keyed by RGB distance (chroma_key.py --mode flat), which keeps both the pink and the green."
+  },
+  "corten_cladding": {
+    "kind": "texture",
+    "out": "corten_weathered.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 1024,
+    "tile": "fill",
+    "blend": 0.12,
+    "flatten": 0.2,
+    "flatten_amount": 0.6,
+    "balance": {
+      "target": "#5f5247",
+      "ref": "mean"
+    },
+    "post": "tile-blend; flattened 0.2 x0.6; balanced to #5f5247",
+    "prompt": "Photograph looking straight at one flat panel of weathered architectural corten steel cladding on a modern tropical resort pavilion, the camera square to the metal so the whole frame is the metal surface: a mature matte patina mixing dusky grey-brown, deep umber, charcoal and a little warm rust-orange, with long faint vertical rain run-off streaks running from the top of the frame to the bottom, soft mottled oxidation clouds, a few small brighter orange rust blooms, and a faint silvery-grey bloom where the weather has bleached it. No seams, no joints, no ribs, no rivets, no screws, no edges — just the continuous metal skin. Sharp focus, even daylight.",
+    "note": "KAN-211 wave A: the arrival pavilion's corten skin (f_001: grey-brown weathered battens; clubhouse-lounge-checkin-balcony.jpg: silver-grey with rust). Geometry carries the standing seams; the texture carries only the patina, mapped with a world-scale planar UV (_arch.py) at ~1.6 m a tile."
+  },
+  "cedar_soffit": {
+    "kind": "texture",
+    "out": "cedar_soffit.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 1024,
+    "tile": "fill",
+    "blend": 0.1,
+    "flatten": 0.2,
+    "flatten_amount": 0.5,
+    "balance": {
+      "target": "#a15a2f",
+      "ref": "mean"
+    },
+    "blend_axis": "y",
+    "post": "tile-blend (y only — the x roll offset the board joints and a both-axis cross-fade doubled them); flattened 0.2 x0.5; balanced to #a15a2f",
+    "prompt": "Photograph looking straight up at a modern resort soffit lined with narrow warm reddish-orange cedar-look timber boards, the camera square to the ceiling so the whole frame is timber: exactly eight long straight boards running from the top of the frame to the bottom, each board the same width, separated by thin dark shadow joints, a fine straight grain along each board with gentle tone variation between boards from honey-orange to russet, a smooth satin oiled finish. Sharp focus, even soft light.",
+    "note": "KAN-211 wave A: the warm timber soffit under the overhangs, the canopy and the balcony (clubhouse-lounge-checkin-balcony.jpg — its signature colour). Boards run down v; mapped at 1.2 m a tile (0.15 m boards)."
   }
 }

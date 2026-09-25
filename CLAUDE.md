@@ -685,6 +685,102 @@ water.js's river cull) passes for all 20 fringes: both culls sweep
    1 material); manifest 91 entries. The campus key census is unchanged — the
    fringes are born in `flushBuckets`, never through `inst()`.
 
+### KAN-211 WAVE A — THE ARRIVAL PAVILION + CHECK-IN LOBBY AS BLENDER ARCHITECTURE (2026-09-25)
+
+The first wave where the GLBs are the BUILDING, not props on it. Seven GLBs
+(**ASSET_SPEC Group K** has every row): `arrival_shell` (the corten walls),
+`arrival_roof` (mono-pitch roof, seams, fascia, the fold, cedar soffit),
+`arrival_stair` (6 risers, landing, cheeks — the one glossy GLB), `arrival_entry`
+(canopy + slatted soffit, banded piers, bronze door frame, sconce plates, the
+plaque wing's banded wall), `arrival_sconce` (GEOMETRY ONLY on our glowing
+`MAT.brassFlute`), `lounge_facade` (the courtyard face: folding-door frames,
+louvres, the tiled charcoal pier, the balcony's slab edge / stone fascia beam /
+cedar soffit / capping, the lobby's frames + transom), `lobby_desk` (counter,
+bamboo slat front, monitor, white cabinet wall). **10,708 tris, 0.81 MB**;
+manifest 98 entries. Generators: `assets/blender/generators/_arch.py` (shared) +
+one per GLB. Shots: before `reference/photos/shots-archA-before/` (HEAD worktree
+on :8811), after `shots-archA/` — 80 views, the 72 of wave 4 plus eight
+`archA-*` (court approach, court three-quarter, stair + canopy, canopy at night,
+lobby desk, balcony from the link, courtyard face, lounge deck), fixed
+SITE-derived cameras so the same camera stands in both builds;
+`shots-archA/compare-archA-*.jpg` are the side-by-sides.
+
+**THE CONTRACT: authored IN SITE COORDINATES, visual only.** Every Group K GLB
+shares one frame with its origin at the ANCHOR `(ARRIVAL.backX, 0,
+ARRIVAL.axisZ)` = (33, 0, −8) and is ONE identity instance there (`ANCHOR()` in
+`buildArrival`, `modelI` keys `arr{Shell,Roof,Stair,Entry,Facade,Desk}GlbI` +
+`arrSconceGlbI`). The generators read the numbers from the LIVE `js/site.js`
+(`_arch.site()` runs node on it), so a GLB cannot drift from a published
+number. Every collider, WALK_REGION, spawn, interactable and `rnd()` draw is
+untouched; every replaced primitive is gated `if (!haveArch / !haveFacade /
+!haveDesk)` and stays as the fallback.
+
+| 80 views | before | after |
+|---|---|---|
+| draw calls (sum) | 26,521 | **26,437 (−84)** — the eight arrival views −1…−5 each (≈15 small buckets became 7 GLBs) |
+| triangles (sum) | 51,502,474 | 51,588,378 (**+0.17 %**) — arrival views +5.6k…+9.5k; −660 at most other views (55 `darkI` instances left a campus-wide bucket) |
+| shader programs | 113 | **113 at every view, day and night** — nothing new compiles: the bakes ride the instanced baked-map program, the sconce the brassFlute one |
+| colliders / feet / night flags | | identical at all 80 views |
+| `colliderHash` (scatter-probe) | `026674019d51` (10,797) | **`026674019d51` (10,797)** |
+| floorY, 21 probes (lane 0 → .489 → 1.222 → 1.890 → 2.414 → 2.650; court / forecourt 2.650; stair foot 2.697, mid 3.125; landing / door / lobby / desk / link / slot 3.600; balcony 3.580; lounge 0.000; deck .120; internal stair mid 1.800) | | **byte-identical** before/after |
+| lights (guest journey) | 40 / 12 | 40 / 12 |
+| guest journey | | 0 stalls, every beat, "Check in" PROMPT ✓, `ERRORS []` |
+
+Scatter: `allMatrixHash 85493acb365f → e37fbff558e9`, as it must be. Keyed by
+(name, chain), 174 of 189 buckets byte-identical; the rest are exactly the
+intended ones — `glass` (the two parked door leaves shortened to fit under the
+canopy), `darkI` 292 → 237, `arrCortenI` 14 → 5 (the gate piers + the internal
+stair wall stay), `arrBlackI` 28 → 19 (the internal stair stays), `arrSoffitI`
+4 → 1 (the link's), ten arrival buckets gone, seven GLB buckets new. No `rnd()`
+draw moved (the desk's flowers, the planting and the sofas' cushion jitter all
+still draw).
+
+Image generation (tag `venue-arch`, cap $15): **2 images, $0.27** —
+`corten_weathered.webp` and `cedar_soffit.webp`; `panel_walnut.webp` is derived
+from the cedar locally.
+
+⚠ **What this wave learned:**
+1. **The longest UV island caps a baked atlas's texel density.** `pack_islands`
+   scales every island by ONE factor, so a 24 m wall skin fits a 2048 atlas at
+   ~85 px/m no matter how little else is in it — the first shell bake left HALF
+   the atlas black. Architecture is built in ≤ 5 m pieces (`_arch.spans()`);
+   the world-scale art UV keeps the photograph continuous across them.
+2. **AABB packing starves hundreds of thin seam/slat islands** — new opt-in knob
+   `PACK_SHAPE = "CONCAVE"` (make_masters → `wv_bake.prepare_for_export`); every
+   earlier asset keeps AABB.
+3. **A tiling photograph on a 24 m wall repeats its blotches in a grid.** The
+   skin is cut into its standing-seam PANELS and each panel takes a random UV
+   shift (`world_uv(du, dv)`) — each panel weathers on its own, as real ones do.
+4. **The canopy soffit is only 1.95 m over the lobby floor** (5.55 − 3.60) where
+   it runs 0.3 m inside the door plane — site.js registers it as the stair's
+   `ceil`, so it cannot move. The old 2.3 m door frame, the 2.2 m parked leaves
+   and the 1.2 m sconces all ran up THROUGH it; the door head now sits at
+   lobbyY + 1.90, the leaves are 1.73 m panes, the sconces Ø .20 × .80 at 4.85.
+5. **A baked GLB material is not on the night registry** — the corten would have
+   stayed day-bright while every campus material darkened. `archMat()` sets each
+   Group K material's roughness / envMapIntensity and `tint()`s it (uniforms,
+   no program), once, guarded by `userData.kan211`.
+6. **A Mix (multiply) node after the image did not reach the atlas** (observed
+   once, cause not isolated) — darken in the picture, not the node tree.
+7. **Board textures tile-blend on ONE axis** (`blend_axis: "y"`): the both-axis
+   blend rolled the board joints half a board and cross-faded them, doubling
+   every joint across the middle of the tile.
+8. **Vertex image generation 429s when another agent is generating** (the
+   open-empires UI run shared the quota). Failed calls log nothing and cost
+   nothing; a backoff loop around `gen_art.py` got both through.
+9. The plaque wall is RECESSED now (f_001), so the game's plaque plane moved
+   from faceX + .15 to faceX − .24 (30 mm proud of the ledges) — same y, same z.
+10. Only the seven new GLBs were exported (each ≤ its TRIS, 1 mesh / 1 material);
+    no earlier GLB was touched. `wv_bake.py` / `make_masters.py` gained only the
+    opt-in `PACK_SHAPE` knob.
+
+**Deliberately not in this wave:** the lobby's slat ceiling and the lounge's
+ceiling / floors (still `box()` + canvas maps), the lounge's breakfast
+furniture, the internal stair, the upper walkway (LINK / SLOT / HEAD) and its
+pergola, the terrace retaining wall and lane, the gate, the court's planting
+(the frangipani are still flat-shaded blob trees — the single biggest thing
+between the court view and f_001 now), the check-in staff.
+
 ### Not in this pass (next)
 
 (Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above; the
@@ -2801,6 +2897,14 @@ makes the campus "look tidier" by undoing one, it is wrong:
   `CFG.SEED`). Everything moments.js letters uses that copy: the dessert bar
   reads **"Fung & Cheng"** and the welcome board reads **"Carl & Rachel"**. The
   DATE on the render, 2027.03.20, is correct and is `CFG.SEED`.
+
+- **KAN-211: architecture GLBs are authored IN SITE COORDINATES** (origin =
+  the anchor `(ARRIVAL.backX, 0, ARRIVAL.axisZ)`, one identity instance), and
+  their generators READ `js/site.js` through node (`generators/_arch.py`). If a
+  SITE.ARRIVAL number changes, re-run `make_masters.py` + `export_all.py` for
+  Group K or the building and its colliders part company. Build long faces in
+  ≤ 5 m pieces (the longest island caps the atlas density) and never bake a
+  hidden core at full weight (`UV_WEIGHT` it to ~0.03).
 
 - **`js/site.js` is the ONLY place coordinates live.** Six builder modules were
   written in parallel against it; the moment any of them hard-codes a position,

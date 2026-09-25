@@ -224,7 +224,7 @@ def _activate_atlas_layer(me):
     return lay
 
 
-def unwrap(objs, margin=0.015, size=512, px=3.0, uv_weight=None):
+def unwrap(objs, margin=0.015, size=512, px=3.0, uv_weight=None, shape='AABB'):
     """Smart-project and pack, with the gap between islands measured in PIXELS.
 
     ⚠ The margin must be ADDITIVE, not normalised, and this is measured, not
@@ -259,7 +259,7 @@ def unwrap(objs, margin=0.015, size=512, px=3.0, uv_weight=None):
     bpy.ops.uv.select_all(action='SELECT')
     try:
         bpy.ops.uv.pack_islands(margin=gap, margin_method='ADD', rotate=True,
-                                scale=True, shape_method='AABB')
+                                scale=True, shape_method=shape)
     except TypeError:                      # older Blender: no margin_method
         bpy.ops.uv.pack_islands(margin=gap, rotate=True)
     bpy.ops.object.mode_set(mode='OBJECT')
@@ -600,7 +600,7 @@ def _check_art_uvs(objs):
 
 
 def prepare_for_export(root, size=512, bevel_width=0.004, ao_dist=0.5, ao_strength=0.5,
-                       margin=0.015, mat_name=None, uv_weight=None):
+                       margin=0.015, mat_name=None, uv_weight=None, pack_shape='AABB'):
     """bevel -> unwrap -> bake -> single material. Call once, at master-build time."""
     import wv_lib as L
     objs = meshes_of(root)
@@ -609,7 +609,10 @@ def prepare_for_export(root, size=512, bevel_width=0.004, ao_dist=0.5, ao_streng
     _check_art_uvs(objs)
     if bevel_width > 0:
         L.bevel(objs, width=bevel_width)
-    unwrap(objs, margin=margin, size=size, uv_weight=uv_weight)      # the island gap is in PIXELS of THIS atlas
+    # pack_shape: 'AABB' (the default, every asset before KAN-211) or 'CONCAVE' —
+    # the architecture GLBs' hundreds of thin seam/slat islands left ~half a 2048
+    # atlas black under AABB (KAN-211 wave A); generators opt in with PACK_SHAPE.
+    unwrap(objs, margin=margin, size=size, uv_weight=uv_weight, shape=pack_shape)      # the island gap is in PIXELS of THIS atlas
     atlas = bake_atlas(objs, root.name, size=size, ao_dist=ao_dist, ao_strength=ao_strength)
     apply_baked(objs, root.name, atlas, mat_name=mat_name)
     root["wv_baked"] = 1

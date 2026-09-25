@@ -1,0 +1,17 @@
+{
+  "bytes": 285412,
+  "front": "-Z",
+  "material": "arrival_shell",
+  "min": [
+    -0.057,
+    0.0,
+    -14.057
+  ],
+  "origin": "site",
+  "size": [
+    11.714,
+    9.03,
+    24.314
+  ],
+  "tris": 3528
+}

@@ -447,6 +447,36 @@ const VIEWS = [
     const c = S.enclaveToWorld(-6.5, 25.9), t = S.enclaveToWorld(3.5, 24.3);
     return { x: c.x, z: c.z, lookX: t.x, lookZ: t.z };
   })()` }],
+
+  /* ── KAN-211 WAVE A — the arrival pavilion + check-in lobby as Blender
+        architecture. Every camera is derived from SITE.ARRIVAL (enclave-local
+        → enclaveToWorld), no pick(), so the SAME camera stands in the before
+        build. `a(lx, lz, y, tx, tz)` = stand at local (lx, lz) with feet y,
+        look at local (tx, tz). ── */
+  ['archA-court-approach', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(61.5, AR.axisZ), t = S.enclaveToWorld(AR.doorX, AR.axisZ);
+    return { x: c.x, z: c.z, y: AR.terraceY, lookX: t.x, lookZ: t.z }; })()` }],
+  ['archA-court-threequarter', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(57.4, 1.0), t = S.enclaveToWorld(AR.faceX, -14.5);
+    return { x: c.x, z: c.z, y: AR.terraceY, lookX: t.x, lookZ: t.z }; })()` }],
+  ['archA-stair-canopy', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(49.4, AR.axisZ), t = S.enclaveToWorld(AR.doorX, AR.axisZ);
+    return { x: c.x, z: c.z, y: AR.terraceY, lookX: t.x, lookZ: t.z }; })()` }],
+  ['archA-canopy-night', 1, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(48.2, AR.axisZ), t = S.enclaveToWorld(AR.doorX, AR.axisZ);
+    return { x: c.x, z: c.z, y: AR.terraceY, lookX: t.x, lookZ: t.z }; })()` }, { night: true }],
+  ['archA-lobby-desk', 2, { world: `(() => { const AR = S.SITE.ARRIVAL, LB = AR.LOBBY;
+    const c = S.enclaveToWorld(LB.x0 + 7.6, LB.z0 + 7.4), t = S.enclaveToWorld(LB.x0 + 5.4, LB.z0 + 1.7);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }],
+  ['archA-balcony-link', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(21.5, (AR.LINK.z0 + AR.LINK.z1) / 2), t = S.enclaveToWorld(AR.BALC.x0, -14.5);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }],
+  ['archA-courtyard-face', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(20.5, 1.5), t = S.enclaveToWorld(AR.backX, -10);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }],
+  ['archA-lounge-deck', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(AR.DECK.x0 + .9, AR.bldg.z1 + .8), t = S.enclaveToWorld(AR.backX - .4, -16);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 

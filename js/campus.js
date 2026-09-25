@@ -2596,6 +2596,61 @@ function buildArrival(G, g, rnd) {
   const BELOW = { y1: CY };            // blocks the lounge walker only
   const ABOVE = { y0: CY };            // blocks the lobby/walkway walker only
 
+  /* ── KAN-211 WAVE A: the pavilion as BLENDER ARCHITECTURE ─────────────────
+     Six GLBs authored IN SITE COORDINATES (assets/blender/generators/_arch.py
+     reads js/site.js itself): one shared frame whose origin is the ANCHOR
+     (AR.backX, 0, AR.axisZ), so each is ONE identity instance at that point —
+     (33, −8) answers true to isEnclaveLocal(), and world.js carries every one
+     into the enclave whole. They replace VISUAL boxes only: every collider,
+     WALK_REGION, rnd() draw and interactable below is untouched, and each
+     replaced primitive keeps its old path as the `else` for a missing GLB.
+       arrival_shell   the corten walls (wings, ends, the courtyard band)
+       arrival_roof    the mono-pitch roof, seams, fascia, the fold, cedar soffit
+       arrival_stair   the 6 risers, the landing, the cheeks (glossy stone)
+       arrival_entry   canopy + slatted soffit, banded piers, door frames,
+                       sconce plates, the plaque wing's banded wall
+       lounge_facade   the courtyard face: folding-door frames, louvres, the
+                       tiled charcoal pier, the balcony's edge, fascia, soffit
+                       and capping, the lobby's glass-wall frames
+       lobby_desk      the check-in counter + slat front + cabinet wall
+     plus `arrival_sconce`, GEOMETRY ONLY on our own glowing MAT.brassFlute.
+     Baked atlases ride the one instanced baked-map program the props already
+     compile; the sconce rides the brassFlute program arrSconceI compiled. */
+  const ARCH = ['arrival_shell', 'arrival_roof', 'arrival_stair', 'arrival_entry'];
+  const haveArch = ARCH.every(have) && have('arrival_sconce');
+  const haveFacade = have('lounge_facade');
+  const haveDesk = have('lobby_desk');
+  const ANCHOR = () => mat4(AR.backX, 0, AR.axisZ, 1, 1, 1);
+  /* the baked materials join the night registry (a campus material darkens and
+     cools after dark; an untinted bake would glow grey against it) and take
+     the finish the photographs show — a GLB carries ONE roughness, so it is
+     set here per building part. Program-neutral: both are uniforms. */
+  const archMat = (name, rough, nightHex, envI = 1) => {
+    const m = models.material(name);
+    if (!m || m.userData.kan211) return;
+    m.userData.kan211 = true;
+    m.roughness = rough; m.metalness = 0; m.envMapIntensity = envI;
+    tint(m, nightHex);
+  };
+  if (haveArch) {
+    modelI('arrShellGlbI', 'arrival_shell', ANCHOR());
+    modelI('arrRoofGlbI', 'arrival_roof', ANCHOR());
+    modelI('arrStairGlbI', 'arrival_stair', ANCHOR());
+    modelI('arrEntryGlbI', 'arrival_entry', ANCHOR());
+    archMat('arrival_shell', .72, 0x707784);
+    archMat('arrival_roof', .72, 0x707784);
+    archMat('arrival_stair', .24, 0x99a1b2, 1.25);
+    archMat('arrival_entry', .42, 0x7d8494);
+  }
+  if (haveFacade) {
+    modelI('arrFacadeGlbI', 'lounge_facade', ANCHOR());
+    archMat('lounge_facade', .55, 0x767d8c);
+  }
+  if (haveDesk) {
+    modelI('arrDeskGlbI', 'lobby_desk', ANCHOR());
+    archMat('lobby_desk', .6, 0x8f96a6);
+  }
+
   /* per-surface texture tiling (materials are this builder's own) */
   MAT.forePave.map.repeat.set((AR.fore.x1 - AR.fore.x0) / 1.2, (AR.fore.z1 - AR.fore.z0) / 1.2);
   MAT.sett.map.repeat.set((AR.court.x1 - AR.court.x0) / 1.3, (AR.court.z1 - AR.court.z0) / 1.3);
@@ -2834,19 +2889,25 @@ function buildArrival(G, g, rnd) {
   /* ══════════════════════════════════════════════════════════════════════
      B · THE FILMED STAIR — terraceY → lobbyY in the same 6 risers
      ══════════════════════════════════════════════════════════════════════ */
-  for (let i = 0; i < AR.risers; i++) {
+  /* (KAN-211: `arrival_stair` draws all of this when it loaded — the boxes are
+     its fallback. The cheeks' colliders are pushed either way.) */
+  if (!haveArch) {
+    for (let i = 0; i < AR.risers; i++) {
+      inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+        mat4(AR.stair.x1 - (i + .5) * AR.tread, TY + (i + 1) * rh / 2, bayC,
+          AR.tread, (i + 1) * rh, bayW));
+    }
+    /* the entry landing between the stair head and the doors */
     inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
-      mat4(AR.stair.x1 - (i + .5) * AR.tread, TY + (i + 1) * rh / 2, bayC,
-        AR.tread, (i + 1) * rh, bayW));
+      mat4((AR.doorX + AR.stair.x0) / 2, LY - .09, bayC, AR.stair.x0 - AR.doorX, .18, bayW));
   }
-  /* the entry landing between the stair head and the doors */
-  inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
-    mat4((AR.doorX + AR.stair.x0) / 2, LY - .09, bayC, AR.stair.x0 - AR.doorX, .18, bayW));
   /* side plinths guarding the open flanks of the stair bay */
   for (const s of [0, 1]) {
     const pz = s ? AR.bay.z1 + .45 : AR.bay.z0 - .45;
-    inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
-      mat4((AR.doorX + 46.7) / 2, TY + rise / 2 + .03, pz, 46.7 - AR.doorX, rise + .06, .9));
+    if (!haveArch) {
+      inst('arrBlackI', UNIT_BOX, MAT.blackPolish,
+        mat4((AR.doorX + 46.7) / 2, TY + rise / 2 + .03, pz, 46.7 - AR.doorX, rise + .06, .9));
+    }
     rectCollider(C, (AR.doorX + 46.7) / 2, pz, 46.7 - AR.doorX, .9, 0, .3);
   }
 
@@ -2863,19 +2924,25 @@ function buildArrival(G, g, rnd) {
   /* the ARRIVAL face: corten cladding either side of the recessed entry bay,
      grade → wingH. The lower 2.65 m of it is buried by the terrace, which is
      exactly why the building reads single-storey from the car park. */
+  /* (KAN-211: every corten box in §C is `arrival_shell` / `arrival_roof` /
+     `arrival_entry` when those loaded; the colliders are pushed either way.) */
   for (const w of AR.wings) {
     const cz = (w.z0 + w.z1) / 2, cd = w.z1 - w.z0;
-    inst('arrCortenI', UNIT_BOX, MAT.corten,
-      mat4(AR.faceX - .18, AR.wingH / 2, cz, .36, AR.wingH, cd));
+    if (!haveArch) {
+      inst('arrCortenI', UNIT_BOX, MAT.corten,
+        mat4(AR.faceX - .18, AR.wingH / 2, cz, .36, AR.wingH, cd));
+    }
     colliderLine(C, AR.faceX - .18, w.z0, AR.faceX - .18, w.z1, .4);
   }
   /* end walls + the buried east flank of the lounge */
   for (const cz of [B.z0 + .18, B.z1 - .18]) {
-    inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(bcx, AR.wingH / 2, cz, bw, AR.wingH, .36));
+    if (!haveArch) inst('arrCortenI', UNIT_BOX, MAT.corten, mat4(bcx, AR.wingH / 2, cz, bw, AR.wingH, .36));
     colliderLine(C, B.x0, cz, B.x1, cz, .4);
   }
-  inst('arrCortenI', UNIT_BOX, MAT.corten,
-    mat4(AR.faceX - .18, CY / 2, bcz, .36, CY, bd));            // lounge's east wall
+  if (!haveArch) {
+    inst('arrCortenI', UNIT_BOX, MAT.corten,
+      mat4(AR.faceX - .18, CY / 2, bcz, .36, CY, bd));          // lounge's east wall
+  }
   colliderLine(C, AR.faceX - .18, B.z0, AR.faceX - .18, B.z1, .4, BELOW);
 
   /* the folded mono-pitch roof: ridge over wings[1] falling to the eave over
@@ -2888,29 +2955,35 @@ function buildArrival(G, g, rnd) {
   const roofZ = (AR.wings[0].z0 + AR.wings[1].z1) / 2;
   const roofW = bw + 4.6;                                      // deep courtyard eave
   const roofCX = bcx - 2.0;
-  inst('arrCortenI', UNIT_BOX, MAT.corten,
-    mat4(roofCX, roofC, roofZ, roofW, .34, run + .2, 0, ang, 0));
-  /* the WARM TIMBER SOFFIT under the overhang — the photo's signature */
-  inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
-    mat4(roofCX, roofC - .21, roofZ, roofW - .12, .1, run + .08, 0, ang, 0));
+  if (!haveArch) {
+    inst('arrCortenI', UNIT_BOX, MAT.corten,
+      mat4(roofCX, roofC, roofZ, roofW, .34, run + .2, 0, ang, 0));
+    /* the WARM TIMBER SOFFIT under the overhang — the photo's signature */
+    inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
+      mat4(roofCX, roofC - .21, roofZ, roofW - .12, .1, run + .08, 0, ang, 0));
+  }
   for (let k = 0; k < 7; k++) {                                // recessed downlights
     inst('arrDownI', UNIT_BOX, MAT.arrDown,
       mat4(B.x0 - 1.5, roofC - .27 + (roofZ - (B.z0 + 2.4 + k * 3.4)) * Math.tan(ang),
         B.z0 + 2.4 + k * 3.4, .16, .05, .16));
   }
-  inst('arrCortenI', UNIT_BOX, MAT.corten,                     // front fascia
-    mat4(AR.faceX + .38, roofC - .38, roofZ, .16, 1.05, run + .15, 0, ang, 0));
-  /* THE FOLD — the angular origami line over the entry (frame f_001) */
-  const foldA = -Math.atan2(1.6, bayW + .2);
-  inst('arrCortenI', UNIT_BOX, MAT.corten,
-    mat4(AR.faceX + .42, AR.wingH + .15, bayC - .1, .14, .8, bayW + .9, 0, foldA, 0));
+  if (!haveArch) {
+    inst('arrCortenI', UNIT_BOX, MAT.corten,                   // front fascia
+      mat4(AR.faceX + .38, roofC - .38, roofZ, .16, 1.05, run + .15, 0, ang, 0));
+    /* THE FOLD — the angular origami line over the entry (frame f_001) */
+    const foldA = -Math.atan2(1.6, bayW + .2);
+    inst('arrCortenI', UNIT_BOX, MAT.corten,
+      mat4(AR.faceX + .42, AR.wingH + .15, bayC - .1, .14, .8, bayW + .9, 0, foldA, 0));
+  }
 
   /* ── the deep flat entry canopy with slatted soffit + downlights ── */
   const canC = (AR.canopy.x0 + AR.canopy.x1) / 2, canW = AR.canopy.x1 - AR.canopy.x0;
-  inst('arrCortenI', UNIT_BOX, MAT.corten,
-    mat4(canC, AR.canopy.topY - .16, bayC, canW, .32, bayW));
-  const soff = box(g, canW - .2, .05, bayW - .2, canC, AR.canopy.soffitY + .025, bayC, MAT.slatCeil);
-  soff.name = 'arr-soffit';
+  if (!haveArch) {
+    inst('arrCortenI', UNIT_BOX, MAT.corten,
+      mat4(canC, AR.canopy.topY - .16, bayC, canW, .32, bayW));
+    const soff = box(g, canW - .2, .05, bayW - .2, canC, AR.canopy.soffitY + .025, bayC, MAT.slatCeil);
+    soff.name = 'arr-soffit';
+  }
   for (let k = 0; k < 6; k++) {
     inst('arrDownI', UNIT_BOX, MAT.arrDown,
       mat4(canC + .55, AR.canopy.soffitY - .005, AR.bay.z0 + 1.6 + k * 1.16, .16, .05, .16));
@@ -2920,22 +2993,33 @@ function buildArrival(G, g, rnd) {
   for (const s of [0, 1]) {
     const z0 = s ? AR.doorGap.z1 : AR.bay.z0, z1 = s ? AR.bay.z1 : AR.doorGap.z0;
     const cz = (z0 + z1) / 2;
-    inst('arrBandI', UNIT_BOX, MAT.bands,
-      mat4((AR.doorX - .1 + 44.2) / 2, LY + (AR.canopy.topY - LY) / 2, cz,
-        44.2 - AR.doorX + .1, AR.canopy.topY - LY, z1 - z0));
+    if (!haveArch) {
+      inst('arrBandI', UNIT_BOX, MAT.bands,
+        mat4((AR.doorX - .1 + 44.2) / 2, LY + (AR.canopy.topY - LY) / 2, cz,
+          44.2 - AR.doorX + .1, AR.canopy.topY - LY, z1 - z0));
+    }
     rectCollider(C, (AR.doorX - .1 + 44.2) / 2, cz, 44.2 - AR.doorX + .1, z1 - z0, 0, .35);
   }
 
   /* ── the door bay: dark-framed glass, STANDING OPEN (gap walkable) ── */
   const gapC = (AR.doorGap.z0 + AR.doorGap.z1) / 2, gapW = AR.doorGap.z1 - AR.doorGap.z0;
-  inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, LY + 2.55, gapC, .18, .55, gapW + .3));
-  inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, LY + 2.25, gapC, .12, .07, gapW));
-  for (const s of [-1, 1]) {
-    inst('darkI', UNIT_BOX, MAT.dark,
-      mat4(AR.doorX, LY + 1.15, gapC + s * gapW / 2, .14, 2.3, .12));
+  if (!haveArch) {
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, LY + 2.55, gapC, .18, .55, gapW + .3));
+    inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX, LY + 2.25, gapC, .12, .07, gapW));
+    for (const s of [-1, 1]) {
+      inst('darkI', UNIT_BOX, MAT.dark,
+        mat4(AR.doorX, LY + 1.15, gapC + s * gapW / 2, .14, 2.3, .12));
+    }
   }
   for (const s of [-1, 1]) {                                   // the slid-open leaves
     const lz = gapC + s * (gapW / 2 + .5);
+    if (haveArch) {
+      /* the pane only — arrival_entry carries its bronze stiles and rails, and
+         both now stop UNDER the canopy soffit (lobbyY + 1.95), which the old
+         2.2 m leaves ran straight through */
+      inst('glass', UNIT_BOX, MAT.glass, mat4(AR.doorX - .25, LY + .935, lz, .03, 1.73, .9));
+      continue;
+    }
     inst('glass', UNIT_BOX, MAT.glass, mat4(AR.doorX - .25, LY + 1.13, lz, .05, 2.2, .95));
     inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX - .25, LY + 2.26, lz, .07, .06, .98));
     inst('darkI', UNIT_BOX, MAT.dark, mat4(AR.doorX - .25, LY + .02, lz, .07, .06, .98));
@@ -2948,6 +3032,16 @@ function buildArrival(G, g, rnd) {
   /* ── one pair of fluted brass cylinder sconces flanking the doors ── */
   for (const s of [-1, 1]) {
     const sz = gapC + s * (gapW / 2 + .35);
+    if (haveArch) {
+      /* KAN-211: `arrival_sconce` (Ø .20 × .80, origin at its centre) on the
+         SAME glowing material, stood off arrival_entry's bronze plate + arm
+         (plate face x 44.26, arm to 44.33). Centre 4.85: high on the pier and
+         clear of the canopy soffit at 5.55 — the old 1.2 m cylinder at
+         LY + 1.7 ran 0.35 m up through it. */
+      inst('arrSconceGlbI', models.geometry('arrival_sconce'), MAT.brassFlute,
+        mat4(44.44, 4.85, sz, 1, 1, 1));
+      continue;
+    }
     inst('darkI', UNIT_BOX, MAT.dark, mat4(44.22, LY + 1.7, sz, .08, .55, .3));
     inst('arrSconceI', UNIT_CYL, MAT.brassFlute, mat4(44.34, LY + 1.7, sz, .22, 1.2, .22));
   }
@@ -2955,10 +3049,14 @@ function buildArrival(G, g, rnd) {
   /* ── the plaque wall: wings[0] gets a banded front panel inside the corten
      frame, carrying the flush white plaque — 隐逸居 / THE SERENE RETREAT ── */
   const plWallZ = (AR.wings[0].z0 + AR.wings[0].z1) / 2 + 2.0;
-  inst('arrBandI', UNIT_BOX, MAT.bands,
-    mat4(AR.faceX + .06, TY + 1.9, plWallZ, .12, 2.9, 5.2));
+  if (!haveArch) {
+    inst('arrBandI', UNIT_BOX, MAT.bands,
+      mat4(AR.faceX + .06, TY + 1.9, plWallZ, .12, 2.9, 5.2));
+  }
   const pl = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.12), MAT.plaque);
-  pl.position.set(AR.faceX + .15, TY + 2.45, plWallZ);
+  /* KAN-211: the banded wall is RECESSED inside the corten frame now (as f_001
+     shows it), its ledges' face at faceX − .27 — the plaque sits 30 mm proud */
+  pl.position.set(haveArch ? AR.faceX - .24 : AR.faceX + .15, TY + 2.45, plWallZ);
   pl.rotation.y = Math.PI / 2;
   g.add(pl);
 
@@ -2984,11 +3082,13 @@ function buildArrival(G, g, rnd) {
     const seg = z1 - z0;
     if (seg < .2) continue;
     inst('glass', UNIT_BOX, MAT.glass, mat4(B.x0, 1.5, (z0 + z1) / 2, .1, 2.9, seg));
-    const n = Math.max(2, Math.round(seg / 1.15));
-    for (let k = 0; k <= n; k++) {
-      inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0 - .02, 1.5, z0 + seg * k / n, .16, 2.94, .11));
+    if (!haveFacade) {                 // KAN-211: lounge_facade draws the frames
+      const n = Math.max(2, Math.round(seg / 1.15));
+      for (let k = 0; k <= n; k++) {
+        inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0 - .02, 1.5, z0 + seg * k / n, .16, 2.94, .11));
+      }
+      inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0, 3.02, (z0 + z1) / 2, .2, .16, seg));
     }
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0, 3.02, (z0 + z1) / 2, .2, .16, seg));
     for (let k = 0; k < Math.max(2, Math.round(seg / 1.5)); k++) {
       inst('arrSheerI', UNIT_BOX, MAT.sheer,
         mat4(B.x0 + .3, 1.5, z0 + .7 + k * 1.5, .1, 2.7, 1.05));
@@ -2997,15 +3097,17 @@ function buildArrival(G, g, rnd) {
   /* the two folded-back leaves parked at the opening's jambs */
   for (const lz of [LG.z0 + .5, LG.z1 - .5]) {
     inst('glass', UNIT_BOX, MAT.glass, mat4(B.x0 + .35, 1.5, lz, .06, 2.85, .95));
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0 + .35, 2.95, lz, .1, .1, .99));
+    if (!haveFacade) inst('darkI', UNIT_BOX, MAT.dark, mat4(B.x0 + .35, 2.95, lz, .1, .1, .99));
   }
   /* the DARK LOUVRE BAND above the glass, under the balcony (the photo's line) */
-  for (let y = 3.04; y < CY - .01; y += .09) {
-    inst('arrLouvreI', UNIT_BOX, MAT.dark, mat4(B.x0 - .12, y, bcz, .1, .05, bd - .5));
+  if (!haveFacade) {
+    for (let y = 3.04; y < CY - .01; y += .09) {
+      inst('arrLouvreI', UNIT_BOX, MAT.dark, mat4(B.x0 - .12, y, bcz, .1, .05, bd - .5));
+    }
   }
   /* the CHARCOAL STONE PIER with the lounge's own plaque */
   const pierZ = B.z1 - 3.6, pierD = 4.6;
-  inst('arrPierI', UNIT_BOX, MAT.charcoal, mat4(B.x0 - .05, 1.62, pierZ, .3, 3.24, pierD));
+  if (!haveFacade) inst('arrPierI', UNIT_BOX, MAT.charcoal, mat4(B.x0 - .05, 1.62, pierZ, .3, 3.24, pierD));
   const lpl = new THREE.Mesh(new THREE.PlaneGeometry(1.15, .88), MAT.loungePlaque);
   lpl.position.set(B.x0 - .22, 2.15, pierZ + .5);
   lpl.rotation.y = -Math.PI / 2;
@@ -3245,14 +3347,16 @@ function buildArrival(G, g, rnd) {
     const seg = z1 - z0;
     if (seg < .2) continue;
     inst('glass', UNIT_BOX, MAT.glass, mat4(LB.x0, LY + 1.45, (z0 + z1) / 2, .1, 2.8, seg));
-    const n = Math.max(2, Math.round(seg / 1.15));
-    for (let k = 0; k <= n; k++) {
-      inst('darkI', UNIT_BOX, MAT.dark, mat4(LB.x0 - .02, LY + 1.45, z0 + seg * k / n, .16, 2.86, .11));
-    }
-    inst('darkI', UNIT_BOX, MAT.dark, mat4(LB.x0, LY + 2.92, (z0 + z1) / 2, .2, .16, seg));
-    /* the dark horizontal louvre/transom panel above the glass */
-    for (let y = LY + 3.0; y < LY + AR.lobbyH - .12; y += .1) {
-      inst('arrLouvreI', UNIT_BOX, MAT.dark, mat4(LB.x0 - .1, y, (z0 + z1) / 2, .1, .055, seg));
+    if (!haveFacade) {                 // KAN-211: lounge_facade draws frames + transom
+      const n = Math.max(2, Math.round(seg / 1.15));
+      for (let k = 0; k <= n; k++) {
+        inst('darkI', UNIT_BOX, MAT.dark, mat4(LB.x0 - .02, LY + 1.45, z0 + seg * k / n, .16, 2.86, .11));
+      }
+      inst('darkI', UNIT_BOX, MAT.dark, mat4(LB.x0, LY + 2.92, (z0 + z1) / 2, .2, .16, seg));
+      /* the dark horizontal louvre/transom panel above the glass */
+      for (let y = LY + 3.0; y < LY + AR.lobbyH - .12; y += .1) {
+        inst('arrLouvreI', UNIT_BOX, MAT.dark, mat4(LB.x0 - .1, y, (z0 + z1) / 2, .1, .055, seg));
+      }
     }
     for (let k = 0; k < Math.max(2, Math.round(seg / 1.6)); k++) {
       inst('arrSheerI', UNIT_BOX, MAT.sheer,
@@ -3261,18 +3365,22 @@ function buildArrival(G, g, rnd) {
     colliderLine(C, LB.x0, z0, LB.x0, z1, .3, ABOVE);
   }
   /* one warm timber panel bay in the upper facade, beside the glass (photo) */
-  inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
-    mat4(LB.x0 - .16, LY + 1.6, LB.z1 - 3.6, .12, 3.1, 4.4));
+  if (!haveFacade) {
+    inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
+      mat4(LB.x0 - .16, LY + 1.6, LB.z1 - 3.6, .12, 3.1, 4.4));
+  }
 
   /* ══════════════════════════════════════════════════════════════════════
      G · THE BALCONY — cantilevered, frameless glass, flat stone capping
      ══════════════════════════════════════════════════════════════════════ */
-  box(g, BC.x1 - BC.x0, .3, ld + .6, (BC.x0 + BC.x1) / 2, LY - .17, lcz, MAT.blackPolish);
-  /* the stone FASCIA BEAM under it, and the warm timber soffit inboard */
-  inst('arrCapI', UNIT_BOX, MAT.stoneCap,
-    mat4(BC.x0 - .06, LY - .30, lcz, .28, .56, ld + .7));
-  inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
-    mat4((BC.x0 + BC.x1) / 2, LY - .34, lcz, BC.x1 - BC.x0 - .3, .1, ld + .4));
+  if (!haveFacade) {                   // KAN-211: lounge_facade's balcony edge
+    box(g, BC.x1 - BC.x0, .3, ld + .6, (BC.x0 + BC.x1) / 2, LY - .17, lcz, MAT.blackPolish);
+    /* the stone FASCIA BEAM under it, and the warm timber soffit inboard */
+    inst('arrCapI', UNIT_BOX, MAT.stoneCap,
+      mat4(BC.x0 - .06, LY - .30, lcz, .28, .56, ld + .7));
+    inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
+      mat4((BC.x0 + BC.x1) / 2, LY - .34, lcz, BC.x1 - BC.x0 - .3, .1, ld + .4));
+  }
   /* frameless glass balustrade + the broad flat stone capping rail */
   /* ⚠ the WEST run is broken where the upper walkway leaves the balcony —
      AR.lobbyGaps[0] is the same span the lobby's glass wall opens on and the
@@ -3285,8 +3393,10 @@ function buildArrival(G, g, rnd) {
     const ry = Math.atan2(x2 - x1, z2 - z1);
     inst('arrGlassRailI', UNIT_BOX, MAT.clear,
       mat4((x1 + x2) / 2, LY + .53, (z1 + z2) / 2, .05, 1.02, len, ry));
-    inst('arrCapI', UNIT_BOX, MAT.stoneCap,
-      mat4((x1 + x2) / 2, LY + 1.08, (z1 + z2) / 2, .26, .1, len + .1, ry));
+    if (!haveFacade) {
+      inst('arrCapI', UNIT_BOX, MAT.stoneCap,
+        mat4((x1 + x2) / 2, LY + 1.08, (z1 + z2) / 2, .26, .1, len + .1, ry));
+    }
     colliderLine(C, x1, z1, x2, z2, .28, ABOVE);
   }
 
@@ -3305,28 +3415,34 @@ function buildArrival(G, g, rnd) {
        own face is 0.36 m of it, so a panel at LB.z0 − 0.12 stands outdoors and
        the desk backs onto bare cladding. */
     const CABZ = LB.z0 + .42;
-    for (let k = 0; k < 4; k++) {
-      inst('arrCabI', UNIT_BOX, MAT.cabinet,
-        mat4(DX - DLEN / 2 + .05 + (k + .5) * (DLEN + .8) / 4, LY + 1.55, CABZ,
-          (DLEN + .8) / 4 - .05, 3.0, .12));
+    /* KAN-211: `lobby_desk` is the cabinet wall, the counter, its slats and the
+       monitor when it loaded; the lamp, the bowl and its seeded flowers stay
+       ours (their rnd() draws below must not move) */
+    if (!haveDesk) {
+      for (let k = 0; k < 4; k++) {
+        inst('arrCabI', UNIT_BOX, MAT.cabinet,
+          mat4(DX - DLEN / 2 + .05 + (k + .5) * (DLEN + .8) / 4, LY + 1.55, CABZ,
+            (DLEN + .8) / 4 - .05, 3.0, .12));
+      }
+      inst('arrCabPlinthI', UNIT_BOX, MAT.rtDarkTeak,
+        mat4(DX, LY + .04, CABZ, DLEN + .9, .08, .16));           // its dark plinth
+      /* the counter: solid dark timber top over a vertical slat front */
+      inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + 1.06, DZ, DLEN, .09, .78));
+      inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + .55, DZ - .36, DLEN, 1.02, .07));
+      inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + .55, DZ + .36, DLEN, 1.02, .07));
+      for (const s of [-1, 1]) {
+        inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak,
+          mat4(DX + s * DLEN / 2, LY + .55, DZ, .07, 1.02, .78));
+      }
+      for (let k = 0; k < Math.round(DLEN / .11); k++) {         // the bamboo slats
+        inst('arrSlatI', UNIT_BOX, MAT.slatWarm,
+          mat4(DX - DLEN / 2 + .1 + k * .11, LY + .53, DZ + .40, .045, .94, .045));
+      }
+      /* the monitor */
+      inst('arrDeskDarkI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.36, DZ - .1, .06, .5, .78));
+      inst('arrDeskDarkI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.12, DZ - .1, .2, .06, .3));
     }
-    inst('arrCabPlinthI', UNIT_BOX, MAT.rtDarkTeak,
-      mat4(DX, LY + .04, CABZ, DLEN + .9, .08, .16));             // its dark plinth
-    /* the counter: solid dark timber top over a vertical slat front */
-    inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + 1.06, DZ, DLEN, .09, .78));
-    inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + .55, DZ - .36, DLEN, 1.02, .07));
-    inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak, mat4(DX, LY + .55, DZ + .36, DLEN, 1.02, .07));
-    for (const s of [-1, 1]) {
-      inst('arrDeskI', UNIT_BOX, MAT.rtDarkTeak,
-        mat4(DX + s * DLEN / 2, LY + .55, DZ, .07, 1.02, .78));
-    }
-    for (let k = 0; k < Math.round(DLEN / .11); k++) {           // the bamboo slats
-      inst('arrSlatI', UNIT_BOX, MAT.slatWarm,
-        mat4(DX - DLEN / 2 + .1 + k * .11, LY + .53, DZ + .40, .045, .94, .045));
-    }
-    /* the monitor, the shaded lamp, and the white bowl of dried flowers */
-    inst('arrDeskDarkI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.36, DZ - .1, .06, .5, .78));
-    inst('arrDeskDarkI', UNIT_BOX, MAT.dark, mat4(DX + 1.2, LY + 1.12, DZ - .1, .2, .06, .3));
+    /* the shaded lamp, and the white bowl of dried flowers */
     inst('arrLampI', UNIT_CYL, MAT.dark, mat4(DX + .2, LY + 1.24, DZ - .05, .04, .28, .04));
     inst('arrLampShadeI', UNIT_CONE, MAT.lampShade, mat4(DX + .2, LY + 1.46, DZ - .05, .34, .3, .34));
     inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(DX - 1.2, LY + 1.22, DZ - .05, .42, .24, .42));
