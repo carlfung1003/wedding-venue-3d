@@ -17,7 +17,7 @@
     "tris": 1264
   },
   "arrival_entry": {
-    "bytes": 65108,
+    "bytes": 58748,
     "front": "-Z",
     "material": "arrival_entry",
     "min": [
@@ -31,10 +31,10 @@
       3.3,
       16.44
     ],
-    "tris": 936
+    "tris": 564
   },
   "arrival_roof": {
-    "bytes": 242984,
+    "bytes": 269004,
     "front": "-Z",
     "material": "arrival_roof",
     "min": [
@@ -68,7 +68,7 @@
     "tris": 636
   },
   "arrival_shell": {
-    "bytes": 285412,
+    "bytes": 358872,
     "front": "-Z",
     "material": "arrival_shell",
     "min": [
@@ -84,8 +84,25 @@
     ],
     "tris": 3528
   },
+  "arrival_soffit": {
+    "bytes": 14712,
+    "front": "-Z",
+    "material": "arrival_soffit",
+    "min": [
+      9.8,
+      5.55,
+      -4.5
+    ],
+    "origin": "site",
+    "size": [
+      4.3,
+      0.06,
+      9.0
+    ],
+    "tris": 744
+  },
   "arrival_stair": {
-    "bytes": 28652,
+    "bytes": 29616,
     "front": "-Z",
     "material": "arrival_stair",
     "min": [
@@ -99,7 +116,7 @@
       1.01,
       10.86
     ],
-    "tris": 1956
+    "tris": 2100
   },
   "bar_stool": {
     "bytes": 16336,
@@ -458,6 +475,40 @@
     ],
     "tris": 344
   },
+  "cordyline_clump": {
+    "bytes": 2976,
+    "front": "-Z",
+    "material": "plant_w",
+    "min": [
+      -0.409,
+      -0.391,
+      -0.5
+    ],
+    "origin": "centre",
+    "size": [
+      0.817,
+      0.782,
+      1.0
+    ],
+    "tris": 220
+  },
+  "cordyline_clump_ixora": {
+    "bytes": 3368,
+    "front": "-Z",
+    "material": "plant_w",
+    "min": [
+      -0.5,
+      -0.179,
+      -0.448
+    ],
+    "origin": "centre",
+    "size": [
+      1.0,
+      0.358,
+      0.895
+    ],
+    "tris": 120
+  },
   "cover_core": {
     "bytes": 1880,
     "front": "-Z",
@@ -678,6 +729,40 @@
       1.343
     ],
     "tris": 772
+  },
+  "frangipani": {
+    "bytes": 12368,
+    "front": "-Z",
+    "material": "bark",
+    "min": [
+      -1.874,
+      -0.094,
+      -1.789
+    ],
+    "origin": "floor",
+    "size": [
+      3.398,
+      2.928,
+      3.226
+    ],
+    "tris": 2016
+  },
+  "frangipani_leaves": {
+    "bytes": 3480,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -2.99,
+      1.197,
+      -2.844
+    ],
+    "origin": "floor",
+    "size": [
+      5.623,
+      2.126,
+      5.38
+    ],
+    "tris": 200
   },
   "hat_rack": {
     "bytes": 92508,

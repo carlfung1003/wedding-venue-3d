@@ -434,8 +434,16 @@ carry gameplay, so the contract is different from every group above:
 | `lounge_facade` | §D lounge mullions/heads/folded-leaf heads, `arrLouvreI` ×2 storeys, `arrPierI`, the balcony slab box, `arrCapI` (beam + capping), `arrSoffitI` (balcony + the upper timber panel), §F lobby mullions/head | slim dark-grey folding-door frames (stiles + deep rails), the louvre band, the charcoal pier in ~0.77 × 0.81 m tiles with joints, the balcony's stone slab edge + 0.56 m pale fascia beam + cedar soffit + capping + glass shoes over RAIL, the lobby's frames + louvred transom, the cedar panel (clubhouse-lounge-checkin-balcony.jpg) | `ar_alu`, `ar_dark`, `ar_charcoal`, `ar_joint`, `ar_cap`, `ar_stone`, `cedar` | 2048 | 1,680 |
 | `lobby_desk` | §H `arrCabI`, `arrCabPlinthI`, `arrDeskI`, `arrSlatI` ×35, `arrDeskDarkI` | counter: dark carcass, recessed kick, a 60 mm bevelled top over 36 half-round bamboo slats, end returns; a slim monitor FACING THE STAFF (the old boxes faced sideways); four white flush cabinet panels with reveals and pull grooves on a dark plinth (compare-checkin-lobby-2026-08-04.jpg) | `ar_teak`, `ar_bamboo`, `ar_white`, `ar_screen`, `ar_dark` | 1024 | 1,308 |
 
+**Wave A2 (look pass) additions** — same contracts:
+
+| name | replaces | what | material | tris |
+|---|---|---|---|---|
+| `arrival_soffit` | split out of `arrival_entry` (which lost its slats + backing: 936 → 564 tris) | the canopy's slatted ceiling: 56 mm slats at 0.13 m in a solid warm bronze-brown `ar_soffit` (#3a2b21, wood family) on a near-black backing, the downlight channel kept; its own GLB so it can be MATTE (rough .88, env .35) while the piers stay glossy | baked, 1024 | 744 |
+| `frangipani` + `frangipani_leaves` | the four blob trees of `frangipani()` (3 UNIT_CYL trunks + 5 canopy blobs + 7 pink flecks each) | 4 thick pale-grey trunks from one root flare, each forking twice into blunt candelabra branches (~3.5 m, crown ~5 m); a 5-card rosette cluster at every tip on `leafMat('frangi')` (`frangipani_leaf.webp`: paddle-leaf rosette with pink + white flowers, keyed off COBALT). Origin at the trunk foot; one `mat4(fx, fy + .18, fz, 1,1,1, yaw-from-position)` per tree; the blob path's **77 rnd() are still drawn and dropped** | GEOMETRY ONLY: trunks on MAT.arrTrunk + instance colour 0x6c665f (arrTrunkI program), cards on the leaf program | 2,016 + 200 |
+| `cordyline_clump` + `cordyline_clump_ixora` | the beds' maroon cordyline + red ixora `arrPlantI` blobs | 22 arching strap blades / six squashed flower-head domes, both fitted to the UNIT_BLOB envelope (±.5) so the blob's own matrix + colour are reused | GEOMETRY ONLY on MAT.plantFlat (arrPlantI program), keys `arrCordyGlbI` / `arrIxoraGlbI` | 220 / 120 |
+
 **Textures** (`textures/gen/`, bake inputs): `corten_weathered.webp` (manifest
-`corten_cladding`, 2K, tile-blend, balanced `#5f5247`), `cedar_soffit.webp`
+`corten_cladding`, **v2** 2K: fine vertical streaks on an even warm ground, tile-blend x only, balanced `#4a3a30`; `corten_dark.webp` = it × 0.30 linear, derived, for the seams), `cedar_soffit.webp`
 (`cedar_soffit`, 2K, **`blend_axis: "y"`** — a both-axis blend doubled every board
 joint across the tile's middle), and `panel_walnut.webp` — **DERIVED, not
 generated**: cedar_soffit.webp × (0.24, 0.19, 0.19) in linear space (numpy, one

@@ -84,8 +84,8 @@ ARCH = {
     # key            hex        family   roughness
     "ar_corten":   ("5f5247", "metal_p", 0.70),   # fallback if the photo is missing
     "ar_corten_d": ("2f2822", "paint",   0.70),   # the dark reveal behind a seam
-    "ar_stone":    ("45494c", "stone",   0.30),   # honed grey-charcoal stair (f_011/f_013)
-    "ar_stone_l":  ("5c6164", "stone",   0.30),   # the landing / nosing strip
+    "ar_stone":    ("3a3532", "stone",   0.30),   # warm polished charcoal stair (wave A2)
+    "ar_stone_l":  ("77706a", "stone",   0.30),   # the honed nosing edge / anti-slip strip
     "ar_black":    ("141517", "paint",   0.20),   # the piers' glossy black bands
     "ar_taupe":    ("7a7367", "stone",   0.60),   # the piers' projecting taupe ledges
     "ar_bronze":   ("4a3528", "paint",   0.45),   # door frames, mullions (warm bronze)
@@ -112,6 +112,13 @@ def corten(name="corten"):
     exists, else the flat palette key. Separate NAMES for faces that should get
     fewer atlas texels (UV_WEIGHT keys on the material name)."""
     return L.image_mat(name, "corten_weathered.webp", roughness=0.70, fallback="ar_corten")
+
+
+def corten_dark(name="corten_seam"):
+    """The standing seams: the same patina darkened to the shadowed reveal
+    (corten_dark.webp = corten_weathered.webp × 0.30 in linear light, derived
+    locally) so every seam reads as a CRISP dark vertical line, as f_001's do."""
+    return L.image_mat(name, "corten_dark.webp", roughness=0.75, fallback="ar_corten_d")
 
 
 def cedar(name="cedar"):

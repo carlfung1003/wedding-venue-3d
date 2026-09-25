@@ -1,5 +1,5 @@
 {
-  "bytes": 28652,
+  "bytes": 29616,
   "front": "-Z",
   "material": "arrival_stair",
   "min": [
@@ -13,5 +13,5 @@
     1.01,
     10.86
   ],
-  "tris": 1956
+  "tris": 2100
 }

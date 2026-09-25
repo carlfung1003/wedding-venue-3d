@@ -87,19 +87,8 @@ def build():
         "can_fs": (FX, C["x1"] + 0.04, bay1, bay1 + 0.04),
     }.items():
         parts.append(A.box(nm, xa, xb, C["soffitY"] - 0.04, C["topY"] + 0.03, za, zb, "ar_bronze"))
-    # the soffit backing (just above the plane) and the slats hanging to it
-    parts.append(A.box("sof_back", C["x0"], C["x1"], C["soffitY"] + 0.035, C["topY"] - 0.30,
-                       bay0, bay1, "ar_black"))
-    canC = (C["x0"] + C["x1"]) / 2
-    chan0, chan1 = canC + 0.55 - 0.20, canC + 0.55 + 0.20       # the downlight channel
-    x = C["x0"] + 0.08
-    i = 0
-    while x < C["x1"] - 0.05:
-        if not (chan0 < x < chan1):
-            parts.append(A.box(f"slat{i}", x - 0.028, x + 0.028, C["soffitY"], C["soffitY"] + 0.035,
-                               bay0 + 0.04, bay1 - 0.04, "ar_dark"))
-        x += 0.13
-        i += 1
+    # (the slatted soffit + its backing are `arrival_soffit` since wave A2 —
+    # they want their own matte roughness; this GLB's glossy piers do not)
 
     # ── THE BANDED PIERS
     px0, px1 = DX - 0.1, 44.2

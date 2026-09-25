@@ -774,12 +774,79 @@ from the cedar locally.
     no earlier GLB was touched. `wv_bake.py` / `make_masters.py` gained only the
     opt-in `PACK_SHAPE` knob.
 
+#### WAVE A2 — the look pass (2026-09-25, on top of checkpoint dd85e79)
+
+The coordinator's review against f_001: correct but not yet a visual win. Three
+fixes. Shots: before `reference/photos/shots-archA2-before/` (dd85e79 in a
+worktree on :8811), after `shots-archA2/`; side-by-sides
+`shots-archA2/compare-archA-*.jpg` and the 3-way
+`compare3-archA-court-threequarter.jpg` (f_001 | dd85e79 | A2).
+
+1. **Corten tone, MEASURED.** f_001's warm rust face: mean (96, 80, 72), std 19.
+   Wave A rendered the end wall at (126, 115, 103), blotchy. Now **(94, 82, 69),
+   std ~20**. Three changes: a v2 texture (fine VERTICAL streaks on an even dark
+   warm ground, balanced `#4a3a30`, tile-blend on x only — a y cross-fade smeared
+   the streaks into a band); seams on a derived `corten_dark.webp` (× 0.30
+   linear), so every seam is a crisp dark line; and the shell/roof at env .45 /
+   rough .85 (at 1.0 / .72 the PMREM's grey sky sat on every panel as a sheen).
+2. **Canopy soffit + stair.** The slats move to their own GLB, `arrival_soffit`,
+   in a solid warm bronze-brown at rough .88 / env .35. At .42 they had shared
+   the piers' gloss and mirrored the sky as grey-white stripes. `arrival_entry`
+   drops to 564 tris. The stair goes to a warmer charcoal (#3a3532) with a pale
+   honed NOSING band wrapping every tread edge, at env .3 / rough .38: it had
+   mirrored the grey sky at the court's grazing angle. Measured stair
+   (88, 92, 95) → (87, 84, 81).
+3. **The court's planting.** `frangipani` + `frangipani_leaves` replace the
+   four blob trees. They are thick grey multi-trunk candelabra branches with
+   5-card leaf rosettes (one generated card, pink + white flowers, keyed off
+   cobalt), each tree one instance at its old position. `cordyline_clump` and
+   `cordyline_clump_ixora` are prototype swaps in the UNIT_BLOB envelope, on
+   the blob's own matrix and colour. **Proof** (matrix-level, not just hashes):
+   - `arrPlantI` after is an ORDERED SUBSEQUENCE of before, minus exactly 68
+     instances. Of those, 8 + 12 reappear with identical matrix + colour in
+     `arrCordyGlbI` / `arrIxoraGlbI`; the other 48 are the frangipani canopy
+     blobs and flecks.
+   - `arrTrunkI` 14 → 2.
+   - Every other one of 184 buckets is byte-identical. The rnd() stream did not
+     move: the GLB path still draws the blob tree's **77** rnd() and drops them.
+   - `colliderHash 026674019d51` (10,797) both.
+
+| 80 views, dd85e79 → A2 | before | after |
+|---|---|---|
+| draw calls (sum) | 26,437 | 26,493 (+56: +5 at the court/courtyard views, 0 at 62 views) |
+| triangles (sum) | 51,588,378 | 51,646,526 (+0.11 %) |
+| shader programs | 113 | **113 at every view** (bake program, arrTrunkI's, the leaf program, plantFlat's) |
+| colliders / feet / night | | identical at all 80 views |
+| floorY, 21 probes | | byte-identical |
+| guest journey | | 0 stalls, every beat, Check-in PROMPT ✓, lights 40 / 12, `ERRORS []` |
+
+fps: `hedge-arrival-court` read 94.2 → 81.2 in the full runs. Two A/B reruns
+there read 89.0 / 67.4 before against 88.4 / 90.6 after, so that is run-to-run
+noise, not a regression.
+
+Image generation (`venue-arch`): **+2 images** (corten v2,
+frangipani card); running total **4 images, $0.54**.
+
+⚠ **What A2 learned:**
+1. **Measure the RENDER against the photo, not the texture against the photo.**
+   The v1 texture was balanced to f_001's colour and still rendered 30 points
+   lighter and grey. The env reflection and the sun lift it. Grade the texture
+   darker than the target and re-measure in the shot.
+2. **One GLB = one roughness** is a real constraint on architecture. Split
+   anything that must be matte away from anything glossy (soffit vs piers).
+3. **A leaf card with pink flowers cannot be shot on magenta.** Cobalt +
+   `--mode flat` + `drop_backdrop_hue: "blue"` (the boug recipe) keyed it
+   cleanly first time.
+4. A prototype swap on a SHARED bucket (arrPlantI also carries the dracaena,
+   batters and lounge shrubs) needs a new key per call site, not a flush-time
+   swap. The proof is then "ordered subsequence + moved instances match", not
+   "bucket byte-identical".
+
 **Deliberately not in this wave:** the lobby's slat ceiling and the lounge's
 ceiling / floors (still `box()` + canvas maps), the lounge's breakfast
 furniture, the internal stair, the upper walkway (LINK / SLOT / HEAD) and its
-pergola, the terrace retaining wall and lane, the gate, the court's planting
-(the frangipani are still flat-shaded blob trees — the single biggest thing
-between the court view and f_001 now), the check-in staff.
+pergola, the terrace retaining wall and lane, the gate, the dracaena bowls and
+batter planting (still blobs), the check-in staff.
 
 ### Not in this pass (next)
 

@@ -642,14 +642,15 @@
     "tile": "fill",
     "blend": 0.12,
     "flatten": 0.2,
-    "flatten_amount": 0.6,
+    "flatten_amount": 1.0,
     "balance": {
-      "target": "#5f5247",
+      "target": "#4a3a30",
       "ref": "mean"
     },
-    "post": "tile-blend; flattened 0.2 x0.6; balanced to #5f5247",
-    "prompt": "Photograph looking straight at one flat panel of weathered architectural corten steel cladding on a modern tropical resort pavilion, the camera square to the metal so the whole frame is the metal surface: a mature matte patina mixing dusky grey-brown, deep umber, charcoal and a little warm rust-orange, with long faint vertical rain run-off streaks running from the top of the frame to the bottom, soft mottled oxidation clouds, a few small brighter orange rust blooms, and a faint silvery-grey bloom where the weather has bleached it. No seams, no joints, no ribs, no rivets, no screws, no edges — just the continuous metal skin. Sharp focus, even daylight.",
-    "note": "KAN-211 wave A: the arrival pavilion's corten skin (f_001: grey-brown weathered battens; clubhouse-lounge-checkin-balcony.jpg: silver-grey with rust). Geometry carries the standing seams; the texture carries only the patina, mapped with a world-scale planar UV (_arch.py) at ~1.6 m a tile."
+    "blend_axis": "x",
+    "post": "tile-blend (x only — a y cross-fade smeared the vertical streaks into a horizontal band); flattened 0.2 x1.0; balanced to #4a3a30 (v2)",
+    "prompt": "Photograph looking straight at one flat panel of weathered corten steel architectural cladding, the camera square to the metal so the whole frame is the metal surface: a deep, dark, warm rust-brown to dark-chocolate patina, fairly even in tone across the whole frame, crossed by many fine VERTICAL weathering streaks running from the top edge to the bottom edge — thin silvery-grey rain run-off streaks and a few thin brighter orange rust bleed streaks — so the surface reads as vertically streaked, not blotchy. No large blotches, no clouds, no patches, no bright spots. No seams, no joints, no ribs, no rivets, no screws, no edges — just the continuous metal skin. Matte, sharp focus, soft overcast daylight.",
+    "note": "KAN-211 wave A2 (v2 prompt): f_001 measured — warm rust face mean (96,80,72) std 19, under the venue rig the v1 bake rendered (126,115,103) std 18 and blotchy, so v2 asks for fine VERTICAL streaks on an even dark warm ground and balances to #4a3a30. Wave A: the arrival pavilion's corten skin (f_001: grey-brown weathered battens; clubhouse-lounge-checkin-balcony.jpg: silver-grey with rust). Geometry carries the standing seams; the texture carries only the patina, mapped with a world-scale planar UV (_arch.py) at ~1.6 m a tile."
   },
   "cedar_soffit": {
     "kind": "texture",
@@ -669,5 +670,22 @@
     "post": "tile-blend (y only — the x roll offset the board joints and a both-axis cross-fade doubled them); flattened 0.2 x0.5; balanced to #a15a2f",
     "prompt": "Photograph looking straight up at a modern resort soffit lined with narrow warm reddish-orange cedar-look timber boards, the camera square to the ceiling so the whole frame is timber: exactly eight long straight boards running from the top of the frame to the bottom, each board the same width, separated by thin dark shadow joints, a fine straight grain along each board with gentle tone variation between boards from honey-orange to russet, a smooth satin oiled finish. Sharp focus, even soft light.",
     "note": "KAN-211 wave A: the warm timber soffit under the overhangs, the canopy and the balcony (clubhouse-lounge-checkin-balcony.jpg — its signature colour). Boards run down v; mapped at 1.2 m a tile (0.15 m boards)."
+  },
+  "frangipani_leaf_card": {
+    "kind": "texture",
+    "dir": "assets/textures",
+    "out": "frangipani_leaf.webp",
+    "aspect": "1:1",
+    "size": "2K",
+    "max": 1024,
+    "tile": false,
+    "bleed": 16,
+    "mode": "flat",
+    "tol": 100,
+    "soft": 30,
+    "drop_backdrop_hue": "blue",
+    "post": "key-green",
+    "prompt": "One single branch tip of a frangipani (plumeria) tree, cut and laid flat, photographed from directly above so it fills about three quarters of the frame and sits in the middle of it: a rosette of eight to ten large glossy paddle-shaped mid-green leaves, each long and oval with a pale midrib and fine parallel side veins, radiating outward from the centre like the spokes of a wheel, the leaf tips separate from each other at the rim with backdrop between them; at the centre a small cluster of five or six five-petalled frangipani flowers, some white with a yellow centre and some soft pink. Photographed on a completely flat, solid, evenly lit pure cobalt-blue backdrop, the same blue in every part of the frame the subject does not cover, with no gradient, no shadow on the backdrop, no border and no frame; nothing blue on the plant itself. Even soft daylight, sharp focus.",
+    "note": "KAN-211 wave A2: the ALPHA CARD for the arrival court's frangipani crowns (generators/frangipani.py, leafMat('frangi') in js/foliage.js). Cobalt + --mode flat like boug_leaf_card: the leaves are green (no green screen) and the flowers are pink (no magenta)."
   }
 }

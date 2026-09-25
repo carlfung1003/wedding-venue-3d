@@ -72,7 +72,7 @@ def build():
     bay0, bay1 = AR["bay"]["z0"], AR["bay"]["z1"]
     canTop = AR["canopy"]["topY"]
     ceilLobby = LY + AR["lobbyH"]
-    cort, seam = A.corten("corten"), A.corten("corten_seam")
+    cort, seam = A.corten("corten"), A.corten_dark("corten_seam")
     core = A.corten("corten_in")
     lin = A.panelling("panelling")
     parts = []

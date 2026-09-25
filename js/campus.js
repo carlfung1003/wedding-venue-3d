@@ -2616,7 +2616,7 @@ function buildArrival(G, g, rnd) {
      plus `arrival_sconce`, GEOMETRY ONLY on our own glowing MAT.brassFlute.
      Baked atlases ride the one instanced baked-map program the props already
      compile; the sconce rides the brassFlute program arrSconceI compiled. */
-  const ARCH = ['arrival_shell', 'arrival_roof', 'arrival_stair', 'arrival_entry'];
+  const ARCH = ['arrival_shell', 'arrival_roof', 'arrival_stair', 'arrival_entry', 'arrival_soffit'];
   const haveArch = ARCH.every(have) && have('arrival_sconce');
   const haveFacade = have('lounge_facade');
   const haveDesk = have('lobby_desk');
@@ -2637,10 +2637,18 @@ function buildArrival(G, g, rnd) {
     modelI('arrRoofGlbI', 'arrival_roof', ANCHOR());
     modelI('arrStairGlbI', 'arrival_stair', ANCHOR());
     modelI('arrEntryGlbI', 'arrival_entry', ANCHOR());
-    archMat('arrival_shell', .72, 0x707784);
-    archMat('arrival_roof', .72, 0x707784);
-    archMat('arrival_stair', .24, 0x99a1b2, 1.25);
+    modelI('arrSoffitGlbI', 'arrival_soffit', ANCHOR());
+    /* wave A2: the corten at env .45 / rough .85 — at 1.0 / .72 the PMREM's
+       grey sky sat on every panel as a sheen and read washed-out grey-brown;
+       the canopy soffit matte and dark (at .42 its slats caught the sky as
+       grey-white stripes); the stair polished but warm (env 1.25 → .3, rough .38: the grey sky
+       it mirrored at the court's grazing angle turned the charcoal flat
+       light grey) */
+    archMat('arrival_shell', .85, 0x707784, .45);
+    archMat('arrival_roof', .85, 0x707784, .45);
+    archMat('arrival_stair', .38, 0x99a1b2, .3);
     archMat('arrival_entry', .42, 0x7d8494);
+    archMat('arrival_soffit', .88, 0x7a6a68, .35);
   }
   if (haveFacade) {
     modelI('arrFacadeGlbI', 'lounge_facade', ANCHOR());
@@ -2823,7 +2831,23 @@ function buildArrival(G, g, rnd) {
      renders two stops lighter — the first cut's cordyline came out pink. */
   const TRUNKS = [0x4f3b2b, 0x5a4433, 0x453529];
   const CORDY = [0x5e2531, 0x6b2c38, 0x4f1f28];
+  /* ── KAN-211 wave A2: the Blender frangipani (generators/frangipani.py) —
+     trunks on MAT.arrTrunk with a pale-grey bark colour (the arrTrunkI
+     program), rosette cards on leafMat('frangi') (the palm fronds' program).
+     ⚠ THE SEEDED STREAM: the blob tree below draws 3 trunks × 7 + 5 canopy masses × 7 + 7
+     flecks × 3 = 77 rnd() per tree, and every later placement on the campus hangs off that
+     count — so the GLB path draws them all and drops the matrices. Its own
+     yaw comes from the position, never from rnd(). */
+  const haveFrangi = have('frangipani') && have('frangipani_leaves');
   const frangipani = (fx, fz, fy) => {
+    if (haveFrangi) {
+      for (let k = 0; k < 77; k++) rnd();
+      const m = mat4(fx, fy + .18, fz, 1, 1, 1, (fx * 1.37 + fz * 2.11) % (Math.PI * 2));
+      inst('arrFrangiGlbI', models.geometry('frangipani'), MAT.arrTrunk, m, new THREE.Color(0x6c665f));
+      inst('arrFrangiLeafGlbI', models.geometry('frangipani_leaves'), leafMat('frangi'), m);
+      C.push({ x: fx, z: fz, r: .5 });
+      return;
+    }
     for (let t = 0; t < 3; t++) {                           // 2–3 leaning trunks
       inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk,
         mat4(fx + (rnd() - .5) * .7, fy + 1.15, fz + (rnd() - .5) * .7,
@@ -2860,14 +2884,20 @@ function buildArrival(G, g, rnd) {
         mat4(hx + (rnd() - .5) * .1, TY + .52, inner + (bi === 0 ? -.5 : .5),
           1.32, .58 + rnd() * .1, .85));
     }
+    /* KAN-211 wave A2: the cordyline + ixora take Blender PROTOTYPES in the
+       unit-blob envelope — same matrix, same colour, same rnd() draws, a new
+       key each (a GLB carries its own geometry: one key per pair) */
+    const cordy = have('cordyline_clump'), ixora = have('cordyline_clump_ixora');
     for (let c = 0; c < 4; c++) {
-      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+      inst(cordy ? 'arrCordyGlbI' : 'arrPlantI', cordy ? models.geometry('cordyline_clump') : UNIT_BLOB,
+        MAT.plantFlat,
         mat4(AR.bedX0 + 1.2 + c * 1.7 + rnd() * .5, TY + .78, bc + (rnd() - .5) * .7,
           .75 + rnd() * .35, .95 + rnd() * .3, .75 + rnd() * .3),
         new THREE.Color(CORDY[Math.floor(rnd() * CORDY.length)]));
     }
     for (let c = 0; c < 6; c++) {
-      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
+      inst(ixora ? 'arrIxoraGlbI' : 'arrPlantI', ixora ? models.geometry('cordyline_clump_ixora') : UNIT_BLOB,
+        MAT.plantFlat,
         mat4(AR.bedX0 + .8 + rnd() * (AR.fore.x1 - AR.bedX0 - 1.6), TY + .34,
           inner + (bi === 0 ? -.95 : .95) + (rnd() - .5) * .3, .3, .24, .3),
         new THREE.Color(0xc63e1c));

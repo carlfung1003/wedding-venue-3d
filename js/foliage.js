@@ -39,6 +39,9 @@ const LEAF = {
      cards meet the tinted core; night is the shrub row of nature's NIGHT_TABLE */
   shrub: { file: 'shrub_leaf.webp', day: 0xe4eed8, night: 0x445c74, fb: ['#3f6a30', '#2c4d24'] },
   boug:  { file: 'boug_leaf.webp',  day: 0xffffff, night: 0x6b5878, fb: ['#b83a74', '#2f5226'] },
+  /* KAN-211 wave A2: the arrival court's frangipani rosettes (pink + white
+     flowers on the card — keyed off cobalt, like boug) */
+  frangi: { file: 'frangipani_leaf.webp', day: 0xc4d2b4, night: 0x445c74, fb: ['#4f7d38', '#35592a'] },
 };
 const MATS = {};
 let night = false;

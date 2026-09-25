@@ -57,6 +57,13 @@ def build():
             tread = A.box(f"tread{i}_{k}", xa, xb + NOSE, top - 0.03, top, za, zb, "ar_stone")
             L.bevel([tread], width=0.012, segments=2)
             parts.append(tread)
+        # THE NOSING EDGE (wave A2): a honed paler band wrapping the tread's
+        # front — 30 mm down the riser face and 30 mm onto the tread — so every
+        # step reads as an edge line from the court (the flight had gone flat)
+        parts.append(A.box(f"nose{i}", xb + NOSE - 0.001, xb + NOSE + 0.002, top - 0.03, top,
+                           z0 + 0.02, z1 - 0.02, "ar_stone_l"))
+        parts.append(A.box(f"nosetop{i}", xb + NOSE - 0.03, xb + NOSE, top, top + 0.001,
+                           z0 + 0.02, z1 - 0.02, "ar_stone_l"))
         # the pale anti-slip strip, 40 mm behind the nosing, 1 mm proud
         parts.append(A.box(f"strip{i}", xb - 0.09, xb - 0.05, top, top + 0.001, z0 + 0.15, z1 - 0.15, "ar_stone_l"))
     # the landing, slabs with fine joints

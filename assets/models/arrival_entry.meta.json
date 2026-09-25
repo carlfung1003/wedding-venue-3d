@@ -1,5 +1,5 @@
 {
-  "bytes": 65108,
+  "bytes": 58748,
   "front": "-Z",
   "material": "arrival_entry",
   "min": [
@@ -13,5 +13,5 @@
     3.3,
     16.44
   ],
-  "tris": 936
+  "tris": 564
 }

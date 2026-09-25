@@ -1,0 +1,17 @@
+{
+  "bytes": 14712,
+  "front": "-Z",
+  "material": "arrival_soffit",
+  "min": [
+    9.8,
+    5.55,
+    -4.5
+  ],
+  "origin": "site",
+  "size": [
+    4.3,
+    0.06,
+    9.0
+  ],
+  "tris": 744
+}

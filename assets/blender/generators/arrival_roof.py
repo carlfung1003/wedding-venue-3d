@@ -51,7 +51,7 @@ def build():
     X0, X1 = bcx - 2.0 - (bw + 4.6) / 2, bcx - 2.0 + (bw + 4.6) / 2      # 28.7 … 44.9
     Z0, Z1 = (z0w + z1w) / 2 - (z1w - z0w + 0.2) / 2, (z0w + z1w) / 2 + (z1w - z0w + 0.2) / 2
     top, core = A.corten("corten_top"), A.corten("corten_in")
-    cort, seam, ced = A.corten("corten"), A.corten("corten_seam"), A.cedar("cedar")
+    cort, seam, ced = A.corten("corten"), A.corten_dark("corten_seam"), A.cedar("cedar")
     parts = []
 
     def slab(name, xa, xb, za, zb, d0, d1, mat):
