@@ -61,7 +61,8 @@ def site():
                 "console.log(JSON.stringify({AR: m.SITE.ARRIVAL, LY: m.ARRIVAL_LOBBY_Y,"
                 " CY: m.ARRIVAL_LOUNGE_CEIL, XS: m.SITE.EXT_STAIR,"
                 " AT: m.SITE.ATRIUM, RD: m.ROOM_DOORS, AD: m.ARRIVAL_ATRIUM_DOOR,"
-                " VD: m.SITE.VILLA.doorClear}));")
+                " VD: m.SITE.VILLA.doorClear, SU: m.SITE.SUITE, AD2: m.ARRIVAL_ATRIUM_DOOR,"
+                " DK: m.SITE.DECK}));")
         out = subprocess.run([_node(), "--input-type=module", "-e", code],
                              capture_output=True, text=True, check=True)
         _SITE = json.loads(out.stdout.strip().splitlines()[-1])
@@ -82,6 +83,9 @@ def anchor():
     if _FRAME == "atrium":
         AT = site()["AT"]
         return (AT["cx"], 0.0, AT["cz"])
+    if _FRAME == "suite":          # wave C: the presidential suite's centre
+        SU = site()["SU"]
+        return (SU["cx"], 0.0, SU["cz"])
     AR = site()["AR"]
     return (AR["backX"], 0.0, AR["axisZ"])
 
@@ -122,6 +126,52 @@ def atrium():
     T["STAIR"] = S
     T["WELL"] = {"x0": S["x"] - 1.0, "x1": T["CX0"], "z0": S["zTop"], "z1": -42.5}
     return T
+
+
+def suite():
+    """SITE.SUITE plus the derived numbers js/suite.js computes from it, in ONE
+    place, with the same arithmetic (the consts at the top of suite.js — a
+    change there must be mirrored here). ⚠ Everything returned is in SITE
+    (mirror-CORRECTED) coordinates: suite.js authors in the reversed brief
+    frame and reflects X through mx(); these GLBs are authored straight in
+    SITE and placed WITHOUT the mirror, so an asymmetric element (the closed
+    leaf run, the leaf stack, the 2F link door, the annex) is negated here
+    exactly once, where it is read."""
+    S = dict(site()["SU"])
+    mx = lambda x: -x
+    S["X0"], S["X1"] = S["cx"] - S["w"] / 2, S["cx"] + S["w"] / 2     # -8, 8 (symmetric)
+    S["ZS"] = S["glassWallZ"]                                          # -13.5
+    S["ZN"] = S["ZS"] - S["d"]                                         # -26.5
+    S["H1"], S["YF2"], S["H2"] = S["floorH"], S["floorToFloor"], S["floor2H"]
+    S["Y2C"] = S["YF2"] + S["H2"]                                      # 6.8
+    S["OVER_N"] = S["roofOverhang"]
+    S["OVER_E"] = S["roofOverhang"] * 1.30
+    S["OVER_S"] = S["roofOverhang"] * 1.55
+    S["ROOF_T"], S["FASCIA_H"] = 0.72, 0.58
+    S["EWT"] = 0.36
+    S["RX0"], S["RX1"] = S["X0"] - S["OVER_E"], S["X1"] + S["OVER_E"]
+    S["RZ0"], S["RZ1"] = S["ZN"] - S["OVER_N"], S["ZS"] + S["OVER_S"]
+    S["balZ"] = S["ZS"] + S["balconyD"]                                # -11.5
+    # the folding wall (suite.js GW) — authored-frame numbers, then reflected
+    gx0, gx1 = -S["glassWallW"] / 2, S["glassWallW"] / 2
+    S["GW"] = {"x0": gx0, "x1": gx1, "leafW": S["leafW"], "leafH": S["leafH"],
+               # closed run: authoring x0 … closedX1 (−7 … −3.2) → SITE 3.2 … 7
+               "closed": sorted((mx(gx0), mx(-3.2))),
+               # stack post: authoring stackX0 + 8·dx … + .1 → SITE
+               "stackX0": mx(6.2)}
+    # the east annex of the brief = SITE WEST (spa + corridor), reflected
+    spa = S["spa"]
+    anx0 = S["X1"]                                   # authoring 8
+    anx1 = -spa["cx"] + spa["w"] / 2                 # authoring 14 (SITE spa.cx is −10.5)
+    cor1 = anx0 + S["corridorW"] + .3                # authoring 9.9
+    spa_zs = spa["cz"] + spa["d"] / 2                # −19.5
+    cor_zs = spa_zs + 2.5                            # −17.0
+    S["ANX"] = {"roofA": (sorted((mx(anx0), mx(anx1 + 1.2))), (S["ZN"] - 1.2, spa_zs + 1.0)),
+                "roofB": (sorted((mx(anx0), mx(cor1 + 1.0))), (spa_zs + 1.0, cor_zs + 1.0)),
+                "H2": S["H2"]}
+    # the 2F door onto the clubhouse walkway: authoring X0 (−8) → SITE +8
+    S["LINK"] = dict(site()["AR"]["SUITE_DOOR"], x=mx(S["X0"]))
+    return S
 
 
 def B_(x, y, z):
@@ -171,6 +221,25 @@ ARCH = {
     "at_door":     ("4e2c1e", "wood",    0.50),   # guest-room door leaves
     "at_batten":   ("8a4b2c", "wood",    0.60),   # the timber screens' battens
     "at_black":    ("121214", "paint",   0.50),   # downlight bezels, reveals
+    # ── KAN-211 wave C: the presidential suite (pimg-002 = the hotel deck's p3
+    #    elevation across the pool, measured; IMG_8096 for the leaf frames) ──
+    "su_stone0":   ("423834", "stone",   0.55),   # the corner piers' warm taupe stone panels —
+    "su_stone1":   ("3c3332", "stone",   0.55),   #   photo pier face (107,92,82); ×~.53 linear after the first render read (145,124,105)
+    "su_stone2":   ("483e3a", "stone",   0.55),
+    "su_band":     ("8c7f76", "paint",   0.45),   # balcony slab-edge panels — photo (158..184,140..164,129..153); render now (181,160,140)
+    "su_band_d":   ("3b3632", "paint",   0.50),   # the band's drip reveal / shadow line
+    "su_alu":      ("8f887f", "metal_p", 0.40),   # 2F frames + louvres, warm light grey
+    "su_roof":     ("55585c", "metal_p", 0.50),   # standing-seam roof skin (pimg-001, grey)
+    "su_seam":     ("46494d", "metal_p", 0.50),
+    "su_joint":    ("1b1918", "paint",   0.80),   # cassette / panel joints, backing
+    "su_sapele":   ("5e2c1f", "wood",    0.45),   # the folding leaves' red-brown frames (IMG_8096)
+    "su_sapele_d": ("3f1d15", "wood",    0.45),
+    "su_brass":    ("8a6b3f", "metal_p", 0.35),   # leaf pulls, hinge knuckles
+    "su_cap":      ("7e4a30", "wood",    0.45),   # the balustrade's flat copper-timber cap (190,145,125 lit)
+    "su_shoe":     ("2a2826", "metal_p", 0.45),   # glass shoe channel
+    "su_wicker":   ("e6e1d6", "straw",   0.70),   # white wicker dining set (p5)
+    "su_cushion":  ("f1eee6", "linen",   0.80),
+    "su_top":      ("efece5", "paint",   0.35),   # the table top
 }
 for k, (hx, fam, rough) in ARCH.items():
     L.PALETTE[k] = L._hex(hx)
@@ -330,3 +399,47 @@ def panels(a, b, seams):
     """[a, b] cut at every seam strictly inside it."""
     cs = [a] + [c for c in seams if a + 1e-6 < c < b - 1e-6] + [b]
     return list(zip(cs, cs[1:]))
+
+
+# ---------------------------------------------------------------- wave C helpers
+def copper(name="copper"):
+    """The suite fascia's copper cassettes (copper_cassette.webp, generated for
+    wave C). Separate NAMES for faces that should get fewer atlas texels."""
+    return L.image_mat(name, "copper_cassette.webp", roughness=0.5, fallback="at_copper")
+
+
+def soffit_teak(name="soffit"):
+    """The suite's DARK timber soffit. ⚠ DERIVED, not generated:
+    cedar_soffit.webp re-balanced per channel in LINEAR light to a mean of
+    (86, 58, 46) — pimg-002's shaded soffit reads (39, 28, 26) and the render
+    lifts a texture, so the picture sits between the two (numpy, see
+    ASSET_SPEC Group M). Boards run down v = along local z (N–S)."""
+    return L.image_mat(name, "soffit_teak.webp", roughness=0.8, fallback="at_wood2")
+
+
+def cassettes(parts, rnd, side, a0, a1, fixed, y0, y1, out, mat, back, pitch=0.62,
+              joint=0.016, proud=0.022, back_t=0.03, prefix="cas", tile=1.2):
+    """A band of flat metal CASSETTE panels on a dark backing — the copper
+    fascia of pimg-002. `side` 'x' → the band runs along x on the plane
+    z = fixed; 'z' → along z on the plane x = fixed. `out` = ±1 is the
+    outward normal along the fixed axis. The backing sits on [fixed, fixed +
+    out·back_t], the panels proud of it by `proud`. Each panel takes its own
+    random UV shift, so each reads as its own sheet (wave A lesson 3)."""
+    n = max(1, round((a1 - a0) / pitch))
+    step = (a1 - a0) / n
+    f0, f1 = fixed, fixed + out * back_t
+    p0, p1 = f1, f1 + out * proud
+    for k, (ba, bb) in enumerate(spans(a0, a1, 5.0)):
+        if side == 'x':
+            parts.append(box(f"{prefix}_bk{k}", ba, bb, y0, y1, f0, f1, back))
+        else:
+            parts.append(box(f"{prefix}_bk{k}", f0, f1, y0, y1, ba, bb, back))
+    for i in range(n):
+        ca, cb = a0 + i * step + joint / 2, a0 + (i + 1) * step - joint / 2
+        ya, yb = y0 + joint / 2, y1 - joint / 2
+        if side == 'x':
+            o = box(f"{prefix}{i}", ca, cb, ya, yb, p0, p1, mat)
+        else:
+            o = box(f"{prefix}{i}", p0, p1, ya, yb, ca, cb, mat)
+        world_uv(o, tile=tile, du=rnd(), dv=rnd())
+        parts.append(o)

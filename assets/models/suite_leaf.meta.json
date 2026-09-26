@@ -1,0 +1,17 @@
+{
+  "bytes": 10128,
+  "front": "-Z",
+  "material": "suite_leaf",
+  "min": [
+    -0.487,
+    -0.0,
+    -0.091
+  ],
+  "origin": "site",
+  "size": [
+    0.962,
+    2.8,
+    0.182
+  ],
+  "tris": 428
+}

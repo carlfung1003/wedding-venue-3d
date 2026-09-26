@@ -725,5 +725,23 @@
     "post": "tile-blend (x only — a y cross-fade would double the courses); flattened 0.2 x0.6; balanced to #3c3e41",
     "prompt": "Photograph looking straight at a flat feature wall of dark stacked slate ledgestone, the camera square to the wall so the whole frame is stone: many thin horizontal courses of split charcoal-grey slate, each course 1 to 4 centimetres tall, the pieces of varying length with rough split edges, some pieces standing slightly proud, deep thin shadow lines between the courses, tones from near-black to mid slate grey. The courses run perfectly horizontal from the left edge to the right edge. No mortar, no grout, no joints between panels, no edges of the wall. Soft even daylight, sharp focus.",
     "note": "KAN-211 wave B: the atrium's stacked-slate feature panels (clubhouse-atrium.jpeg + atrium-water-feature.jpg: the tall charcoal ledgestone blocks by the stair). Bake input for atrium_bay_slate, mapped at ~1.3 m a tile."
+  },
+  "copper_cassette": {
+    "kind": "texture",
+    "out": "copper_cassette.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "tile": "fill",
+    "blend": 0.12,
+    "flatten": 0.2,
+    "flatten_amount": 0.8,
+    "balance": {
+      "target": "#a37556",
+      "ref": "mean"
+    },
+    "post": "tile-blend (both axes — a sheet patina has no direction); flattened 0.2 x0.8; balanced to #a37556 (first installed at #9a6440, then re-graded per channel in LINEAR light ×(1.14, 1.40, 1.85) after the in-game render read (191,126,76) against the photo's (203,147,102) — the mean that grade landed on is the target now, so a re-install reproduces it)",
+    "prompt": "Photograph looking straight at one flat sheet of architectural copper cladding that has weathered for a few years in tropical sun, the camera square to the metal so the whole frame is the metal surface: a warm burnished copper-bronze colour, from honey-tan and soft salmon to deeper russet brown, with gentle soft-edged mottled tone variation across the sheet and a very fine brushed texture, a low satin sheen. Fairly even overall, no green verdigris, no bright spots, no black stains. No seams, no joints, no ribs, no rivets, no screws, no edges, no panels — just the continuous metal skin. Sharp focus, soft even daylight.",
+    "note": "KAN-211 wave C: the presidential suite's roof fascia — a band of copper CASSETTE panels (hotel deck p3 elevation, reference/docs/clubhouse-intro.pdf image pimg-002: sunlit fascia measured (203,147,102), each panel its own tone). Geometry carries the cassette joints; each panel takes a random UV shift so the tones differ panel to panel. Balanced darker than the photo because the render lifts a texture ~30 points (wave A2 lesson 1)."
   }
 }

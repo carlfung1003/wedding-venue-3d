@@ -1,0 +1,17 @@
+{
+  "bytes": 122316,
+  "front": "-Z",
+  "material": "suite_facade",
+  "min": [
+    -8.0,
+    -0.02,
+    -6.81
+  ],
+  "origin": "site",
+  "size": [
+    16.53,
+    6.82,
+    15.375
+  ],
+  "tris": 1724
+}

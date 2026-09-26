@@ -565,6 +565,19 @@ function glbPutM(name, m) {
   GLBI.get(name).push(m.clone());
 }
 const anchorM = () => new THREE.Matrix4().makeTranslation(A.cx, 0, A.cz);
+/* wave C: the portal GLBs re-derive the facade's hole in their generator
+   (atrium_portal.py hole()); this checks that derivation against the hole the
+   facade ACTUALLY cut, from the GLB's own sidecar extents (piers pw wide either
+   side). A mismatch falls back to the primitives, loudly. */
+function glbHoleOk(name, hx0, hx1, pw) {
+  const inf = models.info(name);
+  if (!inf) return false;
+  const x0 = A.cx + inf.min[0] + pw, x1 = A.cx + inf.min[0] + inf.size[0] - pw;
+  if (Math.abs(x0 - hx0) < .01 && Math.abs(x1 - hx1) < .01) return true;
+  console.warn(`[atrium] ${name}: GLB hole ${x0.toFixed(3)}…${x1.toFixed(3)} ≠ facade hole `
+    + `${hx0.toFixed(3)}…${hx1.toFixed(3)} — drawing the primitive portal`);
+  return false;
+}
 /* one InstancedMesh per GLB, children of the atrium root (added after the
    static batching, which leaves InstancedMeshes alone anyway) */
 function flushGlb(parent) {
@@ -609,6 +622,9 @@ export function buildAtrium(G) {
     door: haveM('atrium_door'),
     bay: haveM('atrium_bay') && haveM('atrium_bay_slate') && haveM('atrium_bay_screen')
       && haveM('atrium_bay_glazing'),
+    /* KAN-211 wave C: the portal to the presidential suite + the 2F link door */
+    portal: haveM('atrium_portal'),
+    link: haveM('atrium_portal_link'),
   };
   GLBI.clear();
 
@@ -1260,6 +1276,8 @@ export function buildAtrium(G) {
   bakeMat('atrium_bay_slate', .8, .5, .2);
   bakeMat('atrium_bay_screen', .6, .5, .2);
   bakeMat('atrium_bay_glazing', .35, .8, .3, .5);
+  bakeMat('atrium_portal', .38, .55, .22);          // wave C — atrium_door's finish
+  bakeMat('atrium_portal_link', .38, .55, .22);
 
   /* ───────────────────────────────────────────────────────────── tickers ── */
 
@@ -1621,14 +1639,22 @@ function buildPortal(parent, M, E, hole) {
   const z = Z1, hh = H1;
   const pw = .9;
   const hx0 = hole.x0, hx1 = hole.x1;
-  for (const s of [-1, 1]) {
-    mkBox(parent, pw, hh, WALL_T + .5, M.column,
-      (s < 0 ? hx0 : hx1) + s * pw / 2, hh / 2, z);
-  }
   const span = (hx1 - hx0) + pw * 2;
   const cx = (hx0 + hx1) / 2;
-  mkBox(parent, span, .62, WALL_T + .5, M.darkWall, cx, hh - .31, z);      // header
-  mkBox(parent, span, .1, WALL_T + .58, M.copper, cx, hh - .66, z);        // copper reveal
+  if (HB.portal && glbHoleOk('atrium_portal', hx0, hx1, pw)) {
+    /* wave C: atrium_portal — coursed stone piers, lintel + architrave both
+       faces, the copper reveal, a threshold, the plaque's bronze hangers and
+       back plate, and a stone path over the grass to the suite's doors. The
+       warm strip and the lit plaque below stay game meshes. */
+    glbPutM('atrium_portal', anchorM());
+  } else {
+    for (const s of [-1, 1]) {
+      mkBox(parent, pw, hh, WALL_T + .5, M.column,
+        (s < 0 ? hx0 : hx1) + s * pw / 2, hh / 2, z);
+    }
+    mkBox(parent, span, .62, WALL_T + .5, M.darkWall, cx, hh - .31, z);      // header
+    mkBox(parent, span, .1, WALL_T + .58, M.copper, cx, hh - .66, z);        // copper reveal
+  }
   mkBox(parent, span - .5, .05, .06, E.portalStrip, cx, hh - .76, z - .3); // warm strip
 
   const t = texPortalPlaque();
@@ -1725,6 +1751,14 @@ function buildRoomDoor(parent, M, E, plaqueMats, plaques, hole, no, y0) {
    height, sized to the hole the facade ACTUALLY cut. */
 function buildLinkDoor(parent, M, E, hole, y0) {
   const z = Z1, hh = H1 - .35, pw = .7;
+  if (HB.link && glbHoleOk('atrium_portal_link', hole.x0, hole.x1, pw)) {
+    /* wave C: atrium_portal_link — the portal's language at the gallery's
+       storey; the warm strip stays a game mesh */
+    glbPutM('atrium_portal_link', anchorM());
+    const span = (hole.x1 - hole.x0) + pw * 2, cx = (hole.x0 + hole.x1) / 2;
+    mkBox(parent, span - .5, .05, .06, E.portalStrip, cx, y0 + hh - .18, z - .28);
+    return;
+  }
   for (const s of [-1, 1]) {
     mkBox(parent, pw, hh, WALL_T + .42, M.column,
       (s < 0 ? hole.x0 : hole.x1) + s * pw / 2, y0 + hh / 2, z);

@@ -18,6 +18,7 @@ import * as THREE from 'three';
 import { SITE, MOMENT_PLACES, worldToEnclave, ARRIVAL_LOBBY_Y } from './site.js';
 import { mulberry32 } from './materials.js';
 import * as models from './models.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /* ══════════════════════════════════════════════════════════════════════
    1 · DIMENSIONS — everything derived from SITE.SUITE
@@ -241,6 +242,53 @@ function mdl(parent, name, x, y, z, ry = 0, s = 1) {
   return m;
 }
 
+/* ── KAN-211 WAVE C: THE EXTERIOR AS BLENDER ARCHITECTURE ────────────────────
+   assets/blender/generators/suite_*.py (ASSET_SPEC Group M). Unlike the
+   interior props above, these are authored in SITE — mirror-CORRECTED —
+   coordinates (frame "suite", origin (S.cx, 0, S.cz)), because their
+   generators read js/site.js directly (_arch.suite() re-derives every const
+   at the top of this file). So they are placed WITHOUT mx(): one identity
+   instance at the anchor. Reflecting them would put the closed leaf run, the
+   leaf stack, the 2F link door and the annex on the wrong side — the exact
+   half-mirror §1a exists to prevent.
+     suite_roof        the cantilever: copper cassette fascia, the grey
+                       standing-seam skin, the SW void, the annex roofs
+     suite_soffit      the dark timber undersides (roof ring, annex, balcony)
+     suite_facade      the south piers, the 1F wall's fixed frame, the
+                       balcony (deck, slab-edge band, shoe + cap), the 2F
+                       frames + clerestory + louvre band, the 2F link door
+     suite_leaf        ONE folding leaf's frame — instanced at every leaf
+     suite_dining_set  the balcony's white table + eight wicker armchairs
+   VISUAL ONLY: every collider, WALK_REGION, spawn and interactable is
+   untouched, and every replaced primitive keeps its old path as the `else`
+   of an HC flag (all false = the pre-wave-C build, primitive for primitive).
+   All are InstancedMeshes on their own baked material, which is the one
+   instanced baked-map program the atrium's GLBs already compile. */
+let HC = {};
+const SUITE_ANCHOR = () => new THREE.Matrix4().makeTranslation(S.cx, 0, S.cz);
+const LEAF_M = [];                  // the leaves' matrices (root space) for suite_leaf
+function glbInst(parent, name, mats) {
+  const im = new THREE.InstancedMesh(models.geometry(name), models.material(name), mats.length);
+  mats.forEach((m, i) => im.setMatrixAt(i, m));
+  im.instanceMatrix.needsUpdate = true;
+  im.computeBoundingSphere();
+  im.name = 'suite:' + name;
+  parent.add(im);
+  return im;
+}
+/* the finish a baked atlas cannot carry — one roughness / metalness per GLB,
+   and the env reflection on the day↔night registry (setSuiteNight): the
+   suite's own materials never tint, but a baked atlas at full env reads as a
+   grey sheen against the night sky (measured — see CLAUDE.md wave C) */
+function archFinish(name, rough, metal, envD, envN) {
+  const m = models.material(name);
+  if (!m || m.userData.kan211c) return;
+  m.userData.kan211c = true;
+  m.roughness = rough; m.metalness = metal;
+  m.envMapIntensity = NIGHT ? envN : envD;
+  nightables.push({ env: m, day: envD, night: envN });
+}
+
 /**
  * A wall run with door/window openings punched in it.
  * axis 'z': runs along Z at x = fixed.  axis 'x': runs along X at z = fixed.
@@ -328,6 +376,7 @@ export function setSuiteNight(on) {
   NIGHT = !!on;
   for (const n of nightables) {
     if (n.mat) n.mat.emissiveIntensity = NIGHT ? n.night : n.day;
+    else if (n.env) n.env.envMapIntensity = NIGHT ? n.night : n.day;
     else if (n.light) {
       n.light.intensity = NIGHT ? n.night : n.day;
       n.light.color.setHex(NIGHT ? n.nightHex : n.dayHex);
@@ -664,6 +713,13 @@ export function buildSuite(G) {
   const root = new THREE.Group();
   root.name = 'presidentialSuite';
   COL = (G.colliders ||= []);
+  HC = {
+    roof: haveM('suite_roof') && haveM('suite_soffit'),
+    facade: haveM('suite_facade'),
+    leaf: haveM('suite_leaf'),
+    dining: haveM('suite_dining_set'),
+  };
+  LEAF_M.length = 0;
 
   buildShell(root);
   buildFoldingGlassWall(root);
@@ -673,6 +729,7 @@ export function buildSuite(G) {
   buildAnnex(root);
   buildSecondFloor(root);
   buildLighting(root, G);
+  buildExterior(root);
   buildColliders();
   checkMirror();
 
@@ -738,14 +795,16 @@ function buildShell(root) {
   ]);
   /* the reveal: a marble sill flush with the 2F floor, dark jambs, a copper
      head — the same language the atrium's gallery doors use */
-  slab(root, MT.marble, X0 - EWT / 2 - .1, X0 + EWT / 2 + .35, YF2 - .06, YF2 + .01,
-    LINK_DOOR.z0, LINK_DOOR.z1);
-  for (const dz of [LINK_DOOR.z0, LINK_DOOR.z1]) {
-    slab(root, MT.sapeleDark, X0 - EWT / 2 - .04, X0 + EWT / 2 + .04, YF2, YF2 + 2.35,
-      dz - .07, dz + .07);
+  if (!HC.facade) {                     // wave C: suite_facade's bronze surround
+    slab(root, MT.marble, X0 - EWT / 2 - .1, X0 + EWT / 2 + .35, YF2 - .06, YF2 + .01,
+      LINK_DOOR.z0, LINK_DOOR.z1);
+    for (const dz of [LINK_DOOR.z0, LINK_DOOR.z1]) {
+      slab(root, MT.sapeleDark, X0 - EWT / 2 - .04, X0 + EWT / 2 + .04, YF2, YF2 + 2.35,
+        dz - .07, dz + .07);
+    }
+    slab(root, MT.brass, X0 - EWT / 2 - .04, X0 + EWT / 2 + .04, YF2 + 2.30, YF2 + 2.40,
+      LINK_DOOR.z0, LINK_DOOR.z1);
   }
-  slab(root, MT.brass, X0 - EWT / 2 - .04, X0 + EWT / 2 + .04, YF2 + 2.30, YF2 + 2.40,
-    LINK_DOOR.z0, LINK_DOOR.z1);
   wallRun(root, MT.plaster, 'z', X0, EWT, -16.6, ZS, YF2 - .4, Y2C);
   glazedBay(root, 'z', X0, -16.6, ZS, .1, 2.9, 3);          // 1F corner glazing
   /* East: shared with the annex to z = COR_ZS, then exterior.
@@ -759,11 +818,13 @@ function buildShell(root) {
   wallRun(root, MT.plaster, 'z', X1, EWT, COR_ZS, ZS, 0, Y2C);
 
   /* ── south face: dark stone-clad piers flanking the 14 m glazing ── */
-  for (const px of [X0 + .5, X1 - .5]) {
-    slab(root, MT.stonePier, px - .5, px + .5, 0, Y2C, ZS - .5, ZS + .12);
+  if (!HC.facade) {                     // wave C: suite_facade's stone panels + reveal
+    for (const px of [X0 + .5, X1 - .5]) {
+      slab(root, MT.stonePier, px - .5, px + .5, 0, Y2C, ZS - .5, ZS + .12);
+    }
+    /* the 2F spandrel above the folding wall (1F head to 2F floor) */
+    slab(root, MT.plaster, GW.x0, GW.x1, 3.0, YF2, ZS - .18, ZS + .06);
   }
-  /* the 2F spandrel above the folding wall (1F head to 2F floor) */
-  slab(root, MT.plaster, GW.x0, GW.x1, 3.0, YF2, ZS - .18, ZS + .06);
 
   /* ── 2F floor slab (3.4 → 3.8), cut open over the stair void ── */
   slab(root, MT.ceiling, X0, ST.x0, H1, YF2, ZN, ZS);
@@ -787,15 +848,17 @@ function buildShell(root) {
   /* directional overhangs: deepest to the SOUTH over the balcony and pool deck,
      shallowest to the NORTH so the roof stays clear of the atrium */
   const rx0 = X0 - OVER_E, rx1 = X1 + OVER_E, rz0 = ZN - OVER_N, rz1 = ZS + OVER_S;
-  slab(root, MT.ceilingWarm, rx0, rx1, Y2C, Y2C + ROOF_T - .1, rz0, rz1);   // soffit + slab
-  slab(root, MT.plaster, rx0 + .1, rx1 - .1, Y2C + ROOF_T - .1, Y2C + ROOF_T, rz0 + .1, rz1 - .1);
-  fascia(root, rx0, rx1, rz0, rz1, Y2C + .04, ROOF_T - .06, .14);
+  if (!HC.roof) {                       // wave C: suite_roof + suite_soffit
+    slab(root, MT.ceilingWarm, rx0, rx1, Y2C, Y2C + ROOF_T - .1, rz0, rz1);   // soffit + slab
+    slab(root, MT.plaster, rx0 + .1, rx1 - .1, Y2C + ROOF_T - .1, Y2C + ROOF_T, rz0 + .1, rz1 - .1);
+    fascia(root, rx0, rx1, rz0, rz1, Y2C + .04, ROOF_T - .06, .14);
 
-  /* single-storey roof over the east annex — spa block + corridor tail */
-  slab(root, MT.ceilingWarm, ANX_X0, ANX_X1 + 1.2, H2, H2 + .3, ZN - 1.2, SPA_ZS + 1.0);
-  fascia(root, ANX_X0, ANX_X1 + 1.2, ZN - 1.2, SPA_ZS + 1.0, H2 + .02, .3, .1);
-  slab(root, MT.ceilingWarm, ANX_X0, COR_X1 + 1.0, H2, H2 + .3, SPA_ZS + 1.0, COR_ZS + 1.0);
-  fascia(root, ANX_X0, COR_X1 + 1.0, SPA_ZS + 1.0, COR_ZS + 1.0, H2 + .02, .3, .1);
+    /* single-storey roof over the east annex — spa block + corridor tail */
+    slab(root, MT.ceilingWarm, ANX_X0, ANX_X1 + 1.2, H2, H2 + .3, ZN - 1.2, SPA_ZS + 1.0);
+    fascia(root, ANX_X0, ANX_X1 + 1.2, ZN - 1.2, SPA_ZS + 1.0, H2 + .02, .3, .1);
+    slab(root, MT.ceilingWarm, ANX_X0, COR_X1 + 1.0, H2, H2 + .3, SPA_ZS + 1.0, COR_ZS + 1.0);
+    fascia(root, ANX_X0, COR_X1 + 1.0, SPA_ZS + 1.0, COR_ZS + 1.0, H2 + .02, .3, .1);
+  }
 
   /* the annex floor + ceilings */
   slab(root, MT.spaFloor, ANX_X0, ANX_X1, -.08, 0, ZN, SPA_ZS);
@@ -822,6 +885,13 @@ function fascia(parent, x0, x1, z0, z1, y, h, t) {
 function makeLeaf(w, h) {
   const g = new THREE.Group();
   const t = .09, f = .065;
+  if (HC.leaf) {
+    /* wave C: the frame is a suite_leaf INSTANCE at this group's matrix
+       (collected in buildFoldingGlassWall once the group is placed); the
+       pane stays the game's transparent MT.glass */
+    slab(g, MT.glass, -w / 2 + f, w / 2 - f, f, h - f, -.018, .018);
+    return g;
+  }
   slab(g, MT.sapele, -w / 2, -w / 2 + f, 0, h, -t / 2, t / 2);
   slab(g, MT.sapele, w / 2 - f, w / 2, 0, h, -t / 2, t / 2);
   slab(g, MT.sapele, -w / 2, w / 2, 0, f, -t / 2, t / 2);
@@ -836,11 +906,13 @@ function buildFoldingGlassWall(root) {
   root.add(g);
 
   /* head beam + floor track run the whole 14 m frontage */
-  slab(g, MT.sapele, GW.x0, GW.x1, GW.leafH, GW.leafH + .18, ZS - .1, ZS + .1);
-  slab(g, MT.sapeleDark, GW.x0, GW.x1, -.02, .02, ZS - .07, ZS + .07);
-  /* jambs */
-  slab(g, MT.sapele, GW.x0 - .09, GW.x0, 0, GW.leafH + .18, ZS - .1, ZS + .1);
-  slab(g, MT.sapele, GW.x1, GW.x1 + .09, 0, GW.leafH + .18, ZS - .1, ZS + .1);
+  if (!HC.facade) {                     // wave C: in suite_facade
+    slab(g, MT.sapele, GW.x0, GW.x1, GW.leafH, GW.leafH + .18, ZS - .1, ZS + .1);
+    slab(g, MT.sapeleDark, GW.x0, GW.x1, -.02, .02, ZS - .07, ZS + .07);
+    /* jambs */
+    slab(g, MT.sapele, GW.x0 - .09, GW.x0, 0, GW.leafH + .18, ZS - .1, ZS + .1);
+    slab(g, MT.sapele, GW.x1, GW.x1 + .09, 0, GW.leafH + .18, ZS - .1, ZS + .1);
+  }
 
   /* ── closed leaves, dining end ── */
   const nClosed = Math.round((GW.closedX1 - GW.x0) / GW.leafW);
@@ -873,20 +945,32 @@ function buildFoldingGlassWall(root) {
     g.add(leaf);
   }
   /* stack post the leaves park against */
-  slab(g, MT.sapele, GW.stackX0 + 8 * dx, GW.stackX0 + 8 * dx + .1, 0, GW.leafH, ZS - depth, ZS + .05);
+  if (!HC.facade) {
+    slab(g, MT.sapele, GW.stackX0 + 8 * dx, GW.stackX0 + 8 * dx + .1, 0, GW.leafH, ZS - depth, ZS + .05);
+  }
+  /* wave C: every leaf group's matrix is a suite_leaf instance. `g` sits at
+     the root's origin, so a leaf's own matrix IS its root-space matrix. */
+  if (HC.leaf) {
+    for (const leaf of g.children) {
+      if (!leaf.isGroup) continue;
+      leaf.updateMatrix();
+      LEAF_M.push(leaf.matrix.clone());
+    }
+  }
 }
 
 /**
  * A run of fixed glazing in a dark bronze mullion grid.
  * axis 'z' → the wall runs along Z at x = fixed; 'x' → along X at z = fixed.
  */
-function glazedBay(parent, axis, fixed, a0, a1, y0, y1, bays, mat = MT.glass) {
+function glazedBay(parent, axis, fixed, a0, a1, y0, y1, bays, mat = MT.glass, glassOnly = false) {
   const t = .07, mw = .07;
   const put = (b0, b1, yy0, yy1, m) => {
     if (axis === 'z') slab(parent, m, fixed - t / 2, fixed + t / 2, yy0, yy1, b0, b1);
     else slab(parent, m, b0, b1, yy0, yy1, fixed - t / 2, fixed + t / 2);
   };
   put(a0, a1, y0, y1, mat);
+  if (glassOnly) return;                // wave C: the frames are suite_facade's
   for (let i = 0; i <= bays; i++) {
     const a = a0 + (a1 - a0) * i / bays;
     put(a - mw / 2, a + mw / 2, y0, y1, MT.bronzeMullion);
@@ -1367,7 +1451,12 @@ function rakeRail(parent, axis, fixed, a0, y0, a1, y1, ang) {
 }
 
 /** Level glass balustrade + handrail along a 2F floor edge. */
-function levelRail(parent, axis, fixed, a0, a1, y) {
+function levelRail(parent, axis, fixed, a0, a1, y, glassOnly = false) {
+  if (glassOnly) {                      // wave C: the shoe + flat cap are suite_facade's
+    if (axis === 'z') slab(parent, MT.glassRail, fixed - .011, fixed + .011, y, y + .98, a0, a1);
+    else slab(parent, MT.glassRail, a0, a1, y, y + .98, fixed - .011, fixed + .011);
+    return;
+  }
   if (axis === 'z') {
     slab(parent, MT.glassRail, fixed - .011, fixed + .011, y, y + .98, a0, a1);
     const r = cyl(parent, MT.sapele, .031, .031, Math.abs(a1 - a0), fixed, y + 1.01, (a0 + a1) / 2, 10);
@@ -1537,25 +1626,36 @@ function buildSecondFloor(root) {
   slab(g, MT.dark2F, X0, ST.x0, YF2 - .02, YF2 + .015, ZN, BZ);        // bedroom wing
 
   /* ── 2F south glazing + the dark timber louver band at the window head ── */
-  glazedBay(g, 'x', ZS, X0 + .6, X1 - .6, YF2 + .05, YF2 + 2.62, 12);
-  slab(g, MT.espressoPlain, X0 + .5, X1 - .5, YF2 + 2.62, Y2C - .06, ZS - .16, ZS - .04);
-  for (let y = YF2 + 2.7; y < Y2C - .1; y += .12) {
-    slab(g, MT.sapeleDark, X0 + .5, X1 - .5, y, y + .05, ZS - .2, ZS - .16);
+  if (HC.facade) {
+    /* wave C: the glass now runs up to the clerestory head; suite_facade
+       draws the frames, the clerestory transoms and the louvre band */
+    glazedBay(g, 'x', ZS, X0 + .6, X1 - .6, YF2 + .05, Y2C - .06, 12, MT.glass, true);
+  } else {
+    glazedBay(g, 'x', ZS, X0 + .6, X1 - .6, YF2 + .05, YF2 + 2.62, 12);
+    slab(g, MT.espressoPlain, X0 + .5, X1 - .5, YF2 + 2.62, Y2C - .06, ZS - .16, ZS - .04);
+    for (let y = YF2 + 2.7; y < Y2C - .1; y += .12) {
+      slab(g, MT.sapeleDark, X0 + .5, X1 - .5, y, y + .05, ZS - .2, ZS - .16);
+    }
   }
 
   /* ── balcony: slab, glass balustrade, white outdoor dining set ── */
-  slab(g, MT.spaFloor, X0 + .5, X1 - .5, YF2 - .18, YF2 - .02, ZS, balZ);
-  levelRail(g, 'x', balZ - .06, X0 + .5, X1 - .5, YF2 - .02);
-  levelRail(g, 'z', X0 + .56, ZS, balZ, YF2 - .02);
-  levelRail(g, 'z', X1 - .56, ZS, balZ, YF2 - .02);
-  slab(g, MT.white, -1.4, 1.4, YF2 + .68, YF2 + .74, balZ - 1.4, balZ - .6);
-  for (const cx of [-1.1, 1.1]) for (const cz of [balZ - 1.25, balZ - .75]) {
-    slab(g, MT.white, cx - .04, cx + .04, YF2 - .02, YF2 + .68, cz - .04, cz + .04);
-  }
-  for (let i = 0; i < 4; i++) {
-    const cx = -.9 + i * .6;
-    slab(g, MT.white, cx - .2, cx + .2, YF2 + .4, YF2 + .46, balZ - 1.2, balZ - .8);
-    slab(g, MT.white, cx - .2, cx + .2, YF2 + .46, YF2 + .95, balZ - .84, balZ - .8);
+  /* wave C: suite_facade carries the deck (red timber, top at YF2 − .02 —
+     the walk height), the slab-edge band, the glass shoe and the flat cap;
+     the glass panes stay the game's */
+  if (!HC.facade) slab(g, MT.spaFloor, X0 + .5, X1 - .5, YF2 - .18, YF2 - .02, ZS, balZ);
+  levelRail(g, 'x', balZ - .06, X0 + .5, X1 - .5, YF2 - .02, HC.facade);
+  levelRail(g, 'z', X0 + .56, ZS, balZ, YF2 - .02, HC.facade);
+  levelRail(g, 'z', X1 - .56, ZS, balZ, YF2 - .02, HC.facade);
+  if (!HC.dining) {                     // wave C: suite_dining_set
+    slab(g, MT.white, -1.4, 1.4, YF2 + .68, YF2 + .74, balZ - 1.4, balZ - .6);
+    for (const cx of [-1.1, 1.1]) for (const cz of [balZ - 1.25, balZ - .75]) {
+      slab(g, MT.white, cx - .04, cx + .04, YF2 - .02, YF2 + .68, cz - .04, cz + .04);
+    }
+    for (let i = 0; i < 4; i++) {
+      const cx = -.9 + i * .6;
+      slab(g, MT.white, cx - .2, cx + .2, YF2 + .4, YF2 + .46, balZ - 1.2, balZ - .8);
+      slab(g, MT.white, cx - .2, cx + .2, YF2 + .46, YF2 + .95, balZ - .84, balZ - .8);
+    }
   }
 
   /* ── teal blackout curtains, full height (f001) ── */
@@ -1639,6 +1739,68 @@ function curtainPanel2F(parent, x, z, w, y0, h) {
     const d = .07 + .05 * Math.sin(t * Math.PI * 5);
     slab(parent, MT.curtain, cx - w / n / 2, cx + w / n / 2, y0, y0 + h, z - d, z + d);
   }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   12a · THE EXTERIOR GLBs (KAN-211 wave C) — see the banner under mdl()
+   ══════════════════════════════════════════════════════════════════════ */
+function buildExterior(root) {
+  const A = [SUITE_ANCHOR()];
+  if (HC.roof) {
+    glbInst(root, 'suite_roof', A);
+    glbInst(root, 'suite_soffit', A);
+    /* copper: a satin metal sheen; the soffit matte and dark */
+    archFinish('suite_roof', .45, .35, .8, .3);
+    archFinish('suite_soffit', .85, 0, .35, .15);
+    buildSoffitLights(root);
+  }
+  if (HC.facade) {
+    glbInst(root, 'suite_facade', A);
+    archFinish('suite_facade', .5, 0, .6, .25);
+  }
+  if (HC.leaf && LEAF_M.length) {
+    glbInst(root, 'suite_leaf', LEAF_M);
+    archFinish('suite_leaf', .42, 0, .6, .25);
+  }
+  if (HC.dining) {
+    glbInst(root, 'suite_dining_set', A);
+    archFinish('suite_dining_set', .7, 0, .5, .2);
+  }
+}
+
+/* The soffit's recessed downlights: ONE merged mesh of small emissive discs on
+   MT.downlight (the glow the great room's ceiling grid already uses — same
+   program, one draw call, no light). pimg-002 shows them in the soffit; after
+   dark they are what draws the roof's edge against the sky. Positions are SITE
+   coordinates (no mx()): they follow suite_roof's ring and skip its void. */
+function buildSoffitLights(root) {
+  const geos = [];
+  const disc = new THREE.CircleGeometry(.055, 12).rotateX(Math.PI / 2);   // faces down
+  /* the soffit boards hang 6.77 … 6.80 (suite_soffit), so the lamps sit a
+     few mm under 6.77 */
+  const put = (x, y, z) => geos.push(disc.clone().translate(x, y - .034, z));
+  const rx0 = X0 - OVER_E, rx1 = X1 + OVER_E, rz0 = ZN - OVER_N, rz1 = ZS + OVER_S;
+  const inVoid = (x, z) => x > -10.2 && x < -8.45 && z > -12.65 && z < -10.85;
+  const row = (x0, x1, z, n) => {
+    for (let i = 0; i < n; i++) {
+      const x = x0 + (x1 - x0) * (i + .5) / n;
+      if (!inVoid(x, z)) put(x, Y2C, z);
+    }
+  };
+  const col = (x, z0, z1, n) => {
+    for (let i = 0; i < n; i++) put(x, Y2C, z0 + (z1 - z0) * (i + .5) / n);
+  };
+  row(rx0 + .4, rx1 - .4, ZS + 1.0, 13);            // south overhang, two rows
+  row(rx0 + .4, rx1 - .4, rz1 - .9, 13);
+  row(rx0 + .4, rx1 - .4, rz0 + 1.1, 11);           // north
+  col(rx0 + 1.43, ZN + .8, ZS - .8, 7);             // west + east
+  col(rx1 - 1.43, ZN + .8, ZS - .8, 7);
+  for (let i = 0; i < 9; i++) {                     // under the balcony
+    geos.push(disc.clone().translate(-6.6 + 13.2 * i / 8, 3.05 - .004, ZS + 1.0));
+  }
+  const m = new THREE.Mesh(mergeGeometries(geos), MT.downlight);
+  m.name = 'suite:soffitLights';
+  root.add(m);
 }
 
 /* ══════════════════════════════════════════════════════════════════════

@@ -501,6 +501,40 @@ const VIEWS = [
     return { x: c.x, z: c.z, y: 10.5, lookX: t.x, lookZ: t.z }; })()` }, { fly: true, pitch: -.72 }],
   ['archB-photo', 2, { world: `(() => { const c = S.enclaveToWorld(-10.4, -33.0), t = S.enclaveToWorld(-1.0, -44.5);
     return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .10 }],
+  /* ── KAN-211 WAVE C — THE PRESIDENTIAL SUITE EXTERIOR. Enclave-local
+        cameras, no pick(), so the SAME camera stands in the before build.
+        The across-pool pair is a FLY camera ~1.2 m over the water on the
+        pool's centreline — where the hotel deck's p3 elevation (pimg-002)
+        was taken from, and the og.jpg night framing. ── */
+  ['archC-across-pool', 2, { world: `(() => { const c = S.enclaveToWorld(0, 19.0), t = S.enclaveToWorld(0, -18);
+    return { x: c.x, z: c.z, y: -.05, lookX: t.x, lookZ: t.z }; })()` }, { fly: true, pitch: .07 }],
+  ['archC-across-pool-night', 1, { world: `(() => { const c = S.enclaveToWorld(0, 19.0), t = S.enclaveToWorld(0, -18);
+    return { x: c.x, z: c.z, y: -.05, lookX: t.x, lookZ: t.z }; })()` }, { fly: true, pitch: .07 }],
+  /* the signature: the prewedding deck at night, lanterns in the foreground,
+     from the west lawn's pool corner looking up the water at the suite */
+  ['archC-signature-night', 1, { world: `(() => { const c = S.enclaveToWorld(-3.2, 9.5), t = S.enclaveToWorld(1.0, -16);
+    return { x: c.x, z: c.z, y: -.1, lookX: t.x, lookZ: t.z }; })()` }, { fly: true, pitch: .10 }],
+  /* the cantilever + copper fascia close: from the deck's west side, up at
+     the south-west corner — the fascia, the soffit and the void */
+  ['archC-roof-edge', 2, { world: `(() => { const c = S.enclaveToWorld(-4.6, -7.0), t = S.enclaveToWorld(-10.2, -11.2);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .50 }],
+  ['archC-glass-wall', 2, { world: `(() => { const c = S.enclaveToWorld(-2.6, -8.2), t = S.enclaveToWorld(0.8, -13.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .12 }],
+  ['archC-glass-wall-night', 1, { world: `(() => { const c = S.enclaveToWorld(-2.6, -8.2), t = S.enclaveToWorld(0.8, -13.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: .12 }],
+  /* the upper balcony + its dining set, on the balcony at 2F (feet 3.8) */
+  ['archC-balcony', 2, { world: `(() => { const c = S.enclaveToWorld(-6.6, -11.95), t = S.enclaveToWorld(1.0, -12.9);
+    return { x: c.x, z: c.z, y: S.SITE.SUITE.floorToFloor, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.16 }],
+  /* the dive landing, looking OUT (the Prewedding spawn faces the pool) */
+  ['archC-great-room-out', 2, [1, -18, Math.PI]],
+  ['archC-great-room-out-night', 1, [1, -18, Math.PI]],
+  /* the north entry portal, from the atrium's south gallery */
+  ['archC-portal', 2, { world: `(() => { const c = S.enclaveToWorld(1.6, -35.2), t = S.enclaveToWorld(2.2, -24);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .10 }],
+  /* the 2F link: on the walkway slot looking north — the suite's 2F door on
+     the left, the atrium's 2F link door at the end */
+  ['archC-link-door', 2, { world: `(() => { const c = S.enclaveToWorld(9.05, -13.8), t = S.enclaveToWorld(8.6, -28);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .04 }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 
@@ -576,9 +610,38 @@ const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
         requestAnimationFrame(tick);
       });
       const inf = G.renderer.info;
+      const main = { calls: inf.render.calls, tris: inf.render.triangles };
+      /* KAN-211 wave C: the MIRROR PASS's own cost at this view — every
+         Reflector's onBeforeRender called with info.autoReset off, so the
+         counters hold that pass and nothing else (mirrorfrustum.js's method).
+         water.js gates the render every Nth frame, so retry until it draws. */
+      const mirror = { calls: 0, tris: 0 };
+      {
+        const R = G.renderer, cam = G.camera;
+        const T = await import('three');
+        const fr = new T.Frustum().setFromProjectionMatrix(
+          new T.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse));
+        const refl = [];
+        G.scene.traverse(o => { if (o.isReflector || o.type === 'Reflector') refl.push(o); });
+        const was = R.info.autoReset;
+        R.info.autoReset = false;
+        for (const m of refl) {
+          if (!m.visible || !fr.intersectsObject(m)) continue;   // three would not call it
+          for (let k = 0; k < 6; k++) {
+            R.info.reset();
+            m.onBeforeRender(R, G.scene, cam);
+            if (R.info.render.calls > 0) {
+              mirror.calls += R.info.render.calls; mirror.tris += R.info.render.triangles; break;
+            }
+          }
+        }
+        R.info.reset();
+        R.info.autoReset = was;
+      }
       return {
+        mirrorCalls: mirror.calls, mirrorTris: mirror.tris,
         fps: +(frames / ((performance.now() - t0) / 1000)).toFixed(1),
-        calls: inf.render.calls, tris: inf.render.triangles,
+        calls: main.calls, tris: main.tris,
         geometries: inf.memory.geometries, textures: inf.memory.textures,
         programs: inf.programs ? inf.programs.length : null,
         night: !!G.night, colliders: G.colliders.length,

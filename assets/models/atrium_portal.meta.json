@@ -1,0 +1,17 @@
+{
+  "bytes": 16812,
+  "front": "-Z",
+  "material": "atrium_portal",
+  "min": [
+    -14.1,
+    0.0,
+    12.55
+  ],
+  "origin": "site",
+  "size": [
+    13.533,
+    3.6,
+    1.764
+  ],
+  "tris": 692
+}

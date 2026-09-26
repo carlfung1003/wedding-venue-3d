@@ -939,6 +939,100 @@ against the photo's darker glossy boards) — not in this wave's brief.
 M.column / darkWall), the gallery decking, the slab edge above the beams, the
 pond water's painted texture beyond the streak alpha, the topiary planters.
 
+### KAN-211 WAVE C — THE PRESIDENTIAL SUITE EXTERIOR AS BLENDER ARCHITECTURE (2026-09-25)
+
+`js/suite.js`'s pool-facing envelope + the atrium's two doors to it → **7 GLBs,
+ASSET_SPEC Group M**: `suite_roof` (the cantilever: a row of COPPER CASSETTE
+panels round every edge, grey standing-seam skin, the SW overhang VOID from the
+photo, both annex roofs), `suite_soffit` (dark timber boards under the roof
+ring, the annex and the balcony — its own GLB so it stays matte), `suite_facade`
+(south corner piers in taupe stone courses, the 1F wall's head/jambs/track/stack
+post, the balcony — red timber deck, light warm-grey slab-edge band with drip,
+glass shoe + flat copper-timber cap — the 2F frames with clerestory + a five-blade
+louvre band, the suite's 2F link-door surround, and the NORTH ENTRY's stone
+surround + bronze casings), `suite_leaf` (ONE folding-leaf frame, no mid-rail,
+pull + hinges — instanced ×13 at makeLeaf's own group matrices),
+`suite_dining_set` (white table + eight wicker armchairs), `atrium_portal` and
+`atrium_portal_link` (atrium.js buildPortal / buildLinkDoor: coursed stone
+piers, lintel + architrave, copper reveal, threshold; the portal adds the
+plaque's hangers + back plate and a stone path to the suite's north doors).
+Plus one MERGED emissive mesh of 58 soffit downlight discs on the existing
+`MT.downlight` (one draw, no light, no new program). **9,180 GLB tris (the leaf ×13 → ~14.3k drawn; +696 for the discs);**
+reference = the hotel deck's own p3 elevation of the suite across its pool
+(`reference/docs/clubhouse-intro.pdf`, embedded image 2 — `pdfimages -f 3`),
+IMG_8096 for the 1F leaves, IMG_8095 / pimg-001 for the roof.
+
+**THE FRAME — ⚠ the one new rule of this wave.** suite.js authors in the
+MIRRORED brief frame (§1a, mx()). These GLBs are authored in SITE
+(mirror-corrected) coordinates, frame `"suite"` = origin (S.cx, 0, S.cz) =
+(0, 0, −20), from `_arch.suite()` which re-derives suite.js's consts from the live
+site.js and negates the asymmetric ones (closed leaf run, stack post, 2F link
+door, annex) exactly once. suite.js places them with `SUITE_ANCHOR()` and **no
+mx()**. The leaf module is the exception: it is placed at the leaf group's own
+matrix (position mx()'d, rotation negated, never scaled −1), so only its pull
+changes stile — harmless. Every replaced primitive keeps its path behind an `HC`
+flag (`roof/facade/leaf/dining`); atrium.js gained `HB.portal/link`, and
+`glbHoleOk()` checks the generator's re-derived facade hole against the hole the
+facade actually cut (sidecar extents) and falls back to the primitives, loudly.
+
+| 101 views (wave B's 90 + 11 `archC-*`) | before (e4f593d, :8811) | after |
+|---|---|---|
+| draw calls (sum) | 39,678 | **37,920 (−1,758, −4.4 %)** — every suite-facing view −9…−121 |
+| triangles (sum) | 72,210,802 | 72,741,434 (**+0.73 %**; +10…14k where the suite is in frustum) |
+| **mirror-pass calls (sum)** | 14,343 | **13,337 (−1,006)** |
+| **signature: archC-signature-night (lanterns, looking at the suite)** | mirror 1,228 calls / 751k tris | **1,106 / 764k** (−122 calls, +13k tris) |
+| archC-across-pool-night / day | mirror 1,317 / 1,257 | **1,196 / 1,136** |
+| prewedding-lanterns (looking away from the suite) | 261 / 573k | 261 / 584k |
+| shader programs | 113 | **113 at every view, day and night** (all GLBs = the instanced baked-map program; soffit lights = MT.downlight's) |
+| colliders / feet / night flags | | identical at all 101 views |
+| `colliderHash` (scatter-probe) | `026674019d51` (10,797) | **`026674019d51` (10,797)**; 204/204 old buckets byte-identical, 7 new |
+| floorY, 28 probes (1F ×4, deck ×3 incl. under the void, turf ×2, stair foot 0 / .691 / 1.382 / 2.568 / 3.659, 2F lounge/hall/north 3.8, balcony ×4 3.78, 2F link 3.6, slot 3.6, ext-stair landing 3.8, portal + path 0, atrium 2F link 3.6, spa 0) | | **byte-identical** |
+| walks (spawn → out through the open span → turf; deck → great room; the L-stair 0 → 1.382 → 3.8; 2F → balcony; slot → 2F link door → lounge; atrium → portal → north doors) | | **byte-identical**, feet 0.000 on the turf |
+| lights (guest journey) | 40 / 12 | 40 / 12 |
+| guest journey | | 0 stalls, every beat, Check-in PROMPT ✓, `ERRORS []` |
+
+fps: vsync 120 wherever it was; the before run read 43–65 at several archC
+views vs 60–120 after — that is run-to-run / thermal noise at least in part;
+**no fps win is claimed**.
+
+**Colour, MEASURED against pimg-002** (across-pool day, same camera): fascia
+(191,126,76) → copper texture re-graded linear ×(1.14,1.40,1.85) → **(197,145,99)**
+vs photo (203,147,102); soffit **(66,50,43)** vs the photo's deep-shade (39,28,26)
+— deliberately between it and IMG_8095's sunlit pale soffit; piers (145,124,105)
+→ palette ×~.53 linear → **(112…135, 96…116, 85…98)** vs (107,92,82); balcony band
+**(181,160,140)** inside the photo's (158…184,140…164,129…153). Shots: before
+`reference/photos/shots-archC-before/`, after `shots-archC/`;
+`compare-archC-*.jpg` side-by-sides, `compare3-archC-across-pool.jpg` (photo |
+before | after). `tools/shoot-moments.mjs` gained the 11 `archC-*` views and a
+per-view **mirrorCalls / mirrorTris** column (the Reflector's onBeforeRender
+with info.autoReset off, only when three would call it — frustum test).
+⚠ The existing `calls` column at mirror views is mirror + the part of the main
+pass after the mirror (autoReset), as it always was; compare like with like.
+
+Image generation (`venue-arch`, cap $15): **+1 image** (`copper_cassette`, 1K);
+`soffit_teak.webp` and `deck_ipe.webp` are DERIVED from cedar_soffit (per-channel
+linear re-balance, numpy); running total **7 images, $0.94**.
+
+⚠ **What this wave learned:**
+1. **A soffit authored on the slab's own underside z-fights grey** — the roof
+   core's bottom face and the boards' were coplanar at Y2C. The boards now hang
+   6.77…6.80 and the downlight discs sit under 6.77.
+2. **Mirrored authoring + SITE-frame GLBs is a second place to half-mirror the
+   building.** Read every asymmetric number through `_arch.suite()` (which
+   negates it once) and never pass a suite GLB through mx().
+3. The `calls` stat at pool views includes the mirror pass — measure the mirror
+   on its own before claiming a signature-shot saving.
+
+**Found, not changed (colliders must stay byte-identical):** the 2F balcony's
+glass balustrade has **no collider** — a walker on the balcony walks off its
+front edge (z −11.5) and drops 3.78 m to the deck (traced frame by frame:
+3.776 → 0 at x −2.7…−0.6; identical in the before build). Same family as the
+backlog's "2F court-edge balustrades … have no colliders". Needs a y0-ranged
+chain along `levelRail`'s three lines (y0 ≈ 3.5) in a pass that may move the
+collider hash. Also: the interior stone pier at the leaf joint and the suite's
+side/back plaster walls are still primitives; the 2F link door's jamb reads as
+a flat board from the slot at grazing angle.
+
 ### Not in this pass (next)
 
 (Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above; the
@@ -3063,6 +3157,15 @@ makes the campus "look tidier" by undoing one, it is wrong:
   Group K or the building and its colliders part company. Build long faces in
   ≤ 5 m pieces (the longest island caps the atlas density) and never bake a
   hidden core at full weight (`UV_WEIGHT` it to ~0.03).
+
+- **KAN-211 wave C: suite GLBs are SITE-frame and NEVER go through mx()**
+  (frame "suite", origin (0, 0, −20); `_arch.suite()` mirrors suite.js's consts
+  and negates the asymmetric ones once). Change a const at the top of suite.js
+  or SITE.SUITE and re-run `make_masters.py` + `export_all.py` for Group M, or
+  the roof, balcony and leaves part company with the building. The atrium
+  portal GLBs re-derive the facade hole (`atrium_portal.py hole()` mirrors
+  buildFacade's inGap and atrium.js's `PORTAL` literal); `glbHoleOk()` warns and
+  falls back if they disagree.
 
 - **KAN-211 wave B: `_arch.atrium()` re-derives atrium.js's consts** (X0…CZ1,
   H1/H2, SOF1/SOF2, STAIR, WELL) with the same arithmetic. Change one of those
