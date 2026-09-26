@@ -544,7 +544,7 @@ metal, env day/night on setSuiteNight's registry) and atrium.js `bakeMat()`.
 |---|---|---|---|---|---|---|
 | `suite_roof` | suite · 1 | buildShell's roof slab (ceilingWarm), plaster top, 4 fascia slabs; both annex roofs + fascias | slab core Y2C 6.80 → 7.52 over RX/RZ (OVER_E 2.86, OVER_N 2.2, OVER_S 3.41); a row of 0.62 m COPPER CASSETTE panels (16 mm joints, 22 mm proud of a dark backing, each its own UV shift) round every edge, 6 cm drip below the soffit + dark coping; grey standing seams at 0.6 m; the SW overhang VOID x −10.10…−8.55, z −12.55…−10.95 lined with cassettes; annex A/B roofs with cassettes on their free edges (pimg-002; pimg-001 for the top) | `copper` (copper_cassette.webp, 1.2 m tile), `su_roof`, `su_seam`, `su_joint` | 2048 | 3,132 |
 | `suite_soffit` | suite · 1 | the roof's / annex roofs' / balcony slab's undersides | PALE timber boards N–S (dark teak until the KAN-211 fix pass — Carl's call), 30 mm, ring OUTSIDE the envelope only (hangs 6.77…6.80 — see ⚠1), the annex strips outside its walls at 2.97, under the balcony at 3.05; ≤ 5 m pieces | `soffit` (soffit_pale.webp, 1.8 m tile; was soffit_teak.webp) | 2048 | 336 |
-| `suite_facade` | suite · 1 | the 2 south piers (stonePier), the 2F spandrel, the folding wall's head/track/jambs/stack post, the 2F glazedBay frames + espresso band + slats, the balcony slab + 3 round handrails, the 2F link door's sill/jambs/head | taupe stone piers in 6 courses (3 tones, 8 mm joints); sapele 1F frame; balcony: red timber deck (top 3.78 = the walk height), warm-grey slab-edge band in 10 panels + dark drip, glass shoe + flat cap on levelRail's own lines; 2F: 13 slim mullions, sill / door head / clerestory sill / head, 5 louvre blades on outriggers (glass now runs to Y2C − .06); the 2F link door's bronze surround + stone sill; the NORTH ENTRY's black stone surround + copper band + bronze casing + threshold, the service door's bronze surround | `su_stone0-2`, `su_joint`, `su_sapele(_d)`, `su_band(_d)`, `deck` (deck_ipe.webp), `su_shoe`, `su_cap`, `su_alu`, `ar_bronze`, `at_col(_b)`, `at_copper` | 2048 | 1,724 |
+| `suite_facade` | suite · 1 | the 2 south piers (stonePier), the 2F spandrel, the folding wall's head/track/jambs/stack post, the 2F glazedBay frames + espresso band + slats, the balcony slab + 3 round handrails, the 2F link door's sill/jambs/head, (wave D) buildGreatRoom's stonePier | taupe stone piers in 6 courses (3 tones, 8 mm joints); sapele 1F frame; balcony: red timber deck (top 3.78 = the walk height), warm-grey slab-edge band in 10 panels + dark drip, glass shoe + flat cap on levelRail's own lines; 2F: 13 slim mullions, sill / door head / clerestory sill / head, 5 louvre blades on outriggers (glass now runs to Y2C − .06); the 2F link door's surround (wave D: a STEPPED honed-black stone frame .24 wide / .075 proud + bronze architrave + a bronze lining through the wall + copper drip + room-side casing — was .11 bronze boards that read flat from the walkway) + stone sill; (wave D) the INTERIOR PIER at the closed/open leaf joint (SITE x 3.30…3.95, z −14.45…−13.85): two dark polished stone slabs on a shadow-gap base, bronze top reveal (f016); the NORTH ENTRY's black stone surround + copper band + bronze casing + threshold, the service door's bronze surround | `su_stone0-2`, `su_joint`, `su_pier(1)`, `su_sapele(_d)`, `su_band(_d)`, `deck` (deck_ipe.webp), `su_shoe`, `su_cap`, `su_alu`, `ar_bronze`, `at_col(_b)`, `at_copper` | 2048 | 2,160 (was 1,724) |
 | `suite_leaf` | module (bottom centre, +X along, Z thickness = makeLeaf's frame) · 13 | makeLeaf's 5 sapele slabs | stiles .058, top rail .058, bottom rail .095, NO mid-rail (IMG_8096), glazing bead both faces, a long slim pull on stand-offs both faces, 3 hinge knuckles; the pane stays the game's MT.glass | `su_sapele(_d)`, `su_brass` | 512 | 428 |
 | `suite_dining_set` | suite · 1 | the balcony table slab + legs + 4 chair boxes | 2.6 × 0.76 white table on z −12.55, EIGHT woven armchairs (4 a side, backs 0.07 off the 2F glass and 0.10 off the rail glass) with cushions (p5 "white wicker 8-seat"; pimg-002) | `su_wicker` (straw), `su_cushion`, `su_top` | 1024 | 2,248 |
 | `atrium_portal` | atrium · 1 | buildPortal's 2 M.column piers, darkWall header, copper reveal | hole RE-DERIVED (buildFacade inGap on `PORTAL` −5…5 → −5.2…6.533); coursed piers .9, lintel .62, architrave both faces, copper reveal, threshold, the plaque's 2 bronze hangers + back plate, a 3-slab stone path to the suite's north doors (SITE x 1.2…3.8) — strip + plaque stay game meshes | `at_col(_b)`, `at_joint`, `at_copper`, `ar_bronze`, `at_coping` | 1024 | 692 |
@@ -569,6 +569,54 @@ cedar_soffit, 15 % chroma kept, luminance grain + joints kept, linear mean (126,
 3. `glbHoleOk()` (atrium.js) is the pattern for a GLB whose geometry depends on
    a runtime-derived number: compare the sidecar extents with the live value and
    fall back loudly.
+
+### Group N — ARCHITECTURE (KAN-211 wave D): the suite's side/back walls, the lobby + 酒廊 ceilings, the breakfast room, the upper walkway
+
+Same contract as Groups K–M: visual only, numbers from the live `js/site.js`,
+every replaced primitive kept as the `else` of a flag (suite.js `HC.walls`;
+campus.js `haveSlat`, `haveWalk`, `haveBk`). Frames: `suite_walls` is SITE frame
+"suite" (never through mx() — Group M rule); `walkway_*` are ARRIVAL frame
+(one identity instance at `ANCHOR()`); `arch_slat_module` is a MODULE instanced
+by campus.js `slatCeiling()`; the breakfast pieces are ordinary floor-origin
+props instanced per table. Finish: campus `archMat()` (rough + night tint) /
+suite `archFinish()`; the breakfast props are untinted like every other campus
+furniture model (lobby_sofa, the roof's chairs). All ride the instanced
+baked-map program — programs stay 113.
+
+| name | frame · inst | replaces | what is modelled (reference) | keys | atlas | tris |
+|---|---|---|---|---|---|---|
+| `suite_walls` | suite · 1 | every MT.plaster `wallRun` of the envelope: north (ZN), the SITE-east run (authoring X0, the 2F link door) + its piece over the 1F corner glazing, the SITE-west run (authoring X1: corridor openings + the frosted stair slot) + its south piece; the annex's north / outer / spa-south / corridor-south walls + the corridor's outer partition | a plaster CORE per run with suite.js's holes cut (the room side + every reveal); on the OUTSIDE only, warm-white RENDER PANELS 25 mm proud on a ~1.6 m module, 22 mm shadow gaps, a 30 mm floor-line reveal at YF2, each panel its own UV shift; a taupe stone PLINTH 0….45 m, 35 mm proud, with a dark drip line, wherever the wall meets the ground outside; the render stops short of every opening by its surround's width (north entry .30/.47, pantry .14, link door .24). The west run's render starts above the annex roof (H2 + .3). ⚠ The link-door hole ran from y 0 (wallRun); the core fills it below the sill — its collider already blocked feet < 3.4 there (Yinyiju.webp: the enclave's villas are crisp warm-white render) | `render` (render_white.webp, 2.4 m tile), `su_plaster`, `su_gap`, `su_stone0-2` | 2048 | 2,232 |
+| `arch_slat_module` | module (top origin) · 240 (lobby 120 + lounge 120) | the lobby's and the lounge's `slatCeil` boxes (kept, in MAT.dark, as the black backing) | 5 dark mahogany slats, 70 mm face × 45 mm deep, 50 mm open joints, 0.6 m module, 2 m long (z-scaled to ≤ 3.9 m rows), chamfered profile extrusions WITH end caps (open ends showed a sawtooth at the row joints); rows alternate 180° (5 tones read as 10); the downlights drop to 18 cm below the slab to clear them (entrance video f_016…f_024; compare-checkin-lobby 61.png) | `wd_slat`, `wd_slat1-3` | 1024 | 90 |
+| `walkway_deck` | arrival · 1 | §I's three `walkDeck` blackPolish slabs, the LINK's 8 `arrColI` columns (the lounge deck's 2 stay), its `arrSoffitI` box, every `bal()`'s `arrRailI` copper box (the internal stair's balusters keep theirs) | honed charcoal PAVERS 1.2 × 0.6 m in stretcher bond, 3 tones, 6 mm joints over a black bed — top face = the old slab's top, lobbyY − .02 (floorY is site.js's and does not move); the LINK's pale stone fascia beams (ar_cap, the balcony's) + corten-dark drip; a cedar soffit between them; Ø .30 steel columns on base plates, cap plates, a cross-beam per pair; on all 8 `bal()` lines (campus.js's own list, _xsEast 9.65 derived the same way) a steel glass SHOE + a flat COPPER CAP (the game's glass panes stay) | `wk_pave(1,2)`, `wk_bed`, `ar_cap`, `ar_corten_d`, `cedar`, `wk_steel`, `at_copper` | 2048 | 3,432 |
+| `walkway_pergola` | arrival · 1 | §I's 11 `arrPergolaI` corten boxes (which FLOATED — no posts) | 12 corten posts .14 sq (both ends + the 4 column lines, both edges), just inside the glass (inside the rails' collider band); two C-section corten edge channels .14 × .30 (web + flanges + dark inner face, end caps); 18 cross beams .10 × .20 at ~1.15 m; 12 dark timber louvre battens along the bridge on top (f_030: a canopy with a weathered corten edge) | `corten` (corten_weathered.webp), `corten_seam` (corten_dark.webp), `panelling` (panel_walnut.webp), `wk_steel` | 2048 | 1,608 |
+| `breakfast_table` (+ `_two`) | floor centre · 12 (7 four-tops + 5 at the banquette, scaled 1.4/1.5 × .9/.95) + 3 | `table()`'s arrTableI top + 2 arrTableLegI, the bud vase (arrWareI), the bloom (arrPlantI), every `setting()` (2 arrWareI); the banquette tables' top + leg + settings | eased dark oak top 1.5 × .95 (or .95 sq), y .705….775 exactly; apron; square pedestal on a cross foot (the .7 plate's reach); per cover a rimmed plate + cup on saucer (cups turned in toward the centre on the far side so the two-top stays inside its .95 footprint); a bud vase + cream bloom | `bk_oak`, `bk_china`, `at_black`, `cream` | 512 | 1,220 / 756 |
+| `breakfast_banquette` | floor, seat centre · 5 | the two arrBanqI ivory boxes per bay | 3.4 m run: recessed oak plinth, eased linen seat + front welt, seven channel-tufted back pads, oak cap, bolster ends; x −.55…+.55 about the primitive's registration point (back to +x = the wall) | `bk_linen`, `bk_oak` | 1024 | 1,320 |
+| `breakfast_buffet` | floor centre · 1 | arrCounterI + arrCounterTopI + 4 arrWareI | 3.8 m reeded dark oak counter on a black toe, honed pale stone top 4.0 × .95 at y 1.0…1.07, two chafing dishes (stand, pan, domed lid), a 3-tier cake stand, a fruit bowl, two juice jugs, a plate stack; front −Z = the room. The loungeGlowI strip stays the game's | `bk_oak`, `stone`, `steel(_l)`, `bk_china`, `cream`, fruit keys | 1024 | 2,688 |
+
+Chairs: the roof's `dining_chair_rattan` (Group E, front +Z), 44 of them
+(`arrBkChairGlbI`), each at a seat point .22 m clear of its table's edge and
+yawed to face it — the primitive chairs' backs never rotated (their offset was in
+world z) and the banquette's pair was passed −π/2, which faces a +Z-front chair
+AWAY from its table.
+
+Not a GLB: `assets/textures/floor_teak.webp` (runtime, derive_floor_teak.py —
+cedar_soffit re-balanced in linear light to mean (104,62,44), 70 % chroma) over
+MAT.loungeFloor's canvas map; the floor also carries `scene.environment` as its
+OWN envMap at (.30 day, .20 night) so the level binds (FIX PASS finding).
+
+**Textures (`venue-arch`, 1 × 1K, ~$0.13):** `render_white.webp` (manifest
+`render_white`, balanced #d9d3cb). Everything else reused or derived.
+
+⚠ **Group N lessons:**
+1. **An open-ended profile extrusion shows its inside at a butt joint.** Rows of
+   slat modules end to end drew a sawtooth of black backing down the ceiling;
+   end caps (+8 tris a slat) closed it.
+2. **A wall hole in `wallRun` starts at the run's foot**, so a 2F door is also a
+   3.8 m slot through the 1F — check what a hole really cuts before modelling
+   its surround.
+3. **Runtime floors stay runtime textures.** A 280 m² floor baked into a 2048
+   atlas is ~85 px/m (the longest-island rule); a repeating photograph on the
+   existing map costs nothing and keeps board-scale detail.
 
 ## What is deliberately NOT in this wave
 

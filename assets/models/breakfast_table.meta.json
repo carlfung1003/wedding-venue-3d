@@ -1,0 +1,17 @@
+{
+  "bytes": 24160,
+  "front": "-Z",
+  "material": "breakfast_table",
+  "min": [
+    -0.75,
+    0.0,
+    -0.475
+  ],
+  "origin": "floor",
+  "size": [
+    1.5,
+    0.975,
+    0.95
+  ],
+  "tris": 1220
+}

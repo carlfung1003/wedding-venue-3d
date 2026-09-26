@@ -36,7 +36,7 @@ ATLAS = 2048
 BEVEL = 0
 AO_DIST = 0.4
 AO_STRENGTH = 0.5
-TRIS = 7000
+TRIS = 7600
 FRONT = "-Z"
 ORIGIN = "site"
 PACK_SHAPE = "CONCAVE"
@@ -133,20 +133,64 @@ def build():
             parts.append(A.box(f"lvb{i}", x - .02, x + .02, dh + .03, dh + .34, ZS + t, ZS + .30, "su_alu"))
 
         # ── 5 · the 2F door onto the clubhouse walkway (SITE x +8, the east wall;
-        #    hole z LINK.z0 … z1, y YF2 … YF2 + 2.35) ──
+        #    hole z LINK.z0 … z1, y YF2 … YF2 + 2.35). KAN-211 wave D: wave C's
+        #    .11 m bronze jambs were flat boards flush with the render at the
+        #    walkway's grazing angle. Now a STEPPED surround on the walkway face:
+        #    a honed-black stone frame (SUR wide, .075 proud, bevelled) with a
+        #    bronze architrave stepping a further .03 at the opening's edge, a
+        #    bronze lining through the wall's full depth, a copper drip over the
+        #    head, and a slim bronze casing on the room side. ──
         LK = S["LINK"]
         ex = LK["x"]
         hw = S["EWT"] / 2
         dy = YF2 + 2.35
-        for z in (LK["z0"], LK["z1"]):
-            za, zb = sorted((z, z + (-.11 if z == LK["z0"] else .11)))
-            parts.append(A.box(f"ljamb{z}", ex - hw - .04, ex + hw + .04, YF2, dy + .11, za, zb, "ar_bronze"))
-        parts.append(A.box("lhead", ex - hw - .04, ex + hw + .04, dy, dy + .11,
-                           LK["z0"] - .11, LK["z1"] + .11, "ar_bronze"))
+        SUR = .24                                      # suite_walls.LINK_SUR
+        xo = ex + hw                                   # the walkway-side wall face
+        z0, z1 = LK["z0"], LK["z1"]
+        for s_, z in ((-1, z0), (1, z1)):
+            za, zb = sorted((z, z + s_ * SUR))
+            j = A.box(f"lsur{s_}", xo, xo + .075, YF2 - .06, dy + SUR, za, zb, "at_col")
+            L.bevel([j], width=.008, segments=1)
+            parts.append(j)
+            aa, ab = sorted((z, z + s_ * .06))
+            a_ = A.box(f"larc{s_}", xo + .075, xo + .105, YF2 - .02, dy + .06, aa, ab, "ar_bronze")
+            L.bevel([a_], width=.004, segments=1)
+            parts.append(a_)
+            la, lb = sorted((z, z - s_ * .035))
+            parts.append(A.box(f"llin{s_}", ex - hw, xo, YF2, dy, la, lb, "ar_bronze"))
+            ia, ib = sorted((z, z + s_ * .08))
+            parts.append(A.box(f"lin{s_}", ex - hw - .02, ex - hw, YF2, dy + .08, ia, ib, "ar_bronze"))
+        hd = A.box("lsurh", xo, xo + .075, dy, dy + SUR, z0 - SUR, z1 + SUR, "at_col")
+        L.bevel([hd], width=.008, segments=1)
+        parts.append(hd)
+        ah = A.box("larch", xo + .075, xo + .105, dy, dy + .06, z0 - .06, z1 + .06, "ar_bronze")
+        L.bevel([ah], width=.004, segments=1)
+        parts.append(ah)
+        parts.append(A.box("llinh", ex - hw, xo, dy - .035, dy, z0 - .035, z1 + .035, "ar_bronze"))
+        parts.append(A.box("linh", ex - hw - .02, ex - hw, dy, dy + .08, z0 - .08, z1 + .08, "ar_bronze"))
+        parts.append(A.box("lcopper", xo, xo + .11, dy + SUR, dy + SUR + .045, z0 - SUR - .02, z1 + SUR + .02,
+                           "at_copper"))
         sill = A.box("lsill", ex - hw - .1, ex + hw + .35, YF2 - .06, YF2 + .01,
                      LK["z0"] - .05, LK["z1"] + .05, "at_col_b")
         L.bevel([sill], width=.006, segments=1)
         parts.append(sill)
+        # ── 5b · the INTERIOR STONE PIER at the closed/open folding-leaf joint
+        #    (suite.js buildGreatRoom: authoring x −3.95 … −3.3 → SITE 3.3 … 3.95,
+        #    z ZS − .95 … ZS − .35, y 0 … H1). f016: a dark, polished stone
+        #    pier. Two tall slabs per face over a shadow-gap plinth, a recessed
+        #    joint at mid-height, and a bronze reveal where it meets the ceiling. ──
+        px0, px1 = -(-3.3), -(-3.95)
+        px0, px1 = sorted((px0, px1))
+        pz0, pz1 = ZS - .95, ZS - .35
+        H1 = S["H1"]
+        parts.append(A.box("pcore", px0 + .012, px1 - .012, 0, H1, pz0 + .012, pz1 - .012, "su_joint"))
+        parts.append(A.box("pbase", px0 + .02, px1 - .02, 0, .09, pz0 + .02, pz1 - .02, "at_col_b"))
+        mid = H1 * .5
+        for i, (ya, yb) in enumerate(((.10, mid - .005), (mid + .005, H1 - .045))):
+            c = A.box(f"pslab{i}", px0, px1, ya, yb, pz0, pz1, "su_pier" if i == 0 else "su_pier1")
+            L.bevel([c], width=.006, segments=1)
+            parts.append(c)
+        parts.append(A.box("ptop", px0 + .015, px1 - .015, H1 - .045, H1, pz0 + .015, pz1 - .015, "ar_bronze"))
         # ── 6 · the NORTH ENTRY from the atrium portal (suite.js wallRun holes
         #    on the north wall: the entry [−3.4, −1.6, 2.4] and the pantry
         #    service door [−7.4, −6.0, 2.2], authoring → SITE 1.6 … 3.4 and

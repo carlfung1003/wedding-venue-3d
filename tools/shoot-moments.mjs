@@ -543,6 +543,43 @@ const VIEWS = [
     return { x: c.x, z: c.z, y: S.SITE.ATRIUM.floorH, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: -.12 }],
   ['archFix-balcony-front', 2, { world: `(() => { const c = S.enclaveToWorld(-3.0, -13.2), t = S.enclaveToWorld(-3.0, 0);
     return { x: c.x, z: c.z, y: S.SITE.SUITE.floorToFloor, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.30 }],
+  /* ── KAN-211 WAVE D — the suite's plaster side/back walls + interior pier,
+        the 2F link door at a grazing angle, the lobby slat ceiling, the 酒廊
+        interior, the upper walkway (LINK / SLOT / HEAD) + its pergola. Same
+        enclave-local camera form, no pick(). ── */
+  ['archD-suite-side', 2, { world: `(() => { const c = S.enclaveToWorld(-23.5, -2.5), t = S.enclaveToWorld(-9, -20.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .16 }],
+  ['archD-suite-side-night', 1, { world: `(() => { const c = S.enclaveToWorld(-23.5, -2.5), t = S.enclaveToWorld(-9, -20.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: .16 }],
+  ['archD-suite-back', 2, { world: `(() => { const c = S.enclaveToWorld(9.7, -27.25), t = S.enclaveToWorld(-8, -26.4);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .05 }],
+  ['archD-suite-east', 2, { world: `(() => { const c = S.enclaveToWorld(13.6, -4.6), t = S.enclaveToWorld(8, -20);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .22 }],
+  ['archD-pier', 2, { world: `(() => { const c = S.enclaveToWorld(-1.2, -20.2), t = S.enclaveToWorld(3.6, -14.1);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .02 }],
+  ['archD-link-door-graze', 2, { world: `(() => { const c = S.enclaveToWorld(9.55, -14.6), t = S.enclaveToWorld(8.1, -20.6);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .02 }],
+  ['archD-lobby-ceiling', 2, { world: `(() => { const LB = S.SITE.ARRIVAL.LOBBY;
+    const c = S.enclaveToWorld(LB.x0 + 5.4, LB.z0 + 4.6), t = S.enclaveToWorld(LB.x0 + 4.0, LB.z0 + 14);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .62 }],
+  ['archD-lounge', 2, { world: `(() => { const B = S.SITE.ARRIVAL.bldg;
+    const c = S.enclaveToWorld(B.x1 - 1.4, -2.6), t = S.enclaveToWorld(B.x0 + 1.5, -17);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .06 }],
+  ['archD-lounge-night', 1, { world: `(() => { const B = S.SITE.ARRIVAL.bldg;
+    const c = S.enclaveToWorld(B.x1 - 1.4, -2.6), t = S.enclaveToWorld(B.x0 + 1.5, -17);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: .06 }],
+  ['archD-walk-from-lobby', 2, { world: `(() => { const LK = S.SITE.ARRIVAL.LINK, zc = (LK.z0 + LK.z1) / 2;
+    const c = S.enclaveToWorld(S.SITE.ARRIVAL.LOBBY.x0 + 1.2, zc + .3), t = S.enclaveToWorld(LK.x0, zc);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .04 }],
+  ['archD-walk-from-atrium', 2, { world: `(() => { const HD = S.SITE.ARRIVAL.HEAD, SL = S.SITE.ARRIVAL.SLOT;
+    const c = S.enclaveToWorld((SL.x0 + SL.x1) / 2, HD.z0 + .9), t = S.enclaveToWorld((SL.x0 + SL.x1) / 2, SL.z1);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .02 }],
+  ['archD-walk-slot-corner', 2, { world: `(() => { const LK = S.SITE.ARRIVAL.LINK, SL = S.SITE.ARRIVAL.SLOT;
+    const c = S.enclaveToWorld((SL.x0 + SL.x1) / 2, -11.5), t = S.enclaveToWorld(LK.x1, (LK.z0 + LK.z1) / 2);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .04 }],
+  ['archD-pergola-below', 2, { world: `(() => { const LK = S.SITE.ARRIVAL.LINK;
+    const c = S.enclaveToWorld(24.5, -1.0), t = S.enclaveToWorld(17, (LK.z0 + LK.z1) / 2);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .30 }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 

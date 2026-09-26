@@ -35,7 +35,7 @@
 // Everything repeated is an InstancedMesh (see the bucket system) — the whole
 // campus lands in well under a hundred draw calls.
 import * as THREE from 'three';
-import { SITE, HOTEL_ROOF, ROOMS, worldToEnclave,
+import { SITE, HOTEL_ROOF, ROOMS, worldToEnclave, enclaveToWorld,
   ARRIVAL_LOBBY_Y, ARRIVAL_LOUNGE_CEIL, ARRIVAL_LANE_Y } from './site.js';
 import { CFG } from './config.js';
 import { mulberry32 } from './materials.js';
@@ -102,7 +102,7 @@ const WHITE = new THREE.Color(0xffffff);
 /* ════════════════════════════════════════════════════════════════════════
    night registry — setCampusNight() walks these three lists
    ════════════════════════════════════════════════════════════════════════ */
-const NIGHT = { tint: [], glow: [], lights: [], vis: [] };
+const NIGHT = { tint: [], glow: [], lights: [], vis: [], env: [] };
 let night = false;
 let MAT = null;
 let clock = 0;
@@ -2583,6 +2583,11 @@ function buildSign(G, root) {
    -lounge, -lounge-deck, -stair-int, -link, -slot, -head.
    Zero new THREE.PointLights — every lamp here is emissive.
    ════════════════════════════════════════════════════════════════════════ */
+/* KAN-211 wave D: the 酒廊 floor's own env level (day, night) — see buildArrival §D */
+const LOUNGE_FLOOR_ENV = [0.30, 0.20];
+/* KAN-211 wave D: the breakfast room's interior buckets hide past this distance
+   (m, camera → room centre, in plan) — see buildArrival §D */
+const LOUNGE_CULL_D = 38;
 function buildArrival(G, g, rnd) {
   const AR = SITE.ARRIVAL;
   const TY = AR.terraceY;                                   // 2.65 raised ground
@@ -2658,6 +2663,49 @@ function buildArrival(G, g, rnd) {
     modelI('arrDeskGlbI', 'lobby_desk', ANCHOR());
     archMat('lobby_desk', .6, 0x8f96a6);
   }
+  /* ── KAN-211 WAVE D ────────────────────────────────────────────────────────
+     ASSET_SPEC Group N. Same contract as waves A–C: visual only — every
+     collider, WALK_REGION, rnd() draw and interactable below is untouched,
+     and every replaced primitive keeps its path as the `else` of a flag.
+       arch_slat_module     one 0.6 m module of dark mahogany slats with open
+                            joints, INSTANCED under the lobby's and the lounge's
+                            ceilings (the old slatCeil boxes stay, in MAT.dark,
+                            as the black backing the joints show)
+       walkway_deck         LINK / SLOT / HEAD: paver deck (top = the old slab's,
+                            lobbyY − .02), the LINK's stone fascia + cedar
+                            soffit + steel columns, every balustrade's shoe +
+                            copper cap (the glass panes stay the game's)
+       walkway_pergola      the LINK's corten pergola, now on posts, with
+                            channels, cross beams and timber louvre battens
+       breakfast_*          the 酒廊's tables (set), banquettes, buffet; the
+                            chairs are the roof's `dining_chair_rattan`
+     plus floor_teak.webp over MAT.loungeFloor's canvas (a map swap: no
+     program). ARRIVAL-frame GLBs are one identity instance at ANCHOR(). */
+  const haveSlat = have('arch_slat_module');
+  const haveWalk = have('walkway_deck') && have('walkway_pergola');
+  const haveBk = ['breakfast_table', 'breakfast_table_two', 'breakfast_banquette',
+    'breakfast_buffet', 'dining_chair_rattan'].every(have);
+  if (haveWalk) {
+    modelI('arrWalkGlbI', 'walkway_deck', ANCHOR());
+    modelI('arrPergolaGlbI', 'walkway_pergola', ANCHOR());
+    archMat('walkway_deck', .55, 0x767d8c);
+    archMat('walkway_pergola', .85, 0x707784, .45);
+  }
+  if (haveSlat) archMat('arch_slat_module', .6, 0x7a6a68, .35);
+  /* a slat ceiling over [x0, x1] × [z0, z1] hanging from yTop: slats run along
+     x (toward the glass), rows of ≤ 3.9 m, modules 0.6 m wide across z; every
+     other row turned 180° so the module's five tones read as ten */
+  const slatCeiling = (x0, x1, z0, z1, yTop) => {
+    const nr = Math.max(1, Math.ceil((x1 - x0) / 3.9)), rl = (x1 - x0) / nr;
+    const nm = Math.max(1, Math.round((z1 - z0) / .6)), mw = (z1 - z0) / nm;
+    for (let r = 0; r < nr; r++) {
+      for (let k = 0; k < nm; k++) {
+        modelI('arrSlatCeilGlbI', 'arch_slat_module',
+          mat4(x0 + (r + .5) * rl, yTop, z0 + (k + .5) * mw, mw / .6, 1, (rl - .012) / 2.0,
+            Math.PI / 2 + (r % 2) * Math.PI));
+      }
+    }
+  };
 
   /* per-surface texture tiling (materials are this builder's own) */
   MAT.forePave.map.repeat.set((AR.fore.x1 - AR.fore.x0) / 1.2, (AR.fore.z1 - AR.fore.z0) / 1.2);
@@ -3098,12 +3146,30 @@ function buildArrival(G, g, rnd) {
      louvre band under the balcony, sheer cream curtains behind the glass.
      ══════════════════════════════════════════════════════════════════════ */
   MAT.loungeFloor.map.repeat.set(bw / 2.2, bd / 2.2);
+  /* KAN-211 wave D: the canvas boards rendered salmon-orange; floor_teak.webp is
+     cedar_soffit's photographed boards re-graded to the clubhouse's reddish-
+     brown interior timber (assets/blender/derive_floor_teak.py), ~1.8 m a tile */
+  if (haveSlat) {
+    photoTex(MAT.loungeFloor, 'floor_teak.webp', [(bw - .4) / 1.8, (bd - .4) / 1.8]);
+    /* the floor's OWN envMap (the same scene.environment texture — same program)
+       so its env level binds at all (CLAUDE.md KAN-211 FIX PASS: three ignores
+       envMapIntensity without one). At the scene's .95 the grey room env sat on
+       the boards as a mauve sheen: measured (181,140,120) against a texture
+       mean of (101,60,42). */
+    if (G.scene.environment) {
+      MAT.loungeFloor.envMap = G.scene.environment;
+      MAT.loungeFloor.envMapIntensity = LOUNGE_FLOOR_ENV[0];
+      NIGHT.env.push({ mat: MAT.loungeFloor, d: LOUNGE_FLOOR_ENV[0], n: LOUNGE_FLOOR_ENV[1] });
+    }
+  }
   box(g, bw - .4, .1, bd - .4, bcx, .06, bcz, MAT.loungeFloor);
-  /* slat ceiling = the lobby slab's underside */
-  box(g, bw - .5, .1, bd - .5, bcx, CY - .06, bcz, MAT.slatCeil);
+  /* slat ceiling = the lobby slab's underside (wave D: real slats under it, the
+     box kept as their black backing) */
+  box(g, bw - .5, .1, bd - .5, bcx, CY - .06, bcz, haveSlat ? MAT.dark : MAT.slatCeil);
+  if (haveSlat) slatCeiling(bcx - (bw - .5) / 2, bcx + (bw - .5) / 2, bcz - (bd - .5) / 2, bcz + (bd - .5) / 2, CY - .11);
   for (let k = 0; k < 9; k++) {
     inst('arrDownI', UNIT_BOX, MAT.arrDown,
-      mat4(B.x0 + 2.6 + (k % 3) * 3.6, CY - .12, B.z0 + 3.4 + Math.floor(k / 3) * 7.6, .16, .05, .16));
+      mat4(B.x0 + 2.6 + (k % 3) * 3.6, haveSlat ? CY - .18 : CY - .12, B.z0 + 3.4 + Math.floor(k / 3) * 7.6, .16, .05, .16));
   }
   /* the folding glass wall on the courtyard face, standing OPEN over
      loungeGap; sheer cream curtains behind every closed bay */
@@ -3164,6 +3230,10 @@ function buildArrival(G, g, rnd) {
   /* ── BREAKFAST: sixty covers. A banquette run down the buried east wall, a
      grid of two- and four-tops across the room, and a buffet/service counter
      at the north end. Everything instanced. ── */
+  /* wave D: `dining_chair_rattan` (front +Z — ry = the facing yaw) at a seat
+     point .22 m clear of the table edge; the primitive chairs' backs never
+     turned with them (their offset was in world z). No chair has a collider. */
+  const chairGlb = (cx, cz, ry) => modelI('arrBkChairGlbI', 'dining_chair_rattan', mat4(cx, 0, cz, 1, 1, 1, ry));
   const chair = (cx, cy, cz, cry) => {
     inst('arrChairI', UNIT_BOX, MAT.rattan, mat4(cx, cy + .43, cz, .46, .07, .46, cry));
     inst('arrChairI', UNIT_BOX, MAT.rattan, mat4(cx, cy + .68, cz - .21, .46, .5, .06, cry));
@@ -3179,16 +3249,25 @@ function buildArrival(G, g, rnd) {
   };
   const table = (cx, cz, seats) => {
     const w = seats === 4 ? 1.5 : .95, d = seats === 4 ? .95 : .95;
-    inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(cx, .74, cz, w, .07, d));
-    inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(cx, .37, cz, .12, .74, .12));
-    inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(cx, .03, cz, .7, .06, .7));
-    inst('arrWareI', UNIT_CYL, MAT.white, mat4(cx, .82, cz, .12, .12, .12));   // bud vase
-    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(cx, .95, cz, .22, .2, .22),
-      new THREE.Color(0xecd7ae));
     const off = seats === 4 ? [[-.55, 0], [.55, 0], [0, -.62], [0, .62]] : [[-.62, 0], [.62, 0]];
-    for (const [ox, oz] of off) {
-      chair(cx + ox * 1.35, 0, cz + oz * 1.35, Math.atan2(-ox, -oz));
-      setting(cx + ox * .42, .76, cz + oz * .42);
+    if (haveBk) {                       // wave D: the set table is ONE baked mesh
+      modelI(seats === 4 ? 'arrBkTableGlbI' : 'arrBkTable2GlbI',
+        seats === 4 ? 'breakfast_table' : 'breakfast_table_two', mat4(cx, 0, cz, 1, 1, 1));
+      for (const [ox, oz] of off) {
+        const ex = ox ? Math.sign(ox) * (w / 2 + .22) : 0, ez = oz ? Math.sign(oz) * (d / 2 + .22) : 0;
+        chairGlb(cx + ex, cz + ez, Math.atan2(-ox, -oz));
+      }
+    } else {
+      inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(cx, .74, cz, w, .07, d));
+      inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(cx, .37, cz, .12, .74, .12));
+      inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(cx, .03, cz, .7, .06, .7));
+      inst('arrWareI', UNIT_CYL, MAT.white, mat4(cx, .82, cz, .12, .12, .12));   // bud vase
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(cx, .95, cz, .22, .2, .22),
+        new THREE.Color(0xecd7ae));
+      for (const [ox, oz] of off) {
+        chair(cx + ox * 1.35, 0, cz + oz * 1.35, Math.atan2(-ox, -oz));
+        setting(cx + ox * .42, .76, cz + oz * .42);
+      }
     }
     /* ⚠ BELOW. Every collider in this room must carry the lounge's height
        window: the check-in lobby's floor is 3.6 m directly overhead, and an
@@ -3207,13 +3286,20 @@ function buildArrival(G, g, rnd) {
   /* the banquette run along the buried east wall — 5 × four-tops against it */
   for (let k = 0; k < 5; k++) {
     const bz = B.z0 + 3.2 + k * 4.1;
-    inst('arrBanqI', UNIT_BOX, MAT.ivory, mat4(B.x1 - 1.0, .24, bz, 1.1, .48, 3.4));
-    inst('arrBanqI', UNIT_BOX, MAT.ivory, mat4(B.x1 - .55, .78, bz, .2, .62, 3.4));
-    inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(B.x1 - 2.4, .74, bz, 1.4, .07, .9));
-    inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(B.x1 - 2.4, .37, bz, .12, .74, .12));
-    for (const oz of [-.6, .6]) chair(B.x1 - 3.3, 0, bz + oz, -Math.PI / 2);
-    setting(B.x1 - 2.4, .76, bz - .2);
-    setting(B.x1 - 2.4, .76, bz + .2);
+    if (haveBk) {
+      modelI('arrBkBanqGlbI', 'breakfast_banquette', mat4(B.x1 - 1.0, 0, bz, 1, 1, 1));
+      modelI('arrBkTableGlbI', 'breakfast_table', mat4(B.x1 - 2.4, 0, bz, 1.4 / 1.5, 1, .9 / .95));
+      /* the old call passed −π/2, which faces a front-+Z chair AWAY from the table */
+      for (const oz of [-.6, .6]) chairGlb(B.x1 - 3.32, bz + oz, Math.PI / 2);
+    } else {
+      inst('arrBanqI', UNIT_BOX, MAT.ivory, mat4(B.x1 - 1.0, .24, bz, 1.1, .48, 3.4));
+      inst('arrBanqI', UNIT_BOX, MAT.ivory, mat4(B.x1 - .55, .78, bz, .2, .62, 3.4));
+      inst('arrTableI', UNIT_BOX, MAT.rtDarkTeak, mat4(B.x1 - 2.4, .74, bz, 1.4, .07, .9));
+      inst('arrTableLegI', UNIT_BOX, MAT.dark, mat4(B.x1 - 2.4, .37, bz, .12, .74, .12));
+      for (const oz of [-.6, .6]) chair(B.x1 - 3.3, 0, bz + oz, -Math.PI / 2);
+      setting(B.x1 - 2.4, .76, bz - .2);
+      setting(B.x1 - 2.4, .76, bz + .2);
+    }
     covers += 4;
   }
   void covers;                                  // 60 covers, per the hotel's spec
@@ -3222,14 +3308,42 @@ function buildArrival(G, g, rnd) {
      internal stair's mouth in the first cut and stopped the climb dead at
      0.80 m; AR.INTS reaches x 39.5, so the counter starts east of that. */
   const bufX = B.x1 - 2.4, bufZ = B.z1 - 1.15;
-  inst('arrCounterI', UNIT_BOX, MAT.rtDarkTeak, mat4(bufX, .5, bufZ, 3.8, 1.0, .8));
-  inst('arrCounterTopI', UNIT_BOX, MAT.marble, mat4(bufX, 1.03, bufZ, 4.0, .07, .95));
-  for (let k = 0; k < 4; k++) {
-    inst('arrWareI', UNIT_CYL, MAT.white,
-      mat4(bufX - 1.4 + k * .95, 1.14, bufZ - .1, .34, .16, .34));
+  if (haveBk) {
+    modelI('arrBkBuffetGlbI', 'breakfast_buffet', mat4(bufX, 0, bufZ, 1, 1, 1));
+  } else {
+    inst('arrCounterI', UNIT_BOX, MAT.rtDarkTeak, mat4(bufX, .5, bufZ, 3.8, 1.0, .8));
+    inst('arrCounterTopI', UNIT_BOX, MAT.marble, mat4(bufX, 1.03, bufZ, 4.0, .07, .95));
+    for (let k = 0; k < 4; k++) {
+      inst('arrWareI', UNIT_CYL, MAT.white,
+        mat4(bufX - 1.4 + k * .95, 1.14, bufZ - .1, .34, .16, .34));
+    }
   }
   inst('loungeGlowI', UNIT_BOX, MAT.loungeGlow, mat4(bufX, 1.9, bufZ + .3, 3.6, .07, .1));
   rectCollider(C, bufX, bufZ, 4.2, 1.1, 0, .3, BELOW);
+  /* ── wave D: the breakfast room's INTERIOR DISTANCE CULL ────────────────────
+     Each baked bucket is ONE InstancedMesh with one bounding sphere round the
+     whole room, so the 44 chairs + 15 set tables + banquettes + buffet + both
+     slat ceilings (~100k tris) drew — and drew AGAIN in the hero pool's mirror
+     — from every view that merely had the pavilion in frustum, e.g. +94k tris
+     in the mirror pass at archC-signature-night. Past LOUNGE_CULL_D from the
+     room's centre a 1 m chair is < 21 px behind a folding-glass wall; the
+     buckets are hidden there (visible flag, both passes; no program, no
+     collider, no instance touched). */
+  if (haveBk || haveSlat) {
+    const lc = enclaveToWorld(bcx, bcz);
+    const keys = ['arrBkChairGlbI', 'arrBkTableGlbI', 'arrBkTable2GlbI', 'arrBkBanqGlbI',
+      'arrBkBuffetGlbI', 'arrSlatCeilGlbI'];
+    let ims = null;
+    (G.tickers ||= []).push(() => {
+      if (!ims) {
+        ims = keys.map(k => G.scene.getObjectByName('campus:' + k)).filter(Boolean);
+        if (!ims.length) { ims = null; return; }
+      }
+      const cp = G.camera.position;
+      const on = Math.hypot(cp.x - lc.x, cp.z - lc.z) < LOUNGE_CULL_D;
+      if (ims[0].visible !== on) for (const m of ims) m.visible = on;
+    });
+  }
 
   /* ══════════════════════════════════════════════════════════════════════
      E · THE INTERNAL STAIR — lounge ⇄ check-in lobby
@@ -3265,10 +3379,12 @@ function buildArrival(G, g, rnd) {
   const lw = LB.x1 - LB.x0, ld = LB.z1 - LB.z0;
   MAT.lobbyFloor.map.repeat.set(lw / 2.0, ld / 2.0);
   box(g, lw, .1, ld, lcx, LY - .05, lcz, MAT.lobbyFloor);
-  box(g, lw - .3, .1, ld - .3, lcx, LY + AR.lobbyH - .06, lcz, MAT.slatCeil);
+  box(g, lw - .3, .1, ld - .3, lcx, LY + AR.lobbyH - .06, lcz, haveSlat ? MAT.dark : MAT.slatCeil);
+  if (haveSlat) slatCeiling(lcx - (lw - .3) / 2, lcx + (lw - .3) / 2, lcz - (ld - .3) / 2, lcz + (ld - .3) / 2,
+    LY + AR.lobbyH - .11);
   for (let k = 0; k < 12; k++) {
     inst('arrDownI', UNIT_BOX, MAT.arrDown,
-      mat4(LB.x0 + 2.2 + (k % 3) * 3.2, LY + AR.lobbyH - .12,
+      mat4(LB.x0 + 2.2 + (k % 3) * 3.2, LY + AR.lobbyH - (haveSlat ? .18 : .12),
         LB.z0 + 2.6 + Math.floor(k / 3) * 5.4, .16, .05, .16));
   }
   /* the rug — a CanvasTexture, blue-grey with the pale wave lines of 61.png */
@@ -3549,28 +3665,35 @@ function buildArrival(G, g, rnd) {
   const walkDeck = (R, mat) => {
     box(g, R.x1 - R.x0, .3, R.z1 - R.z0, (R.x0 + R.x1) / 2, LY - .17, (R.z0 + R.z1) / 2, mat);
   };
-  walkDeck(LK, MAT.blackPolish);
-  walkDeck(SL, MAT.blackPolish);
-  walkDeck(HD, MAT.blackPolish);
+  /* KAN-211 wave D: `walkway_deck` + `walkway_pergola` (flag haveWalk, placed
+     with the other arrival GLBs above) draw the decks, the columns, the soffit,
+     the rails' shoes + caps and the pergola; the colliders below stay. */
+  if (!haveWalk) {
+    walkDeck(LK, MAT.blackPolish);
+    walkDeck(SL, MAT.blackPolish);
+    walkDeck(HD, MAT.blackPolish);
+  }
   /* the LINK's columns down to the courtyard, and its planted timber soffit */
   for (let x = LK.x0 + 2.4; x < LK.x1 - 1.0; x += 4.6) {
     for (const cz of [LK.z0 + .35, LK.z1 - .35]) {
-      inst('arrColI', UNIT_CYL, MAT.charcoal, mat4(x, (LY - .32) / 2, cz, .32, LY - .32, .32));
+      if (!haveWalk) inst('arrColI', UNIT_CYL, MAT.charcoal, mat4(x, (LY - .32) / 2, cz, .32, LY - .32, .32));
       C.push({ x, z: cz, r: .26, y1: CY });
     }
   }
-  inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
-    mat4((LK.x0 + LK.x1) / 2, LY - .34, (LK.z0 + LK.z1) / 2, LK.x1 - LK.x0, .08, LK.z1 - LK.z0 - .2));
-  /* a light pergola roof over the LINK so it reads as the clubhouse's own
-     covered corridor rather than as a bare bridge */
-  for (let x = LK.x0 + 1.2; x < LK.x1; x += 2.3) {
+  if (!haveWalk) {
+    inst('arrSoffitI', UNIT_BOX, MAT.warmSoffit,
+      mat4((LK.x0 + LK.x1) / 2, LY - .34, (LK.z0 + LK.z1) / 2, LK.x1 - LK.x0, .08, LK.z1 - LK.z0 - .2));
+    /* a light pergola roof over the LINK so it reads as the clubhouse's own
+       covered corridor rather than as a bare bridge */
+    for (let x = LK.x0 + 1.2; x < LK.x1; x += 2.3) {
+      inst('arrPergolaI', UNIT_BOX, MAT.corten,
+        mat4(x, LY + 2.62, (LK.z0 + LK.z1) / 2, .12, .18, LK.z1 - LK.z0 + .5));
+    }
     inst('arrPergolaI', UNIT_BOX, MAT.corten,
-      mat4(x, LY + 2.62, (LK.z0 + LK.z1) / 2, .12, .18, LK.z1 - LK.z0 + .5));
+      mat4((LK.x0 + LK.x1) / 2, LY + 2.74, LK.z0 + .1, LK.x1 - LK.x0, .16, .14));
+    inst('arrPergolaI', UNIT_BOX, MAT.corten,
+      mat4((LK.x0 + LK.x1) / 2, LY + 2.74, LK.z1 - .1, LK.x1 - LK.x0, .16, .14));
   }
-  inst('arrPergolaI', UNIT_BOX, MAT.corten,
-    mat4((LK.x0 + LK.x1) / 2, LY + 2.74, LK.z0 + .1, LK.x1 - LK.x0, .16, .14));
-  inst('arrPergolaI', UNIT_BOX, MAT.corten,
-    mat4((LK.x0 + LK.x1) / 2, LY + 2.74, LK.z1 - .1, LK.x1 - LK.x0, .16, .14));
 
   /* balustrades. Every one carries y0 so it exists only UP HERE — the
      courtyard underneath has to stay walkable end to end. */
@@ -3579,8 +3702,10 @@ function buildArrival(G, g, rnd) {
     const ry = Math.atan2(x2 - x1, z2 - z1);
     inst('arrGlassRailI', UNIT_BOX, MAT.clear,
       mat4((x1 + x2) / 2, LY + .53, (z1 + z2) / 2, .05, 1.02, len, ry));
-    inst('arrRailI', UNIT_BOX, MAT.copper,
-      mat4((x1 + x2) / 2, LY + 1.06, (z1 + z2) / 2, .07, .07, len, ry));
+    if (!haveWalk) {                   // wave D: walkway_deck's shoe + copper cap
+      inst('arrRailI', UNIT_BOX, MAT.copper,
+        mat4((x1 + x2) / 2, LY + 1.06, (z1 + z2) / 2, .07, .07, len, ry));
+    }
     colliderLine(C, x1, z1, x2, z2, .26, ABOVE);
   };
   /* ⚠ THE SOUTH RAIL MUST NOT CROSS THE EXTERIOR STAIR'S 2F LANDING.
@@ -6215,7 +6340,7 @@ function buildSwimUpBar(G, root) {
    ════════════════════════════════════════════════════════════════════════ */
 export function buildCampus(G) {
   BUCKETS.clear();
-  NIGHT.tint.length = 0; NIGHT.glow.length = 0; NIGHT.lights.length = 0;
+  NIGHT.tint.length = 0; NIGHT.glow.length = 0; NIGHT.lights.length = 0; NIGHT.env.length = 0;
   MAT = makeMaterials();
   photoTex(MAT.hedge, 'hedge.webp');       // KAN-208 wave 2 — see MAT.hedge
 
@@ -6261,6 +6386,7 @@ export function setCampusNight(on) {
   for (const e of NIGHT.glow) e.mat.emissiveIntensity = on ? e.n : e.d;
   for (const l of NIGHT.lights) l.light.intensity = on ? l.n : l.d;
   for (const m of NIGHT.vis) m.visible = on;
+  for (const e of NIGHT.env) e.mat.envMapIntensity = on ? e.n : e.d;
   if (MAT) {
     MAT.glass.opacity = on ? .86 : .5;
     MAT.glass.color.setHex(on ? 0x120d07 : 0x25333a);

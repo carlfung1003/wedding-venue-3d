@@ -1,0 +1,17 @@
+{
+  "bytes": 33680,
+  "front": "-Z",
+  "material": "breakfast_banquette",
+  "min": [
+    -0.55,
+    0.0,
+    -1.7
+  ],
+  "origin": "floor",
+  "size": [
+    1.1,
+    1.09,
+    3.4
+  ],
+  "tris": 1320
+}

@@ -743,5 +743,23 @@
     "post": "tile-blend (both axes — a sheet patina has no direction); flattened 0.2 x0.8; balanced to #a37556 (first installed at #9a6440, then re-graded per channel in LINEAR light ×(1.14, 1.40, 1.85) after the in-game render read (191,126,76) against the photo's (203,147,102) — the mean that grade landed on is the target now, so a re-install reproduces it)",
     "prompt": "Photograph looking straight at one flat sheet of architectural copper cladding that has weathered for a few years in tropical sun, the camera square to the metal so the whole frame is the metal surface: a warm burnished copper-bronze colour, from honey-tan and soft salmon to deeper russet brown, with gentle soft-edged mottled tone variation across the sheet and a very fine brushed texture, a low satin sheen. Fairly even overall, no green verdigris, no bright spots, no black stains. No seams, no joints, no ribs, no rivets, no screws, no edges, no panels — just the continuous metal skin. Sharp focus, soft even daylight.",
     "note": "KAN-211 wave C: the presidential suite's roof fascia — a band of copper CASSETTE panels (hotel deck p3 elevation, reference/docs/clubhouse-intro.pdf image pimg-002: sunlit fascia measured (203,147,102), each panel its own tone). Geometry carries the cassette joints; each panel takes a random UV shift so the tones differ panel to panel. Balanced darker than the photo because the render lifts a texture ~30 points (wave A2 lesson 1)."
+  },
+  "render_white": {
+    "kind": "texture",
+    "out": "render_white.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "tile": "fill",
+    "blend": 0.12,
+    "flatten": 0.25,
+    "flatten_amount": 0.7,
+    "balance": {
+      "target": "#d9d3cb",
+      "ref": "mean"
+    },
+    "post": "tile-blend (both axes — a trowelled render has no direction); flattened 0.25 x0.7; balanced to #d9d3cb (graded below Yinyiju.webp's sunlit villa render (240,235,230): the sun and env lift a texture — wave A2 lesson 1)",
+    "prompt": "Photograph looking straight at a flat exterior wall of a modern tropical resort villa finished in smooth warm off-white mineral render, the camera square to the wall so the whole frame is render: a very subtle hand-trowelled texture, faint soft cloudy variation in tone between warm white and pale cream-grey, a fine sand-float grain, a few extremely faint hairline trowel arcs. No joints, no panels, no cracks, no stains, no windows, no edges of the wall, no shadows of objects. Soft even overcast daylight, sharp focus.",
+    "note": "KAN-211 wave D: the presidential suite's side + back walls (Yinyiju.webp — the enclave's villas are crisp warm-white render). Bake input for suite_walls, mapped at ~2.4 m a tile, one random shift per panel."
   }
 }

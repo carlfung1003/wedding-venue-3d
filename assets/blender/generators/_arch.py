@@ -240,6 +240,25 @@ ARCH = {
     "su_wicker":   ("e6e1d6", "straw",   0.70),   # white wicker dining set (p5)
     "su_cushion":  ("f1eee6", "linen",   0.80),
     "su_top":      ("efece5", "paint",   0.35),   # the table top
+    # ── KAN-211 wave D: the suite's side/back walls, the lobby + lounge
+    #    ceilings, the walkway, the breakfast room ──
+    "su_pier":     ("2c2522", "stone",   0.30),   # the interior pier's dark polished stone (f016)
+    "su_pier1":    ("312925", "stone",   0.30),
+    "su_plaster":  ("e8e4da", "paint",   0.90),   # the walls' INSIDE face + reveals (suite.js MT.plaster)
+    "su_gap":      ("57524c", "paint",   0.90),   # the render's shadow-gap joints (the AO does the rest)
+    "wd_slat":     ("3b2219", "wood",    0.55),   # lobby / lounge ceiling slats — four tones, f_021's dark
+    "wd_slat1":    ("33201a", "wood",    0.55),   #   mahogany ceiling (measured ~ (60,38,30) in frame)
+    "wd_slat2":    ("432a1f", "wood",    0.55),
+    "wd_slat3":    ("2e1c16", "wood",    0.55),
+    "wd_carrier":  ("141414", "paint",   0.60),   # the black slat carrier channels
+    "wk_pave":     ("2c2b2a", "stone",   0.45),   # walkway pavers — honed charcoal (three tones; ×.55 linear after the first render read (109…123) grey)
+    "wk_pave1":    ("33312f", "stone",   0.45),
+    "wk_pave2":    ("262524", "stone",   0.45),
+    "wk_bed":      ("161616", "paint",   0.80),   # the dark bed showing in the paver joints
+    "wk_steel":    ("2c2927", "metal_p", 0.45),   # edge channels, column shafts, shoe
+    "bk_oak":      ("5a3a28", "wood",    0.50),   # breakfast tables — warm dark oak (the room's rtDarkTeak)
+    "bk_linen":    ("ece6da", "linen",   0.85),   # banquette upholstery
+    "bk_china":    ("f4f2ec", "paint",   0.30),   # plates, cups
 }
 for k, (hx, fam, rough) in ARCH.items():
     L.PALETTE[k] = L._hex(hx)
@@ -415,6 +434,35 @@ def soffit_teak(name="soffit"):
     lifts a texture, so the picture sits between the two (numpy, see
     ASSET_SPEC Group M). Boards run down v = along local z (N–S)."""
     return L.image_mat(name, "soffit_teak.webp", roughness=0.8, fallback="at_wood2")
+
+
+def render(name="render"):
+    """KAN-211 wave D: the suite's warm-white exterior RENDER (render_white.webp,
+    generated 1K, balanced to #d9d3cb — below Yinyiju.webp's sunlit villa
+    render (240, 235, 230), because the sun + env lift a texture)."""
+    return L.image_mat(name, "render_white.webp", roughness=0.9, fallback="su_plaster")
+
+
+def rect_minus(r, holes):
+    """(a0, a1, y0, y1) minus every hole rectangle → the remaining pieces."""
+    out = [r]
+    for (h0, h1, hb, ht) in holes:
+        nxt = []
+        for (a0, a1, y0, y1) in out:
+            if h1 <= a0 or h0 >= a1 or ht <= y0 or hb >= y1:
+                nxt.append((a0, a1, y0, y1))
+                continue
+            if h0 > a0:
+                nxt.append((a0, h0, y0, y1))
+            if h1 < a1:
+                nxt.append((h1, a1, y0, y1))
+            c0, c1 = max(a0, h0), min(a1, h1)
+            if hb > y0:
+                nxt.append((c0, c1, y0, hb))
+            if ht < y1:
+                nxt.append((c0, c1, ht, y1))
+        out = nxt
+    return [p for p in out if p[1] - p[0] > 1e-3 and p[3] - p[2] > 1e-3]
 
 
 def soffit_pale(name="soffit"):

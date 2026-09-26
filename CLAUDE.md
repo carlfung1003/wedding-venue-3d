@@ -1141,6 +1141,107 @@ untouched. Proof (the 2026-08-04 method, both builds scripted identically):
 Not done here: the atrium's other ENVM entries / the GLB `archFinish`/`bakeMat`
 env knobs still bind nothing (see the ⚠ above).
 
+### KAN-211 WAVE D — SUITE SIDE/BACK WALLS, LOBBY + 酒廊 CEILINGS, THE BREAKFAST ROOM, THE UPPER WALKWAY (2026-09-25)
+
+The architecture waves A–C left primitive → **ASSET_SPEC Group N** (every row
+there) + a re-bake of `suite_facade`:
+`suite_walls` (suite frame, 1 inst: every MT.plaster run of the envelope and the
+spa annex — a plaster core with suite.js's holes, warm-white RENDER panels outside
+on a 1.6 m module with 22 mm shadow gaps + a floor-line reveal at YF2, a taupe
+stone plinth; `render_white.webp`, generated), `suite_facade` re-baked (the 2F
+link door gets a STEPPED stone + bronze surround with a lining through the wall
+and a copper drip — the old .11 bronze boards read flat from the walkway; the
+INTERIOR PIER at the leaf joint as two dark polished slabs on a shadow-gap base),
+`arch_slat_module` (0.6 m module of five dark mahogany slats, open joints, end
+caps, ×240 under the lobby AND the lounge — the old `slatCeil` boxes stay as the
+black backing), `walkway_deck` (LINK / SLOT / HEAD: charcoal pavers whose top is
+the old slab's top, the LINK's stone fascia + cedar soffit + steel columns, a
+shoe + copper cap on all 8 `bal()` lines — the glass panes stay the game's),
+`walkway_pergola` (corten pergola now ON POSTS — the old one floated — with C
+channels, cross beams and timber louvre battens), and the breakfast room
+(`breakfast_table` / `_two` set with plates + cups + bud vase, `breakfast_banquette`,
+`breakfast_buffet`, and the roof's `dining_chair_rattan` ×44). Plus
+`assets/textures/floor_teak.webp` (DERIVED, `derive_floor_teak.py`) over
+MAT.loungeFloor's canvas map, with the floor's OWN envMap (.30 / .20) so the
+level binds. Flags: suite.js `HC.walls`; campus.js `haveSlat` / `haveWalk` /
+`haveBk` — every replaced primitive is the `else`. Human figures (check-in staff),
+the backdrop villas and the hotel crescent untouched.
+
+Shots: before `reference/photos/shots-archD-before/` (2222014 in a worktree on
+:8811), after `shots-archD/` — **117 views** (wave C/fix's 104 + 13 `archD-*`:
+suite side day/night, suite back from the HEAD landing, suite east, the pier from
+the great room, the link door at a grazing angle from the slot, the lobby ceiling
+from the desk, the lounge day/night, the walkway from the lobby / from the atrium
+end / at the slot corner, the pergola from the courtyard). `compare-*.jpg` are
+the side-by-sides (the 13 archD views + archC-link-door, archC-portal and four
+archA arrival views), `compare3-archA-courtyard-face.jpg` /
+`compare3-archA-lounge-deck.jpg` the 3-way (clubhouse-lounge-checkin-balcony.jpg
+| before | after).
+
+| 117 views | before (2222014) | after |
+|---|---|---|
+| draw calls (sum) | 47,378 | **46,480 (−898)**; −35…0 a view, never up |
+| triangles (sum) | 86,475,614 | 88,303,798 (**+2.1 %**); 49 views +0; the arrival / lobby / lounge views +98…104k (the breakfast room + both slat ceilings); the suite views +5…6k |
+| mirror pass (sum) | 14,486 calls / 24.84 M tris | **14,119 / 25.52 M** |
+| archC-signature-night mirror | 1,104 / 764,550 | **1,069 / 761,462** |
+| archC-across-pool(-night) mirror | 1,134 / 751k (1,194 / 792k) | **1,099 / 748k (1,159 / 789k)** |
+| shader programs | 113 | **113 at every view, day and night** (all GLBs ride the instanced baked-map program; floor_teak is a map swap on an existing map) |
+| colliders / feet / night flags | | identical at all 117 views |
+| `colliderHash` (scatter-probe) | `bc45a91cacd2` (10,942) | **`bc45a91cacd2` (10,942)** |
+| floorY, 25 probes (lobby / desk / link ×3 / slot ×4 / head 3.600; suite 2F link door / lounge / hall 3.800, balcony 3.780; suite 1F great room / dining / at the pier / deck 0.000; lounge centre / buffet / banquette aisle 0.000, lounge deck .120; courtyard under the LINK 0; atrium 2F gallery 3.600; internal stair mid) | | **identical** |
+| 7 scripted walks (lobby → LINK → SLOT → suite 2F door → 2F lounge 3.6 → 3.8; slot → HEAD → atrium gallery; pushing into the LINK's rail at a pergola post; lounge deck → between the tables → buffet; suite spawn → open span → deck; great room → the pier) + interactables | | **byte-identical** |
+| lights (guest journey) | 40 / 12 | 40 / 12 |
+| guest journey | | 0 stalls, every beat, Check-in PROMPT ✓, `ERRORS []` |
+
+Scatter: 196 of 220 (name, chain) keys byte-identical; the 24 that differ are
+exactly the intended ones — `arrChairI`/`arrChairLegI`/`arrBanqI`/`arrCounterI`/
+`arrCounterTopI`/`arrPergolaI`/`arrSoffitI` gone, `arrColI` 10 → 2 (the lounge
+deck's), `arrRailI` 18 → 10 (the internal stair's), `arrTableI` 17 → 2 and
+`arrTableLegI` 27 → 2 and `arrWareI` 104 → 2 (the lobby's low tables),
+`arrPlantI` 92 → 82 (the ten table blooms), `arrDownI` moved (dropped under the
+slats), `suite_facade` 1,724 → 2,160 tris, and the new GLB buckets. No `rnd()`
+draw moved (none of the replaced call sites draw one; the colliders — which
+include every rnd-placed planting collider — hash the same).
+
+**The interior distance cull (campus.js `LOUNGE_CULL_D` = 38 m).** Each baked
+breakfast bucket is ONE InstancedMesh with one bounding sphere round the whole
+room, so the first cut drew ~100k tris — and again in the hero pool's mirror
+(+94k at the signature shot) — from any view with the pavilion in frustum. A
+ticker hides the six interior buckets (chairs, tables, banquettes, buffet, the
+slat ceilings) when the camera is more than 38 m (plan) from the room's centre;
+there a 1 m chair is < 21 px behind a folding-glass wall. Visible flag only.
+Still drawn (honest): the arrival / lobby views within 38 m, including the
+suite's dining end (34.7 m) where the room is behind walls.
+
+**Colour, MEASURED:** lounge floor (210,152,121) salmon → **(118,77,61)**;
+the lobby slat ceiling (66,48,36) → **(55,39,35)** vs f_021's dark ceiling
+(55,39,38); suite west wall (214,211,205) → **(205,202,195)** vs Yinyiju.webp's
+shaded villa render (206,199,195); walkway deck (73,75,77) black polish →
+**(93,91,89)** honed charcoal (first bake read 109…123 — pavers ×.55 linear).
+
+Image generation (`venue-arch`, cap $15): **+1 image** (`render_white`, 1K);
+running total **8 images, $1.07**. `floor_teak.webp` derived locally.
+
+⚠ **What this wave learned:**
+1. **A baked interior bucket needs its own visibility rule.** One bounding sphere
+   per InstancedMesh means a whole room of furniture draws (twice, with the
+   mirror) whenever the building's corner is in frustum; detailcull.js only
+   handles plain meshes. Gate it by distance to the room (LOUNGE_CULL_D).
+2. **Butt-jointed profile extrusions need end caps** (the slat rows drew a black
+   sawtooth down the ceiling without them).
+3. **`wallRun` holes start at the run's foot** — the 2F link door was a 3.8 m slot
+   through the 1F as well. The GLB fills it below the sill; the collider (y1 3.4)
+   already blocked it.
+4. The primitive breakfast chairs' backs never rotated (world-z offset) and the
+   banquette pair was passed −π/2 — which faces a front-+Z GLB chair away from its
+   table. The GLB path computes its own facing and a seat point .22 m off the edge.
+
+Not done here: the lobby FLOOR is still the salmon canvas boards (not in this
+wave's brief; `floor_teak.webp` + the envMap recipe would drop straight in); the
+atrium's other ENVM entries and the GLB env knobs (FIX PASS finding) still bind
+nothing; the breakfast chairs are 1,330 tris each (44 of them are most of the
+lounge's cost — a lighter chair would halve it).
+
 ### Not in this pass (next)
 
 (Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above; the
@@ -3274,6 +3375,15 @@ makes the campus "look tidier" by undoing one, it is wrong:
   portal GLBs re-derive the facade hole (`atrium_portal.py hole()` mirrors
   buildFacade's inGap and atrium.js's `PORTAL` literal); `glbHoleOk()` warns and
   falls back if they disagree.
+
+- **KAN-211 wave D: `suite_walls` re-cuts suite.js's plaster holes** (north
+  entry/pantry, the 2F link door, the corridor openings, the frosted stair slot,
+  the annex glazing) in SITE numbers inside `generators/suite_walls.py`. Move a
+  hole or a wall const in suite.js and re-run `make_masters.py` + `export_all.py`
+  for `suite_walls` (and `suite_facade`, which carries the surrounds and the
+  interior pier) — or the render runs across a doorway. `walkway_deck` reads
+  campus.js §I's `bal()` list and column loop with the same arithmetic
+  (`rails()` / `columns()`): change either in campus.js and mirror it there.
 
 - **KAN-211 wave B: `_arch.atrium()` re-derives atrium.js's consts** (X0…CZ1,
   H1/H2, SOF1/SOF2, STAIR, WELL) with the same arithmetic. Change one of those

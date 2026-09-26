@@ -16,6 +16,23 @@
     ],
     "tris": 1264
   },
+  "arch_slat_module": {
+    "bytes": 4512,
+    "front": "-Z",
+    "material": "wd_slat",
+    "min": [
+      -0.275,
+      -0.045,
+      -1.0
+    ],
+    "origin": "top",
+    "size": [
+      0.55,
+      0.045,
+      2.0
+    ],
+    "tris": 90
+  },
   "arrival_entry": {
     "bytes": 58748,
     "front": "-Z",
@@ -440,6 +457,74 @@
       0.394
     ],
     "tris": 4550
+  },
+  "breakfast_banquette": {
+    "bytes": 33680,
+    "front": "-Z",
+    "material": "breakfast_banquette",
+    "min": [
+      -0.55,
+      0.0,
+      -1.7
+    ],
+    "origin": "floor",
+    "size": [
+      1.1,
+      1.09,
+      3.4
+    ],
+    "tris": 1320
+  },
+  "breakfast_buffet": {
+    "bytes": 63820,
+    "front": "-Z",
+    "material": "breakfast_buffet",
+    "min": [
+      -2.0,
+      0.0,
+      -0.475
+    ],
+    "origin": "floor",
+    "size": [
+      4.0,
+      1.49,
+      0.95
+    ],
+    "tris": 2688
+  },
+  "breakfast_table": {
+    "bytes": 24160,
+    "front": "-Z",
+    "material": "breakfast_table",
+    "min": [
+      -0.75,
+      0.0,
+      -0.475
+    ],
+    "origin": "floor",
+    "size": [
+      1.5,
+      0.975,
+      0.95
+    ],
+    "tris": 1220
+  },
+  "breakfast_table_two": {
+    "bytes": 17708,
+    "front": "-Z",
+    "material": "breakfast_table_two",
+    "min": [
+      -0.475,
+      0.0,
+      -0.475
+    ],
+    "origin": "floor",
+    "size": [
+      0.95,
+      0.975,
+      0.95
+    ],
+    "tris": 756
   },
   "buffet_run": {
     "bytes": 123104,
@@ -1870,7 +1955,7 @@
     "tris": 944
   },
   "suite_facade": {
-    "bytes": 122316,
+    "bytes": 133592,
     "front": "-Z",
     "material": "suite_facade",
     "min": [
@@ -1884,7 +1969,7 @@
       6.82,
       15.375
     ],
-    "tris": 1724
+    "tris": 2160
   },
   "suite_leaf": {
     "bytes": 10128,
@@ -1953,6 +2038,23 @@
       18.61
     ],
     "tris": 336
+  },
+  "suite_walls": {
+    "bytes": 220248,
+    "front": "-Z",
+    "material": "suite_walls",
+    "min": [
+      -14.215,
+      -0.0,
+      -6.715
+    ],
+    "origin": "site",
+    "size": [
+      22.43,
+      6.8,
+      13.215
+    ],
+    "tris": 2232
   },
   "sun_lounger": {
     "bytes": 25036,
@@ -2055,6 +2157,40 @@
       0.966
     ],
     "tris": 300
+  },
+  "walkway_deck": {
+    "bytes": 157852,
+    "front": "-Z",
+    "material": "walkway_deck",
+    "min": [
+      -26.745,
+      0.0,
+      -20.03
+    ],
+    "origin": "site",
+    "size": [
+      24.375,
+      4.7,
+      21.12
+    ],
+    "tris": 3432
+  },
+  "walkway_pergola": {
+    "bytes": 498240,
+    "front": "-Z",
+    "material": "walkway_pergola",
+    "min": [
+      -22.61,
+      3.58,
+      -1.4
+    ],
+    "origin": "site",
+    "size": [
+      20.07,
+      3.07,
+      2.4
+    ],
+    "tris": 1608
   },
   "welcome_board_frame": {
     "bytes": 12804,

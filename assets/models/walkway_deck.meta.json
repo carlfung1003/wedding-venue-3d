@@ -1,0 +1,17 @@
+{
+  "bytes": 157852,
+  "front": "-Z",
+  "material": "walkway_deck",
+  "min": [
+    -26.745,
+    0.0,
+    -20.03
+  ],
+  "origin": "site",
+  "size": [
+    24.375,
+    4.7,
+    21.12
+  ],
+  "tris": 3432
+}

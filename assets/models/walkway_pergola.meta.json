@@ -1,0 +1,17 @@
+{
+  "bytes": 498240,
+  "front": "-Z",
+  "material": "walkway_pergola",
+  "min": [
+    -22.61,
+    3.58,
+    -1.4
+  ],
+  "origin": "site",
+  "size": [
+    20.07,
+    3.07,
+    2.4
+  ],
+  "tris": 1608
+}

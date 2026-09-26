@@ -718,6 +718,7 @@ export function buildSuite(G) {
     facade: haveM('suite_facade'),
     leaf: haveM('suite_leaf'),
     dining: haveM('suite_dining_set'),
+    walls: haveM('suite_walls'),          // KAN-211 wave D: the plaster side/back walls + annex
   };
   LEAF_M.length = 0;
 
@@ -777,7 +778,11 @@ function buildShell(root) {
 
   /* ── exterior walls, 1F + 2F in one run ────────────────────────────
      North: entry double doors + the pantry service door.               */
-  wallRun(root, MT.plaster, 'x', ZN, EWT, X0, X1, 0, Y2C, [
+  /* KAN-211 wave D: `suite_walls` draws every MT.plaster run of the envelope
+     (this one, the two side runs below and the annex's five) as a plaster
+     core + warm-white render panels outside + a stone plinth — SITE frame,
+     no mx(), like every Group M GLB. The runs stay here as the fallback. */
+  if (!HC.walls) wallRun(root, MT.plaster, 'x', ZN, EWT, X0, X1, 0, Y2C, [
     [-7.4, -6.0, 2.2],     // pantry service double door
     [-3.4, -1.6, 2.4],     // villa entry double doors
   ]);
@@ -790,7 +795,7 @@ function buildShell(root) {
      ARRIVAL_LOBBY_Y (3.60) and steps 0.20 up into the 2F lounge here. The
      hole is cut in the RUN, not drawn over it — a door drawn on a solid wall
      is the doubleDoor bug this project already paid for once. */
-  wallRun(root, MT.plaster, 'z', X0, EWT, ZN, -16.6, 0, Y2C, [
+  if (!HC.walls) wallRun(root, MT.plaster, 'z', X0, EWT, ZN, -16.6, 0, Y2C, [
     [LINK_DOOR.z0, LINK_DOOR.z1, YF2 + 2.35],
   ]);
   /* the reveal: a marble sill flush with the 2F floor, dark jambs, a copper
@@ -805,17 +810,17 @@ function buildShell(root) {
     slab(root, MT.brass, X0 - EWT / 2 - .04, X0 + EWT / 2 + .04, YF2 + 2.30, YF2 + 2.40,
       LINK_DOOR.z0, LINK_DOOR.z1);
   }
-  wallRun(root, MT.plaster, 'z', X0, EWT, -16.6, ZS, YF2 - .4, Y2C);
+  if (!HC.walls) wallRun(root, MT.plaster, 'z', X0, EWT, -16.6, ZS, YF2 - .4, Y2C);
   glazedBay(root, 'z', X0, -16.6, ZS, .1, 2.9, 3);          // 1F corner glazing
   /* East: shared with the annex to z = COR_ZS, then exterior.
      Holes: the corridor cased opening, the spa double doors, and the full-
      height slot where the backlit frosted stair glazing sits. */
-  wallRun(root, MT.plaster, 'z', X1, EWT, ZN, COR_ZS, 0, Y2C, [
+  if (!HC.walls) wallRun(root, MT.plaster, 'z', X1, EWT, ZN, COR_ZS, 0, Y2C, [
     [-26.25, -24.5, 2.4],          // cased opening → spa corridor (NE corner)
     [ST.zN + .3, -21.0, Y2C],      // frosted louver glazing (built in buildStair)
     [-19.2, -17.4, 2.4],           // double doors back from the spa corridor
   ]);
-  wallRun(root, MT.plaster, 'z', X1, EWT, COR_ZS, ZS, 0, Y2C);
+  if (!HC.walls) wallRun(root, MT.plaster, 'z', X1, EWT, COR_ZS, ZS, 0, Y2C);
 
   /* ── south face: dark stone-clad piers flanking the 14 m glazing ── */
   if (!HC.facade) {                     // wave C: suite_facade's stone panels + reveal
@@ -1100,7 +1105,9 @@ function buildGreatRoom(root) {
      Moved 1.9 m with GW.closedX1 when the plan was mirrored — it marks that
      joint, and left where it was it stood in the PREWEDDING spawn's way out
      to the deck. Keep the two in step (buildColliders has the matching rect). */
-  slab(g, MT.stonePier, -3.95, -3.3, 0, H1, ZS - .95, ZS - .35);
+  /* KAN-211 wave D: suite_facade (re-baked) carries this pier as two dark
+     polished slabs on a shadow-gap base — same footprint, SITE frame */
+  if (!HC.facade) slab(g, MT.stonePier, -3.95, -3.3, 0, H1, ZS - .95, ZS - .35);
   /* floor register plates in the marble */
   for (const rx of [-.6, 3.2]) slab(g, MT.brass, rx - .28, rx + .28, .001, .012, -14.5, -14.34);
 
@@ -1505,13 +1512,15 @@ function buildAnnex(root) {
   root.add(g);
 
   /* ── annex envelope ── */
-  wallRun(g, MT.plaster, 'x', ZN, EWT, ANX_X0, ANX_X1, 0, H2);              // north
-  wallRun(g, MT.plaster, 'z', ANX_X1, EWT, ZN, SPA_ZS, 0, H2, [[-25.2, -20.2, H2]]);
-  wallRun(g, MT.plaster, 'x', SPA_ZS, EWT, COR_X1, ANX_X1, 0, H2, [[10.2, 13.2, H2]]);
-  wallRun(g, MT.plaster, 'x', COR_ZS, EWT, ANX_X0, COR_X1, 0, H2, [[8.4, 9.3, 2.4]]);
+  if (!HC.walls) {                      // KAN-211 wave D: suite_walls
+    wallRun(g, MT.plaster, 'x', ZN, EWT, ANX_X0, ANX_X1, 0, H2);              // north
+    wallRun(g, MT.plaster, 'z', ANX_X1, EWT, ZN, SPA_ZS, 0, H2, [[-25.2, -20.2, H2]]);
+    wallRun(g, MT.plaster, 'x', SPA_ZS, EWT, COR_X1, ANX_X1, 0, H2, [[10.2, 13.2, H2]]);
+    wallRun(g, MT.plaster, 'x', COR_ZS, EWT, ANX_X0, COR_X1, 0, H2, [[8.4, 9.3, 2.4]]);
+  }
   /* corridor / spa partition */
   wallRun(g, MT.maroon, 'z', COR_X1, WT, ZN, SPA_ZS, 0, H2, [[-23.6, -21.8, 2.4]]);
-  wallRun(g, MT.plaster, 'z', COR_X1, WT, SPA_ZS, COR_ZS, 0, H2);
+  if (!HC.walls) wallRun(g, MT.plaster, 'z', COR_X1, WT, SPA_ZS, COR_ZS, 0, H2);
   /* the two courtyard glazings + their sheers */
   glazedBay(g, 'z', ANX_X1, -25.2, -20.2, .1, 2.7, 4);
   glazedBay(g, 'x', SPA_ZS, 10.2, 13.2, .1, 2.7, 3);
@@ -1788,6 +1797,10 @@ function buildExterior(root) {
   if (HC.facade) {
     glbInst(root, 'suite_facade', A);
     archFinish('suite_facade', .5, 0, .6, .25);
+  }
+  if (HC.walls) {
+    glbInst(root, 'suite_walls', A);
+    archFinish('suite_walls', .9, 0, .5, .2);
   }
   if (HC.leaf && LEAF_M.length) {
     glbInst(root, 'suite_leaf', LEAF_M);
