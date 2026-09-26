@@ -1480,6 +1480,41 @@ const have = (name) => models.has(name) && !!models.geometry(name);
 function modelI(key, name, m) {
   return inst(key, models.geometry(name), models.material(name), m);
 }
+/* KAN-211 POLISH: the last leafy `arrPlantI` blobs round the 酒廊 — the lounge
+   deck's corner shrubs, the lobby's four corner planters, the desk's two
+   planters — take the understory's CORE + FRINGE with wave E's batter method:
+   the caller draws its rnd() exactly as before (matrix, then colour) and hands
+   the finished matrix + colour here; only the KEY changes. New key
+   `arrLoungeShrubI` (UNIT_BLOB, swapped at flush to shrub_core @ .5 + a
+   shrub_fringe a/b bucket — WAVE4_PROTO / WAVE4_FRINGE) on loungeShrubMat():
+   the river shrubs' recipe — shrub.webp under the instance colour at an
+   exposure, so a core that shows between the cards is LEAVES, not the flat
+   orange / green lobes MAT.plantFlat drew (the first cut on the batter key
+   read as paper lanterns). Instanced + map + instance colour, no envMap, not
+   flat-shaded = nature's MAT.shrub / water.js plantM program: nothing new
+   compiles. A missing prototype keeps the blob. (The two low-table blooms and
+   the desk bowl's seven dried-flower heads stay blobs: flowers in a vase, not
+   planting — no prototype fits.) */
+let _loungeShrubMat = null;
+function loungeShrubMat() {
+  if (!_loungeShrubMat) {
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = 4;
+    const c = cv.getContext('2d'); c.fillStyle = '#2f4a26'; c.fillRect(0, 0, 4, 4);
+    const t = new THREE.CanvasTexture(cv);
+    t.colorSpace = THREE.SRGBColorSpace;
+    const m = new THREE.MeshStandardMaterial({ map: t, roughness: .92, metalness: 0 });
+    m.color.setScalar(LOUNGE_SHRUB_EXPOSURE);
+    _loungeShrubMat = tint(m, 0x445c74);        // nature's shrub night row
+    photoTex(_loungeShrubMat, 'shrub.webp', [2, 2]);
+  }
+  return _loungeShrubMat;
+}
+const LOUNGE_SHRUB_EXPOSURE = 5;
+function loungePlant(m, hex) {
+  if (protoGeo('shrub_core', .5)) inst('arrLoungeShrubI', UNIT_BLOB, loungeShrubMat(), m, new THREE.Color(hex));
+  else inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, m, new THREE.Color(hex));
+}
 /* The rooftop parasol's canopy (`roof_parasol_canopy`, KAN-208 wave 1) is the
    ONE baked model on this roof that takes a colour: its sole key is
    `canopy_tint`, a PURE WHITE bake, and the teal is ours. ONE clone of it,
@@ -1566,12 +1601,15 @@ const WAVE4_PROTO = {
   crotonI: ['shrub_core', .3],     // a SMALL core: the croton is its cards (see FRINGE_VARIANTS)
   /* and the arrival terrace's planted batter (its green blobs; see retain()) */
   arrBatterShrubI: ['shrub_core', .5],
+  /* KAN-211 POLISH: the 酒廊 side's leafy blobs (loungePlant) */
+  arrLoungeShrubI: ['shrub_core', .5],
 };
 /* the croton's blob is tall and stands off the ground, so its cards reach
    down its flank (croton_fringe: 26 cards to y −.8, the same lobes) */
 const FRINGE_VARIANTS = { crotonI: ['croton_fringe'] };
 const WAVE4_FRINGE = {
   bougain: 'boug', bougI: 'boug', subBougI: 'boug', crotonI: 'croton', arrBatterShrubI: 'shrub',
+  arrLoungeShrubI: 'shrub',
 };
 /* …and the bougainvillea CORE trades MAT.bougain (a flat-shaded solid pink —
    under the cards it still read as a pink plastic ball, and it is shared with
@@ -3283,12 +3321,17 @@ function buildArrival(G, g, rnd) {
     inst('arrColI', UNIT_CYL, MAT.charcoal, mat4(DK.x0 + .9, 1.72, cz, .46, 3.44, .46));
     C.push({ x: DK.x0 + .9, z: cz, r: .3, y1: CY });
   }
-  /* flowering red-orange shrubs at the deck's corner (the photo) */
+  /* flowering red-orange shrubs at the deck's corner (the photo).
+     KAN-211 POLISH: the court's planting language, the wave-E batter method —
+     SAME rnd() draws in the SAME order (the matrix's six, then the colour's),
+     same matrix, same colour; only the key (so the prototype) changes — see
+     loungePlant(). (The beds' ixora clump was tried for the red / orange ones:
+     at this 1–1.5 m scale its flat-shaded blades read as orange paper.) */
   for (let k = 0; k < 5; k++) {
-    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-      mat4(DK.x0 - .5 - rnd() * 1.2, .55 + rnd() * .3, B.z1 + .5 + rnd() * 1.6,
-        1.0 + rnd() * .5, .9 + rnd() * .4, 1.0 + rnd() * .5),
-      new THREE.Color([0x3f6532, 0xc63e1c, 0xd85a1e][Math.floor(rnd() * 3)]));
+    const sm = mat4(DK.x0 - .5 - rnd() * 1.2, .55 + rnd() * .3, B.z1 + .5 + rnd() * 1.6,
+      1.0 + rnd() * .5, .9 + rnd() * .4, 1.0 + rnd() * .5);
+    const ci = Math.floor(rnd() * 3);
+    loungePlant(sm, [0x3f6532, 0xc63e1c, 0xd85a1e][ci]);
   }
 
   /* ── BREAKFAST: sixty covers. A banquette run down the buried east wall, a
@@ -3559,11 +3602,10 @@ function buildArrival(G, g, rnd) {
   for (const [px, pz] of [[LB.x0 + 1.3, -18.6], [LB.x0 + 1.3, -6.4],
     [LB.x1 - 1.4, -17.2], [LB.x1 - 1.4, 1.0]]) {
     inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(px, LY + .3, pz, .78, .6, .78));
-    for (let k = 0; k < 6; k++) {
-      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-        mat4(px + (rnd() - .5) * .7, LY + .78 + rnd() * .8, pz + (rnd() - .5) * .7,
-          .5 + rnd() * .3, .32 + rnd() * .2, .5 + rnd() * .3),
-        new THREE.Color([0x3f6532, 0x557f42, 0x6b8f4a][Math.floor(rnd() * 3)]));
+    for (let k = 0; k < 6; k++) {     // KAN-211 POLISH: shrub core + fringe (loungePlant)
+      const sm = mat4(px + (rnd() - .5) * .7, LY + .78 + rnd() * .8, pz + (rnd() - .5) * .7,
+        .5 + rnd() * .3, .32 + rnd() * .2, .5 + rnd() * .3);
+      loungePlant(sm, [0x3f6532, 0x557f42, 0x6b8f4a][Math.floor(rnd() * 3)]);
     }
     C.push({ x: px, z: pz, r: .55, y0: CY });
   }
@@ -3683,11 +3725,10 @@ function buildArrival(G, g, rnd) {
     /* big leafy plants at the desk's corner */
     for (const pz of [DZ + 1.6, DZ + 2.7]) {
       inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(DX + DLEN / 2 + 1.1, LY + .26, pz, .62, .52, .62));
-      for (let k = 0; k < 5; k++) {
-        inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-          mat4(DX + DLEN / 2 + 1.1 + (rnd() - .5) * .6, LY + .68 + rnd() * .55, pz + (rnd() - .5) * .6,
-            .46 + rnd() * .22, .3 + rnd() * .16, .46 + rnd() * .22),
-          new THREE.Color([0x3f6532, 0x6b8f4a, 0x8fae63][Math.floor(rnd() * 3)]));
+      for (let k = 0; k < 5; k++) {   // KAN-211 POLISH: shrub core + fringe (loungePlant)
+        const sm = mat4(DX + DLEN / 2 + 1.1 + (rnd() - .5) * .6, LY + .68 + rnd() * .55, pz + (rnd() - .5) * .6,
+          .46 + rnd() * .22, .3 + rnd() * .16, .46 + rnd() * .22);
+        loungePlant(sm, [0x3f6532, 0x6b8f4a, 0x8fae63][Math.floor(rnd() * 3)]);
       }
       C.push({ x: DX + DLEN / 2 + 1.1, z: pz, r: .42, y0: CY });
     }

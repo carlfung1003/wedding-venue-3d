@@ -17,6 +17,13 @@ it. No rnd() is drawn at the call site (the old primitives drew none).
 Baked (one atlas): a matte white glazed bowl (lathe) with a dark soil top, four
 canes, and ~130 strap leaves (both faces — the material is single-sided) in
 three greens, arching out and down from whorls near each cane's tip.
+
+KAN-211 POLISH (f_009 3-way): wave E's head was twelve tufts on sticks
+(4,514 tris) where f_009 shows one full rounded column of drooping straps
+~1.2…2.4 m. Now: canes 1.84…2.28 m, three forks each (16 tips at staggered
+heights), 40 longer / wider leaves per whorl running 0.62 m down the shoot,
+arching up at the tip and hanging below, the whorl shortened on a low tip so
+the bare canes still show above the bowl. 640 leaves, 6,050 tris (≲ 7k).
 """
 import math
 import bmesh
@@ -28,7 +35,7 @@ ATLAS = 512
 BEVEL = 0
 AO_DIST = 0.3
 AO_STRENGTH = 0.55
-TRIS = 4600
+TRIS = 7000
 FRONT = "-Z"
 ORIGIN = "floor"
 
@@ -53,7 +60,7 @@ def _leaf(bm, base, d, side, length, w):
     pts = []
     for k in range(segs + 1):
         t = k / segs
-        p = base + d * (length * t) + Vector((0, 0, -0.30 * length * t * t))
+        p = base + d * (length * t) + Vector((0, 0, -0.42 * length * t * t))
         hw = w * (0.55 + 0.45 * math.sin(math.pi * min(1.0, t * 1.2))) * (1 - 0.85 * t ** 2)
         pts.append((p - side * hw, p + side * hw))
     for flip in (False, True):
@@ -83,41 +90,50 @@ def build():
     parts.append(bowl)
     parts.append(L.cyl("soil", 0.305, 0.02, (0, 0, SOIL_Z), "soil", n=24))
 
-    # the canes: four slim, slightly leaning stems of different heights
+    # the canes: four slim, slightly leaning stems of different heights.
+    # KAN-211 POLISH: taller (f_009: the head tops out ~4.5 bowl-heights, ~2.3 m)
     canes = []
-    for i, (h, a, lean) in enumerate(((1.98, 0.3, 0.10), (1.72, 2.1, 0.14), (1.52, 3.9, 0.12),
-                                     (1.84, 5.2, 0.08))):
+    for i, (h, a, lean) in enumerate(((2.28, 0.3, 0.10), (2.02, 2.1, 0.15), (1.84, 3.9, 0.13),
+                                     (2.14, 5.2, 0.09))):
         foot = Vector((math.cos(a) * 0.06, math.sin(a) * 0.06, SOIL_Z))
         top = foot + Vector((math.cos(a) * lean, math.sin(a) * lean, h - SOIL_Z))
         parts.append(L.strut(f"cane{i}", tuple(foot), tuple(top), 0.018, "cane", n=6))
         canes.append((foot, top))
 
-    # each cane forks near its top into two short side shoots, so the plant has
-    # ~12 growing tips, each carrying a dense whorl — the photos' bushy head
+    # KAN-211 POLISH — f_009's head is a FULL rounded column of drooping
+    # straps from just above the bowl to the top (~0.8…2.3 m, ~1.1 m across),
+    # not wave E's twelve tufts on sticks. Each cane now forks THREE times
+    # (spread up its length, splaying outward), so there are 16 growing tips
+    # at staggered heights, and each whorl runs 0.62 m down its shoot with
+    # longer leaves that arch up at the tip and hang down below — the whorls
+    # overlap into one mass. 16 × 40 leaves × 8 tris ≈ 5.1k + the bowl/canes.
     tips = []
     for ci, (foot, top) in enumerate(canes):
         tips.append((top, (top - foot).normalized()))
-        for k in range(2):
-            a = ci * 1.7 + k * math.pi + rnd.uniform(-.4, .4)
-            fork = foot + (top - foot) * rnd.uniform(.62, .78)
-            d = Vector((math.cos(a) * .95, math.sin(a) * .95, 1.0)).normalized()
-            end = fork + d * rnd.uniform(.34, .46)
+        for k in range(3):
+            a = ci * 1.7 + k * (2 * math.pi / 3) + rnd.uniform(-.35, .35)
+            fork = foot + (top - foot) * (0.44 + 0.15 * k + rnd.uniform(-.04, .04))
+            d = Vector((math.cos(a) * 1.05, math.sin(a) * 1.05, 1.0)).normalized()
+            end = fork + d * rnd.uniform(.36, .50)
             parts.append(L.strut(f"shoot{ci}_{k}", tuple(fork), tuple(end), 0.012, "cane", n=5))
             tips.append((end, d))
     mats = ["drac_g", "drac_y", "drac_l"]
     bms = {m: bmesh.new() for m in mats}
     GA = math.radians(137.5)
     for ti, (top, axis) in enumerate(tips):
-        n = 38
+        n = 40
+        # the head starts ~1.2 m up (f_009: a bare trunk shows ~2 bowl-heights
+        # above the bowl) — a low tip's whorl is shortened, never pushed lower
+        depth = max(0.22, min(0.62, (top.z - 1.2) / max(axis.z, .3)))
         for j in range(n):
             t = j / (n - 1)                                   # 0 at the tip → 1 lower
-            base = top - axis * (0.50 * t)
+            base = top - axis * (depth * t)
             az = j * GA + ti * 1.1 + rnd.uniform(-.2, .2)
-            el = math.radians(72 - 100 * t + rnd.uniform(-10, 10))
+            el = math.radians(64 - 120 * t + rnd.uniform(-10, 10))
             d = Vector((math.cos(az) * math.cos(el), math.sin(az) * math.cos(el), math.sin(el)))
             side = Vector((-math.sin(az), math.cos(az), 0))
-            length = 0.27 + 0.13 * t + rnd.uniform(-.03, .05)
-            w = 0.038 + rnd.uniform(0, .010)
+            length = 0.30 + 0.18 * t + rnd.uniform(-.03, .05)
+            w = 0.046 + rnd.uniform(0, .012)
             key = mats[(j + ti) % 3] if rnd.random() > .15 else "drac_y"
             _leaf(bms[key], base, d, side, length, w)
     for key, bm in bms.items():

@@ -421,6 +421,18 @@ const ENV_OVERRIDE = {
      .45 → (≈26,23,21), the edges still catch the light. Night keeps the scene's
      day:night ratio (.30/.95). */
   atrium_column: [0.45, 0.14],
+  /* KAN-211 POLISH: the pond edging is POLISHED BLACK granite (re-baked
+     near-black, atrium_ponds.py) — so what it shows is the reflection, and the
+     knob is what makes it stone. Measured at archB-photo against
+     clubhouse-atrium.jpeg (coping tops = sky reflection, 130…194; cladding
+     sides in shade 30…57), rough .10: env .95 → tops (83,84,86) / sides
+     (37,37,36); 1.3 → (103,103,106) / (47,47,47); 1.7 → (121,122,124) /
+     (58,58,58). 1.7 greys every side seen obliquely (the rim close-up
+     polish-rim read ~82 on all faces — the RoomEnvironment's pale walls are
+     not the photo's dark gravel), so 1.3: sides inside the photo's range,
+     tops ~25 under its sky reflection (only a Reflector could give that).
+     Night keeps the scene's .32 ratio. Roughness .10 in bakeMat (was .22). */
+  atrium_ponds: [1.3, 0.42],
 };
 function regE(m, d, n) { EMIS.push({ m, d, n }); return m; }
 
@@ -1332,7 +1344,7 @@ export function buildAtrium(G) {
   bakeMat('atrium_soffit_panel', .6);
   bakeMat('atrium_downlight', .6);
   bakeMat('atrium_frame', .55);
-  bakeMat('atrium_ponds', .22);
+  bakeMat('atrium_ponds', .10);   // KAN-211 polish: polished black granite
   bakeMat('atrium_stair', .35);
   bakeMat('atrium_rail', .3, .75);
   bakeMat('atrium_baluster', .3, .8);

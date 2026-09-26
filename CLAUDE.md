@@ -1612,6 +1612,87 @@ No image generation (ledger unchanged: 10 images, $1.34).
    `envMap` and `userData`, so an eager bind would hand a clone the texture
    with no registry entry to drive it at night.
 
+### KAN-211 POLISH — BLACK-GRANITE POND RIMS, A FULL DRACAENA, THE 酒廊 SIDE'S LAST BLOBS (2026-09-26)
+
+Three follow-ups on top of a5afb84. Shots: before `reference/photos/shots-polish-before/`
+(a5afb84 in a worktree on :8811), after `shots-polish/` — **141 views** (wave F's 137 + four
+`polish-*`: `polish-rim` (+`-night`, a pond-1 rim close-up), `polish-lounge-shrubs` (the 酒廊
+deck corner), `polish-lobby-planters`). `compare3-polish-ponds-photo.jpg` (clubhouse-atrium |
+before | after at archB-photo), `compare3-polish-dracaena.jpg` (f_009 | before | after),
+`compare-*.jpg` for the rim / pond / lounge / lobby / court views. `shoot-moments.mjs` also
+gained `PRE='<js>'` (runs once on the page before the views — an in-page material sweep; leave
+unset for a record run).
+
+**1 · Pond rims → polished black granite.** `atrium_ponds` re-baked on its own near-black keys
+(`_arch.py` `at_bgran` #151618 / `at_bgran_b` #111214 / `at_bcoping` #202124 — `at_granite` /
+`at_coping` stay, atrium_portal uses them); geometry and tile layout unchanged (11,088 tris,
+128 KB). The look is the reflection: `bakeMat('atrium_ponds', .10)` (was .22) + a real knob,
+`ENV_OVERRIDE.atrium_ponds = [1.3, .42]` (night keeps the scene's .32 ratio). MEASURED at
+archB-photo (medians), photo = clubhouse-atrium.jpeg:
+
+| | photo | before | after |
+|---|---|---|---|
+| coping top, front / right | (130,134,139) / (194,206,218) — sky reflection | (138,142,145) / (135,139,142) | **(103,103,106) / (93,93,96)** |
+| cladding side, front / right | (30,30,30) / (57,56,54) | (90,86,84) / (80,77,74) | **(47,47,47) / (45,46,46)** |
+| polish-rim day / night (tops, sides) | | ~(130,134,138) / (93…123) · night ~57 / 29…57 | ~(69,70,71) / (68…71) · night ~27 / 26…29 |
+
+Env sweep (rough .10, archB-photo): .95 → tops 83 / sides 37; 1.3 → 103 / 47; 1.7 → 121 / 58.
+1.7 got the tops nearest the photo but greyed every side seen obliquely (the rim close-up read
+~82 on all faces): the RoomEnvironment's pale walls are what a vertical face reflects, where
+the photo's sides reflect dark gravel. **Sides are now in the photo's range; tops sit ~25–100
+under it** — the photo's tops are the SKY, and only a Reflector could put it there (not done:
+a mirror pass per pond). The tiled cladding is kept (the photo's right face shows the tile
+joints).
+
+**2 · Dracaena, fuller.** `dracaena_pot` rebuilt against f_009: canes 1.84…2.28 m, three forks
+each (16 tips at staggered heights, was 12 tufts), 40 longer / wider drooping leaves a whorl
+running .62 m down the shoot, the whorl shortened on a low tip so the bare canes still show
+over the bowl — one full column of foliage ~1.2…2.4 m, 1.3 m across. **4,514 → 6,050 tris**
+(TRIS 7,000), 100 KB. Leaf colour already matched: render head (114,141,70) vs f_009 (115,133,72).
+Same matrices, same collider (r .55; the head overhangs it, as before).
+
+**3 · The 酒廊 side's last blobs.** `campus.js` `loungePlant()`: the lounge deck corner's 5
+shrubs, the lobby's 4 × 6 corner planters and the desk's 2 × 5 (39 instances) go to a NEW key
+`arrLoungeShrubI` — shrub_core @ .5 + a shrub_fringe a/b fringe (WAVE4_PROTO / WAVE4_FRINGE) on
+`loungeShrubMat()`: the river shrubs' recipe (shrub.webp × instance colour at an exposure of 5,
+not flat-shaded, no envMap = nature's MAT.shrub program). The call sites draw rnd() exactly as
+before (matrix, then colour) and pass the result in. Tried and dropped: the batter key on
+MAT.plantFlat (the flat core lobes showed between the cards as orange / green paper) and the
+beds' `cordyline_clump_ixora` for the red / orange ones (at 1–1.5 m its flat blades read as
+paper). **Kept as blobs, deliberately:** the two low-table blooms and the desk bowl's seven
+dried-flower heads (`arrPlantI` 9) — flowers in a vase, no prototype fits.
+
+| 141 views | before (a5afb84) | after |
+|---|---|---|
+| draw calls (sum) | 54,535 | 54,650 (**+115**; 0 at 99 views, +2/+3 where the arrival is in frustum — the three new buckets; −1 at dinner-festoon = lanterns/festoon noise) |
+| triangles (sum) | 106,485,510 | 106,600,120 (**+0.11 %**; 0 at 99 views; +4,320 where both bowls + the lounge shrubs draw, +1,248 lounge shrubs only, +528 elsewhere in the court) |
+| mirror pass (sum) | 17,233 / 31.63 M | 17,281 / 31.66 M |
+| shader programs | 115 | **115 at every view**; program cache-key SETS identical after cycling all six moments |
+| colliders / feet / night | | identical at all 141 views |
+| `colliderHash` (scatter-probe) | `bc45a91cacd2` (10,942) | **`bc45a91cacd2` (10,942)** |
+| per-moment colliders (incl. wave E's festoon posts), interactables (+ floorY at each), spawn feet/pos, `MOMENT_PLACES` | 10,931 / 10,918 / 10,942 / 10,968 / 10,952 / 10,921 | **identical hashes, all six** |
+| lights / guest journey | 40 / 12 | 40 / 12; 0 stalls, every beat, Check-in PROMPT ✓, `ERRORS []` |
+
+Scatter: `allMatrixHash 841d6ac63d92 → 815b508c749c`, as it must be. 218 of 219 (name, chain)
+keys byte-identical (matrices + colours) — `arrDracGlbI` identical with a new prototype
+(4,514 → 6,050), atrium_ponds identical. The rest: `arrPlantI` 48 → 9, an ORDERED SUBSEQUENCE of
+before; the 39 removed are, in order, matrix- and colour-identical to the new `arrLoungeShrubI`
+(39); its fringe a / b (20 / 19) carry exactly the core's even / odd matrices. No rnd() draw moved.
+
+No image generation (`venue-arch` ledger unchanged: 10 images, $1.34). fps not compared (vsync
+120 at most views; not claimed either way).
+
+⚠ **What this pass learned:**
+1. **Polished black stone is its reflection, and the reflection is the room env.** A near-black
+   albedo + low roughness gives the right SIDES; the photo's bright tops are sky, which a PMREM
+   RoomEnvironment cannot supply. Tune the knob on an oblique close-up as well as the photo angle.
+2. **A leaf-card fringe hides a flat-shaded core only if the core is dark or photographic** —
+   the wave-E batter's MAT.plantFlat core read fine at the batter's distance but not at the
+   lounge deck's 5 m.
+3. HEAD moved to a5afb84 (another session's main.js load fix — Reflector-target compileAsync,
+   115 programs resident) while this pass ran; the before worktree was re-pinned to it and every
+   before run repeated. Programs are 115 on both now, not 113.
+
 ### Not in this pass (next)
 
 (Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above; the
@@ -1620,20 +1701,20 @@ casuarinas, the atrium's topiary + pond-edge clusters and water.js's two hedge
 boxes: KAN-208 wave 4, above; the shade trees, agave, croton, brunch
 slipcovers, benches, the island bar's underside, the festoon posts, the
 dracaena bowls + batter and the lobby floor: KAN-211 wave E, above.) Still
-primitive: every other `nature.js`/`water.js`/`campus.js` object (the arrival's
-lounge-shrub `arrPlantI` blobs by the 酒廊, the river dressing's lounger slabs,
+primitive: every other `nature.js`/`water.js`/`campus.js` object (~~the arrival's
+lounge-shrub `arrPlantI` blobs by the 酒廊~~ — KAN-211 POLISH, above; the river dressing's lounger slabs,
 the lane's lamps and bollards, the backdrop villas, the hotel crescent's
 dressing); the check-in staff / human figures; the festoon cable as real
 geometry (still 1-px lines — a 6 mm tube is sub-pixel at 5 m); the island
 bar's night glow is still a flat emissive over its lining (an emissiveMap would
-be a new program); the dracaena heads are sparser than f_009's; the rain
+be a new program); ~~the dracaena heads are sparser than f_009's~~ (KAN-211 POLISH); the rain
 trees cast no shadow (castShadow stays off, as the blobs were — a shadow pass
 would add depth programs); adopting the tight pack and the metallic fix in the
 library; the viewer's hook lift; `linen_ivory`'s pressed-fold crease tiles at
 ~0.7 m on every skirt (reads as rental linen; drop the tile size if it bothers
-anyone); the breakfast chairs' 1,330 tris each; the atrium pond rim's pale bake
-(the photo's rim is polished BLACK granite — an albedo re-bake, not an env
-knob; wave F).
+anyone); the breakfast chairs' 1,330 tris each; ~~the atrium pond rim's pale bake~~
+(re-baked black + an env knob: KAN-211 POLISH — its tops still lack the photo's sky
+reflection, which would need a Reflector).
 
 **Adding an asset:** a row in `ASSET_SPEC.md` → `generators/<name>.py` from
 `_template.py` → `make_masters.py -- <name>` → `export_all.py -- <name>` →

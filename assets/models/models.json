@@ -306,7 +306,7 @@
     "tris": 2068
   },
   "atrium_ponds": {
-    "bytes": 186372,
+    "bytes": 129056,
     "front": "-Z",
     "material": "atrium_ponds",
     "min": [
@@ -1071,21 +1071,21 @@
     "tris": 12
   },
   "dracaena_pot": {
-    "bytes": 78492,
+    "bytes": 102748,
     "front": "-Z",
     "material": "dracaena_pot",
     "min": [
-      -0.553,
+      -0.662,
       0.0,
-      -0.574
+      -0.68
     ],
     "origin": "floor",
     "size": [
-      1.107,
-      2.166,
-      1.147
+      1.325,
+      2.426,
+      1.361
     ],
-    "tris": 4514
+    "tris": 6050
   },
   "drink_dispenser": {
     "bytes": 13028,

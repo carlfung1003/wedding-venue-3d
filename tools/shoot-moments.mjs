@@ -588,7 +588,7 @@ const VIEWS = [
         once off the pre-wave build) so the same camera stands in both. ── */
   ['waveE-agave', 3, { world: `({ x: -106.8, z: 58.9, y: 0, lookX: -109.0, lookZ: 59.8 })` }, { pitch: -.42 }],
   ['waveE-agave-band', 3, { world: `({ x: -104.2, z: 54.5, y: 0, lookX: -109.6, lookZ: 66.5 })` }, { pitch: -.10 }],
-  ['waveE-croton-sand', 3, { world: `({ x: -114.4, z: 60.3, y: S.siteFloorY(-114.4, 60.3), lookX: -111.4, lookZ: 61.0 })` }, { pitch: -.22 }],
+  ['waveE-croton-sand', 3, { world: `({ x: -114.4, z: 60.3, y: S.siteFloorY(-114.4, 60.3), lookX: -111.4, lookZ: 61.0 })` }, { pitch: -.34 }],
   ['waveE-croton-lawn', 3, { world: `({ x: -105.6, z: 67.2, y: 0, lookX: -111.4, lookZ: 69.2 })` }, { pitch: -.06 }],
   ['waveE-tree-beach', 2, { world: `(() => { const W = S.SITE.RIVER.WEST, T = W.TREE;
     const tx = W.cx + T.dx * W.r, tz = W.cz + T.dz * W.r;
@@ -638,6 +638,18 @@ const VIEWS = [
   ['waveE-lobby-floor', 2, { world: `(() => { const LB = S.SITE.ARRIVAL.LOBBY;
     const c = S.enclaveToWorld(LB.x0 + 9.4, LB.z0 + 17.5), t = S.enclaveToWorld(LB.x0 + 3.0, LB.z0 + 6.0);
     return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.30 }],
+  /* ── KAN-211 POLISH — the pond rim as black granite (a rim close-up, day +
+        night), the lounge-side planting (the 酒廊 deck corner, the lobby's
+        corner planters). Enclave-local cameras, no pick(). ── */
+  ['polish-rim', 2, { world: `(() => { const c = S.enclaveToWorld(21.3, -34.4), t = S.enclaveToWorld(15, -37.6);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.34 }],
+  ['polish-rim-night', 1, { world: `(() => { const c = S.enclaveToWorld(21.3, -34.4), t = S.enclaveToWorld(15, -37.6);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: -.34 }],
+  ['polish-lounge-shrubs', 2, { world: `(() => { const c = S.enclaveToWorld(23.6, 7.4), t = S.enclaveToWorld(29.0, 2.6);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.12 }],
+  ['polish-lobby-planters', 2, { world: `(() => { const LB = S.SITE.ARRIVAL.LOBBY;
+    const c = S.enclaveToWorld(LB.x0 + 4.4, -8.4), t = S.enclaveToWorld(LB.x0 + 1.3, -18.6);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.10 }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 
@@ -656,6 +668,10 @@ const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
   if (!ok) throw new Error('server not up at ' + SITE_URL);
   await page.waitForFunction(() => window.__game, null, { timeout: 180000 });
   await page.evaluate(() => { window.__game.skipIntro(); window.__game.G.player.locked = true; });
+  /* KAN-211 polish: PRE='<async fn body>' runs once on the live page before the
+     views (G, models in scope) — for an in-page sweep of a material knob
+     without editing a module. Leave it unset for a record run. */
+  if (process.env.PRE) await page.evaluate(new Function('return (async () => { const G = window.__game.G; ' + process.env.PRE + ' })()'));
   await page.waitForTimeout(800);
 
   const stats = [];

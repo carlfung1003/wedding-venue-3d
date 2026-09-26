@@ -14,6 +14,15 @@ colliders are laid on those rectangles and do not move); RIM 0.40, wall T
 0.42, water at RIM − 0.055 — the same numbers atrium.js's buildPond uses.
 The water plane and the dark basin floor stay atrium.js's (the water is the
 game's mirror material; a bake cannot reflect).
+
+KAN-211 POLISH: the photo's edging is POLISHED BLACK granite — cladding sides
+in shade median 30…57, coping tops readable only as sky reflection (130…194).
+Wave B's grey keys baked pale (the render read tops (138,142,145) / sides
+(90,86,84)). Now its own near-black keys (`at_bgran` / `_b` / `at_bcoping`,
+_arch.py — at_granite / at_coping stay for atrium_portal) and the look is the
+REFLECTION: atrium.js bakeMat rough .10 + ENV_OVERRIDE atrium_ponds [1.3, .42]
+(a real envKnob) → sides (47,47,47), tops (103,103,106) at archB-photo.
+Geometry and the tile layout are unchanged (11,088 tris).
 """
 import wv_lib as L
 import _arch as A
@@ -44,7 +53,7 @@ def _cuts(a, b, pitch):
 def build():
     T_ = A.atrium()
     parts = []
-    tones = ["at_granite", "at_granite_b"]
+    tones = ["at_bgran", "at_bgran_b"]
     top = RIM + 0.035
     with A.frame("atrium"):
         for p, (cx, cz, w, d) in enumerate(T_["PONDS"]):
@@ -72,9 +81,9 @@ def build():
                                        a + 0.0025, b - 0.0025, tones[(i + p + 1) % 2]))
             # INNER face above the water (the strip you see over the coping's lip)
             for (za, zb) in ((z0 + T, z0 + T + 0.01), (z1 - T - 0.01, z1 - T)):
-                parts.append(A.box(f"in{p}{za:.2f}", x0 + T, x1 - T, WY - 0.08, top - CT, za, zb, "at_granite_b"))
+                parts.append(A.box(f"in{p}{za:.2f}", x0 + T, x1 - T, WY - 0.08, top - CT, za, zb, "at_bgran_b"))
             for (xa, xb) in ((x0 + T, x0 + T + 0.01), (x1 - T - 0.01, x1 - T)):
-                parts.append(A.box(f"inx{p}{xa:.2f}", xa, xb, WY - 0.08, top - CT, z0 + T, z1 - T, "at_granite_b"))
+                parts.append(A.box(f"inx{p}{xa:.2f}", xa, xb, WY - 0.08, top - CT, z0 + T, z1 - T, "at_bgran_b"))
             # the COPING: long runs full length (picture-frame, mitres implied by
             # the corner slabs), slabs of ~0.72 m with 4 mm joints, bevelled
             cw = T + 2 * OVER
@@ -82,11 +91,11 @@ def build():
             for (zc, face) in ((z0 + T / 2, "n"), (z1 - T / 2, "s")):
                 for i, (a, b) in enumerate(_cuts(x0 - OVER, x1 + OVER, SLAB)):
                     cop.append(A.box(f"c{p}{face}{i}", a + 0.002, b - 0.002, top - CT, top,
-                                     zc - cw / 2, zc + cw / 2, "at_coping"))
+                                     zc - cw / 2, zc + cw / 2, "at_bcoping"))
             for (xc, face) in ((x0 + T / 2, "w"), (x1 - T / 2, "e")):
                 for i, (a, b) in enumerate(_cuts(z0 + T + OVER, z1 - T - OVER, SLAB)):
                     cop.append(A.box(f"c{p}{face}{i}", xc - cw / 2, xc + cw / 2, top - CT, top,
-                                     a + 0.002, b - 0.002, "at_coping"))
+                                     a + 0.002, b - 0.002, "at_bcoping"))
             L.bevel(cop, width=0.008, segments=2)
             parts += cop
         return L.join(parts, NAME, origin=None)

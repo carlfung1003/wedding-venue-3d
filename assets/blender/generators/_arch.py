@@ -215,6 +215,13 @@ ARCH = {
     "at_granite_b": ("434548", "stone",  0.25),
     "at_coping":   ("575a5d", "stone",   0.25),   # the polished coping slabs
     "at_joint":    ("151617", "paint",   0.80),   # tile / slab joints
+    # KAN-211 POLISH: the pond edging as the photo's POLISHED BLACK granite
+    # (clubhouse-atrium.jpeg: rim sides in shade median 30…57, the coping tops
+    # read only as sky reflection). atrium_ponds' own keys — at_granite /
+    # at_coping stay (atrium_portal's stone uses them).
+    "at_bgran":    ("151618", "stone",   0.12),   # cladding tiles
+    "at_bgran_b":  ("111214", "stone",   0.12),
+    "at_bcoping":  ("202124", "stone",   0.10),   # the polished coping slabs
     "at_steel":    ("2b2e31", "metal_p", 0.40),   # stringers, shoes, channels
     "at_inox":     ("9ea3a8", "metal_p", 0.30),   # stainless posts + glass clamps
     "at_copper":   ("b0643a", "metal_p", 0.30),   # the copper cap rail
