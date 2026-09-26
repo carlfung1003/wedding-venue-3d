@@ -1544,7 +1544,7 @@ function buildPebbles(parent, mat, rnd) {
 
 /* one storey of perimeter facade: floor-to-ceiling glazing in dark bronze
    frames (the villa entries), stacked slate panels, dark timber screens. */
-function buildFacade(parent, M, E, plaqueMats, plaques, wall, gaps, y0, h, rnd, floor) {
+function buildFacade(parent, M, E, plaqueMats, plaques, wall, gaps, y0, h, rnd) {
   const [ox, oz, dx, dz, nx, nz, len, ry] = wall;
   /* the bay pitch is SITE.ATRIUM.module and not a literal, because site.js
      snaps every guest-key door onto this same grid (snapDoor) — the two
@@ -1576,7 +1576,6 @@ function buildFacade(parent, M, E, plaqueMats, plaques, wall, gaps, y0, h, rnd, 
     return false;
   };
 
-  let doorNo = floor * 6;
   for (let i = 0; i < n; i++) {
     const lx = -len / 2 + (i + .5) * mw;
     if (inGap(lx)) continue;
@@ -1592,10 +1591,9 @@ function buildFacade(parent, M, E, plaqueMats, plaques, wall, gaps, y0, h, rnd, 
       const at = [wx(lx, 0), y0, wz(lx, 0), ry, mw / BAY_AUTH];
       if (isDoor) {
         glbPut('atrium_bay', ...at);
-        plaques.push({
-          x: wx(lx + mw * .43, -.095), y: y0 + 1.55, z: wz(lx + mw * .43, -.095),
-          ry, v: (doorNo++) % plaqueMats.length,
-        });
+        /* no number plaque: a decorative bay is not a room. Only the ten real
+           doors (buildRoomDoor) are numbered — Carl, 2026-09-25, after a cycling
+           "03" stood beside room 04's real door. */
         continue;
       }
       const kind = rnd();
@@ -1621,11 +1619,7 @@ function buildFacade(parent, M, E, plaqueMats, plaques, wall, gaps, y0, h, rnd, 
       put(dw * .92, dh * .9, .02, E.doorGlow, lx, dh / 2 + .04, -.015);
       // transom above the door
       put(mw * .84, .3, .05, M.glass, lx, dh + .34, -.03);
-      // number plaque beside the door
-      plaques.push({
-        x: wx(lx + mw * .43, -.04), y: y0 + 1.55, z: wz(lx + mw * .43, -.04),
-        ry, v: (doorNo++) % plaqueMats.length,
-      });
+      // (no number plaque — decorative bays are not rooms; see the GLB branch)
     } else {
       const kind = rnd();
       if (kind < .42) {

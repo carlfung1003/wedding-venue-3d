@@ -929,10 +929,11 @@ slate_stack, 1K); running total **6 images, $0.80**.
 6. **`atrium_bay` not `atrium_bay_entry`** — a suffix build is
    `<NAME>_<suffix>`.
 
-**Found, not changed:** the decorative entry bays still carry cycling number
-plaques (`doorNo`, 01…12 per storey), so a fake "03" stands beside room 04's
-real door — the plaque mechanism is untouched here; Carl's call whether the
-decorative bays should be numbered at all. The gallery DECKING (texDeck
+~~**Found, not changed:** the decorative entry bays still carry cycling number
+plaques~~ — **FIXED 2026-09-25, Carl's call: decorative bays carry NO number.**
+`buildFacade` no longer pushes plaques (its `doorNo` counter and `floor` param
+are gone); only `buildRoomDoor` numbers the ten real doors. Colliders unchanged
+(bc45a91cacd2), programs 113. The gallery DECKING (texDeck
 canvas) is now the most off-tone surface in the atrium views (bright orange
 against the photo's darker glossy boards) — not in this wave's brief.
 (Graded in the KAN-211 FIX PASS below, with the pond water.)
