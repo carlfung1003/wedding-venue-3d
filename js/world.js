@@ -42,6 +42,7 @@ import { buildWater, setWaterNight, setLanterns } from './water.js';
 import { buildCampus, setCampusNight } from './campus.js';
 import { buildAtrium, setAtriumNight } from './atrium.js';
 import { buildSuite, setSuiteNight } from './suite.js';
+import { setEnvKnobsNight } from './materials.js';
 
 /* The single source of ground truth (lassen `getHeight` pattern). Player,
    prop placement and the fly-mode altitude clamp all read this — never nudge
@@ -489,6 +490,7 @@ function applyNight(G, on, quiet) {
   setAtriumNight(on);
   setSuiteNight(on);
   setLanterns(on);
+  setEnvKnobsNight(on);   // every material's env level (materials.js, KAN-211 wave F)
 
   const L = CFG.LIGHT;
   G.scene.environmentIntensity = on ? L.ENV_NIGHT : L.ENV_DAY;

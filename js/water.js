@@ -24,7 +24,7 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { SITE } from './site.js';
-import { mulberry32 } from './materials.js';
+import { mulberry32, envKnob } from './materials.js';
 /* nature.js owns the ONE coconut palm this campus uses. The river cannot
    plant through nature's own scatter (it avoids G.colliders, and the channel's
    colliders are exactly what would reject a palm leaning over the water), so
@@ -85,7 +85,11 @@ const TUNE = {
   NORMAL_DAY: .07, NORMAL_NIGHT: .045,   // was .3 — that was the "white noodles"
   SCROLL_U: .010, SCROLL_V: .007,        // slow drift, in ripple-tiles/second
   ROUGH_DAY: .045, ROUGH_NIGHT: .022,
-  ENV_DAY: 2.4, ENV_NIGHT: 1.25,         // envMapIntensity — reflection does the work
+  /* envMapIntensity [day, night]. KAN-211 wave F: the old ENV_DAY 2.4 /
+     ENV_NIGHT 1.25 NEVER BOUND (no own envMap — three r180 used the scene's
+     .95 / .30); every pool look since was graded at the scene's level. null =
+     track the scene (materials.js ENV_SCENE); a pair = a measured override. */
+  ENV: null,
   BODY_OPACITY: .78,
 
   /* ── caustics live on the BASIN TILES, never on the surface plane ── */
@@ -536,9 +540,15 @@ function buildMaterials() {
   MAT.greenery = new THREE.MeshStandardMaterial({ color: 0x39702f, roughness: .95 });
 }
 
+/* KAN-211 wave F: the river's two sheets as env knobs — null = the scene's
+   level (what they always rendered at; their old .55/.35 and .5 never bound) */
+const ENV_RIVER = null;
+const ENV_SWIRL = null;
+
 /* ── one water surface material per body (each needs its own normal repeat) ──
-   Deliberately BORING: near-zero roughness, a hard clearcoat and a big
-   envMapIntensity, so `scene.environment` and the sky supply the interest. The
+   Deliberately BORING: near-zero roughness, a hard clearcoat and the scene's
+   env level (TUNE.ENV — the "big envMapIntensity" this said until wave F never
+   bound), so `scene.environment` and the sky supply the interest. The
    normal map is a whisper (TUNE.NORMAL_DAY) — enough to break the sheet up when
    it catches the sun, never enough to read as a pattern. Anything squiggly you
    can name on the SURFACE is a bug. */
@@ -556,9 +566,9 @@ function waterMat(rx, ry, o = {}) {
     clearcoat: 1,
     clearcoatRoughness: .02,
     reflectivity: .72,
-    envMapIntensity: TUNE.ENV_DAY,
     side: THREE.FrontSide,
   });
+  envKnob(m, TUNE.ENV, 'water:waterMat');
   scrolls.push({ tex: nrm, u: (o.su ?? TUNE.SCROLL_U), v: (o.sv ?? TUNE.SCROLL_V) });
 
   const dayCol = new THREE.Color(o.color ?? C.turquoise);
@@ -569,7 +579,6 @@ function waterMat(rx, ry, o = {}) {
     m.color.copy(on ? nightCol : dayCol);
     m.opacity = on ? nightOp : dayOp;
     m.roughness = on ? TUNE.ROUGH_NIGHT : TUNE.ROUGH_DAY;
-    m.envMapIntensity = on ? TUNE.ENV_NIGHT : TUNE.ENV_DAY;
     const ns = on ? TUNE.NORMAL_NIGHT : TUNE.NORMAL_DAY;
     m.normalScale.set(ns, ns);
   });
@@ -2581,14 +2590,14 @@ function buildRiver(G) {
   const waterM = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: .34, metalness: 0,
     normalMap: nrm, normalScale: new THREE.Vector2(.06, .06),
-    envMapIntensity: .55,
   });
+  /* wave F: the old .55 day / .35 night never bound (scene .95 / .30) */
+  envKnob(waterM, ENV_RIVER, 'water:river waterM');
   nightBits.push(on => {
     waterM.color.copy(on ? RC.nightTint : WHITE);
     waterM.emissive.copy(RC.nightEmissive);
     waterM.emissiveIntensity = on ? .5 : 0;
     waterM.roughness = on ? .16 : .34;
-    waterM.envMapIntensity = on ? .35 : .55;
     /* a whisper. At .16 the wave texture read as diagonal banding straight
        down from fly mode — the plan shape is the point, not the ripple. */
     const ns = on ? .045 : .06;
@@ -2748,9 +2757,10 @@ function buildRiver(G) {
     }
     const swirlM = new THREE.MeshStandardMaterial({
       map: swirlTex(), transparent: true, depthWrite: false,
-      roughness: .40, metalness: 0, envMapIntensity: .5,
+      roughness: .40, metalness: 0,
       polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
     });
+    envKnob(swirlM, ENV_SWIRL, 'water:river swirl');   // wave F: the old .5 never bound
     nightBits.push(on => {
       /* ⚠ the ribbons must stay DARKER than the water at night, not merely
          dimmer with it. The first version copied waterM's own night treatment

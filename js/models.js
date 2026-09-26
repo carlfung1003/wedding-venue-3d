@@ -21,6 +21,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { envKnob } from './materials.js';
 
 /* 'assets/models/' relative to the site root, resolved via the module URL. */
 const DIR = new URL('../assets/models/', import.meta.url).href;
@@ -73,7 +74,9 @@ function prepMaterial(m) {
     m.map = null;
     m.color.set(0xdfe6ea);
     m.metalness = 1; m.roughness = 0.12;
-    m.envMapIntensity = 1.4;
+    /* KAN-211 wave F: an env knob. The 1.4 set here until wave F never bound
+       (no own envMap — the ball rendered at the scene's .95 / .30). */
+    envKnob(m, null, 'models:mirror');
     m.needsUpdate = true;
   }
   if (name === 'canopy_tint') m.color.set(0xffffff);

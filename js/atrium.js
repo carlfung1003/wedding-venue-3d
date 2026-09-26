@@ -11,12 +11,12 @@
 //   4. cloud-pruned niwaki TOPIARY + the open-riser stair with its COPPER handrail
 //
 // Footprint comes from SITE.ATRIUM and nowhere else (site.js is the master plan).
-// Only mulberry32 is imported from materials.js — every texture/material below
+// Only mulberry32 + the env-knob registry are imported from materials.js — every texture/material below
 // is local to this module (house rule: builders own their own finishes).
 
 import * as THREE from 'three';
 import { SITE, ROOM_DOORS, ARRIVAL_ATRIUM_DOOR } from './site.js';
-import { mulberry32 } from './materials.js';
+import { mulberry32, envKnob, envKnobList } from './materials.js';
 import * as models from './models.js';
 import { leafMat as foliageLeaf, fringeFor } from './foliage.js';
 
@@ -381,7 +381,6 @@ let night = false;
 let HB = {};
 
 const EMIS = [];    // { m, d, n }  — emissiveIntensity day/night
-const ENVM = [];    // { m, d, n }  — envMapIntensity day/night (daylight response)
 const PLIGHT = [];  // { l, d, n }  — real PointLight intensity day/night
 let waterMats = [];
 
@@ -399,10 +398,11 @@ const DECK_ENV = [0.45, 0.30];
    ⚠ THREE r180 IGNORES material.envMapIntensity WHEN material.envMap IS NULL —
    it binds scene.environmentIntensity instead (WebGLRenderer setProgram:
    `isMeshStandardMaterial && envMap === null && scene.environment !== null`).
-   Every ENVM d/n in this file is therefore a no-op for a material without its
-   own envMap, which is why wave B's "day env 2.1 → 1.0" never moved the water.
-   The water now carries scene.environment as its OWN envMap (same texture, so
-   the same program parameters — no new program), and envD/envN really bind.
+   Every env d/n this file used to carry was therefore a no-op, which is why
+   wave B's "day env 2.1 → 1.0" never moved the water. Since wave F every
+   atrium material is a materials.js envKnob: it carries scene.environment as
+   its OWN envMap (same texture, so the same program parameters — no new
+   program), and its d/n really bind.
    col* are LINEAR diffuse multipliers > 1 on the near-black painted map: they
    lift a green-grey body under the (neutral) reflection. */
 const WATER = {
@@ -411,7 +411,17 @@ const WATER = {
   colD: [2.0, 4.0, 4.2], colN: [1.5, 3.4, 3.5],
 };
 
-function reg(m, dayEnv = 1.0, nightEnv = 0.34) { ENVM.push({ m, d: dayEnv, n: nightEnv }); return m; }
+/* KAN-211 wave F: per-material env levels where a knob that now BINDS earns a
+   measured change against a reference photo (CLAUDE.md "KAN-211 WAVE F");
+   every other atrium material tracks the scene (ENV_SCENE). */
+const ENV_OVERRIDE = {
+  /* the black stone columns (the GLB). clubhouse-atrium.jpeg's column under
+     the canopy, in shade: median (23,21,21). At the scene's .95 the render read
+     (37,34,32) at archB-photo — the grey room env as a sheen on every face.
+     .45 → (≈26,23,21), the edges still catch the light. Night keeps the scene's
+     day:night ratio (.30/.95). */
+  atrium_column: [0.45, 0.14],
+};
 function regE(m, d, n) { EMIS.push({ m, d, n }); return m; }
 
 /* ───────────────────────────────────────────────────── geometry plumbing ── */
@@ -442,7 +452,7 @@ function mkPlate(parent, w, d, mat, x, y, z) {
    `rot90` turns the grain 90°: repeat is applied in UV space BEFORE the
    rotation (Texture.updateMatrix → setUvTransform), so the repeat values stay
    exactly the same — only the plank direction flips. */
-function retile(mat, rx, ry, rot90, env = [1.0, 0.34]) {
+function retile(mat, rx, ry, rot90, env = null) {
   const m = mat.clone();
   if (mat.map) {
     m.map = mat.map.clone();
@@ -451,7 +461,9 @@ function retile(mat, rx, ry, rot90, env = [1.0, 0.34]) {
     m.map.needsUpdate = true;
   }
   if (mat.emissiveMap === mat.map) m.emissiveMap = m.map;
-  ENVM.push({ m, d: env[0], n: env[1] });
+  /* the clone is its own knob: its parent's pair, or the one passed */
+  const pk = envKnobList().find(e => e.m === mat);
+  envKnob(m, env || (pk ? [pk.d, pk.n] : null), 'atrium:retile ' + (pk ? pk.label : '?'));
   return m;
 }
 
@@ -618,16 +630,16 @@ function flushGlb(parent) {
   GLBI.clear();
 }
 /* the finish a baked atlas cannot carry: one roughness / metalness per GLB,
-   and envMapIntensity on the atrium's own day↔night registry (ENVM) — the
+   and envMapIntensity as a materials.js envKnob (wave F: it binds now) — the
    night look of every atrium material is env + the lights, never a tint */
-function bakeMat(name, rough, envD, envN, metal = 0) {
+function bakeMat(name, rough, metal = 0) {
   const m = models.material(name);
   if (!m) return;
   if (!m.userData.kan211b) {
     m.userData.kan211b = true;
     m.roughness = rough; m.metalness = metal;
   }
-  ENVM.push({ m, d: envD, n: envN });
+  envKnob(m, ENV_OVERRIDE[name] || null, 'atrium:bakeMat ' + name);
 }
 
 /* ═══════════════════════════════════════════════════════════════ builder ══ */
@@ -635,7 +647,7 @@ function bakeMat(name, rough, envD, envN, metal = 0) {
 export function buildAtrium(G) {
   root = new THREE.Group();
   root.name = 'atrium';
-  EMIS.length = 0; ENVM.length = 0; PLIGHT.length = 0;
+  EMIS.length = 0; PLIGHT.length = 0;
   waterMats = [];
   const rnd = mulberry32(20270320);
   HB = {
@@ -658,9 +670,9 @@ export function buildAtrium(G) {
 
   const mahoganyTex = texMahogany();
   const M = {
-    soffit: reg(new THREE.MeshStandardMaterial({
+    soffit: new THREE.MeshStandardMaterial({
       map: mahoganyTex, color: 0xffffff, roughness: .68, metalness: .04,
-    }), 0.9, 0.3),
+    }),
     /* KAN-211 fix pass: the canvas boards rendered (121,79,64) at archB-photo —
        brighter and more orange than the mahogany soffit above them (84,48,39).
        The photo's gallery boards read (70,36,32) (clubhouse-atrium.jpeg, the
@@ -669,83 +681,86 @@ export function buildAtrium(G) {
        every retile() clone inherits it. The decking is the only user of this
        material (the suite's deck is suite.js's own; campus.js has its own
        texDeck), so nothing else moves. */
-    deck: reg(new THREE.MeshStandardMaterial({
+    deck: new THREE.MeshStandardMaterial({
       map: texDeck(), color: new THREE.Color(DECK_TINT[0], DECK_TINT[1], DECK_TINT[2]),
       roughness: .82, metalness: .02,
-    }), 0.85, 0.28),
-    column: reg(new THREE.MeshStandardMaterial({
+    }),
+    column: new THREE.MeshStandardMaterial({
       map: texBlackStone(), color: 0x9aa0a8, roughness: .21, metalness: .42,
-    }), 1.25, 0.5),
-    granite: reg(new THREE.MeshStandardMaterial({
+    }),
+    granite: new THREE.MeshStandardMaterial({
       map: texGranite(), color: 0xa8adb4, roughness: .16, metalness: .38,
-    }), 1.3, 0.5),
-    coping: reg(new THREE.MeshStandardMaterial({
+    }),
+    coping: new THREE.MeshStandardMaterial({
       map: texPaleStone(5107, '#9d9e9a'), roughness: .42, metalness: .1,
-    }), 1.0, 0.32),
-    paving: reg(new THREE.MeshStandardMaterial({
+    }),
+    paving: new THREE.MeshStandardMaterial({
       map: texPaleStone(6211, '#8d8e8a'), roughness: .68, metalness: .05,
-    }), 0.9, 0.28),
-    gravel: reg(new THREE.MeshStandardMaterial({
+    }),
+    gravel: new THREE.MeshStandardMaterial({
       map: texGravel(7717, '#6e7074', 74, 186, 5200), roughness: .96, metalness: .0,
       polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
-    }), 0.85, 0.26),
-    gravelPale: reg(new THREE.MeshStandardMaterial({
+    }),
+    gravelPale: new THREE.MeshStandardMaterial({
       map: texGravel(4409, '#b6ac96', 150, 232, 2600), roughness: .95, metalness: .0,
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
-    }), 0.85, 0.26),
-    pebble: reg(new THREE.MeshStandardMaterial({
+    }),
+    pebble: new THREE.MeshStandardMaterial({
       /* wave B: 0x7c7e82 read as white chips on the photographed gravel */
       color: haveM('atrium_ponds') ? 0x55575b : 0x7c7e82, roughness: .88, metalness: .04, flatShading: true,
-    }), 0.9, 0.3),
-    slate: reg(new THREE.MeshStandardMaterial({
+    }),
+    slate: new THREE.MeshStandardMaterial({
       map: texSlate(), roughness: .78, metalness: .1,
-    }), 0.95, 0.3),
-    screen: reg(new THREE.MeshStandardMaterial({
+    }),
+    screen: new THREE.MeshStandardMaterial({
       map: texScreen(), roughness: .8, metalness: .04,
-    }), 0.9, 0.3),
-    bronze: reg(new THREE.MeshStandardMaterial({
+    }),
+    bronze: new THREE.MeshStandardMaterial({
       color: 0x2b2620, roughness: .34, metalness: .86,
-    }), 1.1, 0.42),
-    steel: reg(new THREE.MeshStandardMaterial({
+    }),
+    steel: new THREE.MeshStandardMaterial({
       color: 0x22262a, roughness: .38, metalness: .78,
-    }), 1.1, 0.42),
-    copper: reg(new THREE.MeshStandardMaterial({
+    }),
+    copper: new THREE.MeshStandardMaterial({
       color: 0xc4703a, roughness: .27, metalness: .92,
       emissive: 0x3a1a08, emissiveIntensity: .18,
-    }), 1.35, 0.6),
-    fascia: reg(new THREE.MeshStandardMaterial({
+    }),
+    fascia: new THREE.MeshStandardMaterial({
       color: 0x9b5a2c, roughness: .38, metalness: .78,
-    }), 1.15, 0.42),
+    }),
     /* Warm mid-grey standing seam, matched to the villa roofs in campus.js.
        This was 0x4b4d4c with metalness .3, which under ACES read as a black
        slab from the air — a hole punched in the middle of the campus. */
-    roofTop: reg(new THREE.MeshStandardMaterial({
+    roofTop: new THREE.MeshStandardMaterial({
       color: 0x8b8781, roughness: .82, metalness: .12,
-    }), 0.9, 0.3),
-    darkWall: reg(new THREE.MeshStandardMaterial({
+    }),
+    darkWall: new THREE.MeshStandardMaterial({
       color: 0x1a1a1c, roughness: .72, metalness: .12,
-    }), 0.85, 0.28),
-    glass: reg(new THREE.MeshPhysicalMaterial({
+    }),
+    glass: new THREE.MeshPhysicalMaterial({
       color: 0xa9bcc2, roughness: .06, metalness: .0, reflectivity: .55,
       transparent: true, opacity: .2, side: THREE.DoubleSide,
       clearcoat: 1, clearcoatRoughness: .04, depthWrite: false,
-    }), 1.5, 0.7),
-    trunk: reg(new THREE.MeshStandardMaterial({
+    }),
+    trunk: new THREE.MeshStandardMaterial({
       color: 0x33261c, roughness: .9, metalness: .02,
-    }), 0.8, 0.26),
-    planter: reg(new THREE.MeshStandardMaterial({
+    }),
+    planter: new THREE.MeshStandardMaterial({
       color: 0x1b1c1e, roughness: .55, metalness: .18,
-    }), 1.0, 0.32),
-    soil: reg(new THREE.MeshStandardMaterial({
+    }),
+    soil: new THREE.MeshStandardMaterial({
       color: 0x241f1a, roughness: .98, metalness: .0,
-    }), 0.7, 0.22),
+    }),
   };
 
-  /* KAN-211 fix pass: the deck's OWN envMap, so DECK_ENV binds (see DECK_TINT) */
-  if (G.scene.environment) {
-    M.deck.envMap = G.scene.environment;
-    M.deck.envMapIntensity = DECK_ENV[0];
-  }
+  /* KAN-211 wave F: every atrium material is an env knob (materials.js
+     envKnob — the knob gets scene.environment as its OWN envMap at
+     bindEnvKnobs, so its level really binds). The pre-wave-F reg() pairs
+     here (soffit .9/.3, column 1.25/.5, copper 1.35/.6, glass 1.5/.7 …) never
+     bound: every look from waves A–E was graded at the scene's level, so the
+     knobs default to it (ENV_SCENE) — see ENV_OVERRIDE for the exceptions.
+     The deck keeps the fix pass's DECK_ENV (it always had its own envMap). */
+  for (const [k, m] of Object.entries(M)) envKnob(m, ENV_OVERRIDE[k] || (k === 'deck' ? DECK_ENV : null), 'atrium:M.' + k);
 
   /* emissives — everything that glows without costing a real light */
   const E = {
@@ -802,13 +817,12 @@ export function buildAtrium(G) {
        soffit and columns round them */
     /* KAN-211 fix pass: graded to the photo — see WATER at the top. The
        pre-wave-B fallback keeps its old numbers (which bound nothing). */
-    const envD = HB.ponds ? WATER.envD : 2.1;
-    m.envMapIntensity = envD;
-    ENVM.push({ m, d: envD, n: HB.ponds ? WATER.envN : 1.0 });
+    /* wave F: the pre-wave-B fallback's 2.1 / 1.0 never bound — it tracks
+       the scene, as it always rendered */
+    envKnob(m, HB.ponds ? [WATER.envD, WATER.envN] : null, 'atrium:pond water');
     m.userData.colD = new THREE.Color(0xffffff);
     m.userData.colN = new THREE.Color(0xd8e4e0);
     if (HB.ponds && G.scene.environment) {
-      m.envMap = G.scene.environment;
       m.userData.colD = new THREE.Color(...WATER.colD);
       m.userData.colN = new THREE.Color(...WATER.colN);
       m.color.copy(m.userData.colD);
@@ -1314,21 +1328,21 @@ export function buildAtrium(G) {
      Roughness is the photo's: satin boards, honed stone, polished coping,
      brushed stainless, warm polished copper. */
   flushGlb(root);
-  bakeMat('atrium_column', .38, .55, .22);
-  bakeMat('atrium_soffit_panel', .6, .32, .14);
-  bakeMat('atrium_downlight', .6, .4, .15);
-  bakeMat('atrium_frame', .55, .5, .2);
-  bakeMat('atrium_ponds', .22, .9, .4);
-  bakeMat('atrium_stair', .35, .6, .25);
-  bakeMat('atrium_rail', .3, 1.1, .5, .75);
-  bakeMat('atrium_baluster', .3, 1.1, .5, .8);
-  bakeMat('atrium_door', .4, .6, .25);
-  bakeMat('atrium_bay', .45, .55, .22);
-  bakeMat('atrium_bay_slate', .8, .5, .2);
-  bakeMat('atrium_bay_screen', .6, .5, .2);
-  bakeMat('atrium_bay_glazing', .35, .8, .3, .5);
-  bakeMat('atrium_portal', .38, .55, .22);          // wave C — atrium_door's finish
-  bakeMat('atrium_portal_link', .38, .55, .22);
+  bakeMat('atrium_column', .38);
+  bakeMat('atrium_soffit_panel', .6);
+  bakeMat('atrium_downlight', .6);
+  bakeMat('atrium_frame', .55);
+  bakeMat('atrium_ponds', .22);
+  bakeMat('atrium_stair', .35);
+  bakeMat('atrium_rail', .3, .75);
+  bakeMat('atrium_baluster', .3, .8);
+  bakeMat('atrium_door', .4);
+  bakeMat('atrium_bay', .45);
+  bakeMat('atrium_bay_slate', .8);
+  bakeMat('atrium_bay_screen', .6);
+  bakeMat('atrium_bay_glazing', .35, .5);
+  bakeMat('atrium_portal', .38);          // wave C — atrium_door's finish
+  bakeMat('atrium_portal_link', .38);
 
   /* ───────────────────────────────────────────────────────────── tickers ── */
 
@@ -1708,7 +1722,7 @@ function buildPortal(parent, M, E, hole) {
     roughness: .5, metalness: .25, side: THREE.DoubleSide,
   });
   EMIS.push({ m, d: .6, n: 1.8 });
-  ENVM.push({ m, d: 1.0, n: .4 });
+  envKnob(m, null, 'atrium:portal plaque');
   const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.9, .48), m);
   pl.position.set(cx, hh - 1.35, z - .32);
   pl.rotation.y = Math.PI;
@@ -1967,12 +1981,12 @@ function buildPlanting(parent, M, rnd, colliders) {
     foliageMats.push(new THREE.MeshStandardMaterial({
       color: c, roughness: .88, metalness: .0, flatShading: true,
     }));
-    ENVM.push({ m: foliageMats[i], d: .9, n: .3 });
+    envKnob(foliageMats[i], null, 'atrium:foliage');
   }
   const leafMat = new THREE.MeshStandardMaterial({
     color: 0x4a7a3c, roughness: .8, metalness: .0, flatShading: true,
   });
-  ENVM.push({ m: leafMat, d: .95, n: .32 });
+  envKnob(leafMat, null, 'atrium:leaf');
 
   /* ── KAN-208 wave 4: the niwaki's clouds wear wave 2's clipped look ──────
      Each cloud was a flat-shaded 8×6 SphereGeometry in a flat green — the one
@@ -2000,7 +2014,7 @@ function buildPlanting(parent, M, rnd, colliders) {
         roughness: .9, metalness: 0,
       });
       clipMats.push(m);
-      ENVM.push({ m, d: .9, n: .3 });
+      envKnob(m, null, 'atrium:topiary clip');
     }
     new THREE.TextureLoader().load(new URL('../assets/textures/hedge.webp', import.meta.url).href, (t) => {
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
@@ -2109,7 +2123,7 @@ function buildPlanting(parent, M, rnd, colliders) {
       const m = new THREE.MeshStandardMaterial({
         map: stand, color: new THREE.Color().setHSL(...hsl), roughness: .86, metalness: 0,
       });
-      ENVM.push({ m, d: .9, n: .3 });
+      envKnob(m, null, 'atrium:broadleaf');
       return m;
     };
     broadMats = new Map([[leafMat, mk([.25, .42, .52])], [foliageMats[3], mk([.27, .36, .40])]]);
@@ -2165,7 +2179,7 @@ function buildPlanting(parent, M, rnd, colliders) {
 export function setAtriumNight(on) {
   night = !!on;
   for (const e of EMIS) e.m.emissiveIntensity = on ? e.n : e.d;
-  for (const e of ENVM) e.m.envMapIntensity = on ? e.n : e.d;
+  /* env levels: materials.js setEnvKnobsNight (world.js applyNight) — wave F */
   for (const p of PLIGHT) p.l.intensity = on ? p.n : p.d;
 
   // the ponds go from dark glass to true black mirror at night

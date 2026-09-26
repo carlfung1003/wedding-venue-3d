@@ -44,7 +44,7 @@
 import * as THREE from 'three';
 import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave, VILLA_ZONES, MOMENT_PLACES } from './site.js';
 import { CFG } from './config.js';
-import { mulberry32 } from './materials.js';
+import { mulberry32, envKnob } from './materials.js';
 /* KAN-208 wave 2: the palm + hedge PROTOTYPES are Blender-authored (assets/
    blender/generators/palm_*.py, hedge_run.py) — GEOMETRY ONLY. The materials,
    the photographic maps, the scatter and every rnd() draw stay here. main.js
@@ -898,8 +898,11 @@ function buildOcean(shoreX) {
     map: MAT.waterMaps[night ? 1 : 0],
     normalMap: waterNormalTex(),
     normalScale: new THREE.Vector2(.55, .55),
-    roughness: .12, metalness: .28, envMapIntensity: .8,
+    roughness: .12, metalness: .28,
   });
+  /* KAN-211 wave F: an env knob (the old .8 day / .35 night never bound —
+     the sea always rendered at the scene's .95 / .30) */
+  envKnob(MAT.water, null, 'nature:MAT.water');
   const sea = new THREE.Mesh(geo, MAT.water);
   sea.rotation.x = -Math.PI / 2;
   sea.position.set(cx, SITE.OCEAN.y, 0);
@@ -1877,7 +1880,6 @@ export function setNatureNight(on) {
     MAT.water.map = MAT.waterMaps[night ? 1 : 0];
     MAT.water.roughness = night ? .07 : .12;
     MAT.water.metalness = night ? .42 : .28;
-    MAT.water.envMapIntensity = night ? .35 : .8;
     MAT.water.normalScale.set(night ? .32 : .55, night ? .32 : .55);
     MAT.water.emissive.setHex(night ? 0x061224 : 0x000000);
     MAT.water.emissiveIntensity = night ? 1 : 0;

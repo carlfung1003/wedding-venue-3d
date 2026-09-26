@@ -1223,7 +1223,8 @@ really needs the knob, is `m.envMap = G.scene.environment` — the SAME texture,
 so the program parameters (envMap, cube-UV mode/height) are identical and **no
 program is added** (113 held). Done here for the pond water and the gallery
 decking only; the other registries are left as they are (changing them would
-move the look of waves A–C) — a candidate for its own pass.
+move the look of waves A–C) — a candidate for its own pass. **→ DONE in KAN-211 WAVE F
+(below): every registry is now a real knob (`materials.js` `envKnob`).**
 
 **1 · Atrium gallery decking (`js/atrium.js`, M.deck).** The only user of that
 material (suite.js and campus.js have their own decks). `DECK_TINT` = linear
@@ -1302,7 +1303,7 @@ untouched. Proof (the 2026-08-04 method, both builds scripted identically):
 - **(e)** guest journey clean (above).
 
 Not done here: the atrium's other ENVM entries / the GLB `archFinish`/`bakeMat`
-env knobs still bind nothing (see the ⚠ above).
+env knobs still bind nothing (see the ⚠ above). **(Wave F wired them all.)**
 
 ### KAN-211 WAVE D — SUITE SIDE/BACK WALLS, LOBBY + 酒廊 CEILINGS, THE BREAKFAST ROOM, THE UPPER WALKWAY (2026-09-25)
 
@@ -1513,6 +1514,104 @@ Image generation (`venue-arch`, cap $15): **+2 images** (`croton_leaf_card`,
    why the island bar's rafters are their own GLB (dark silhouettes against the
    lit lining) and the glow is .4, not the old disc's 1.6.
 
+### KAN-211 WAVE F — ENV KNOBS ARE REAL NOW (2026-09-26)
+
+The FIX PASS finding, closed: three r180 binds `material.envMapIntensity` only
+for a material with its OWN `envMap`; everything else got
+`scene.environmentIntensity` (.95 day / .30 night). **Every per-material env
+value in the build was a no-op** except the five fix-pass/wave-D/E materials
+that already carried their own envMap. Wave F makes every one of them a real
+knob, keeps the approved look bit-for-bit, and changes exactly one surface.
+
+**The mechanism (`js/materials.js`, top):** `envKnob(m, [d, n] | null, label)`
+registers a Standard/Physical material (anything else is refused — an envMap on
+Lambert/Basic/Phong WOULD be a new program); `bindEnvKnobs(scene.environment)`
+(main.js, after `initMoments`, before the compileAsync warm-up) gives every
+registered material that SAME PMREM texture as its own envMap — identical
+program parameters (envMap, CUBE_UV, height) so **no program is added**;
+`setEnvKnobsNight(on)` (world.js `applyNight`) flips them all. `null` = track
+the scene (`ENV_SCENE` = `CFG.LIGHT.ENV_DAY/NIGHT`) — exactly what rendered
+before. Each module keeps an `ENV_OVERRIDE` map (atrium / campus / suite, keyed
+by M-key or GLB name; water.js `TUNE.ENV`, `ENV_RIVER`, `ENV_SWIRL`) for the
+measured exceptions. The per-module env loops (atrium `ENVM`, campus
+`NIGHT.env`, suite `nightables.env`, the water/nature nightBits env lines) are
+gone — one registry. `envKnobList()` is for probes.
+
+**Audit — every place that set envMapIntensity, what it said vs what bound (day / night):**
+
+| site | materials | set to (never bound unless ★) | bound before wave F | wave F knob |
+|---|---|---|---|---|
+| atrium `reg()` — the 21 `M.*` | soffit, deck, column, granite, coping, paving, gravel(+Pale), pebble, slate, screen, bronze, steel, copper, fascia, roofTop, darkWall, glass, trunk, planter, soil | .7…1.5 / .22….7 (copper 1.35/.6, glass 1.5/.7, granite 1.3/.5) | .95 / .30 | scene |
+| atrium `retile()` clones (33) | as their parent; default pair 1.0/.34 | 1.0 / .34 | .95 / .30 | parent's (scene) |
+| atrium deck clones ★ | `retile(M.deck, …, DECK_ENV)` | .45 / .30 | **.45 / .30** | .45 / .30 (unchanged) |
+| atrium pond water ★ | `waterMat()` ×2 | .38 / .20 | **.38 / .20** | unchanged (fallback's 2.1/1.0 → scene) |
+| atrium `bakeMat()` (15 GLBs) | column .55/.22, soffit_panel .32/.14, downlight .4/.15, frame .5/.2, ponds .9/.4, stair .6/.25, rail + baluster 1.1/.5, door .6/.25, bay .55/.22, slate + screen .5/.2, glazing .8/.3, portal(+link) .55/.22 | as listed | .95 / .30 | scene; **atrium_column .45 / .14** |
+| atrium plaque, foliage ×4, leaf, topiary clip ×4, broadleaf ×2 | ENVM pushes | 1.0/.4, .9/.3, .95/.32 | .95 / .30 | scene |
+| campus `archMat()` (10 GLBs) | arrival_shell/roof .45, stair .3, soffit .35, entry/facade/desk/walkway_deck 1, pergola .45, slat .35 — DAY ONLY, no night value | as listed | .95 / .30 | scene |
+| campus MAT constructors | villaWater 1.4, rtGlass 1.5, rtWater 1.6, blackPolish 1.25 | as listed | .95 / .30 | scene |
+| campus floors ★ | loungeFloor (wave D), lobbyFloor (wave E) | .30/.20, .20/.14 | **same** | unchanged |
+| suite `archFinish()` (6 GLBs) | roof .8/.3, soffit .35/.15, facade .6/.25, walls .5/.2, leaf .6/.25, dining .5/.2 | as listed | .95 / .30 | scene |
+| water.js `waterMat()` (11 pools) | TUNE.ENV_DAY/NIGHT | **2.4 / 1.25** | .95 / .30 | scene (`TUNE.ENV = null`) |
+| water.js river sheet / swirl | .55/.35, .5 | as listed | .95 / .30 | scene |
+| nature.js sea (MAT.water) | .8 / .35 | as listed | .95 / .30 | scene |
+| models.js `mirror` (mirror ball GLB) | 1.4 | 1.4 | .95 / .30 | scene |
+
+120 knobs registered, 87 in the scene across the six moments (the rest are
+fallback-only / never-drawn bases). `reference/photos/shots-waveF/env-probe-{before,after}.json`
+is the per-material table (446 Standard/Physical materials, own envMap?,
+property, bound value, day + night): **before 15 materials had their own envMap,
+after 87; the bound level is identical for 445 of 446, the one change being
+atrium_column**; 0 orphans (no material carries the env texture without being
+registered — a post-bind clone would keep its day level at night).
+
+**The one improvement — the atrium's black stone columns.** Evaluated against
+clubhouse-atrium.jpeg at archB-photo: the column under the canopy, in shade,
+reads (23,21,21); the render read (37,34,32) / (40,37,35) — the grey room env as
+a sheen on polished black stone. Sweep .95 → .60 → .35 gave (37,34,32) →
+(29,26,24) → (23,20,17); **.45 day / .14 night** (night keeps the scene's .30/.95
+ratio) → **(26,22,20) / (29,25,22)**, the arrises still catching light.
+`compare3-waveF-column.jpg` (photo | before | after), `compare-*.jpg` for the 14
+views it visibly touches (archB-column / -photo / -stair / -corridor(-night) /
+-high / -gallery-2f, atrium-topiary, archFix-gallery-2f-night, archFix-pond-night,
+archB-pond, archD-suite-back, suite-great-room(-day)).
+Evaluated and NOT changed (no measured env win):
+- **pond rim** (atrium_ponds bake): photo tops are sky reflection (144…204),
+  sides near-black (32); render tops (143,146,149) OK, sides (89,86,84). Lowering
+  env darkens both — the miss is the pale ALBEDO of the bake, not reflection.
+  A re-bake to black granite is the fix (not an env knob).
+- suite copper roof: already graded to pimg-002 within 6 (wave C).
+- suite walls render: already (205,202,195) vs (206,199,195) (wave D).
+- the pools' old "2.4 reflection does the work" intent: every pool look since
+  was graded at .95; no photo-backed reason to move them in this pass.
+
+**Proof:**
+
+| check | result |
+|---|---|
+| **exact in-page A/B, all 137 views** (`ab-exact.json`): same frame, same camera, `renderer.render` + `readPixels` synchronously — A = pre-wave-F binding (knob envMaps removed, except the 5 that had one), B = wave-F bound with overrides at scene level, B′ = B again, C = with the column override | **rewire A vs B: 0 px differ at all 137 views, day and night**; B vs B′ 0 (determinism); C touches 32 views (mean \|Δ\| 3.1 at archB-column, 2.7 archB-photo, 2.3 atrium-topiary … < .02 beyond 14 of them — distant columns) |
+| screenshots before (39500f8 worktree on :8811, `shots-waveF-before/`) vs after (`shots-waveF/`), `pixdiff-screens.json` | mean \|Δ\| median 1.05 day (101 views) / .68 night (36), max 13.9 (archC-across-pool-night) — **all animation noise**: a before-vs-before rerun of the 8 noisiest views reads the same or higher (pool-lantern-lotus 26.2 before↔before vs 7.6 before↔after; archC-signature-night 15.1 vs 7.3; palms-lawn-flank 10.7 vs 9.5). The exact A/B above is the proof, not these. |
+| shader programs | **113 at every view, day and night** (both runs + the A/B run) |
+| draw calls / tris / mirror pass | identical at 132 of 137; the other 5 (dinner-long, dinner-festoon, pool-lantern-lotus, archC-signature-night, archC-across-pool-night) move ±1…4 calls and within the before build's own rerun range (e.g. signature-night mirror 1,070 before / 1,071 rerun / 1,071 after; across-pool-night 1,159 / 1,158 / 1,158) — drifting lanterns, not wave F |
+| `colliderHash` (scatter-probe) | **`bc45a91cacd2` (10,942)** both; `allMatrixHash 841d6ac63d92` both |
+| per-moment colliders (incl. wave E's +3 festoon-post circles), interactables, spawn feet, floorY at every interactable, `MOMENT_PLACES` | **identical hashes, all six moments** (10,931 / 10,918 / 10,942 / 10,968 / 10,952 / 10,921) |
+| lights (guest journey) | 40 / 12 |
+| guest journey | 0 stalls, every beat, Check-in PROMPT ✓, `ERRORS []` |
+
+No image generation (ledger unchanged: 10 images, $1.34).
+
+⚠ **What this wave learned:**
+1. **A no-op knob is worse than no knob** — five waves of comments reasoned
+   about env values that never reached the GPU. Measure what the renderer
+   binds (the probe: `m.envMap ? m.envMapIntensity : scene.environmentIntensity`)
+   before tuning a number.
+2. **Prove a "no visible change" refactor in-page, not across two page loads.**
+   Screenshots of an animated scene differ by 1…26 mean \|Δ\| between two loads
+   of the SAME build; two synchronous `render` + `readPixels` of one frame
+   differ by exactly 0, so a toggle between them is a clean proof.
+3. Bind shared env textures AFTER the build: `Material.clone()` copies both
+   `envMap` and `userData`, so an eager bind would hand a clone the texture
+   with no registry entry to drive it at night.
+
 ### Not in this pass (next)
 
 (Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above; the
@@ -1532,8 +1631,9 @@ trees cast no shadow (castShadow stays off, as the blobs were — a shadow pass
 would add depth programs); adopting the tight pack and the metallic fix in the
 library; the viewer's hook lift; `linen_ivory`'s pressed-fold crease tiles at
 ~0.7 m on every skirt (reads as rental linen; drop the tile size if it bothers
-anyone); the atrium's other ENVM entries and the GLB env knobs (FIX PASS
-finding) still bind nothing; the breakfast chairs' 1,330 tris each.
+anyone); the breakfast chairs' 1,330 tris each; the atrium pond rim's pale bake
+(the photo's rim is polished BLACK granite — an albedo re-bake, not an env
+knob; wave F).
 
 **Adding an asset:** a row in `ASSET_SPEC.md` → `generators/<name>.py` from
 `_template.py` → `make_masters.py -- <name>` → `export_all.py -- <name>` →
@@ -3632,6 +3732,17 @@ makes the campus "look tidier" by undoing one, it is wrong:
   `CFG.SEED`). Everything moments.js letters uses that copy: the dessert bar
   reads **"Fung & Cheng"** and the welcome board reads **"Carl & Rachel"**. The
   DATE on the render, 2027.03.20, is correct and is `CFG.SEED`.
+
+- ⚠️ **three r180 IGNORES `material.envMapIntensity` UNLESS THE MATERIAL HAS
+  ITS OWN `envMap`** — without one it binds `scene.environmentIntensity` (.95
+  day / .30 night). Never set `envMapIntensity` directly (constructor, loader
+  `prepMaterial`, a module's night loop): call `envKnob(m, [d, n], label)` from
+  `js/materials.js`, which binds `scene.environment` as the material's own
+  envMap (same texture → same program, 113 held) and flips it day↔night.
+  `null` = the scene's level. Only Standard/Physical materials — an envMap on
+  Lambert/Basic/Phong is a NEW program. A material cloned after
+  `bindEnvKnobs` carries the envMap (clone copies it) but no registry entry:
+  register the clone or it keeps its day level at night. (KAN-211 wave F)
 
 - **KAN-211: architecture GLBs are authored IN SITE COORDINATES** (origin =
   the anchor `(ARRIVAL.backX, 0, ARRIVAL.axisZ)`, one identity instance), and

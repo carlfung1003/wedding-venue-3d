@@ -16,7 +16,7 @@
 
 import * as THREE from 'three';
 import { SITE, MOMENT_PLACES, worldToEnclave, ARRIVAL_LOBBY_Y } from './site.js';
-import { mulberry32 } from './materials.js';
+import { mulberry32, envKnob } from './materials.js';
 import * as models from './models.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
@@ -277,16 +277,21 @@ function glbInst(parent, name, mats) {
   return im;
 }
 /* the finish a baked atlas cannot carry — one roughness / metalness per GLB,
-   and the env reflection on the day↔night registry (setSuiteNight): the
+   and the env reflection (an envKnob, flipped by world.js since wave F): the
    suite's own materials never tint, but a baked atlas at full env reads as a
    grey sheen against the night sky (measured — see CLAUDE.md wave C) */
-function archFinish(name, rough, metal, envD, envN) {
+/* KAN-211 wave F: the env level is a materials.js envKnob (it binds now).
+   The old envD/envN arguments (roof .8/.3, soffit .35/.15, facade .6/.25,
+   walls .5/.2, leaf .6/.25, dining .5/.2) never bound — wave C / the fix pass /
+   wave D were graded at the scene's level, so the knob defaults to it;
+   ENV_OVERRIDE holds the measured exceptions. */
+const ENV_OVERRIDE = {};
+function archFinish(name, rough, metal) {
   const m = models.material(name);
   if (!m || m.userData.kan211c) return;
   m.userData.kan211c = true;
   m.roughness = rough; m.metalness = metal;
-  m.envMapIntensity = NIGHT ? envN : envD;
-  nightables.push({ env: m, day: envD, night: envN });
+  envKnob(m, ENV_OVERRIDE[name] || null, 'suite:archFinish ' + name);
 }
 
 /**
@@ -376,7 +381,6 @@ export function setSuiteNight(on) {
   NIGHT = !!on;
   for (const n of nightables) {
     if (n.mat) n.mat.emissiveIntensity = NIGHT ? n.night : n.day;
-    else if (n.env) n.env.envMapIntensity = NIGHT ? n.night : n.day;
     else if (n.light) {
       n.light.intensity = NIGHT ? n.night : n.day;
       n.light.color.setHex(NIGHT ? n.nightHex : n.dayHex);
@@ -1782,33 +1786,31 @@ function buildExterior(root) {
     glbInst(root, 'suite_roof', A);
     glbInst(root, 'suite_soffit', A);
     /* copper: a satin metal sheen; the soffit matte */
-    archFinish('suite_roof', .45, .35, .8, .3);
-    archFinish('suite_soffit', .85, 0, .35, .15);
+    archFinish('suite_roof', .45, .35);
+    archFinish('suite_soffit', .85, 0);
     /* KAN-211 fix pass — CARL'S CALL (2026-09-25): the soffit is PALE ("white
        pale-ish" as he remembers it; his word outranks pimg-002's deep shade).
        That lives in the GLB's bake (soffit_pale.webp, see
        assets/blender/derive_soffit_pale.py), not here: a runtime multiply on
        the teak bake amplified its board-to-board hue into mauve stripes.
-       ⚠ The env d/n above bind NOTHING — three r180 uses
-       scene.environmentIntensity for any material without its own envMap
-       (CLAUDE.md "KAN-211 FIX PASS"). Matte comes from rough .85. */
+       Matte comes from rough .85 (its env level is the scene's — wave F). */
     buildSoffitLights(root);
   }
   if (HC.facade) {
     glbInst(root, 'suite_facade', A);
-    archFinish('suite_facade', .5, 0, .6, .25);
+    archFinish('suite_facade', .5, 0);
   }
   if (HC.walls) {
     glbInst(root, 'suite_walls', A);
-    archFinish('suite_walls', .9, 0, .5, .2);
+    archFinish('suite_walls', .9, 0);
   }
   if (HC.leaf && LEAF_M.length) {
     glbInst(root, 'suite_leaf', LEAF_M);
-    archFinish('suite_leaf', .42, 0, .6, .25);
+    archFinish('suite_leaf', .42, 0);
   }
   if (HC.dining) {
     glbInst(root, 'suite_dining_set', A);
-    archFinish('suite_dining_set', .7, 0, .5, .2);
+    archFinish('suite_dining_set', .7, 0);
   }
 }
 

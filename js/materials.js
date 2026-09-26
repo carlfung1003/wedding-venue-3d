@@ -1,6 +1,55 @@
 // Every CanvasTexture recipe lives here; the shared material set is exported
 // as one M.* object (house pattern, from alice-lunch-party).
 import * as THREE from 'three';
+import { CFG } from './config.js';
+
+/* ══ THE ENV KNOBS (KAN-211 wave F) ══════════════════════════════════════════
+   ⚠ three r180 binds `material.envMapIntensity` ONLY for a material that has
+   its OWN `envMap`. With `envMap === null` and a `scene.environment`, the
+   renderer binds `scene.environmentIntensity` instead (WebGLRenderer setProgram:
+   `isMeshStandardMaterial && envMap === null && scene.environment !== null`),
+   so a per-material envMapIntensity on such a material is a silent no-op.
+   Before wave F every registry in the build (atrium reg/retile/bakeMat, campus
+   archMat + the MAT constructors, suite archFinish, the water.js / nature.js
+   water, the mirror ball) was exactly that.
+
+   envKnob(m, [d, n]) is now the ONE way to give a material an env level: it
+   registers the pair, and bindEnvKnobs(scene.environment) (main.js, after the
+   world + moments are built) gives every registered material the SAME texture
+   as its own envMap — identical program parameters (envMap, cube-UV mode and
+   height), so NO new program. setEnvKnobsNight(on) (world.js applyNight) flips
+   every knob. Omit the pair and the knob tracks the scene (CFG.LIGHT.ENV_DAY /
+   ENV_NIGHT) — exactly what the renderer bound before wave F.
+   Only Standard/Physical materials are registered: an envMap on a Lambert /
+   Basic / Phong material WOULD be a new program.
+   ⚠ A material cloned AFTER the bind carries the envMap but is not in the
+   registry — it would keep its day level at night. Register the clone. */
+const ENVK = [];            // { m, d, n, label }
+let envTex = null;
+let envNight = false;
+export const ENV_SCENE = Object.freeze([CFG.LIGHT.ENV_DAY, CFG.LIGHT.ENV_NIGHT]);
+export function envKnob(m, env = null, label = '') {
+  if (!m || !m.isMeshStandardMaterial) return m;
+  const d = env ? env[0] : ENV_SCENE[0], n = env ? env[1] : ENV_SCENE[1];
+  const e = ENVK.find(k => k.m === m);
+  if (e) { e.d = d; e.n = n; e.label = label || e.label; }
+  else ENVK.push({ m, d, n, label });
+  m.userData.envKnob = label || m.userData.envKnob || 'envKnob';
+  if (envTex && !m.envMap) m.envMap = envTex;
+  m.envMapIntensity = envNight ? n : d;
+  return m;
+}
+export function bindEnvKnobs(tex) {
+  envTex = tex || null;
+  if (!envTex) return;
+  for (const e of ENVK) if (!e.m.envMap) e.m.envMap = envTex;
+}
+export function setEnvKnobsNight(on) {
+  envNight = !!on;
+  for (const e of ENVK) e.m.envMapIntensity = envNight ? e.n : e.d;
+}
+/* probes / tests only */
+export function envKnobList() { return ENVK.slice(); }
 
 /* ── seeded PRNG — never Math.random() for placement or noise (house rule) ── */
 export function mulberry32(seed) {

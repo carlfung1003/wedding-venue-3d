@@ -30,6 +30,7 @@ import { initUI } from './ui.js';
 import { initLightBudget } from './lightbudget.js';
 import { initDetailCull } from './detailcull.js';
 import * as models from './models.js';
+import { bindEnvKnobs } from './materials.js';
 
 /* ── the loading card ────────────────────────────────────────────────────────
    The card is already on screen (index.html) — this only drives its copy, its
@@ -215,6 +216,13 @@ await yieldFrame();
 initPlayer(G);
 if (touchMode) initTouch(G);
 initMoments(G);
+/* KAN-211 wave F: every registered env knob gets scene.environment as its OWN
+   envMap — the same texture, so no program changes, and from here on its
+   envMapIntensity really binds (three r180 ignores it without one). AFTER the
+   world + moments are built, so a material cloned during the build never
+   inherits an envMap its clone is not registered to drive; BEFORE the
+   compileAsync warm-up. */
+bindEnvKnobs(scene.environment);
 G.ui.buildChips(CFG.MOMENTS);
 G.ui.setMode(G.mode);
 

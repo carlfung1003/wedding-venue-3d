@@ -38,7 +38,7 @@ import * as THREE from 'three';
 import { SITE, HOTEL_ROOF, ROOMS, worldToEnclave, enclaveToWorld,
   ARRIVAL_LOBBY_Y, ARRIVAL_LOUNGE_CEIL, ARRIVAL_LANE_Y } from './site.js';
 import { CFG } from './config.js';
-import { mulberry32 } from './materials.js';
+import { mulberry32, envKnob } from './materials.js';
 /* The Blender-authored props (assets/models/, KAN-207 + the Group E resort
    furniture). ⚠ main.js awaits models.preload() BEFORE buildWorld for this —
    the buckets below are filled synchronously from models.geometry()/material()
@@ -102,7 +102,7 @@ const WHITE = new THREE.Color(0xffffff);
 /* ════════════════════════════════════════════════════════════════════════
    night registry — setCampusNight() walks these three lists
    ════════════════════════════════════════════════════════════════════════ */
-const NIGHT = { tint: [], glow: [], lights: [], vis: [], env: [] };
+const NIGHT = { tint: [], glow: [], lights: [], vis: [] };   // env levels: materials.js envKnob (wave F)
 let night = false;
 let MAT = null;
 let clock = 0;
@@ -1154,7 +1154,7 @@ function makeMaterials() {
        owns every pool you can actually reach; these are just turquoise dots
        seen from the air, and must never cost a reflection pass */
     villaWater: tint(new THREE.MeshStandardMaterial({
-      color: 0x2fa8b8, roughness: .12, metalness: .1, envMapIntensity: 1.4,
+      color: 0x2fa8b8, roughness: .12, metalness: .1,
     }), 0x5f7590),
     asphalt: tint(new THREE.MeshStandardMaterial({ map: texAsphalt(), roughness: .95 }), 0x7d8290),
     park: tint(new THREE.MeshStandardMaterial({ map: texPark(), roughness: .95 }), 0x7d8290),
@@ -1228,7 +1228,7 @@ function makeMaterials() {
        distance, and a terrace whose edge you can't see reads as walking off
        into space. A touch more body + a copper cap rail + fin posts. */
     rtGlass: new THREE.MeshStandardMaterial({
-      color: 0xcadde4, roughness: .04, metalness: .22, envMapIntensity: 1.5,
+      color: 0xcadde4, roughness: .04, metalness: .22,
       transparent: true, opacity: .34, side: THREE.DoubleSide,
     }),
     /* the 1.4 m plinth the terrace sits on: its OUTER face is seen from the
@@ -1245,7 +1245,7 @@ function makeMaterials() {
       map: texRipple(), roughness: .2, metalness: .06, side: THREE.DoubleSide,
     }), 0x5f7590),
     rtWater: new THREE.MeshStandardMaterial({
-      color: 0x2bb0c6, roughness: .08, metalness: .12, envMapIntensity: 1.6,
+      color: 0x2bb0c6, roughness: .08, metalness: .12,
       transparent: true, opacity: .64, emissive: 0x1ea6c4, emissiveIntensity: 0,
       side: THREE.DoubleSide, depthWrite: false,
     }),
@@ -1334,7 +1334,7 @@ function makeMaterials() {
     bands: tint(new THREE.MeshStandardMaterial({ map: texBands(), roughness: .44, metalness: .12 }), 0x7d8494),
     /* near-black polished stone — the stair, landing, vestibule, plinths */
     blackPolish: tint(new THREE.MeshStandardMaterial({
-      color: 0x1b1e21, roughness: .18, metalness: .1, envMapIntensity: 1.25 }), 0x99a1b2),
+      color: 0x1b1e21, roughness: .18, metalness: .1 }), 0x99a1b2),
     forePave: tint(new THREE.MeshStandardMaterial({ map: texForePave(), roughness: .94 }), 0x767d8c),
     sett: tint(new THREE.MeshStandardMaterial({ map: texSett(), roughness: .93 }), 0x6f7684),
     settInlay: tint(new THREE.MeshStandardMaterial({ map: texInlay(), roughness: .92 }), 0x8a8494),
@@ -2617,6 +2617,10 @@ const LOUNGE_FLOOR_ENV = [0.30, 0.20];
 /* KAN-211 wave E: the check-in lobby's floor — same boards, own envMap, its own
    day colour (a linear multiply on floor_teak; measured, see buildArrival §F) */
 const LOBBY_FLOOR_ENV = [0.20, 0.14];
+/* KAN-211 wave F: env [day, night] where a knob that now binds earns a
+   measured change against a reference photo (CLAUDE.md "KAN-211 WAVE F").
+   Keyed by MAT name or GLB name; everything else tracks the scene. */
+const ENV_OVERRIDE = {};
 const LOBBY_FLOOR_TINT = 0xedcc8f;
 /* KAN-211 wave D: the breakfast room's interior buckets hide past this distance
    (m, camera → room centre, in plan) — see buildArrival §D */
@@ -2663,11 +2667,17 @@ function buildArrival(G, g, rnd) {
      cools after dark; an untinted bake would glow grey against it) and take
      the finish the photographs show — a GLB carries ONE roughness, so it is
      set here per building part. Program-neutral: both are uniforms. */
-  const archMat = (name, rough, nightHex, envI = 1) => {
+  /* wave F: the env level is a materials.js envKnob. archMat's old 4th
+     argument (corten .45, stair .3, soffit .35, slats .35) was set once, by
+     day, on a material with no own envMap — it never bound; waves A/D were
+     graded at the scene's level, so the knob defaults to it (ENV_OVERRIDE
+     holds the measured exceptions). */
+  const archMat = (name, rough, nightHex) => {
     const m = models.material(name);
     if (!m || m.userData.kan211) return;
     m.userData.kan211 = true;
-    m.roughness = rough; m.metalness = 0; m.envMapIntensity = envI;
+    m.roughness = rough; m.metalness = 0;
+    envKnob(m, ENV_OVERRIDE[name] || null, 'campus:archMat ' + name);
     tint(m, nightHex);
   };
   if (haveArch) {
@@ -2681,12 +2691,15 @@ function buildArrival(G, g, rnd) {
        the canopy soffit matte and dark (at .42 its slats caught the sky as
        grey-white stripes); the stair polished but warm (env 1.25 → .3, rough .38: the grey sky
        it mirrored at the court's grazing angle turned the charcoal flat
-       light grey) */
-    archMat('arrival_shell', .85, 0x707784, .45);
-    archMat('arrival_roof', .85, 0x707784, .45);
-    archMat('arrival_stair', .38, 0x99a1b2, .3);
+       light grey). ⚠ KAN-211 wave F: the env halves of those numbers never
+       bound (no own envMap — three r180 used the scene's .95); what changed
+       the look was the roughness. The env level is an envKnob now, at the
+       scene's. */
+    archMat('arrival_shell', .85, 0x707784);
+    archMat('arrival_roof', .85, 0x707784);
+    archMat('arrival_stair', .38, 0x99a1b2);
     archMat('arrival_entry', .42, 0x7d8494);
-    archMat('arrival_soffit', .88, 0x7a6a68, .35);
+    archMat('arrival_soffit', .88, 0x7a6a68);
   }
   if (haveFacade) {
     modelI('arrFacadeGlbI', 'lounge_facade', ANCHOR());
@@ -2722,9 +2735,9 @@ function buildArrival(G, g, rnd) {
     modelI('arrWalkGlbI', 'walkway_deck', ANCHOR());
     modelI('arrPergolaGlbI', 'walkway_pergola', ANCHOR());
     archMat('walkway_deck', .55, 0x767d8c);
-    archMat('walkway_pergola', .85, 0x707784, .45);
+    archMat('walkway_pergola', .85, 0x707784);
   }
-  if (haveSlat) archMat('arch_slat_module', .6, 0x7a6a68, .35);
+  if (haveSlat) archMat('arch_slat_module', .6, 0x7a6a68);
   /* a slat ceiling over [x0, x1] × [z0, z1] hanging from yTop: slats run along
      x (toward the glass), rows of ≤ 3.9 m, modules 0.6 m wide across z; every
      other row turned 180° so the module's five tones read as ten */
@@ -3211,11 +3224,7 @@ function buildArrival(G, g, rnd) {
        envMapIntensity without one). At the scene's .95 the grey room env sat on
        the boards as a mauve sheen: measured (181,140,120) against a texture
        mean of (101,60,42). */
-    if (G.scene.environment) {
-      MAT.loungeFloor.envMap = G.scene.environment;
-      MAT.loungeFloor.envMapIntensity = LOUNGE_FLOOR_ENV[0];
-      NIGHT.env.push({ mat: MAT.loungeFloor, d: LOUNGE_FLOOR_ENV[0], n: LOUNGE_FLOOR_ENV[1] });
-    }
+    envKnob(MAT.loungeFloor, LOUNGE_FLOOR_ENV, 'campus:MAT.loungeFloor');
   }
   box(g, bw - .4, .1, bd - .4, bcx, .06, bcz, MAT.loungeFloor);
   /* slat ceiling = the lobby slab's underside (wave D: real slats under it, the
@@ -3449,11 +3458,7 @@ function buildArrival(G, g, rnd) {
       e.n.setRGB(e.n.r / (e.d.r || 1) * c.r, e.n.g / (e.d.g || 1) * c.g, e.n.b / (e.d.b || 1) * c.b);
       e.d.copy(c);
     }
-    if (G.scene.environment) {
-      MAT.lobbyFloor.envMap = G.scene.environment;
-      MAT.lobbyFloor.envMapIntensity = LOBBY_FLOOR_ENV[0];
-      NIGHT.env.push({ mat: MAT.lobbyFloor, d: LOBBY_FLOOR_ENV[0], n: LOBBY_FLOOR_ENV[1] });
-    }
+    envKnob(MAT.lobbyFloor, LOBBY_FLOOR_ENV, 'campus:MAT.lobbyFloor');
   }
   box(g, lw, .1, ld, lcx, LY - .05, lcz, MAT.lobbyFloor);
   box(g, lw - .3, .1, ld - .3, lcx, LY + AR.lobbyH - .06, lcz, haveSlat ? MAT.dark : MAT.slatCeil);
@@ -6425,8 +6430,16 @@ function buildSwimUpBar(G, root) {
    ════════════════════════════════════════════════════════════════════════ */
 export function buildCampus(G) {
   BUCKETS.clear();
-  NIGHT.tint.length = 0; NIGHT.glow.length = 0; NIGHT.lights.length = 0; NIGHT.env.length = 0;
+  NIGHT.tint.length = 0; NIGHT.glow.length = 0; NIGHT.lights.length = 0;
   MAT = makeMaterials();
+  /* KAN-211 wave F — the four MAT entries that carried a constructor
+     envMapIntensity (villaWater 1.4, rtGlass 1.5, rtWater 1.6, blackPolish
+     1.25). None of those ever bound (no own envMap; three r180 used the
+     scene's level), so as knobs they default to the scene's (ENV_SCENE) —
+     the level every look was graded at — unless ENV_OVERRIDE says otherwise. */
+  for (const k of ['villaWater', 'rtGlass', 'rtWater', 'blackPolish']) {
+    envKnob(MAT[k], ENV_OVERRIDE[k] || null, 'campus:MAT.' + k);
+  }
   photoTex(MAT.hedge, 'hedge.webp');       // KAN-208 wave 2 — see MAT.hedge
 
   const root = new THREE.Group();
@@ -6471,7 +6484,6 @@ export function setCampusNight(on) {
   for (const e of NIGHT.glow) e.mat.emissiveIntensity = on ? e.n : e.d;
   for (const l of NIGHT.lights) l.light.intensity = on ? l.n : l.d;
   for (const m of NIGHT.vis) m.visible = on;
-  for (const e of NIGHT.env) e.mat.envMapIntensity = on ? e.n : e.d;
   if (MAT) {
     MAT.glass.opacity = on ? .86 : .5;
     MAT.glass.color.setHex(on ? 0x120d07 : 0x25333a);
