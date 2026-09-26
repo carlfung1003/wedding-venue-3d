@@ -62,7 +62,9 @@ function setProgress(frac, label) {
    "Step inside". */
 function finishLoading() {
   setProgress(1, 'Ready when you are');
-  document.getElementById('overlay').removeAttribute('inert');
+  const ov = document.getElementById('overlay');
+  ov.removeAttribute('inert');
+  ov.classList.add('ready');   // KAN-218: runs the invitation's entrance
   if (!loadEl) return;
   loadEl.classList.add('gone');
   setTimeout(() => loadEl.remove(), 700);
@@ -134,7 +136,7 @@ scene.environmentIntensity = CFG.LIGHT.ENV;
    .06 … .08 is the models' slice of the bar; buildWorld's own .08 … .54
    follows it, so the bar stays monotonic. */
 const modelsP = models.preload((f, name) => {
-  setProgress(.06 + f * .02, `Unloading the florist's van… ${name}`);
+  setProgress(.06 + f * .02, 'Unloading the florist’s van');
 });
 
 /* ── the one context object threaded through every builder ── */
@@ -180,12 +182,17 @@ G.setMode = (mode, opts = {}) => {
   G.ui.setMode(mode);
   document.getElementById('touch').classList.toggle('flymode', mode === 'fly');
   if (!opts.quiet) {
+    /* instructions, not narration — the compact 'system' card */
     G.ui.toast(mode === 'fly'
-      ? '🕊 Fly mode — Space / C for height, F to land'
-      : 'Back on your feet.', 2.4);
+      ? (G.touchMode ? 'Flying — the arrows climb and dive' : 'Flying — Space / C climb and dive · F lands')
+      : 'Back on your feet', 2.4, false, { kind: 'system', channel: 'mode' });
   }
 };
 G.toggleMode = () => G.setMode(G.mode === 'fly' ? 'walk' : 'fly');
+/* the HUD's status pills + the controls sheet reach these without importing
+   world.js / player.js (KAN-218) */
+G.toggleNight = () => { if (G.started && !G.overlayOpen) toggleNight(G); };
+G.lock = () => lock(G);
 
 initUI(G);
 
@@ -198,7 +205,7 @@ initUI(G);
 /* THE PROPS FIRST. campus.js and water.js read models.geometry()/material()
    while they build (see the preload banner above), so this await is part of
    buildWorld's contract now, not initMoments'. */
-setProgress(.08, 'Unloading the florist\'s van');
+setProgress(.08, 'Unloading the florist’s van');
 await modelsP;
 
 await buildWorld(G, (f, label) => setProgress(.08 + f * .46, label));
@@ -333,6 +340,7 @@ document.getElementById('begin').addEventListener('click', e => {
     else lock(G);   // Esc naturally drops the lock; clicking the view re-locks
     G.momentIndex = -1;   // force the switch even though the ceremony is dressed
     G.setMoment(momentIndex('setup'));   // the dive lands in the great room
+    G.ui.revealMoment(CFG.MOMENTS[momentIndex('setup')]);   // …and names where you are
   });
 });
 
@@ -385,6 +393,7 @@ window.__game = {
     G.started = true;
     G.ui.hideOverlay();
     G.ui.showHUD();
+    if (G.touchMode && G.showTouchUI) G.showTouchUI();
     G.momentIndex = -1;
     G.setMoment(momentIndex('setup'));
   },

@@ -495,7 +495,7 @@ function applyNight(G, on, quiet) {
   G.renderer.toneMappingExposure = on ? L.EXPOSURE_NIGHT : L.EXPOSURE_DAY;
 
   if (!quiet && G.ui) {
-    G.ui.toast(on ? '🌙 Night over Haitang Bay.' : '☀️ Golden hour.', 2.2);
+    G.ui.toast(on ? 'Night over Haitang Bay.' : 'Golden hour.', 2.2, false, { channel: 'light' });
   }
 }
 

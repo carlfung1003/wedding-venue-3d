@@ -35,8 +35,8 @@ own coordinates. Change the layout there, never in a builder.
 | `js/materials.js` | Shared CanvasTexture recipes + `M.*`; also exports `mulberry32` (seeded PRNG). Builders define their own local materials — only `mulberry32` is universally imported. |
 | `js/moments.js` | The six moment prop groups + per-moment colliders, the one-interactable-per-moment registry, `G.setMoment` (dress + collider swap + night flip + teleport) |
 | `js/player.js` | Ported from lassen-camp: pointer-lock FPS look (module-level yaw/pitch), Tab cursor mode, nearest-interactable prompt, and BOTH movement modes — walk (WASD + stick, walk/run, `{x,z,r}` cylinder collision, `floorY` eye-height clamp) and fly (spectator flight along the look direction, Space/C altitude, no collisions, altitude clamp) |
-| `js/touch.js` | Ported from lassen-camp: floating joystick → `touchInput`, drag-to-look, quick-tap interact, `.tbtn` buttons (✦ interact, FLY toggle, held ▲▼ in fly mode). Pointer lock bypassed entirely in touch mode. |
-| `js/ui.js` | Overlay show/hide, moment chips + active state, toast queue, prompt — plain id-addressed divs toggled with `.hidden` |
+| `js/touch.js` | Ported from lassen-camp: floating joystick → `touchInput`, drag-to-look, quick-tap interact, `.tbtn` buttons (interact, Fly/Land toggle, held ▲▼ in fly mode), first-run coach marks, release-everything on blur/visibilitychange. Pointer lock bypassed entirely in touch mode. |
+| `js/ui.js` | (KAN-218) Every overlay surface: the invitation, the moment caption, the dated timeline, narration toasts (queue + `channel`), the interact prompt (a real button), the view-status pills, the controls sheet (a dialog that pauses the walk), the lock hint, idle dimming, and `go(i)` — the veil + title-reveal moment switch. See "UI/UX UPGRADE — KAN-218". |
 
 ## Reference assets
 
@@ -222,6 +222,169 @@ when two corrections disagree.
   STRAFE, which moves you SEAWARD from the tables at r 97.9 into the pool at
   r 90.10…96.40 — i.e. the pool is where the pool is, and Carl asked for
   exactly that (the water takes the edge, the tables sit behind it).
+## UI/UX UPGRADE — KAN-218 (2026-09-25)
+
+Carl: *"do a major upgrade of the full ux and ui to be extremely high fidelity and
+quality."* The overlay had not been touched through four asset passes. Every
+screen a guest sees is now designed as **part of the wedding invitation**, in the
+wedding-app's own V2 guest-site language (`~/projects/wedding-app`,
+`src/app/globals.css` + `layout.tsx`). Files: `index.html`, `css/style.css`,
+`js/ui.js` (rewritten), small wiring in `main.js` / `player.js` / `touch.js` /
+`world.js`, `date` / `time` / `short` on `CFG.MOMENTS`. No new dependency, no
+build step, no new shader program, no light change.
+
+Shots: before `reference/photos/shots-ui-before/`, after `shots-ui/` —
+`<desktop|phone|landscape>-<state>.png` for loading, title, help, help-ingame,
+moment-0…5, transition (veil mid-fade), transition-reveal, prompt, toast,
+night, fly. Re-shoot with `node tools/shoot-ui.mjs <dir>` (serve :8803;
+`VENUE_URL`, `ONLY=desktop,phone`, `STATES=title,help` to subset).
+
+### The design system (tokens live at the top of `css/style.css`)
+
+| role | token | value | notes |
+|---|---|---|---|
+| page / deepest ink | `--ink` | `#14110d` | warm near-black, never blue-black |
+| paper (stationery cards) | `--paper` / `--bone` | `#faf6ee` / `#f2ece1` | wedding-app paper / bone |
+| ink on paper | `--on-paper` / `-2` | `#1b1813` / 66 % | 5.4 : 1 at 66 % |
+| HUD glass | `--glass` / `--glass-hi` | ink @ .68 / .82 | **no backdrop-filter anywhere** (below) |
+| text on glass | `--on-dark` / `-2` / `-3` | bone / 72 % / 56 % | all ≥ 4.5 : 1 on glass-hi |
+| "now / current" | `--gold` | `#d4af7a` | dark surfaces ONLY (1.9 : 1 on paper) |
+| gold on paper | `--gold-ink` | `#8a6a3c` | 4.6 : 1 |
+| ceremony blue | `--hydrangea` / `--hydrangea-ink` | `#92b8de` / `#4f7aa6` | the ampersand is `-ink` (display size) |
+| primary action | `--deep` → `--teal` hover | `#07333b` / `#0d5f6e` | wedding-app deep teal CTA |
+| one easing curve | `--ease` | `cubic-bezier(.22,1,.36,1)` | as the wedding-app |
+
+**Type:** Bodoni Moda (names, moment titles, narration — italic for voice),
+Archivo (reading, labels), JetBrains Mono (eyebrows, dates, times, key caps —
+ONE tracking value, `--track: .28em`), Noto Serif SC loaded with
+`&text=隐逸居` (~4 KB, not a CJK font). Fallbacks are chosen so the loading card
+reads before any webfont: Bodoni 72 / Didot (iOS + macOS), SF Mono, PingFang.
+Scale: eyebrow 10–10.5 mono · labels 12.5 · body 13–14 · narration 17.5 italic ·
+caption title 30 (22 phone, 19 ≤ 360 px) · reveal `clamp(40px, 6vw, 76px)` ·
+names 60 → 46 → 38 (landscape).
+
+**Components** (all DOM, all outside the canvas — the touch contract):
+- `#loading` — full-bleed watercolour of the presidential pool at dusk (CSS sky
+  gradient under it for a slow network), a paper card with the C&R wax seal,
+  names, phase line (in-voice copy, unchanged), 1 px gold-ink progress. Real
+  progress is untouched (`setProgress`, 99 ceiling, `finishLoading`).
+- `#overlay` — the invitation: paper card, hydrangea sprays, seal, eyebrow,
+  names, `SATURDAY 20 · 03 · 2027`, venue + 隐逸居 · The Serene Retreat, lede,
+  deep-teal **Step inside** (`#begin`, still blurs), "How to move" (opens the
+  sheet), legal. Left third on desktop (the orbit keeps the centre), bottom
+  sheet on a phone, compact left card in landscape, seal + lede dropped on
+  ≤ 620 px-tall phones. `.ready` (set by `finishLoading`) runs a ≤ 0.7 s stagger.
+- `#hud` — three quiet corners: status pills (walk/fly, golden hour/night —
+  **tappable**, so touch finally has a night toggle; kbd hints F / N on
+  desktop), the moment caption (date · time, name, area — over a radial pool of
+  shade, not a panel), `?` help.
+- `#moments` — **the timeline**: three day groups (`THU 18.03` / `FRI 19.03` /
+  `SAT 20.03`), a hairline through six nodes, gold node = current, filled grey =
+  past (`.past`), `aria-current="step"`. Phones show node + time (the brunch has
+  no published time, so it shows its name); ≤ 360 px the six nodes share the
+  width exactly (≥ 46 px each).
+- `#toast` — narration: italic Bodoni on glass with two gold corner serifs;
+  `{ kind: 'system' }` is the compact mono instruction card (fly help).
+- `#prompt` — a real `<button>`: E key cap on desktop, a spark glyph on touch,
+  where it floats above the thumbs and **the prompt itself is the tap target**.
+- `#veil` + `#reveal` — the moment switch (below).
+- `#help` — the controls sheet: a dialog (focus in, Tab trapped, Esc / backdrop
+  / close / "Back to the venue"), keyboard OR touch set by device, bottom sheet
+  on a phone. Opens from `?`, **H** / `?` keys, and the title card.
+- `#lockHint` — desktop only: "Click the view to look around" when the
+  pointer lock is lost (after Esc), "Cursor free · Tab" in Tab mode.
+- `#touch` — 120 px stick with a throw ring, 56 px glass buttons with SVG icons
+  (Fly ↔ Land label), ▲▼ in fly mode, 2 × 2 grid in landscape; first-run coach
+  marks ("Move · left thumb", "Look · drag anywhere") that fade on first use.
+- Idle: 25 s after start, 8 s with no UI input → the chrome steps to 42 %
+  (`body.idle`) so the venue can be photographed; any UI touch wakes it.
+- Icons are one inline SVG sprite (24-grid, 1.5 stroke) — no icon font, no request.
+
+### Contracts — read before changing any of it
+
+- ⚠ **`G.setMoment` is untouched and SYNCHRONOUS.** The guest journey,
+  `shoot-moments.mjs` and every probe call it directly and get NO veil and NO
+  reveal (their screenshots stay clean). Only `G.ui.go(i)` — the chips, the
+  1–6 keys (`player.js`: `(G.ui.go || G.setMoment)(…)`) — fades the veil,
+  switches under it, waits two frames so the new view is DRAWN, lifts it and
+  reveals the title. The begin flow calls `G.ui.revealMoment` after its own
+  setMoment. A second tap mid-fade retargets the switch.
+- **Narration waits for the reveal.** `go()` sets `revealT = 99` BEFORE
+  `setMoment` queues the blurb; `revealMoment` drops it to 1.75 s. Setting it
+  only in the rAF after the switch let the blurb pop in the two frames between
+  (caught in the first shots: blurb and giant title on screen together).
+- `G.ui.toast(msg, secs, now, opts)` — `opts.kind`, `opts.eyebrow`,
+  `opts.channel` (latest wins: N pressed three times is one card; used by
+  `world.js` 'light' and `main.js` 'mode'). Emoji are stripped at render — the
+  copy in moments.js keeps them, the UI is typographic.
+- `G.ui.prompt(label)` takes the **label only** now (player.js no longer builds
+  HTML); ui.js picks the E cap or the tap glyph.
+- The help sheet **pauses by setting `G.overlayOpen`** (and restores the old
+  value — it can open over the title card). Every game key and `updatePlayer`
+  already honour that flag; nothing new was added to them.
+- `main.js` publishes `G.toggleNight` (gated on started / not overlayOpen) and
+  `G.lock` for the HUD; `skipIntro()` now also shows the touch UI.
+- `touch.js` releases the stick, look and held ▲▼ on `blur` /
+  `visibilitychange` — a phone that locks mid-drag never sends touchend.
+
+### Mobile hardening (the `mobile-web-hardening` skill)
+
+`html, body { overscroll-behavior: none }` (no pull-to-refresh reloading a walk),
+`touch-action: manipulation` on html/body/buttons (no double-tap zoom), canvas
+`touch-action: none`, and the viewport meta **lost `maximum-scale=1,
+user-scalable=no`** (pinch-zoom is kept; touch-action does the real job). Every
+HUD target ≥ 44 px (pills/round buttons via `::after` hit extensions), safe-area
+insets on every edge (`--edge-*`), `100%` fixed layers — no scrolling view.
+WebKit check at iPhone 15 / 15 Pro Max / SE 3 / SE 1 (Safari toolbar heights),
+title AND in-game states: **before 8 / 8 FAIL (overscroll auto, touch-action
+auto, zoom blocked), after 8 / 8 PASS.** Verified in WebKit, not on a physical
+phone or in WeChat's WebView.
+
+### Numbers
+
+| | before | after |
+|---|---|---|
+| fps behind the title card (desktop 1440, orbit live) | 81.9 / 82.1 | **102.1 / 101.0** — the old card's `backdrop-filter: blur(9px)` over a live canvas |
+| fps behind the title card (phone 390, DPR 2) | 111.6 / 114.6 | **119.5 / 119.5** |
+| fps in play (HUD + toast up) | 120 / 119.9 | 120 / 120 (vsync) |
+| LCP (entries up to "venue ready") | 52–88 ms (h1 / sub) | 52–80 ms (the invitation's flora) |
+| CLS | 0.009–0.022 | 0.001–0.015 |
+| time to `window.__game` | 2.2–2.4 s | 2.2–2.3 s |
+| guest journey | | 0 stalls, every beat, Check-in PROMPT ✓, lights 40 / 12, `ERRORS []` |
+
+Assets (`assets/ui/`, deployed): `venue-dusk-wide.webp` 214 KB (1920 w) and
+`venue-dusk-tall.webp` 156 KB (1080 w) — only the one matching the screen's
+aspect is preloaded; `hydrangea.webp` 59 KB (600 px, alpha). Generated with
+Nano Banana Pro via `gemini-image-ref.py` (tag `venue-ui`, **3 images, $0.40**),
+the wide one reference-conditioned on `reference/photos/Yinyiju main pool.webp`,
+the tall one on the wide. No lettering in any of them — all text is HTML.
+`assets/og.jpg` **re-rendered from the live scene** (`tools/render-og.mjs`, the
+across-pool night camera, 159 KB) — the old one predated every asset pass.
+
+### ⚠ What this pass learned
+
+1. **`backdrop-filter` over the live canvas costs ~20 fps** on a desktop GPU:
+   it re-blurs every frame the orbit moves. The whole UI is now solid-alpha
+   glass. Don't reintroduce it on anything that sits over the scene.
+2. **The hydrangea ornament is keyed for PAPER only.** Alpha from a white-paper
+   watercolour turns the pale cream florets muddy brown on a dark surface
+   (checked). Use it on the stationery cards, never on glass.
+3. **Bright sky eats thin Bodoni.** The caption and the reveal each sit on a
+   radial pool of shade (`::before`), weight 500, and the area line is Archivo,
+   not italic Bodoni — the first version was unreadable over the ceremony sky.
+4. A 320 px iPhone SE cannot fit six 48 px nodes plus day rules: the
+   ≤ 360 px rule divides the width instead; the caption date switches to its
+   short form (`.when .s`, ≤ 400 px) and the title may wrap to two lines.
+5. Media-query order matters: the landscape block (`max-height:500px` +
+   landscape) comes AFTER the portrait one (`max-width:640px`) so a small
+   landscape phone that matches both ends up with the landscape layout.
+6. LCP in this page is a hidden-behind-the-loader element (the flora, before
+   that the h1) because Chrome ignores full-viewport background images; it is
+   ~50–90 ms either way. Measure it as of `window.__game`, not after skipIntro —
+   later HUD text becomes a new, meaningless LCP candidate.
+7. `Chromium at 390 px ≠ Safari`: the WebKit run caught the 320 px caption
+   truncation ("Prewedding …") that no Chromium shot showed.
+
 ## THE ASSET PASS — BLENDER GLB PROPS + AI TEXTURES — DONE 2026-09-16 (KAN-207)
 
 Carl: *"work on all 3D assets in blender and image gen for venue.carlfung.dev."*
@@ -3522,7 +3685,8 @@ makes the campus "look tidier" by undoing one, it is wrong:
 - **Touch mode never uses pointer lock** — `G.player.locked` is pinned true
   and `lock()` no-ops (lassen pattern). Canvas touch handlers
   `preventDefault()`, so anything tappable must be a DOM element outside the
-  canvas — the moment chips and `.tbtn`s are; don't add canvas-drawn UI.
+  canvas — the timeline nodes, the status pills, the prompt and the `.tbtn`s
+  are; don't add canvas-drawn UI.
 - **The `player.js` ↔ `touch.js` import cycle is deliberate.** `touch.js`
   owns `touchInput` (per spec), `player.js` owns `applyLook`; each is only
   dereferenced at call time, so the ES-module cycle is safe. If it ever

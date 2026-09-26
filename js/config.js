@@ -64,11 +64,18 @@ export const CFG = {
   // array by number: main.js resolves the intro backdrop and the landing moment
   // through momentIndex() below, and the 1…9 keys are bounds-checked by
   // setMoment. Insert in the right place; do not append to protect an index.
+  /* date + time (KAN-218) are what the timeline and the moment captions print.
+     They come from ~/projects/wedding-app's itinerary (copy.ts): welcome party
+     Fri 19 Mar 21:30; ceremony 16:30, cocktails 17:30, dinner 19:00, after
+     party 21:00 on Sat 20 Mar. The brunch (Thu 18 Mar) has no published time
+     there, so it has none here — never invent one. `short` is the timeline label. */
   MOMENTS: [
-    { id: 'brunch', name: 'Welcome Brunch', area: 'The Westin Rooftop',
+    { id: 'brunch', name: 'Welcome Brunch', short: 'Brunch', area: 'The Westin Rooftop',
+      date: '2027-03-18', time: null,
       spawn: MOMENT_PLACES.BRUNCH, night: false,
       blurb: 'Two days out, twenty-six floors up — the wedding party, long tables in the sun, and nothing past the pool but the sea.' },
-    { id: 'setup', name: 'Prewedding Setup', area: 'Presidential Suite',
+    { id: 'setup', name: 'Prewedding Setup', short: 'Prewedding', area: 'Presidential Suite',
+      date: '2027-03-19', time: '21:30',
       spawn: MOMENT_PLACES.PREWEDDING, night: true,
       blurb: 'The night before — lanterns on the pool, the glass wall folded open, everyone spilling out of the living room.' },
     /* Ceremony, Cocktail Hour and Wedding Dinner all MOVED on 2026-08-02 —
@@ -79,16 +86,20 @@ export const CFG = {
        DINNER_LAWNS block. The order of this table is untouched — it is the
        timeline the chip bar draws, and momentIndex(id) is how anything finds a
        moment in it. */
-    { id: 'ceremony', name: 'Ceremony', area: 'The Beachfront Lawn',
+    { id: 'ceremony', name: 'Ceremony', short: 'Ceremony', area: 'The Beachfront Lawn',
+      date: '2027-03-20', time: '16:30',
       spawn: MOMENT_PLACES.CEREMONY, night: false,
       blurb: 'Chairs on the grass, an aisle through the palms, and an arch with the sea behind it.' },
-    { id: 'cocktail', name: 'Cocktail Hour', area: 'The Beachfront Lawn',
+    { id: 'cocktail', name: 'Cocktail Hour', short: 'Cocktails', area: 'The Beachfront Lawn',
+      date: '2027-03-20', time: '17:30',
       spawn: MOMENT_PLACES.COCKTAIL, night: false,
       blurb: 'Same lawn, other end. Teal parasols on the grass, something cold, and the tide coming in behind the bar.' },
-    { id: 'dinner', name: 'Wedding Dinner', area: 'The Pool Lawns',
+    { id: 'dinner', name: 'Wedding Dinner', short: 'Dinner', area: 'The Pool Lawns',
+      date: '2027-03-20', time: '19:00',
       spawn: MOMENT_PLACES.DINNER, night: true,
       blurb: 'Eight rounds of eight on the two lawns outside the pool, festoon strung overhead and the water lit alongside.' },
-    { id: 'afterparty', name: 'After Party', area: 'Suite Pool Deck',
+    { id: 'afterparty', name: 'After Party', short: 'After Party', area: 'Suite Pool Deck',
+      date: '2027-03-20', time: '21:00',
       spawn: MOMENT_PLACES.AFTERPARTY, night: true,
       blurb: 'The DJ takes the deck. Lanterns still burning on the water at 1 a.m.' },
   ],

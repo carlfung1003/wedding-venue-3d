@@ -50,7 +50,9 @@ export function initPlayer(G) {
     if (e.code === 'KeyE' && G.player.nearest) G.player.nearest.use();
     // 1…9 — setMoment early-returns on an index CFG.MOMENTS does not have,
     // so the range never has to be re-tuned when a moment is added
-    if (/^Digit[1-9]$/.test(e.code)) G.setMoment(+e.code.slice(5) - 1);
+    // (through the UI's switch, so a key gets the same veil + title reveal as
+    // a tap on the timeline — G.ui.go falls through to setMoment's own checks)
+    if (/^Digit[1-9]$/.test(e.code)) (G.ui.go || G.setMoment)(+e.code.slice(5) - 1);
   });
   document.addEventListener('keyup', e => keys[e.code] = false);
 
@@ -226,7 +228,8 @@ export function updatePlayer(G, dt) {
     best = it; bestD = d;
   }
   player.nearest = best;
-  G.ui.prompt(best ? (G.touchMode ? `👆 ${best.label()}` : `<b>E</b> ${best.label()}`) : null);
+  /* the label only — ui.js draws the E key cap or the tap glyph (KAN-218) */
+  G.ui.prompt(best ? best.label() : null);
   if (G.btnInteract) G.btnInteract.classList.toggle('pulse', !!best);
 }
 

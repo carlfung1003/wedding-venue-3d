@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>The Big Day — 3D wedding venue walkthrough</title>
+<!-- KAN-218: no maximum-scale / user-scalable=no. Double-tap zoom and the
+     pull-to-refresh that used to wipe a walk are killed in css/style.css
+     (touch-action + overscroll-behavior), which keeps pinch-zoom for the
+     guests who need it. The canvas itself is touch-action:none. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110d">
+<meta name="color-scheme" content="dark">
+<title>Carl &amp; Rachel · The Big Day in 3D</title>
 <meta name="description" content="A first-person 3D walkthrough of Carl &amp; Rachel's wedding venue — six moments, from the rooftop welcome brunch to the after party. Free in your browser.">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <meta property="og:type" content="website">
@@ -11,29 +17,40 @@
 <meta property="og:title" content="The Big Day — 3D wedding venue walkthrough">
 <meta property="og:description" content="Walk the venue in 3D before anyone else does — ceremony, cocktail hour, dinner and the after party, all in first person.">
 <meta property="og:url" content="https://venue.carlfung.dev/">
-<!-- Rendered from the live scene at 1200×630 (prewedding, night, from the deck):
-     lanterns on the pool, THE WESTIN letters, the cabana run lit behind. If the
+<!-- Rendered from the live scene at 1200×630 by tools/render-og.mjs (the
+     prewedding at night, up the pool's centreline at the suite; re-rendered
+     2026-09-25 for KAN-218 — the old one predated every asset pass). If the
      venue changes materially, re-render rather than letting the unfurl lie. -->
 <meta property="og:image" content="https://venue.carlfung.dev/assets/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Glowing lanterns floating on the presidential suite's pool at night, with THE WESTIN letters on the lawn and palms beyond">
+<meta property="og:image:alt" content="Glowing lanterns floating on the presidential suite’s pool at night, the two-storey glass suite lit beyond, palms and parasols on one side and the white cabanas on the other">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="The Big Day — 3D wedding venue walkthrough">
 <meta name="twitter:description" content="Walk Carl &amp; Rachel's wedding venue in 3D — six moments, in first person, free in your browser.">
 <meta name="twitter:image" content="https://venue.carlfung.dev/assets/og.jpg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<!-- The webfont stylesheet is loaded OUT of the render path on purpose. As a
-     plain <link> it is render-blocking, and on a cold visit Google answered
+<!-- The loading card's watercolour: the one decorative image a guest sees
+     first, preloaded per orientation so it is not queued behind three.js. -->
+<link rel="preload" as="image" href="assets/ui/venue-dusk-wide.webp" media="(min-aspect-ratio: 1/1)" fetchpriority="high">
+<link rel="preload" as="image" href="assets/ui/venue-dusk-tall.webp" media="(max-aspect-ratio: 1/1)" fetchpriority="high">
+<!-- The webfont stylesheets are loaded OUT of the render path on purpose. As a
+     plain <link> they are render-blocking, and on a cold visit Google answered
      late enough (~1.4 s measured) that the browser had painted NOTHING by the
      time main.js started building the world — the blank tab the loading card
-     below exists to prevent. media="print" parks it; onload promotes it, and
-     `display=swap` does the rest. The card is authored to read in the fallback
-     serif, so the swap is a refinement, never the difference between text and
-     no text. -->
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"></noscript>
+     below exists to prevent. media="print" parks them; onload promotes them,
+     and `display=swap` does the rest. Every face falls back to something the
+     guest's phone already has (Bodoni 72 / Didot on iOS + macOS, SF Mono,
+     PingFang), so the swap is a refinement, never the difference between text
+     and no text.
+     KAN-218: the faces are the wedding-app's V2 guest-site system — Bodoni Moda
+     (editorial), Archivo (body), JetBrains Mono (eyebrows, dates, key caps) —
+     plus Noto Serif SC subset to the three characters 隐逸居 with `text=`
+     (~4 KB instead of a CJK font). -->
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500&text=%E9%9A%90%E9%80%B8%E5%B1%85&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
 {
@@ -45,7 +62,25 @@
 </script>
 </head>
 <body>
-<canvas id="scene"></canvas>
+<canvas id="scene" aria-label="The venue in 3D"></canvas>
+
+<!-- ────────────────────────── icon sprite ──────────────────────────
+     One inline sprite, 24-unit grid, 1.5 stroke, round caps — drawn for this
+     UI (no icon font, no request). Every use is aria-hidden; the button
+     carrying it has the label. -->
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="1.7"/><path d="M10.5 21l2-6.2-2.6-2.5.9-4.3 3.4 2.9 2.8 1"/><path d="M9.8 8.1L7 9.6 6 12.8"/><path d="M12.4 14.9l2.6 1.6 1.2 4.5"/></symbol>
+  <symbol id="i-fly" viewBox="0 0 24 24"><path d="M3 13.5c3.2-.4 5.6.4 7.4 2.3 1.4-4.3 4.7-7.3 10.6-8.8-2.2 3.7-2.9 7.3-6.9 9.7-2.4 1.4-5.7 1.3-8.2-.5"/><path d="M10.4 15.8c-.7-3.2-2.5-5.6-5.4-7.3"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.6"/><path d="M12 3.2v2M12 18.8v2M3.2 12h2M18.8 12h2M5.8 5.8l1.4 1.4M16.8 16.8l1.4 1.4M5.8 18.2l1.4-1.4M16.8 7.2l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.6A7.8 7.8 0 0 1 9.4 4.5a7.8 7.8 0 1 0 10.1 10.1z"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M9.6 9.7a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1.1.9-1.1 1.6v.6"/><circle cx="12" cy="16.9" r=".25"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3.5l1.7 5.6 5.8 1.9-5.8 1.9L12 18.5l-1.7-5.6L4.5 11l5.8-1.9z"/><path d="M18.4 16.2l.6 1.8 1.8.6-1.8.6-.6 1.8-.6-1.8-1.8-.6 1.8-.6z"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 14.5l6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M14 7l5 5-5 5"/></symbol>
+  <symbol id="i-seal" viewBox="0 0 100 100"><path d="M50 3C67 2 88 10 94 27c6 16 3 37-4 51-7 15-24 20-40 19C33 96 14 91 7 76 0 61 3 40 10 26 17 11 33 4 50 3Z"/></symbol>
+</svg>
 
 <!-- ────────────────────────── loading card ──────────────────────────
      STATIC MARKUP ON PURPOSE. ~2,900 meshes and ~300k triangles get built
@@ -54,11 +89,17 @@
      has even been fetched; main.js only drives its copy and its bar, and
      buildWorld yields the main thread between builders so those updates can
      actually reach the screen. Nothing in here is focusable — no focus trap —
-     and main.js removes the whole node once the world is up. -->
+     and main.js removes the whole node once the world is up.
+     KAN-218: the backdrop is a watercolour of the presidential pool at dusk
+     (assets/ui/venue-dusk-{wide,tall}.webp, generated, no lettering); the CSS
+     sky gradient under it is what paints if the image is still in flight. -->
 <div id="loading">
-  <div class="card">
-    <p class="kicker">Carl &amp; Rachel · 20 · 03 · 2027</p>
-    <h2>The Big Day</h2>
+  <div class="loading-art" aria-hidden="true"></div>
+  <div class="card paper">
+    <svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><use href="#i-seal"/><text x="36" y="56" class="seal-c">C</text><text x="50" y="63" class="seal-amp">&amp;</text><text x="65" y="72" class="seal-c">R</text></svg>
+    <p class="eyebrow">20 · 03 · 2027</p>
+    <h2 class="names" translate="no">Carl <em>&amp;</em> Rachel</h2>
+    <p class="place">The Westin Sanya Haitang Bay</p>
     <p class="phase" id="loadPhase" role="status" aria-live="polite">Setting the tables…</p>
     <div class="track" id="loadTrack" role="progressbar"
          aria-labelledby="loadPhase" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
@@ -71,55 +112,109 @@
 <!-- ────────────────────────── title card ──────────────────────────
      `inert` until the world is built — the drone orbit is already playing
      behind this card by then, and "Step inside" must never be reachable (by
-     click OR by Tab) against an unbuilt scene. main.js lifts it. -->
+     click OR by Tab) against an unbuilt scene. main.js lifts it (and adds
+     .ready, which runs the card's entrance). -->
 <div id="overlay" inert>
-  <div class="card">
-    <p class="kicker">Carl &amp; Rachel · 20 · 03 · 2027</p>
-    <h1>The Big Day</h1>
-    <p class="sub">The Westin Sanya Haitang Bay · 隐逸居<br>Walk our wedding day — before anyone else does</p>
-
-    <div class="controls deskOnly">
-      <div><span class="key">W A S D</span> walk the venue</div>
-      <div><span class="key">Shift</span> hurry (there's a schedule)</div>
-      <div><span class="key">Mouse</span> look around</div>
-      <div><span class="key">E</span> interact</div>
-      <div><span class="key">F</span> fly / land</div>
-      <div><span class="key">Space / C</span> climb / dive (flying)</div>
-      <div><span class="key">1 – 6</span> jump between moments</div>
-      <div><span class="key">N</span> golden hour / night</div>
-      <div><span class="key">Tab</span> free the cursor for the chips</div>
+  <div class="card paper invite" role="group" aria-labelledby="inviteNames">
+    <img class="flora flora-a" src="assets/ui/hydrangea.webp" alt="" width="600" height="596" decoding="async">
+    <img class="flora flora-b" src="assets/ui/hydrangea.webp" alt="" width="600" height="596" decoding="async">
+    <svg class="seal rv" viewBox="0 0 100 100" aria-hidden="true"><use href="#i-seal"/><text x="36" y="56" class="seal-c">C</text><text x="50" y="63" class="seal-amp">&amp;</text><text x="65" y="72" class="seal-c">R</text></svg>
+    <p class="eyebrow rv">The Big Day · a walkthrough</p>
+    <h1 class="names rv" id="inviteNames" translate="no">Carl <em>&amp;</em> Rachel</h1>
+    <p class="date rv"><span>Saturday</span> 20 · 03 · 2027</p>
+    <p class="venue rv">The Westin Sanya Haitang Bay<br><span class="cjk" lang="zh-Hans" translate="no">隐逸居</span> <span class="sep">·</span> The Serene Retreat</p>
+    <p class="lede rv">Walk our wedding day — before anyone else does.</p>
+    <div class="actions rv">
+      <button id="begin" type="button"><span>Step inside</span><svg aria-hidden="true"><use href="#i-arrow"/></svg></button>
+      <button id="howto" class="link" type="button" aria-haspopup="dialog">How to move</button>
     </div>
-    <div class="controls touchOnly">
-      <div><span class="key">Left thumb</span> walk</div>
-      <div><span class="key">Drag</span> look around</div>
-      <div><span class="key">✦</span> interact</div>
-      <div><span class="key">FLY</span> fly / land · <span class="key">▲ ▼</span> height</div>
-      <div><span class="key">Chips</span> jump between moments</div>
-    </div>
-
-    <button id="begin">Step inside</button>
-    <p class="legal">Modelled from our own site photos and the suite walkthrough. Not to survey accuracy.</p>
+    <p class="legal rv">Modelled from our own site photos and the suite walkthrough. Not to survey accuracy.</p>
   </div>
 </div>
 
-<!-- ────────────────────────── hud ────────────────────────── -->
+<!-- ────────────────────────── hud ──────────────────────────
+     Three quiet corners and a caption. Nothing here sits over the middle of
+     the frame: the venue is the photograph. -->
 <div id="hud" class="hidden">
-  <div id="momentName"></div>
-  <div id="modeChip"></div>
+  <div class="status" role="group" aria-label="View">
+    <button id="modeBtn" class="pill" type="button" aria-label="Walking — switch to fly (F)">
+      <svg aria-hidden="true"><use href="#i-walk"/></svg><span class="lbl">Walking</span><kbd class="deskOnly">F</kbd>
+    </button>
+    <button id="lightBtn" class="pill" type="button" aria-label="Golden hour — switch to night (N)">
+      <svg aria-hidden="true"><use href="#i-sun"/></svg><span class="lbl">Golden hour</span><kbd class="deskOnly">N</kbd>
+    </button>
+  </div>
+  <div id="momentName" aria-live="polite">
+    <p class="when"></p>
+    <p class="title"></p>
+    <p class="area"></p>
+  </div>
+  <button id="helpBtn" class="round" type="button" aria-label="How to move (H)" aria-haspopup="dialog">
+    <svg aria-hidden="true"><use href="#i-help"/></svg>
+  </button>
 </div>
 
-<div id="prompt" class="hidden"></div>
-<div id="toast" class="hidden"></div>
-<div id="moments" class="hidden"></div>
+<!-- the moment switch: the veil hides the teleport, the reveal names the moment -->
+<div id="veil" aria-hidden="true"></div>
+<div id="reveal" aria-hidden="true">
+  <p class="when"></p>
+  <p class="title"></p>
+  <p class="area"></p>
+</div>
+
+<button id="prompt" class="hidden" type="button"></button>
+<div id="toast" class="hidden" role="status" aria-live="polite"><p class="eyebrow"></p><p class="msg"></p></div>
+<div id="lockHint" class="hidden" aria-hidden="true"></div>
+<nav id="moments" class="hidden" aria-label="The wedding, in order"></nav>
 
 <!-- ────────────────────────── touch ────────────────────────── -->
 <div id="touch" class="hidden">
-  <div id="stick"><div id="stickNub"></div></div>
+  <div id="stick" aria-hidden="true"><div id="stickNub"></div></div>
   <div class="tbtns">
-    <div class="tbtn flyOnly" id="btnUp">▲</div>
-    <div class="tbtn flyOnly" id="btnDown">▼</div>
-    <div class="tbtn" id="btnFly">FLY</div>
-    <div class="tbtn" id="btnInteract">✦</div>
+    <button class="tbtn flyOnly" id="btnUp" type="button" aria-label="Climb"><svg aria-hidden="true"><use href="#i-up"/></svg></button>
+    <button class="tbtn flyOnly" id="btnDown" type="button" aria-label="Dive"><svg aria-hidden="true"><use href="#i-down"/></svg></button>
+    <button class="tbtn" id="btnFly" type="button" aria-label="Fly"><svg aria-hidden="true"><use href="#i-fly"/></svg><span>Fly</span></button>
+    <button class="tbtn" id="btnInteract" type="button" aria-label="Interact"><svg aria-hidden="true"><use href="#i-spark"/></svg></button>
+  </div>
+  <div id="coach" aria-hidden="true">
+    <p class="c-move"><b>Move</b>left thumb</p>
+    <p class="c-look"><b>Look</b>drag anywhere</p>
+  </div>
+</div>
+
+<!-- ────────────────────────── controls sheet ──────────────────────────
+     A real dialog: Esc / the close button / a tap outside close it, focus
+     moves in and back, and while it is open the walk is paused (G.overlayOpen). -->
+<div id="help" class="hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="sheet">
+    <header>
+      <p class="eyebrow">Getting around</p>
+      <h2 id="helpTitle">How to move</h2>
+      <button id="helpClose" class="round" type="button" aria-label="Close"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
+    </header>
+    <dl class="keys deskOnly">
+      <div><dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Walk</dd></div>
+      <div><dt><kbd>Shift</kbd></dt><dd>Hurry — there’s a schedule</dd></div>
+      <div><dt><kbd class="wide">Mouse</kbd></dt><dd>Look around (click the view first)</dd></div>
+      <div><dt><kbd>E</kbd></dt><dd>Interact when a prompt appears</dd></div>
+      <div><dt><kbd>F</kbd></dt><dd>Fly · land</dd></div>
+      <div><dt><kbd>Space</kbd><kbd>C</kbd></dt><dd>Climb · dive while flying</dd></div>
+      <div><dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Jump through the timeline</dd></div>
+      <div><dt><kbd>N</kbd></dt><dd>Golden hour · night</dd></div>
+      <div><dt><kbd>Tab</kbd></dt><dd>Free the cursor to click the timeline</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd>Release the mouse</dd></div>
+      <div><dt><kbd>H</kbd></dt><dd>This sheet</dd></div>
+    </dl>
+    <dl class="keys touchOnly">
+      <div><dt><span class="gest g-stick" aria-hidden="true"></span></dt><dd><b>Move</b> — press and drag with your left thumb</dd></div>
+      <div><dt><span class="gest g-drag" aria-hidden="true"></span></dt><dd><b>Look</b> — drag anywhere else</dd></div>
+      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-spark"/></svg></span></dt><dd><b>Interact</b> — tap the prompt, or this button</dd></div>
+      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-fly"/></svg></span></dt><dd><b>Fly</b> · land — then <span class="tglyph sm"><svg aria-hidden="true"><use href="#i-up"/></svg></span><span class="tglyph sm"><svg aria-hidden="true"><use href="#i-down"/></svg></span> for height</dd></div>
+      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-moon"/></svg></span></dt><dd><b>Night</b> — the sun / moon at the top</dd></div>
+      <div><dt><span class="gest g-dots" aria-hidden="true"></span></dt><dd><b>The timeline</b> — tap a moment at the bottom</dd></div>
+    </dl>
+    <p class="fine">Six moments across three days — 18 to 20 March 2027. Nothing here is to survey accuracy; it is how the day will feel.</p>
+    <button id="helpDone" type="button">Back to the venue</button>
   </div>
 </div>
 

@@ -38,10 +38,35 @@ export function initTouch(G) {
     touchInput.x = 0; touchInput.y = 0;
   }
 
+  /* first-run coach marks (KAN-218): "Move · left thumb" over the stick and
+     "Look · drag anywhere" on the right. Each fades once its gesture has been
+     used; both go after ~9 s regardless. */
+  const coach = document.getElementById('coach');
+  const learnt = { move: false, look: false };
+  const learn = k => {
+    if (learnt[k]) return;
+    learnt[k] = true;
+    coach.querySelector(k === 'move' ? '.c-move' : '.c-look').style.opacity = '0';
+    if (learnt.move && learnt.look) coach.classList.add('gone');
+  };
+
+  /* a phone that locks, switches app or gets a call mid-drag never sends the
+     touchend — without this the stick keeps walking and ▲ keeps climbing */
+  function releaseAll() {
+    stickId = lookId = null;
+    stick.classList.remove('live');
+    restStick();
+    G.flyUp = G.flyDown = false;
+    for (const b of ui.querySelectorAll('.tbtn.held')) b.classList.remove('held');
+  }
+  addEventListener('blur', releaseAll);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) releaseAll(); });
+
   function onStart(e) {
     if (!playing()) return;
     for (const t of e.changedTouches) {
       if (stickId === null && inStickZone(t.clientX, t.clientY)) {
+        learn('move');
         stickId = t.identifier;
         stickCX = t.clientX; stickCY = t.clientY;
         placeStick(stickCX, stickCY);
@@ -69,6 +94,7 @@ export function initTouch(G) {
         const dx = t.clientX - lookX, dy = t.clientY - lookY;
         lookX = t.clientX; lookY = t.clientY;
         lookDist += Math.hypot(dx, dy);
+        if (lookDist > 40) learn('look');
         applyLook(dx, dy);
       }
     }
@@ -131,5 +157,9 @@ export function initTouch(G) {
   hold('btnUp', v => { G.flyUp = v; });
   hold('btnDown', v => { G.flyDown = v; });
 
-  G.showTouchUI = () => ui.classList.remove('hidden');
+  G.showTouchUI = () => {
+    if (!ui.classList.contains('hidden')) return;
+    ui.classList.remove('hidden');
+    setTimeout(() => coach.classList.add('gone'), 9000);
+  };
 }
