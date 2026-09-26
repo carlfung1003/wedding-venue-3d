@@ -935,6 +935,7 @@ real door — the plaque mechanism is untouched here; Carl's call whether the
 decorative bays should be numbered at all. The gallery DECKING (texDeck
 canvas) is now the most off-tone surface in the atrium views (bright orange
 against the photo's darker glossy boards) — not in this wave's brief.
+(Graded in the KAN-211 FIX PASS below, with the pond water.)
 **Not in this wave:** the suite portal and the 2F link door (still primitives,
 M.column / darkWall), the gallery decking, the slab edge above the beams, the
 pond water's painted texture beyond the streak alpha, the topiary planters.
@@ -998,7 +999,10 @@ views vs 60–120 after — that is run-to-run / thermal noise at least in part;
 **Colour, MEASURED against pimg-002** (across-pool day, same camera): fascia
 (191,126,76) → copper texture re-graded linear ×(1.14,1.40,1.85) → **(197,145,99)**
 vs photo (203,147,102); soffit **(66,50,43)** vs the photo's deep-shade (39,28,26)
-— deliberately between it and IMG_8095's sunlit pale soffit; piers (145,124,105)
+— deliberately between it and IMG_8095's sunlit pale soffit (⚠ **SUPERSEDED
+2026-09-25: Carl chose PALE** — he remembers the underside as "white pale-ish",
+and his word outranks the hotel photo; the soffit is now `soffit_pale.webp`,
+see the FIX PASS below); piers (145,124,105)
 → palette ×~.53 linear → **(112…135, 96…116, 85…98)** vs (107,92,82); balcony band
 **(181,160,140)** inside the photo's (158…184,140…164,129…153). Shots: before
 `reference/photos/shots-archC-before/`, after `shots-archC/`;
@@ -1023,15 +1027,118 @@ linear re-balance, numpy); running total **7 images, $0.94**.
 3. The `calls` stat at pool views includes the mirror pass — measure the mirror
    on its own before claiming a signature-shot saving.
 
-**Found, not changed (colliders must stay byte-identical):** the 2F balcony's
-glass balustrade has **no collider** — a walker on the balcony walks off its
-front edge (z −11.5) and drops 3.78 m to the deck (traced frame by frame:
-3.776 → 0 at x −2.7…−0.6; identical in the before build). Same family as the
-backlog's "2F court-edge balustrades … have no colliders". Needs a y0-ranged
-chain along `levelRail`'s three lines (y0 ≈ 3.5) in a pass that may move the
-collider hash. Also: the interior stone pier at the leaf joint and the suite's
+**Found, not changed (colliders must stay byte-identical):** ~~the 2F balcony's
+glass balustrade has no collider~~ — **FIXED in the KAN-211 FIX PASS below**
+(a y0-ranged guard derived from `BALC_RAILS`). Also: the interior stone pier at the leaf joint and the suite's
 side/back plaster walls are still primitives; the 2F link door's jamb reads as
 a flat board from the slot at grazing angle.
+
+### KAN-211 FIX PASS — DECKING, POND WATER, PALE SUITE SOFFIT, THE BALCONY GUARD (2026-09-25)
+
+Four fixes on top of 1a3b560. Shots: before `reference/photos/shots-archFix-before/`
+(1a3b560 in a worktree on :8811), after `shots-archFix/` — 16 views (the wave B/C
+atrium + suite views plus three new ones in `shoot-moments.mjs`:
+`archFix-pond-night`, `archFix-gallery-2f-night`, `archFix-balcony-front`);
+`compare-archFix-*.jpg` side-by-sides, `compare3-archFix-photo.jpg` (photo |
+before | after). **Calls, triangles, textures (284) and programs (113) are
+identical at all 16 views, day and night; the only stat that moves is colliders
+(+145).** scatter-probe: `allMatrixHash 83988c797bab` both (no instance moved).
+Guest journey: 0 stalls, every beat, Check-in PROMPT ✓, lights 40 / 12,
+`ERRORS []`. No image generation (ledger unchanged: 7 images, $0.94).
+
+⚠ **THE FINDING THAT MATTERS BEYOND THIS PASS: three r180 IGNORES
+`material.envMapIntensity` UNLESS THE MATERIAL HAS ITS OWN `envMap`.** With
+`envMap === null` and a `scene.environment`, WebGLRenderer binds
+`scene.environmentIntensity` instead (three.module.js `setProgram`). So every
+ENVM / `reg()` d/n in atrium.js, `bakeMat()`, campus `archMat()` and suite
+`archFinish()` env value is a **no-op** for every material that relies on the
+scene environment — i.e. almost all of them, and every GLB material. Wave B's
+"water env 2.1 → 1.0" and "soffit env .55 → .32" never bound; whatever those
+waves measured changing came from their tints/textures. The fix, where a pass
+really needs the knob, is `m.envMap = G.scene.environment` — the SAME texture,
+so the program parameters (envMap, cube-UV mode/height) are identical and **no
+program is added** (113 held). Done here for the pond water and the gallery
+decking only; the other registries are left as they are (changing them would
+move the look of waves A–C) — a candidate for its own pass.
+
+**1 · Atrium gallery decking (`js/atrium.js`, M.deck).** The only user of that
+material (suite.js and campus.js have their own decks). `DECK_TINT` = linear
+(.62, .25, .25) on texDeck + the deck's own envMap with `DECK_ENV` (day .45,
+night .30) — without the envMap a neutral env term (~50 grey) sat on every board
+whatever the tint. MEASURED (medians):
+
+| | photo | before | after |
+|---|---|---|---|
+| archB-photo, deck | gallery boards in shade (70,36,32) | (121,79,64) | **(68,35,29)** |
+| archB-photo, soffit above it | (64,40,31) | (84,48,39) | (84,48,39) — untouched |
+| archB-corridor day, deck / soffit | | (110,72,57) / (93,61,54) | **(58,30,25)** / (93,61,54) |
+| archB-corridor-night, deck / soffit | | (46,26,20) / (39,23,20) | **(35,17,15)** / (39,23,20) |
+
+The deck now sits darker and browner than the mahogany soffit, day and night.
+(The photo's near-camera boards at bottom left read (130,130,151): that is the
+sky's sheen on wet-glossy boards, not their colour.)
+
+**2 · Pond water (`WATER` in atrium.js).** Same MeshPhysicalMaterial, same
+Reflector-free plane; the hero pool's Reflector untouched. The grey was the
+RoomEnvironment's pale walls on a clearcoat-1 mirror. Now: own envMap at
+**envD .38 / envN .20**, and a LINEAR diffuse multiplier **> 1** on the
+near-black painted map (**day (2.0, 4.0, 4.2), night (1.5, 3.4, 3.5)**) that
+lifts a green-grey body under the neutral reflection. Emissive and the painted
+streaks unchanged. Photo (clubhouse-atrium.jpeg, the pond's open water) mean
+(65,73,72) — the brief's (63,70,69):
+
+| view | before | after |
+|---|---|---|
+| archB-pond (day) | (117,118,117) | **(64,70,67)** |
+| archB-photo (day, the photo's angle) | (99,98,96) | **(60,68,62)** |
+| archFix-pond-night | (55,56,55) | **(41,43,42)** |
+
+**3 · The suite soffit is PALE — Carl's call.** He remembers the underside as
+"white pale-ish" and his word outranks pimg-002's deep shade (wave C had graded
+it dark to that photo). Reference IMG_8095 (rotated upright), the overhang at
+top right: absolute (74,70,66) — the frame is exposed for a bright sky
+(224,240,249); the white cabanas in the same frame read (130,136,131). So the
+tone was transferred by RATIO, not absolute value: hue R:G:B 1 : .95 : .89 and
+level ≈ .55 × the render's sunlit white stucco (230,226,219) → target
+(126,119,112). **archC-roof-edge: (53,37,31) → (127,121,114)** (two boxes, both
+within 2). Done in the BAKE, not at runtime: a per-channel runtime multiply
+(×4…10) on the teak atlas amplified its board-to-board hue into mauve stripes.
+`assets/blender/derive_soffit_pale.py` derives `textures/gen/soffit_pale.webp`
+from cedar_soffit (keeps luminance grain and the dark joints, drops 85 % of the
+chroma, linear re-balance to mean (126,117,111)); `_arch.soffit_pale()`;
+`suite_soffit.py` uses it; only `suite_soffit` re-baked + exported (336 tris,
+143 → 234 KB — the pale atlas compresses worse). Still rough .85 — it does not
+mirror the sky. At night the 58 downlight discs still read as points on it, and
+the signature / across-pool night shots show a warm lit underside, not a
+blow-out (`compare-archFix-archC-signature-night.jpg`).
+
+**4 · THE 2F BALCONY FALL HAZARD — CLOSED (`js/suite.js`).** `BALC_RAILS` is
+one list of the three glass runs ([axis, fixed, a0, a1], levelRail's own
+arguments; mirrored frame, through mx() like the glass); `buildSecondFloor`
+draws from it and `buildColliders` lays **r .15 circles along each same line
+with `y0 = YF2 − .4 = 3.40`** (the exact complement of F1's y1; no y1 — nothing
+walkable above under the roof). The end runs start at ZS, where the corner
+piers' all-height chain already closes the corner; the 2F → balcony opening is
+untouched. Proof (the 2026-08-04 method, both builds scripted identically):
+- **(a) held:** nine 4 s pushes at open air — front at x −2.7 / −1.6 / −0.6 /
+  +5 / −6, both ends, both corners on the diagonal. Before: 8 of 9 fall to feet
+  0 (the east end is held by the slot's west rail). After: **9 / 9 held at
+  3.78**, stopped at z −12.06 / |x| 6.94.
+- **(b) feet 0.000:** in all six moments the set of colliders active at feet 0
+  is **removed 0, added 0** (8,051…8,110 each, identical).
+- **(c) everything else unchanged:** per moment, before is an ORDERED
+  SUBSEQUENCE of after; the difference is exactly **+145** circles, all r .15,
+  y0 3.40, no y1. scatter-probe `colliderHash 026674019d51` (10,797) →
+  **`bc45a91cacd2` (10,942)**.
+- **(d) walks byte-identical before/after:** spawn → glass → deck → turf (feet
+  0); deck → great room; the L-stair 0 → 1.382 → 3.8 → 2F hall; 2F → balcony →
+  along it → back in; slot → 2F link door → lounge (3.6 → 3.8).
+- floorY at the 28 wave-C probes, spawns (`MOMENT_PLACES`) and every
+  interactable in all six moments: identical.
+- **(e)** guest journey clean (above).
+
+Not done here: the atrium's other ENVM entries / the GLB `archFinish`/`bakeMat`
+env knobs still bind nothing (see the ⚠ above).
 
 ### Not in this pass (next)
 

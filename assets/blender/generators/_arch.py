@@ -417,6 +417,16 @@ def soffit_teak(name="soffit"):
     return L.image_mat(name, "soffit_teak.webp", roughness=0.8, fallback="at_wood2")
 
 
+def soffit_pale(name="soffit"):
+    """The suite's PALE timber soffit — Carl's call, 2026-09-25 ("white
+    pale-ish"; his word outranks pimg-002). ⚠ DERIVED, not generated:
+    derive_soffit_pale.py takes cedar_soffit.webp, keeps its luminance grain
+    and dark joints, drops ~85 % of its chroma and re-balances it in LINEAR
+    light to a warm near-neutral mean (IMG_8095's overhang, 1 : .95 : .89).
+    soffit_teak() is kept for the record / a revert."""
+    return L.image_mat(name, "soffit_pale.webp", roughness=0.85, fallback="at_wood2")
+
+
 def cassettes(parts, rnd, side, a0, a1, fixed, y0, y1, out, mat, back, pitch=0.62,
               joint=0.016, proud=0.022, back_t=0.03, prefix="cas", tile=1.2):
     """A band of flat metal CASSETTE panels on a dark backing — the copper

@@ -535,6 +535,14 @@ const VIEWS = [
      the left, the atrium's 2F link door at the end */
   ['archC-link-door', 2, { world: `(() => { const c = S.enclaveToWorld(9.05, -13.8), t = S.enclaveToWorld(8.6, -28);
     return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .04 }],
+  /* ── KAN-211 FIX PASS — the gallery decking, the pond water at night, the
+        balcony's front edge. Same enclave-local camera form. ── */
+  ['archFix-pond-night', 1, { world: `(() => { const c = S.enclaveToWorld(3.4, -34.6), t = S.enclaveToWorld(-1.5, -40.5);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: -.38 }],
+  ['archFix-gallery-2f-night', 1, { world: `(() => { const c = S.enclaveToWorld(0.5, -30.9), t = S.enclaveToWorld(16, -35.5);
+    return { x: c.x, z: c.z, y: S.SITE.ATRIUM.floorH, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: -.12 }],
+  ['archFix-balcony-front', 2, { world: `(() => { const c = S.enclaveToWorld(-3.0, -13.2), t = S.enclaveToWorld(-3.0, 0);
+    return { x: c.x, z: c.z, y: S.SITE.SUITE.floorToFloor, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.30 }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 

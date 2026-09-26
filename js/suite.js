@@ -253,7 +253,7 @@ function mdl(parent, name, x, y, z, ry = 0, s = 1) {
    half-mirror §1a exists to prevent.
      suite_roof        the cantilever: copper cassette fascia, the grey
                        standing-seam skin, the SW void, the annex roofs
-     suite_soffit      the dark timber undersides (roof ring, annex, balcony)
+     suite_soffit      the pale timber undersides (roof ring, annex, balcony)
      suite_facade      the south piers, the 1F wall's fixed frame, the
                        balcony (deck, slab-edge band, shoe + cap), the 2F
                        frames + clerestory + louvre band, the 2F link door
@@ -1450,6 +1450,30 @@ function rakeRail(parent, axis, fixed, a0, y0, a1, y1, ang) {
   hr.position.y += .53;
 }
 
+/* ══ THE BALCONY'S BALUSTRADE — GEOMETRY AND GUARD FROM ONE LIST (KAN-211) ══
+   ⚠ This list is ALSO the collider. buildSecondFloor draws each entry with
+   levelRail(); buildColliders lays a y0-ranged guard chain along each same
+   line. Add, move or shorten a run here and the guard follows — never type a
+   balcony guard coordinate anywhere else.
+   Until 2026-09-25 the glass was visual only: a walker on the balcony (feet
+   3.78) walked straight off the front edge (z −11.5) and dropped to the deck.
+   Mirrored brief frame, like everything drawn with slab(): colLine() runs the
+   guard through mx() exactly as slab() runs the glass (the three lines are
+   symmetric about x 0 anyway).
+     [axis, fixed, a0, a1]  — levelRail's own arguments; y is BALC_Y. */
+const BALC_Z = ZS + S.balconyD;             // -11.5  the balcony's front edge
+const BALC_Y = YF2 - .02;                   //  3.78  the deck top = the walk height
+const BALC_RAILS = [
+  ['x', BALC_Z - .06, X0 + .5, X1 - .5],    // front, along the slab edge
+  ['z', X0 + .56, ZS, BALC_Z],              // west end (this file's frame)
+  ['z', X1 - .56, ZS, BALC_Z],              // east end
+];
+/* the guard's feet-height window: y0 = YF2 − .4 = 3.40 is F1's own y1, so the
+   chain is the exact complement of the 1F-only furniture chains — it exists
+   only where a walker's feet can be on the 2F / balcony, never at the deck
+   (0.12), the great room (0.178) or the turf (0) below it. */
+const BALC_GUARD_Y0 = YF2 - .4;
+
 /** Level glass balustrade + handrail along a 2F floor edge. */
 function levelRail(parent, axis, fixed, a0, a1, y, glassOnly = false) {
   if (glassOnly) {                      // wave C: the shoe + flat cap are suite_facade's
@@ -1618,7 +1642,7 @@ function buildSecondFloor(root) {
   root.add(g);
 
   const BZ = -21.0;                       // lounge / bedroom-wing partition
-  const balZ = ZS + S.balconyD;           // -11.5
+  const balZ = BALC_Z;                    // -11.5
 
   /* ── floor finishes ── */
   slab(g, MT.dark2F, X0, ST.x0, YF2 - .02, YF2 + .015, BZ, ZS);        // lounge
@@ -1643,9 +1667,8 @@ function buildSecondFloor(root) {
      the walk height), the slab-edge band, the glass shoe and the flat cap;
      the glass panes stay the game's */
   if (!HC.facade) slab(g, MT.spaFloor, X0 + .5, X1 - .5, YF2 - .18, YF2 - .02, ZS, balZ);
-  levelRail(g, 'x', balZ - .06, X0 + .5, X1 - .5, YF2 - .02, HC.facade);
-  levelRail(g, 'z', X0 + .56, ZS, balZ, YF2 - .02, HC.facade);
-  levelRail(g, 'z', X1 - .56, ZS, balZ, YF2 - .02, HC.facade);
+  /* the three runs — and their guard colliders — come from BALC_RAILS */
+  for (const [axis, fixed, a0, a1] of BALC_RAILS) levelRail(g, axis, fixed, a0, a1, BALC_Y, HC.facade);
   if (!HC.dining) {                     // wave C: suite_dining_set
     slab(g, MT.white, -1.4, 1.4, YF2 + .68, YF2 + .74, balZ - 1.4, balZ - .6);
     for (const cx of [-1.1, 1.1]) for (const cz of [balZ - 1.25, balZ - .75]) {
@@ -1749,9 +1772,17 @@ function buildExterior(root) {
   if (HC.roof) {
     glbInst(root, 'suite_roof', A);
     glbInst(root, 'suite_soffit', A);
-    /* copper: a satin metal sheen; the soffit matte and dark */
+    /* copper: a satin metal sheen; the soffit matte */
     archFinish('suite_roof', .45, .35, .8, .3);
     archFinish('suite_soffit', .85, 0, .35, .15);
+    /* KAN-211 fix pass — CARL'S CALL (2026-09-25): the soffit is PALE ("white
+       pale-ish" as he remembers it; his word outranks pimg-002's deep shade).
+       That lives in the GLB's bake (soffit_pale.webp, see
+       assets/blender/derive_soffit_pale.py), not here: a runtime multiply on
+       the teak bake amplified its board-to-board hue into mauve stripes.
+       ⚠ The env d/n above bind NOTHING — three r180 uses
+       scene.environmentIntensity for any material without its own envMap
+       (CLAUDE.md "KAN-211 FIX PASS"). Matte comes from rough .85. */
     buildSoffitLights(root);
   }
   if (HC.facade) {
@@ -1987,6 +2018,24 @@ function buildColliders() {
   colRect(COR_X1 + .1, -24.3, COR_X1 + 1.0, -22.5, .3);         // spa sofa
   colLine(ANX_X0 + .1, -25.9, ANX_X0 + .9, -25.9, .3);          // corridor daybed
   colLine(ANX_X0 + .1, -23.9, ANX_X0 + .9, -23.9, .3);
+
+  /* ══ THE 2F BALCONY'S GLASS BALUSTRADE (KAN-211 fix pass, 2026-09-25) ════
+     One guard chain per BALC_RAILS entry, on the glass's own line. Before this
+     the balustrade had NO collider and a walker left the balcony's front edge
+     at feet 3.776 → 0 (x −2.7 … −0.6, traced in wave C).
+       r .15  — frameless glass: with PLAYER_R the body stops .50 short of the
+                pane's centre line, ~.14 inside the walk region's own edge.
+       y0     — BALC_GUARD_Y0 (3.40): absent at the deck, the great room and
+                the turf under it, so NOTHING at feet 0 changes. No y1: the
+                balcony is under the roof ring, nothing walkable above it.
+     The end runs start AT the glass wall line (ZS), where the corner piers'
+     all-height chain (ZS − .2) already closes the corner, and the 2F → balcony
+     opening in the glazing (the open span) is untouched — the chains run
+     along the balcony's three OUTER edges only. */
+  for (const [axis, fixed, a0, a1] of BALC_RAILS) {
+    if (axis === 'x') colLine(a0, fixed, a1, fixed, .15, 0, { y0: BALC_GUARD_Y0 });
+    else colLine(fixed, a0, fixed, a1, .15, 0, { y0: BALC_GUARD_Y0 });
+  }
 
   /* ══ THE EXTERIOR STAIR'S 2F LANDING — ITS WEST EDGE (2026-08-04) ═════════
      campus.js builds the flight up this building's east flank and guards it

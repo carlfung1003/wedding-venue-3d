@@ -385,6 +385,32 @@ const ENVM = [];    // { m, d, n }  — envMapIntensity day/night (daylight resp
 const PLIGHT = [];  // { l, d, n }  — real PointLight intensity day/night
 let waterMats = [];
 
+/* ── KAN-211 FIX PASS — graded against clubhouse-atrium.jpeg under the venue
+   rig (archB-photo camera). Uniforms only: no material class, no program. ── */
+/* gallery decking: a LINEAR multiply on texDeck, and the deck carries
+   scene.environment as its OWN envMap so DECK_ENV (day, night) actually binds
+   (see the ⚠ under WATER). Without that, a neutral env term (~50 grey) sat on
+   every board whatever the tint. Every retile() clone inherits all three. */
+const DECK_TINT = [0.62, 0.25, 0.25];
+const DECK_ENV = [0.45, 0.30];
+/* pond water. The render read a warm light grey (117,118,117 at archB-pond):
+   the RoomEnvironment's pale walls on a clearcoat-1 mirror. The photo's water
+   is a dark green-grey (63,70,69).
+   ⚠ THREE r180 IGNORES material.envMapIntensity WHEN material.envMap IS NULL —
+   it binds scene.environmentIntensity instead (WebGLRenderer setProgram:
+   `isMeshStandardMaterial && envMap === null && scene.environment !== null`).
+   Every ENVM d/n in this file is therefore a no-op for a material without its
+   own envMap, which is why wave B's "day env 2.1 → 1.0" never moved the water.
+   The water now carries scene.environment as its OWN envMap (same texture, so
+   the same program parameters — no new program), and envD/envN really bind.
+   col* are LINEAR diffuse multipliers > 1 on the near-black painted map: they
+   lift a green-grey body under the (neutral) reflection. */
+const WATER = {
+  envD: 0.38, envN: 0.20,
+  emisD: 0.12, emisN: 0.5,
+  colD: [2.0, 4.0, 4.2], colN: [1.5, 3.4, 3.5],
+};
+
 function reg(m, dayEnv = 1.0, nightEnv = 0.34) { ENVM.push({ m, d: dayEnv, n: nightEnv }); return m; }
 function regE(m, d, n) { EMIS.push({ m, d, n }); return m; }
 
@@ -416,7 +442,7 @@ function mkPlate(parent, w, d, mat, x, y, z) {
    `rot90` turns the grain 90°: repeat is applied in UV space BEFORE the
    rotation (Texture.updateMatrix → setUvTransform), so the repeat values stay
    exactly the same — only the plank direction flips. */
-function retile(mat, rx, ry, rot90) {
+function retile(mat, rx, ry, rot90, env = [1.0, 0.34]) {
   const m = mat.clone();
   if (mat.map) {
     m.map = mat.map.clone();
@@ -425,7 +451,7 @@ function retile(mat, rx, ry, rot90) {
     m.map.needsUpdate = true;
   }
   if (mat.emissiveMap === mat.map) m.emissiveMap = m.map;
-  ENVM.push({ m, d: 1.0, n: 0.34 });
+  ENVM.push({ m, d: env[0], n: env[1] });
   return m;
 }
 
@@ -635,8 +661,17 @@ export function buildAtrium(G) {
     soffit: reg(new THREE.MeshStandardMaterial({
       map: mahoganyTex, color: 0xffffff, roughness: .68, metalness: .04,
     }), 0.9, 0.3),
+    /* KAN-211 fix pass: the canvas boards rendered (121,79,64) at archB-photo —
+       brighter and more orange than the mahogany soffit above them (84,48,39).
+       The photo's gallery boards read (70,36,32) (clubhouse-atrium.jpeg, the
+       right-hand gallery in shade): a darker, browner red than the soffit.
+       Graded with a LINEAR multiply on the map (a uniform — no new program);
+       every retile() clone inherits it. The decking is the only user of this
+       material (the suite's deck is suite.js's own; campus.js has its own
+       texDeck), so nothing else moves. */
     deck: reg(new THREE.MeshStandardMaterial({
-      map: texDeck(), roughness: .82, metalness: .02,
+      map: texDeck(), color: new THREE.Color(DECK_TINT[0], DECK_TINT[1], DECK_TINT[2]),
+      roughness: .82, metalness: .02,
     }), 0.85, 0.28),
     column: reg(new THREE.MeshStandardMaterial({
       map: texBlackStone(), color: 0x9aa0a8, roughness: .21, metalness: .42,
@@ -706,6 +741,12 @@ export function buildAtrium(G) {
     }), 0.7, 0.22),
   };
 
+  /* KAN-211 fix pass: the deck's OWN envMap, so DECK_ENV binds (see DECK_TINT) */
+  if (G.scene.environment) {
+    M.deck.envMap = G.scene.environment;
+    M.deck.envMapIntensity = DECK_ENV[0];
+  }
+
   /* emissives — everything that glows without costing a real light */
   const E = {
     down: regE(new THREE.MeshStandardMaterial({
@@ -751,7 +792,7 @@ export function buildAtrium(G) {
     const t = mirrorTex.clone();
     t.needsUpdate = true;
     const m = new THREE.MeshPhysicalMaterial({
-      map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: .12,
+      map: t, emissiveMap: t, emissive: 0xffffff, emissiveIntensity: WATER.emisD,
       color: 0xffffff, roughness: .025, metalness: .0, reflectivity: 1.0,
       clearcoat: 1, clearcoatRoughness: .0, ior: 1.5,
     });
@@ -759,10 +800,20 @@ export function buildAtrium(G) {
        the room environment's bright walls sat on the water as a pale grey
        sheet; the photo's ponds are dark teal (63, 70, 69) mirroring the dark
        soffit and columns round them */
-    const envD = HB.ponds ? 1.0 : 2.1;
+    /* KAN-211 fix pass: graded to the photo — see WATER at the top. The
+       pre-wave-B fallback keeps its old numbers (which bound nothing). */
+    const envD = HB.ponds ? WATER.envD : 2.1;
     m.envMapIntensity = envD;
-    ENVM.push({ m, d: envD, n: 1.0 });
-    EMIS.push({ m, d: .12, n: .5 });
+    ENVM.push({ m, d: envD, n: HB.ponds ? WATER.envN : 1.0 });
+    m.userData.colD = new THREE.Color(0xffffff);
+    m.userData.colN = new THREE.Color(0xd8e4e0);
+    if (HB.ponds && G.scene.environment) {
+      m.envMap = G.scene.environment;
+      m.userData.colD = new THREE.Color(...WATER.colD);
+      m.userData.colN = new THREE.Color(...WATER.colN);
+      m.color.copy(m.userData.colD);
+    }
+    EMIS.push({ m, d: WATER.emisD, n: WATER.emisN });
     waterMats.push(m);
     return m;
   }
@@ -840,7 +891,7 @@ export function buildAtrium(G) {
   ];
   for (const [ax, az, bx, bz] of GAL) {
     const w = bx - ax, d = bz - az;
-    mkBox(root, w, Y_DECK, d, retile(M.deck, w / 2.6, d / 2.6, isSideRun(az, bz)),
+    mkBox(root, w, Y_DECK, d, retile(M.deck, w / 2.6, d / 2.6, isSideRun(az, bz), DECK_ENV),
       (ax + bx) / 2, Y_DECK / 2, (az + bz) / 2);
   }
 
@@ -1290,7 +1341,7 @@ export function buildAtrium(G) {
       if (!m.map) continue;
       m.map.offset.y = Math.sin(t * 0.055 + i * 1.7) * 0.004;
       m.map.offset.x = Math.cos(t * 0.041 + i) * 0.003;
-      const base = night ? .5 : .12;
+      const base = night ? WATER.emisN : WATER.emisD;
       m.emissiveIntensity = base * (1 + Math.sin(t * .5 + i * 2.1) * .07);
     }
   });
@@ -1326,7 +1377,7 @@ function buildSlab(parent, M, ax, az, bx, bz, yTop, isRoof) {
   /* wave B: with real boards hung below, the slab's underside is only seen
      through the 8 mm joints — the dark backing behind them */
   const soffit = HB.sof ? M.darkWall : retile(M.soffit, w / 5.0, d / 5.0, side);
-  const top = isRoof ? M.roofTop : retile(M.deck, w / 2.6, d / 2.6, side);
+  const top = isRoof ? M.roofTop : retile(M.deck, w / 2.6, d / 2.6, side, DECK_ENV);
   const edge = isRoof ? M.fascia : M.darkWall;
   const mats = [edge, edge, top, soffit, edge, edge];
   const m = new THREE.Mesh(boxGeo(w, SLAB, d), mats);
@@ -2126,6 +2177,6 @@ export function setAtriumNight(on) {
   // the ponds go from dark glass to true black mirror at night
   for (const m of waterMats) {
     m.roughness = on ? .012 : .025;
-    m.color.setHex(on ? 0xd8e4e0 : 0xffffff);
+    m.color.copy(on ? m.userData.colN : m.userData.colD);
   }
 }

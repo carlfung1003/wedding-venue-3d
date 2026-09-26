@@ -1938,7 +1938,7 @@
     "tris": 1656
   },
   "suite_soffit": {
-    "bytes": 143588,
+    "bytes": 233868,
     "front": "-Z",
     "material": "soffit",
     "min": [

@@ -1,5 +1,6 @@
-"""suite_soffit — the DARK TIMBER underside of the presidential suite's roofs and
-balcony (KAN-211 wave C).
+"""suite_soffit — the PALE TIMBER underside of the presidential suite's roofs
+and balcony (KAN-211 wave C; dark teak until the KAN-211 fix pass, 2026-09-25,
+when Carl said it is "white pale-ish" — see _arch.soffit_pale).
 
 Replaces the underside of js/suite.js's roof slab (MT.ceilingWarm, a pale
 plaster wafer), the two annex roofs' undersides, and the balcony slab's
@@ -38,7 +39,7 @@ BAL_Y = 3.05          # the balcony band's underside (suite_facade reads the sam
 
 def build():
     S = A.suite()
-    ced = A.soffit_teak("soffit")
+    ced = A.soffit_pale("soffit")
     parts = []
 
     def ring(name, x0, x1, z0, z1, y):
