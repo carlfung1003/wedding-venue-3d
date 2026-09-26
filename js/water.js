@@ -2895,6 +2895,35 @@ function buildRiver(G) {
    ⚠ It draws NO rnd() — the lobes are a fixed table. Both call sites sit
    inside seeded streams that must not shift. */
 function shadeTree(g, x, z, baseY, T, crownM) {
+  /* KAN-211 wave E: a RAIN TREE (generators/rain_tree.py, ASSET_SPEC Group O)
+     — a short trunk forking low into five spreading limbs under an umbrella
+     crown of leaf-spray cards over an opaque hull. Both GLBs are authored at
+     UNIT crown radius, so ONE uniform scale T.r places either tree (the two
+     T records share h / r = 1.07). The wood is a plain Mesh on MAT.darkWood —
+     the very program the old cylinder drew with; the crown is ONE-instance
+     InstancedMesh on leafMat('rain') — the palm fronds' instanced program.
+     The yaw comes from the position (no rnd(): both call sites sit inside
+     seeded streams). The four blobs below are the fallback. */
+  if (models.has('rain_tree') && models.has('rain_tree_leaves')
+    && models.geometry('rain_tree') && models.geometry('rain_tree_leaves')) {
+    const yaw = ((x * 1.37 + z * 2.11) % TAU + TAU) % TAU;
+    const wood = new THREE.Mesh(models.geometry('rain_tree'), MAT.darkWood);
+    wood.position.set(x, baseY, z);
+    wood.rotation.y = yaw;
+    wood.scale.setScalar(T.r);
+    wood.name = 'water:rainTreeWood';
+    g.add(wood);
+    const crown = new THREE.InstancedMesh(models.geometry('rain_tree_leaves'), leafMat('rain'), 1);
+    crown.setMatrixAt(0, new THREE.Matrix4().compose(
+      new THREE.Vector3(x, baseY, z),
+      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw),
+      new THREE.Vector3(T.r, T.r, T.r)));
+    crown.instanceMatrix.needsUpdate = true;
+    crown.computeBoundingSphere();
+    crown.name = 'water:rainTreeCrown';
+    g.add(crown);
+    return;
+  }
   const trunk = new THREE.Mesh(
     new THREE.CylinderGeometry(T.r * .062, T.r * .125, T.h * .62, 10), MAT.darkWood);
   trunk.position.set(x, baseY + T.h * .31, z);
@@ -2908,6 +2937,10 @@ function shadeTree(g, x, z, baseY, T, crownM) {
     g.add(blob);
   }
 }
+
+/* KAN-211 wave E: the island bar's lining at night — emissive × RC.lampWarm on
+   its baked thatch map (the disc it replaces glowed 1.6 on a flat brown) */
+const ISLAND_SOFFIT_GLOW = 0.4;
 
 /* ── islands, the round island bar, the east pool's centre feature ──────── */
 function buildRiverIslands(G, g, basins, R, L) {
@@ -3025,10 +3058,34 @@ function buildRiverIslands(G, g, basins, R, L) {
     color: 0x6b4a30, roughness: .9, side: THREE.DoubleSide,
     emissive: RC.lampWarm, emissiveIntensity: 0,
   });
-  const soffit = new THREE.Mesh(new THREE.CircleGeometry(BA.r * .9, 14), soffitM);
-  soffit.rotation.x = Math.PI / 2;
-  soffit.position.set(BA.cx, BA.h - .32, BA.cz);
-  g.add(soffit);
+  /* KAN-211 wave E: the palapa's UNDERSIDE (ASSET_SPEC Group O) replaces the
+     flat disc — `island_bar_soffit`, a raked thatch lining from the annulus
+     edge (r 4.93, y 3.062) up under the roof's pitch to a crown at 4.47, and
+     `island_bar_soffit_rafters`, 16 bamboo rafters + three purlin rings + the
+     crown hub. The night glow stays: the LINING's own baked material takes
+     the disc's emissive colour and intensity (a uniform — the non-instanced
+     baked-map program island_bar already compiles), the rafters stay dark
+     against it. The disc is the fallback. */
+  if (have('island_bar_soffit') && have('island_bar_soffit_rafters')) {
+    const lin = mdl('island_bar_soffit');
+    lin.position.set(BA.cx, 0, BA.cz);
+    g.add(lin);
+    const raf = mdl('island_bar_soffit_rafters');
+    raf.position.set(BA.cx, 0, BA.cz);
+    g.add(raf);
+    const lm = models.material('island_bar_soffit');
+    if (lm && !lm.userData.kan211e) {
+      lm.userData.kan211e = true;
+      lm.emissive.copy(RC.lampWarm);
+      lm.emissiveIntensity = 0;
+      nightBits.push(on => { lm.emissiveIntensity = on ? ISLAND_SOFFIT_GLOW : 0; });
+    }
+  } else {
+    const soffit = new THREE.Mesh(new THREE.CircleGeometry(BA.r * .9, 14), soffitM);
+    soffit.rotation.x = Math.PI / 2;
+    soffit.position.set(BA.cx, BA.h - .32, BA.cz);
+    g.add(soffit);
+  }
   /* ⚠ THE SOFFIT STAYS THE GAME'S — it is the river's ONE warm light at night,
      and a baked atlas cannot be emissive. That is also why the GLB's thatch
      closes at the eaves with an ANNULUS down to r 4.90 rather than a disc:

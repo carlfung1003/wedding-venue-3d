@@ -1556,8 +1556,23 @@ const HEDGE_PROTO = {
 const WAVE4_PROTO = {
   casuLeafI: ['casuarina_tier', 1],
   bougain: ['shrub_core', .5], bougI: ['shrub_core', .5], subBougI: ['shrub_core', .5],
+  /* KAN-211 wave E: the sea band's accents. `agaveI` — each of a rosette's
+     eight cone instances becomes a FAN OF THREE keeled blades (`agave_leaf`,
+     in ConeGeometry(.5, 1)'s exact envelope) on agaveMat, same matrices, same
+     rndB() draws. `crotonI` — the flat orange blob becomes the shrub core
+     (.5 clone, UNIT_BLOB is r .5) on crotonMat with its per-instance mottle,
+     plus a croton leaf-card fringe (croton_leaf.webp) on the same matrices. */
+  agaveI: ['agave_leaf', 1],
+  crotonI: ['shrub_core', .3],     // a SMALL core: the croton is its cards (see FRINGE_VARIANTS)
+  /* and the arrival terrace's planted batter (its green blobs; see retain()) */
+  arrBatterShrubI: ['shrub_core', .5],
 };
-const WAVE4_FRINGE = { bougain: 'boug', bougI: 'boug', subBougI: 'boug' };
+/* the croton's blob is tall and stands off the ground, so its cards reach
+   down its flank (croton_fringe: 26 cards to y −.8, the same lobes) */
+const FRINGE_VARIANTS = { crotonI: ['croton_fringe'] };
+const WAVE4_FRINGE = {
+  bougain: 'boug', bougI: 'boug', subBougI: 'boug', crotonI: 'croton', arrBatterShrubI: 'shrub',
+};
 /* …and the bougainvillea CORE trades MAT.bougain (a flat-shaded solid pink —
    under the cards it still read as a pink plastic ball, and it is shared with
    the band's guitarist, so it is not ours to change) for nature.js's own
@@ -1585,7 +1600,7 @@ function flushBuckets(parent) {
     if (proto && models.has(proto) && models.geometry(proto)) b.geo = models.geometry(proto);
     const p4 = WAVE4_PROTO[key], g4 = p4 && protoGeo(p4[0], p4[1]);
     if (g4) b.geo = g4;
-    if (g4 && WAVE4_FRINGE[key]) b.mat = bougPhotoMat();
+    if (g4 && WAVE4_FRINGE[key] === 'boug') b.mat = bougPhotoMat();
     const im = new THREE.InstancedMesh(b.geo, b.mat, b.ms.length);
     im.name = 'campus:' + key;
     for (let i = 0; i < b.ms.length; i++) {
@@ -1597,8 +1612,8 @@ function flushBuckets(parent) {
     im.computeBoundingSphere();
     parent.add(im);
     if (g4 && WAVE4_FRINGE[key]) {
-      fringeFor(im, ['shrub_fringe', 'shrub_fringe_b'], leafMat(WAVE4_FRINGE[key]), parent,
-        'campus:' + key + 'Fringe', .5);
+      fringeFor(im, FRINGE_VARIANTS[key] || ['shrub_fringe', 'shrub_fringe_b'],
+        leafMat(WAVE4_FRINGE[key]), parent, 'campus:' + key + 'Fringe', .5);
     }
   }
   BUCKETS.clear();
@@ -2296,11 +2311,19 @@ function buildGrassGround(G) {
       mat4(FP.cx, .10, FP.cz, FP.w - .9, .06, FP.w - .9));
   }
 
-  /* ── two teak benches at the seaward edge, facing the water ── */
+  /* ── two teak benches at the seaward edge, facing the water ──
+     KAN-211 wave E: `garden_bench` (a backless slatted teak bench, ASSET_SPEC
+     Group O) authored at exactly the old boxes' envelope — 1.90 × .50, seat
+     top .475 — one identity-scale instance each. The collider is unchanged;
+     the boxes are the fallback. */
   for (const bx of [BL.x0 + 5, BL.x1 - 3]) {
-    inst('benchI', UNIT_BOX, MAT.deck, mat4(bx, .43, BL.z1 - 1.6, 1.9, .09, .5));
-    for (const s of [-1, 1]) {
-      inst('benchI', UNIT_BOX, MAT.deck, mat4(bx + s * .78, .21, BL.z1 - 1.6, .12, .43, .44));
+    if (have('garden_bench')) {
+      modelI('benchGlbI', 'garden_bench', mat4(bx, 0, BL.z1 - 1.6, 1, 1, 1));
+    } else {
+      inst('benchI', UNIT_BOX, MAT.deck, mat4(bx, .43, BL.z1 - 1.6, 1.9, .09, .5));
+      for (const s of [-1, 1]) {
+        inst('benchI', UNIT_BOX, MAT.deck, mat4(bx + s * .78, .21, BL.z1 - 1.6, .12, .43, .44));
+      }
     }
     G.colliders.push({ x: bx, z: BL.z1 - 1.6, r: .95 });
   }
@@ -2331,10 +2354,16 @@ function buildGrassGround(G) {
       [COCK_X + 4.0, BL.x1],
     ];
     /* builder-local materials, house style */
+    /* KAN-211 wave E: agave a shade bluer and deeper (the glaucous Agave
+       americana of the clips — the faceted keeled blades now carry the form,
+       the old pale 0x74936c read as paper); the croton core's base drops to a
+       mid grey-brown so its instance mottle sits UNDER the leaf-card fringe
+       (a bright core read through the cards as a yellow lump). Both are
+       uniforms — no program change, no rndB() change. */
     const agaveMat = tint(new THREE.MeshStandardMaterial({
-      color: 0x74936c, roughness: .9, flatShading: true }), 0x5c6b86);
+      color: 0x648a7c, roughness: .9, flatShading: true }), 0x5c6b86);
     const crotonMat = tint(new THREE.MeshStandardMaterial({
-      color: 0xffffff, roughness: .92, flatShading: true }), 0x5c6b86);
+      color: 0x4a4238, roughness: .92, flatShading: true }), 0x5c6b86);
     const casuBark = tint(new THREE.MeshStandardMaterial({
       color: 0x4c4238, roughness: .95 }), 0x6a7286);
     /* ⚠ The needle mass is an ALPHA-CUT map, not a solid colour, and it is built
@@ -2585,6 +2614,10 @@ function buildSign(G, root) {
    ════════════════════════════════════════════════════════════════════════ */
 /* KAN-211 wave D: the 酒廊 floor's own env level (day, night) — see buildArrival §D */
 const LOUNGE_FLOOR_ENV = [0.30, 0.20];
+/* KAN-211 wave E: the check-in lobby's floor — same boards, own envMap, its own
+   day colour (a linear multiply on floor_teak; measured, see buildArrival §F) */
+const LOBBY_FLOOR_ENV = [0.20, 0.14];
+const LOBBY_FLOOR_TINT = 0xedcc8f;
 /* KAN-211 wave D: the breakfast room's interior buckets hide past this distance
    (m, camera → room centre, in plan) — see buildArrival §D */
 const LOUNGE_CULL_D = 38;
@@ -2754,10 +2787,24 @@ function buildArrival(G, g, rnd) {
       const pz = z1 + (z2 - z1) * t + nz * (.6 + AR.batter / 2);
       inst('arrHedgeI', UNIT_BOX, MAT.hedge,
         mat4(px, TY * .32, pz, AR.batter, TY * .64, len / n - .1, ry));
-      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat,
-        mat4(px + nx * .7, TY * .62 + rnd() * .3, pz + nz * .7,
-          1.1 + rnd() * .6, .8 + rnd() * .4, 1.1 + rnd() * .6),
-        new THREE.Color([0x4f7a3c, 0x5e2531, 0x49703a][Math.floor(rnd() * 3)]));
+      /* KAN-211 wave E: the batter's blobs take the court's own planting
+         language — the maroon ones (ci 1) the `cordyline_clump` prototype
+         (the beds' arrCordyGlbI pair: same geometry, same MAT.plantFlat), the
+         green ones the shrub CORE + a leaf-card FRINGE (key arrBatterShrubI,
+         swapped at flush like the wave-4 bougainvillea). SAME rnd() draws in
+         the SAME order (the matrix's four, then the colour's), same matrix,
+         same colour — only the key, and so the prototype, changes. */
+      const bm = mat4(px + nx * .7, TY * .62 + rnd() * .3, pz + nz * .7,
+        1.1 + rnd() * .6, .8 + rnd() * .4, 1.1 + rnd() * .6);
+      const ci = Math.floor(rnd() * 3);
+      const bcol = new THREE.Color([0x4f7a3c, 0x5e2531, 0x49703a][ci]);
+      if (ci === 1 && have('cordyline_clump')) {
+        inst('arrCordyGlbI', models.geometry('cordyline_clump'), MAT.plantFlat, bm, bcol);
+      } else if (ci !== 1 && protoGeo('shrub_core', .5)) {
+        inst('arrBatterShrubI', UNIT_BLOB, MAT.plantFlat, bm, bcol);
+      } else {
+        inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, bm, bcol);
+      }
     }
     colliderLine(C, x1, z1, x2, z2, .4);
   };
@@ -2954,13 +3001,21 @@ function buildArrival(G, g, rnd) {
     frangipani(AR.bedX0 + 5.6, bc, TY);
     /* the white bowl planter with its variegated dracaena, on the stair apron */
     const px = AR.stair.x1 + 1.0, pz = bc + (bi === 0 ? .35 : -.35);
-    inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(px, TY + .3, pz, 1.0, .6, 1.0));
-    inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk, mat4(px, TY + 1.0, pz, .08, .9, .08),
-      new THREE.Color(0x6a5540));
-    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px, TY + 1.6, pz, .95, .8, .95),
-      new THREE.Color(0xb4c878));
-    inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px + .25, TY + 1.42, pz - .2, .6, .55, .6),
-      new THREE.Color(0x93ab5a));
+    /* KAN-211 wave E: `dracaena_pot` (ASSET_SPEC Group O) — the egg bowl, four
+       canes and a dense whorled head of Song-of-India strap leaves, baked, ONE
+       instance at the same foot; the pair mirror each other (yaw 0 / π). No
+       rnd() was ever drawn here; the collider is unchanged. */
+    if (have('dracaena_pot')) {
+      modelI('arrDracGlbI', 'dracaena_pot', mat4(px, TY, pz, 1, 1, 1, bi === 0 ? 0 : Math.PI));
+    } else {
+      inst('arrWhiteCylI', UNIT_CYL, MAT.white, mat4(px, TY + .3, pz, 1.0, .6, 1.0));
+      inst('arrTrunkI', UNIT_CYL, MAT.arrTrunk, mat4(px, TY + 1.0, pz, .08, .9, .08),
+        new THREE.Color(0x6a5540));
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px, TY + 1.6, pz, .95, .8, .95),
+        new THREE.Color(0xb4c878));
+      inst('arrPlantI', UNIT_BLOB, MAT.plantFlat, mat4(px + .25, TY + 1.42, pz - .2, .6, .55, .6),
+        new THREE.Color(0x93ab5a));
+    }
     C.push({ x: px, z: pz, r: .55 });
   }
 
@@ -3378,6 +3433,28 @@ function buildArrival(G, g, rnd) {
   const lcx = (LB.x0 + LB.x1) / 2, lcz = (LB.z0 + LB.z1) / 2;
   const lw = LB.x1 - LB.x0, ld = LB.z1 - LB.z0;
   MAT.lobbyFloor.map.repeat.set(lw / 2.0, ld / 2.0);
+  /* KAN-211 wave E: the lobby floor was still the salmon canvas boards. It takes
+     the 酒廊's wave-D recipe — floor_teak.webp (~1.8 m a tile), its OWN envMap
+     (the same scene.environment texture: same program) so the env level binds
+     — plus a day colour graded to the lobby's own glossy reddish-brown timber
+     (f_023, the boards round the rug in shade: median (90, 54, 36)). The night
+     tint entry is re-based on the new day colour, so night stays the same
+     multiplier it was. */
+  if (haveSlat) {
+    photoTex(MAT.lobbyFloor, 'floor_teak.webp', [lw / 1.8, ld / 1.8]);
+    const e = NIGHT.tint.find(t => t.mat === MAT.lobbyFloor);
+    const c = new THREE.Color(LOBBY_FLOOR_TINT);
+    MAT.lobbyFloor.color.copy(c);
+    if (e) {                       // n = nightHex × d, so re-base it on the new d
+      e.n.setRGB(e.n.r / (e.d.r || 1) * c.r, e.n.g / (e.d.g || 1) * c.g, e.n.b / (e.d.b || 1) * c.b);
+      e.d.copy(c);
+    }
+    if (G.scene.environment) {
+      MAT.lobbyFloor.envMap = G.scene.environment;
+      MAT.lobbyFloor.envMapIntensity = LOBBY_FLOOR_ENV[0];
+      NIGHT.env.push({ mat: MAT.lobbyFloor, d: LOBBY_FLOOR_ENV[0], n: LOBBY_FLOOR_ENV[1] });
+    }
+  }
   box(g, lw, .1, ld, lcx, LY - .05, lcz, MAT.lobbyFloor);
   box(g, lw - .3, .1, ld - .3, lcx, LY + AR.lobbyH - .06, lcz, haveSlat ? MAT.dark : MAT.slatCeil);
   if (haveSlat) slatCeiling(lcx - (lw - .3) / 2, lcx + (lw - .3) / 2, lcz - (ld - .3) / 2, lcz + (ld - .3) / 2,
@@ -5994,10 +6071,18 @@ function buildSecondPoolPavilion(G) {
         4.1 m of an 18.8 m crossing). ── */
   for (const s of [-1, 1]) {
     const bx = PV.cx + s * (hx - 1.05), bz = PV.cz - 1.9;
-    inst('spSlatI', UNIT_BOX, MAT.slatWarm, mat4(bx, PV.plY + .40, bz, .62, .11, 2.6));
-    for (const t of [-1, 1]) {
-      inst('spDarkI', UNIT_BOX, MAT.dark,
-        mat4(bx, PV.plY + .19, bz + t * 1.02, .5, .38, .12));
+    /* KAN-211 wave E: the same `garden_bench` GLB as the lawn's, turned π/2
+       and scaled to this seat's own envelope (2.6 long × .62 deep, top at
+       plY + .455); the colliders below are untouched */
+    if (have('garden_bench')) {
+      modelI('spBenchGlbI', 'garden_bench',
+        mat4(bx, PV.plY, bz, 2.6 / 1.9, .455 / .475, .62 / .5, Math.PI / 2));
+    } else {
+      inst('spSlatI', UNIT_BOX, MAT.slatWarm, mat4(bx, PV.plY + .40, bz, .62, .11, 2.6));
+      for (const t of [-1, 1]) {
+        inst('spDarkI', UNIT_BOX, MAT.dark,
+          mat4(bx, PV.plY + .19, bz + t * 1.02, .5, .38, .12));
+      }
     }
     G.colliders.push({ x: bx, z: bz, r: .5 });
     G.colliders.push({ x: bx, z: bz + 1.0, r: .45 });

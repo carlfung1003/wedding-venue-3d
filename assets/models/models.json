@@ -1,4 +1,21 @@
 {
+  "agave_leaf": {
+    "bytes": 2476,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -1.428,
+      -0.5,
+      1.103
+    ],
+    "origin": "centre",
+    "size": [
+      2.852,
+      1.136,
+      0.482
+    ],
+    "tris": 72
+  },
   "arch_frame": {
     "bytes": 10556,
     "front": "-Z",
@@ -662,6 +679,23 @@
     ],
     "tris": 1112
   },
+  "chair_slipcover": {
+    "bytes": 30724,
+    "front": "+Z",
+    "material": "chair_slipcover",
+    "min": [
+      -0.251,
+      0.355,
+      -0.339
+    ],
+    "origin": "floor",
+    "size": [
+      0.498,
+      0.75,
+      0.189
+    ],
+    "tris": 584
+  },
   "champagne_service": {
     "bytes": 51192,
     "front": "-Z",
@@ -900,6 +934,23 @@
     ],
     "tris": 1512
   },
+  "croton_fringe": {
+    "bytes": 2460,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -0.945,
+      -0.898,
+      -1.07
+    ],
+    "origin": "centre",
+    "size": [
+      2.028,
+      1.868,
+      2.018
+    ],
+    "tris": 80
+  },
   "cupcake_stand": {
     "bytes": 20940,
     "front": "-Z",
@@ -1019,6 +1070,23 @@
     ],
     "tris": 12
   },
+  "dracaena_pot": {
+    "bytes": 78492,
+    "front": "-Z",
+    "material": "dracaena_pot",
+    "min": [
+      -0.553,
+      0.0,
+      -0.574
+    ],
+    "origin": "floor",
+    "size": [
+      1.107,
+      2.166,
+      1.147
+    ],
+    "tris": 4514
+  },
   "drink_dispenser": {
     "bytes": 13028,
     "front": "-Z",
@@ -1103,6 +1171,23 @@
       5.38
     ],
     "tris": 200
+  },
+  "garden_bench": {
+    "bytes": 16904,
+    "front": "-Z",
+    "material": "teak_grain",
+    "min": [
+      -0.95,
+      0.0,
+      -0.25
+    ],
+    "origin": "floor",
+    "size": [
+      1.9,
+      0.475,
+      0.5
+    ],
+    "tris": 568
   },
   "hat_rack": {
     "bytes": 92508,
@@ -1256,6 +1341,40 @@
       11.7
     ],
     "tris": 3702
+  },
+  "island_bar_soffit": {
+    "bytes": 291648,
+    "front": "-Z",
+    "material": "soffit_thatch",
+    "min": [
+      -4.93,
+      3.062,
+      -4.93
+    ],
+    "origin": "floor",
+    "size": [
+      9.86,
+      1.428,
+      9.86
+    ],
+    "tris": 624
+  },
+  "island_bar_soffit_rafters": {
+    "bytes": 49800,
+    "front": "-Z",
+    "material": "rafter_bamboo",
+    "min": [
+      -4.833,
+      2.966,
+      -4.834
+    ],
+    "origin": "floor",
+    "size": [
+      9.666,
+      1.477,
+      9.668
+    ],
+    "tris": 1468
   },
   "kayak": {
     "bytes": 11640,
@@ -1783,6 +1902,40 @@
       3.106
     ],
     "tris": 576
+  },
+  "rain_tree": {
+    "bytes": 13324,
+    "front": "-Z",
+    "material": "bark",
+    "min": [
+      -0.502,
+      -0.006,
+      -0.606
+    ],
+    "origin": "floor",
+    "size": [
+      1.074,
+      1.047,
+      1.056
+    ],
+    "tris": 2254
+  },
+  "rain_tree_leaves": {
+    "bytes": 24028,
+    "front": "-Z",
+    "material": "leaf",
+    "min": [
+      -1.113,
+      0.496,
+      -1.163
+    ],
+    "origin": "floor",
+    "size": [
+      2.198,
+      1.135,
+      2.331
+    ],
+    "tris": 1440
   },
   "roof_parasol": {
     "bytes": 12400,

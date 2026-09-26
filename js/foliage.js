@@ -42,6 +42,11 @@ const LEAF = {
   /* KAN-211 wave A2: the arrival court's frangipani rosettes (pink + white
      flowers on the card — keyed off cobalt, like boug) */
   frangi: { file: 'frangipani_leaf.webp', day: 0xc4d2b4, night: 0x445c74, fb: ['#4f7d38', '#35592a'] },
+  /* KAN-211 wave E: the sea band's croton fringe (green / yellow / orange /
+     burgundy leaves, keyed off cobalt) and the two shade trees' crowns
+     (rain_tree_leaf.webp — a Samanea spray, magenta-keyed) */
+  croton: { file: 'croton_leaf.webp', day: 0xf2f2ea, night: 0x4d5a70, fb: ['#7a6a2c', '#3d4a24'] },
+  rain:   { file: 'rain_tree_leaf.webp', day: 0xd6e2c8, night: 0x3a506a, fb: ['#3f6a30', '#2c4d24'] },
 };
 const MATS = {};
 let night = false;
@@ -58,7 +63,7 @@ function fallbackTex(c0, c1) {
   return t;
 }
 
-/** the ONE shared leaf-card material for `key` ('shrub' | 'boug') */
+/** the ONE shared leaf-card material for `key` ('shrub' | 'boug' | 'frangi' | 'croton' | 'rain') */
 export function leafMat(key) {
   if (MATS[key]) return MATS[key];
   const L = LEAF[key];

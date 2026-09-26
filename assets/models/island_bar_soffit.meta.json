@@ -1,0 +1,17 @@
+{
+  "bytes": 291648,
+  "front": "-Z",
+  "material": "soffit_thatch",
+  "min": [
+    -4.93,
+    3.062,
+    -4.93
+  ],
+  "origin": "floor",
+  "size": [
+    9.86,
+    1.428,
+    9.86
+  ],
+  "tris": 624
+}

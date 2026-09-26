@@ -1,0 +1,17 @@
+{
+  "bytes": 49800,
+  "front": "-Z",
+  "material": "rafter_bamboo",
+  "min": [
+    -4.833,
+    2.966,
+    -4.834
+  ],
+  "origin": "floor",
+  "size": [
+    9.666,
+    1.477,
+    9.668
+  ],
+  "tris": 1468
+}

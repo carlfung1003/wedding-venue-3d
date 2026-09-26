@@ -618,13 +618,70 @@ OWN envMap at (.30 day, .20 night) so the level binds (FIX PASS finding).
    atlas is ~85 px/m (the longest-island rule); a repeating photograph on the
    existing map costs nothing and keeps board-scale detail.
 
+### Group O — the quick-win props (KAN-211 wave E): sea-band accents, the two shade trees, brunch slipcovers, benches, the island bar's underside, the arrival's dracaena
+
+Two kinds, as in Groups H / J and I: GEOMETRY-ONLY prototypes on the game's own
+materials (no program added, matrices + rnd() untouched), and BAKED props (the
+instanced baked-map program, or — the island bar — the non-instanced baked-map
+program `island_bar` already compiles). Programs stay **113** at every view.
+
+| name | kind · frame · inst | replaces | what is modelled (reference) | keys / material | atlas | tris |
+|---|---|---|---|---|---|---|
+| `agave_leaf` | GEOMETRY ONLY · UNIT_CONE envelope (ConeGeometry(.5, 1)) · 48 (6 rosettes × 8) | campus `agaveI` — flush-time swap by key (`WAVE4_PROTO.agaveI`), every matrix + rndB() draw unchanged | a FAN of three thick keeled, channelled blades (main + two ±30° side blades) from ONE base point. ⚠ The frame: each cone instance is centred on the rosette's axis and tilted about its own middle, so a blade from the envelope's base would start BEHIND the centre and cross it (the old "skirt"). The blade is modelled in the instance's local metres for the mean instance (h .77, θ .72) with its base at B = (0, −.38h cos θ, .38h sin θ) — the rosette centre on the ground — and divided by (.16, h, .16) into the unit frame; a buried stub runs from B to y −.5 so the UNtilted centre instance still meets the ground (~13 cm of stalk) | agaveMat (flat-shaded, no map), now 0x648a7c (bluer, deeper — was 0x74936c "paper") | — | 72 (was 20) |
+| `croton_fringe` | GEOMETRY ONLY · unit blob (shrub_core's lobes, seed "shrub") · 4 | the croton leaf-card fringe (`campus:crotonIFringe`, born in flushBuckets on the core's matrices) | 40 alpha-cut cards reaching down to y −.8 (the croton blob is TALL and its lower third stands clear of the ground — shrub_fringe's cap cards left the flank bare), tilt .1–.7 so the broad faces show | leafMat('croton') → `assets/textures/croton_leaf.webp` (generated, cobalt-keyed `--mode flat`) | — | 80 |
+| (`shrub_core` @ .3) | GEOMETRY ONLY · existing GLB | campus `crotonI` (UNIT_BLOB) | a SMALL core so the croton is its cards; crotonMat's base 0xffffff → 0x4a4238 so the per-instance mottle sits as shadow under them (a bright core read through the cards as a yellow lump) | crotonMat + instance colours (unchanged) | — | 80 (was 80) |
+| `rain_tree` + `rain_tree_leaves` | GEOMETRY ONLY · UNIT CROWN RADIUS, origin trunk foot · 1 + 1 per tree, uniform scale T.r | water.js `shadeTree()` — the four IcosahedronGeometry crown blobs + the cylinder trunk (beach pool NW tree T {r 8.4, h 9.0}; lagoon island T {r 4.1, h 4.4} — same h/r 1.07, so ONE uniform scale) | a Samanea / rain tree: a short trunk (buttress flare) forking at .30 into five massive low-spreading limbs, each forking twice (36 tubes, 7 sides); an umbrella crown of 560 leaf-spray cards over a lumpy dome of 12 lobes (squashed .80 above / .55 below the centre), 100 of them a drooping skirt at the rim, over an OPAQUE inner hull (icosphere d2 at 84 % of the lobe union) whose UVs all sample the card's centre (measured ≥ 99.5 % opaque) so no sky shows through the middle. Card normals radial-out-and-down (wave 2 lesson 3) | wood: plain Mesh on water.js MAT.darkWood (the old trunk's program); crown: 1-instance InstancedMesh on leafMat('rain') → `assets/textures/rain_tree_leaf.webp` (generated, magenta-keyed) — the palm fronds' program | — | 2,254 + 1,440 |
+| `chair_slipcover` | baked · the CHAIR's frame (chair_drape rule, FRONT +Z) · 32 | moments.js brunch: per chair a .50 × .50 × .10 linen box + a .52 × .08 × .12 blush box (64 plain meshes) | a fitted linen SLEEVE over dining_chair_rattan's back (stiles ±.18, bow .028, rail 1.015…1.075, panel .565….965, cushion top .58): superellipse section ±.232….245 lateral, 45 mm in front / 65–80 mm behind the back plane, crown 1.105 over the rail, hem .62 at the front → .47 behind, soft vertical folds growing to the hem; a blush SASH at .705….765 with a bow (knot + two loops) and two tails behind | `slip_linen` (linen_ivory.webp → ivory × .93), `blush` #d9a3a8 | 512 | 584 |
+| `garden_bench` | baked · floor centre, front −Z · 2 (lawn, `benchGlbI`, scale 1) + 2 (second-pool pavilion, `spBenchGlbI`, ry π/2, scale 2.6/1.9 × .455/.475 × .62/.5) | campus lawn `benchI` (1.9 × .09 × .5 seat + two .12 × .43 × .44 blocks) and the pavilion's `spSlatI` seat + 2 `spDarkI` blocks | a backless slatted teak bench at exactly the lawn box's envelope (1.90 × .50, seat top .475): 7 slats with 12 mm open joints, two aprons, two trestle ends (square legs, top cross rail, foot rail), a long stretcher. Colliders unchanged at both sites | `teak_grain` (oak_light.webp → `teak` #a07650 × (.62, .50, .40)) | 512 | 568 |
+| `island_bar_soffit` + `_rafters` | baked · island_bar's frame (origin floor centre on (BA.cx, BA.cz)) · 1 + 1 (clones) | water.js's flat CircleGeometry(5.04) soffit at 3.08 (kept as the fallback) | the LINING: a raked surface under the thatch — flat from the annulus edge (r 4.93, y 3.062) to r 4.2 (3.10), then the roof's own pitch (.376) up to a closed crown at 4.47; ≥ .12 m under every ragged fringe tip of island_bar's courses (they hang up to .34 below their course line); `thatch_palm.webp` slant-mapped, darker; normals DOWN. The RAFTERS: 16 bamboo poles just under the lining from the ring beam to the crown hub, three purlin rings, the hub | lining `soffit_thatch` (thatch_palm → straw_d × (.34, .27, .21)); rafters `rafter_bamboo` (oak_light → `bamboo` #9a7a50) | 1024 | 624 + 1,468 |
+| `dracaena_pot` | baked · floor centre on the bowl's foot · 2 (`arrDracGlbI`, yaw 0 / π) | campus arrival: `arrWhiteCylI` bowl (r .5 × .6), `arrTrunkI` cane, two `arrPlantI` blobs per planter | entrance-arrival-brief §1 / f_005–f_013: a matte-white EGG bowl (Ø .80, .555 tall) with a dark soil top, four slim grey canes (to 1.5…2.0 m) each forking into two side shoots → 12 growing tips, each a dense whorl of 38 arching strap leaves (Dracaena reflexa "Song of India"), both faces, in three greens. Collider (r .55) unchanged | `planter_w`, `soil`, `cane`, `drac_g/_y/_l` | 512 | 4,514 |
+
+Also this wave, not GLBs:
+- **The batter planting** (campus `retain()`): the blobs keep their matrix,
+  colour and rnd() draws (four for the matrix, then one for the colour — same
+  order); the maroon ones (ci 1) join the beds' `arrCordyGlbI` pair
+  (cordyline_clump on MAT.plantFlat — the SAME pair, so the key is reused), the
+  green ones take the new key `arrBatterShrubI` → `shrub_core` @ .5 at flush +
+  a shrub_fringe a/b fringe on leafMat('shrub').
+- **`assets/textures/frangipani_leaf.webp` re-derived PINK**
+  (`derive_frangi_pink.py`, from the ORIGINAL at 40fdfae): every flower texel
+  (red ≥ green and bright, or near-white) pulled to rose pink (176, 70, 96)
+  keeping its own shading and the yellow throats; leaves and alpha untouched.
+  Measured flower texels (177.7, 78, 101.1) against f_005/f_007/f_009's
+  (190,112,122) / (183,94,104) / (192,83,100).
+- **The lobby floor** (MAT.lobbyFloor): `floor_teak.webp` + its OWN envMap
+  (.20 day / .14 night) + a day colour 0xedcc8f (linear multiply), the night
+  tint entry re-based on it. Render (91, 52, 39) vs f_023's boards (90, 54, 36).
+- **Festoon posts** (moments.js `festoonPost()`): K.dark instances (pole Ø 64 mm
+  to 60 mm over the cable, foot plate, collar, cap, eye-hook) at every
+  prewedding / after-party run's far end; colliders only for the 3 past the
+  pool plinth's end (`postCollider()`).
+
+**Textures (`venue-arch`, 2 × 1K, ~$0.27):** `croton_leaf.webp` (manifest
+`croton_leaf_card`), `rain_tree_leaf.webp` (`rain_tree_leaf_card`). Everything
+else reused or derived.
+
+⚠ **Group O lessons:**
+1. **A unit-envelope prototype inherits its call site's PIVOT.** The agave's
+   cones were centred on the rosette and tilted about their middles — a correct
+   blade has to be authored where that matrix puts the ground at the rosette's
+   centre, in metres for the mean instance, then divided into the unit frame.
+   Rotating a blade about unit-space y does NOTHING to its direction when
+   x/z are scaled .16 and y .77: side blades need their splay computed in
+   metres too.
+2. **A fringe on a tall blob needs cards down its flank** (croton_fringe,
+   ymin −.8), and a core that is darker AND smaller than the card envelope.
+3. **An emissive uniform on a baked map flattens the texture at night** (the
+   island bar lining) — the rafters are a separate GLB precisely so they stay
+   dark silhouettes against the glow.
+
 ## What is deliberately NOT in this wave
 
 (Palms, hedges and topiary are Group H since KAN-208 wave 2 — their PROTOTYPES;
 the `nature.js` scatter itself is still procedural; the shrub / bougainvillea /
 ground-cover blobs, the river dressing's shrubs, the casuarina tiers and — via
 Group H's prototypes — the atrium's cloud topiary are Group J since wave 4. The
-shade-tree crowns, the croton and agave accents are still primitives.) The buildings; the
+shade-tree crowns, the croton and agave accents are Group O since KAN-211 wave E.) The buildings; the
 floating lanterns and loungers in `water.js`; the campus furniture (rooftop
 four-tops, bar-room dining, check-in lobby); the welcome board (kept procedural —
 the art pass supplies a better board face — its frame + foot are Group I since

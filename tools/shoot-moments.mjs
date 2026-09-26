@@ -580,6 +580,64 @@ const VIEWS = [
   ['archD-pergola-below', 2, { world: `(() => { const LK = S.SITE.ARRIVAL.LINK;
     const c = S.enclaveToWorld(24.5, -1.0), t = S.enclaveToWorld(17, (LK.z0 + LK.z1) / 2);
     return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .30 }],
+  /* ── KAN-211 WAVE E — the quick-win props: the sea band's agave + croton,
+        the two rain trees, the brunch slipcovers, the benches, the island
+        bar's underside (+ night), the festoon run ends on their posts (day +
+        night), the arrival's dracaena bowls + batter + frangipani, the lobby
+        floor. Fixed WORLD cameras (the sea band and the pavilion bench read
+        once off the pre-wave build) so the same camera stands in both. ── */
+  ['waveE-agave', 3, { world: `({ x: -106.8, z: 58.9, y: 0, lookX: -109.0, lookZ: 59.8 })` }, { pitch: -.42 }],
+  ['waveE-agave-band', 3, { world: `({ x: -104.2, z: 54.5, y: 0, lookX: -109.6, lookZ: 66.5 })` }, { pitch: -.10 }],
+  ['waveE-croton-sand', 3, { world: `({ x: -114.4, z: 60.3, y: S.siteFloorY(-114.4, 60.3), lookX: -111.4, lookZ: 61.0 })` }, { pitch: -.22 }],
+  ['waveE-croton-lawn', 3, { world: `({ x: -105.6, z: 67.2, y: 0, lookX: -111.4, lookZ: 69.2 })` }, { pitch: -.06 }],
+  ['waveE-tree-beach', 2, { world: `(() => { const W = S.SITE.RIVER.WEST, T = W.TREE;
+    const tx = W.cx + T.dx * W.r, tz = W.cz + T.dz * W.r;
+    return { x: -62.0, z: -9.0, y: 0, lookX: tx, lookZ: tz }; })()` }, { pitch: .14 }],
+  ['waveE-tree-beach-under', 2, { world: `(() => { const W = S.SITE.RIVER.WEST, T = W.TREE;
+    const tx = W.cx + T.dx * W.r, tz = W.cz + T.dz * W.r, L = Math.hypot(tx - W.cx, tz - W.cz);
+    const ux = (tx - W.cx) / L, uz = (tz - W.cz) / L;
+    return { x: W.cx + ux * 22, z: W.cz + uz * 22, y: 0, lookX: W.cx, lookZ: W.cz }; })()` }, { pitch: .34 }],
+  ['waveE-tree-lagoon', 2, { world: `(() => { const L = S.SITE.LAGOON, I = S.SITE.RIVER.ISLAND;
+    return { x: L.cx, z: L.cz - L.rz - 1.8, y: 0, lookX: L.cx + L.rx * I.dx, lookZ: L.cz + L.rz * I.dz }; })()` }, { pitch: .10 }],
+  ['waveE-brunch-slips', 0, { world: `(() => {
+    const R = S.SITE.HOTEL.ROOFTOP, t = S.HOTEL_ROOF.brunchTables[3], p = S.HOTEL_ROOF.pt(t.th, t.r);
+    const acx = S.SITE.HOTEL.cx - S.SITE.HOTEL.r, acz = S.SITE.HOTEL.cz;
+    let best = null;
+    for (let c = 0; c < 4; c++) { const ca = c * Math.PI / 2 + .4;
+      const x = p.x + Math.cos(ca) * 2.6, z = p.z - Math.sin(ca) * 2.6, d = Math.hypot(x - acx, z - acz);
+      if (!best || d > best.d) best = { x, z, d }; }
+    return { x: best.x, z: best.z, y: R.deckY, lookX: p.x, lookZ: p.z }; })()` }, { pitch: -.28 }],
+  ['waveE-bench-lawn', 3, { world: `(() => { const BL = S.SITE.BEACH_LAWN;
+    const c = S.enclaveToWorld(BL.x0 + 6.6, BL.z1 - 4.4), t = S.enclaveToWorld(BL.x0 + 5, BL.z1 - 1.6);
+    return { x: c.x, z: c.z, y: 0, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.30 }],
+  ['waveE-bench-pavilion', 4, { world: `({ x: -18.3, z: 15.9, y: 0, lookX: -20.9, lookZ: 13.55 })` }, { pitch: -.32 }],
+  ['waveE-bar-under', 2, { world: `(() => {
+    const B = S.SITE.RIVER.BAR, W = S.SITE.RIVER.WEST;
+    const dx = B.cx - W.cx, dz = B.cz - W.cz, L = Math.hypot(dx, dz), d = 7.0;
+    return { x: B.cx + dx / L * d, z: B.cz + dz / L * d, y: 0, lookX: B.cx, lookZ: B.cz }; })()` }, { pitch: .36 }],
+  ['waveE-bar-under-night', 1, { world: `(() => {
+    const B = S.SITE.RIVER.BAR, W = S.SITE.RIVER.WEST;
+    const dx = B.cx - W.cx, dz = B.cz - W.cz, L = Math.hypot(dx, dz), d = 7.0;
+    return { x: B.cx + dx / L * d, z: B.cz + dz / L * d, y: 0, lookX: B.cx, lookZ: B.cz }; })()` }, { night: true, pitch: .36 }],
+  ['waveE-setup-festoon-end', 1, { world: `(() => { const c = S.enclaveToWorld(1.5, -10.8), t = S.enclaveToWorld(2.2, -3.6);
+    return { x: c.x, z: c.z, y: .12, lookX: t.x, lookZ: t.z }; })()` }, { night: false, pitch: .08 }],
+  ['waveE-setup-festoon-end-night', 1, { world: `(() => { const c = S.enclaveToWorld(1.5, -10.8), t = S.enclaveToWorld(2.2, -3.6);
+    return { x: c.x, z: c.z, y: .12, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: .08 }],
+  ['waveE-afterparty-festoon-end', 5, { world: `(() => { const c = S.enclaveToWorld(-.6, -10.8), t = S.enclaveToWorld(1.2, -3.6);
+    return { x: c.x, z: c.z, y: .12, lookX: t.x, lookZ: t.z }; })()` }, { night: false, pitch: .10 }],
+  ['waveE-afterparty-festoon-end-night', 5, { world: `(() => { const c = S.enclaveToWorld(-.6, -10.8), t = S.enclaveToWorld(1.2, -3.6);
+    return { x: c.x, z: c.z, y: .12, lookX: t.x, lookZ: t.z }; })()` }, { night: true, pitch: .10 }],
+  ['waveE-dracaena', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(49.4, -7.6), t = S.enclaveToWorld(AR.stair.x1 + 1.0, -4.0);
+    return { x: c.x, z: c.z, y: AR.terraceY, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .06 }],
+  ['waveE-batter', 2, { world: `(() => { const c = S.enclaveToWorld(71.8, -3.0), t = S.enclaveToWorld(64.6, -9.0);
+    return { x: c.x, z: c.z, y: S.siteFloorY(c.x, c.z, 5), lookX: t.x, lookZ: t.z }; })()` }, { pitch: .04 }],
+  ['waveE-frangi', 2, { world: `(() => { const AR = S.SITE.ARRIVAL;
+    const c = S.enclaveToWorld(57.2, -7.6), t = S.enclaveToWorld(AR.bedX0 + 5.6, -12.35);
+    return { x: c.x, z: c.z, y: AR.terraceY, lookX: t.x, lookZ: t.z }; })()` }, { pitch: .26 }],
+  ['waveE-lobby-floor', 2, { world: `(() => { const LB = S.SITE.ARRIVAL.LOBBY;
+    const c = S.enclaveToWorld(LB.x0 + 9.4, LB.z0 + 17.5), t = S.enclaveToWorld(LB.x0 + 3.0, LB.z0 + 6.0);
+    return { x: c.x, z: c.z, y: S.ARRIVAL_LOBBY_Y, lookX: t.x, lookZ: t.z }; })()` }, { pitch: -.30 }],
 ];
 const ONLY = process.env.ONLY ? new Set(process.env.ONLY.split(',')) : null;
 

@@ -206,8 +206,15 @@ function bakeWires(w, group) {
  *  stringLights() drew bulbs and no wire, which is why every comment in this
  *  file warns that a run whose ends are not on a pole reads as a row of orbs
  *  floating in mid-air. Now the cable is drawn, so it reads either way. */
-function festoon(K, x1, y1, z1, x2, y2, z2, sag, n) {
+function festoon(K, x1, y1, z1, x2, y2, z2, sag, n, post = false) {
   wireRun(K.wire, x1, y1, z1, x2, y2, z2, sag, n);
+  /* KAN-211 wave E: `post` stands the run's FAR end (x2, z2) on a slim black
+     festoon pole — the prewedding and after-party runs used to end in mid-air
+     over the turf edge. DERIVED from the run's own endpoint: the pole's top
+     cap carries the cable at exactly (x2, y2, z2). Three instances in K.dark
+     (an existing bucket: no draw call, no program); no collider — see the
+     call sites. */
+  if (post) festoonPost(K, x2, y2, z2);
   /* KAN-208 wave 3: every bulb is a SOCKET (a dark 2.6 × 4.5 cm drum on a
      4 cm drop off the cable, in the K.dark bucket) and a real globe bulb
      (G_BULB) under it — two instances in buckets that already exist, so the
@@ -222,6 +229,31 @@ function festoon(K, x1, y1, z1, x2, y2, z2, sag, n) {
     put(K.dark, x, y - .062, z, [.013, .045, .013], null, 0x24211d); // the socket
     put(K.bulb, x, y - .084, z, 1);
   }
+}
+
+/** a festoon pole under a run's end at (x, y, z): a Ø 64 mm black steel pole
+ *  from a round foot plate on the ground to a cap 60 mm over the cable, plus a
+ *  short eye-hook arm the cable ties off to. Ground is y 0 at both sites (the
+ *  suite's turf strip). */
+const POST_COL = 0x26231f;
+function festoonPost(K, x, y, z) {
+  const top = y + .06;
+  put(K.dark, x, top / 2, z, [.032, top, .032], null, POST_COL);          // the pole
+  put(K.dark, x, .012, z, [.11, .024, .11], null, POST_COL);              // foot plate
+  put(K.dark, x, .07, z, [.045, .10, .045], null, POST_COL);              // the base collar
+  put(K.dark, x, top + .02, z, [.042, .04, .042], null, POST_COL);        // top cap
+  put(K.dark, x, y, z, [.008, .09, .008], [Math.PI / 2, 0, 0], POST_COL); // eye-hook arm
+}
+
+/** a festoon pole's collider — ONLY where a guest can reach the pole. Every run
+ *  ends on SITE.TURF.z1, the hero pool's plinth line; a pole along the plinth
+ *  (|x − POOL.cx| within its half-width + coping + .1) already stands inside
+ *  the coping's collider band (measured: 0 of 49 walker positions within .40 m
+ *  of it are free), so it takes none. The ones past the plinth's end stand on
+ *  the open turf corner by the cabanas and get a circle the pole's own size. */
+function postCollider(list, x, z) {
+  const P = SITE.POOL;
+  if (Math.abs(x - P.cx) > P.w / 2 + P.coping + .1) list.push({ x, z, r: .08 });
 }
 
 /* ── the tall curved poles the dinner's chandeliers hang from ───────────────
@@ -1671,7 +1703,15 @@ export function initMoments(G) {
            radial fins, which is why they never looked like a chair back. The
            fallback (no GLB → campus.js's box chairs) keeps the old fin, which
            still matches ITS back. */
-        if (models.has('dining_chair_rattan')) {
+        if (models.has('dining_chair_rattan') && have('chair_slipcover')) {
+          /* KAN-211 wave E: `chair_slipcover` — a fitted linen sleeve over the
+             rattan back, closed over its curved rail, soft folds, a blush sash
+             tied in a bow behind (ASSET_SPEC Group O). Authored IN THE CHAIR'S
+             OWN FRAME, so it takes the chair's exact matrix: campus.js seats
+             `rtBrunchChairGlbI` at 1.05 m out on bearing ca with yaw ca − π/2. */
+          put(K.mdl('chair_slipcover'), p.x + Math.cos(ca) * 1.05, DY, p.z - Math.sin(ca) * 1.05,
+            1, [0, ca - Math.PI / 2, 0]);
+        } else if (models.has('dining_chair_rattan')) {
           const bx = p.x + Math.cos(ca) * 1.27, bz = p.z - Math.sin(ca) * 1.27;
           const slip = box(.50, .50, .10, linen);
           slip.position.set(bx, DY + .85, bz); slip.rotation.y = ca - Math.PI / 2; g.add(slip);
@@ -1855,7 +1895,8 @@ export function initMoments(G) {
     // festoon lights strung from the roof overhang out to the turf edge
     for (let i = 0; i < 5; i++) {
       const x = -7 + i * 3.5;
-      festoon(K, x, 3.6, D.z0 + .4, x + 1.6, 3.6, SITE.TURF.z1, .9, 10);   // was stringLights (no cable)
+      festoon(K, x, 3.6, D.z0 + .4, x + 1.6, 3.6, SITE.TURF.z1, .9, 10, true);   // wave E: on a post
+      postCollider(cols.setup, x + 1.6, SITE.TURF.z1);
     }
     /* a welcome easel by the door — the same easel the cocktail bar uses, and
        the same blank-board contract, so the welcome sign hangs on the measured
@@ -2191,7 +2232,8 @@ export function initMoments(G) {
     // festoon criss-crossing the deck, denser than the prewedding rig
     for (let i = 0; i < 6; i++) {
       const x = -8 + i * 3.2;
-      festoon(K, x, 4.0, D.z0 + .4, x + 2.4, 4.0, SITE.TURF.z1, 1.0, 12);   // was stringLights (no cable)
+      festoon(K, x, 4.0, D.z0 + .4, x + 2.4, 4.0, SITE.TURF.z1, 1.0, 12, true);   // wave E: on a post
+      postCollider(cols.afterparty, x + 2.4, SITE.TURF.z1);
     }
     // lounge seating out on the turf — the GLB sofa's front is −Z at yaw 0, so
     // yaw π turns it to +Z, toward the pool, as the boxes were read

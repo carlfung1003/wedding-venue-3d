@@ -761,5 +761,36 @@
     "post": "tile-blend (both axes — a trowelled render has no direction); flattened 0.25 x0.7; balanced to #d9d3cb (graded below Yinyiju.webp's sunlit villa render (240,235,230): the sun and env lift a texture — wave A2 lesson 1)",
     "prompt": "Photograph looking straight at a flat exterior wall of a modern tropical resort villa finished in smooth warm off-white mineral render, the camera square to the wall so the whole frame is render: a very subtle hand-trowelled texture, faint soft cloudy variation in tone between warm white and pale cream-grey, a fine sand-float grain, a few extremely faint hairline trowel arcs. No joints, no panels, no cracks, no stains, no windows, no edges of the wall, no shadows of objects. Soft even overcast daylight, sharp focus.",
     "note": "KAN-211 wave D: the presidential suite's side + back walls (Yinyiju.webp — the enclave's villas are crisp warm-white render). Bake input for suite_walls, mapped at ~2.4 m a tile, one random shift per panel."
+  },
+  "croton_leaf_card": {
+    "kind": "texture",
+    "dir": "assets/textures",
+    "out": "croton_leaf.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "tile": false,
+    "bleed": 16,
+    "mode": "flat",
+    "tol": 100,
+    "soft": 30,
+    "drop_backdrop_hue": "blue",
+    "post": "key-green",
+    "prompt": "One single loose rounded clump of croton (Codiaeum variegatum) foliage, a cut spray laid flat and photographed from directly above so that it fills about three quarters of the frame and sits in the middle of it: dozens of overlapping thick glossy oval and lance-shaped leaves radiating outward from the centre, boldly variegated — deep green leaves veined and splashed with bright yellow, leaves blushing orange and coppery red, a few deep burgundy-red leaves — each leaf with a clear pale midrib and veins. Packed densely at the centre so no backdrop shows through there, loosening toward the rim so the outline is made of individual separate leaf tips pointing outward with backdrop between them. Photographed on a completely flat, solid, evenly lit pure cobalt-blue backdrop, the same blue in every part of the frame the subject does not cover, with no gradient, no shadow on the backdrop, no border and no frame; nothing blue on the plant itself. Even soft daylight, sharp focus.",
+    "note": "KAN-211 wave E: the ALPHA CARD for the sea-band croton fringe (campus.js crotonI core + fringe, leafMat('croton') in js/foliage.js). Cobalt + --mode flat (the boug recipe): the leaves are green AND red/orange, so neither green nor magenta can be the backdrop."
+  },
+  "rain_tree_leaf_card": {
+    "kind": "texture",
+    "dir": "assets/textures",
+    "out": "rain_tree_leaf.webp",
+    "aspect": "1:1",
+    "size": "1K",
+    "max": 1024,
+    "magenta": true,
+    "tile": false,
+    "bleed": 16,
+    "post": "key-magenta",
+    "prompt": "One single leafy branch spray of a tropical rain tree (Samanea saman, monkeypod), cut and laid flat, photographed from directly above so that it fills about three quarters of the frame and sits in the middle of it: many small glossy oval mid-green and deep-green leaflets arranged in pairs along fine twigs that fork outward from a short woody stem at the centre, dense and overlapping in the middle so no backdrop shows through there, and loosening toward the rim so that the outline is made of individual leaflets and twig tips with backdrop between them. Deep shadow between the inner leaflets, soft highlights on the glossy ones, rich natural greens with a few yellow-green new leaves, even soft daylight, sharp focus.",
+    "note": "KAN-211 wave E: the ALPHA CARD for the two lagoon shade trees' crowns (generators/rain_tree.py rain_tree_leaves, leafMat('rain') in js/foliage.js). Magenta because the subject is green (chroma_key.py docstring)."
   }
 }

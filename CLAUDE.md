@@ -1405,24 +1405,135 @@ atrium's other ENVM entries and the GLB env knobs (FIX PASS finding) still bind
 nothing; the breakfast chairs are 1,330 tris each (44 of them are most of the
 lounge's cost — a lighter chair would halve it).
 
+### KAN-211 WAVE E — THE QUICK-WIN PROPS: AGAVE + CROTON, THE RAIN TREES, BRUNCH SLIPCOVERS, BENCHES, THE ISLAND BAR'S UNDERSIDE, FESTOON POSTS, THE ARRIVAL'S PLANTING, THE LOBBY FLOOR (2026-09-26)
+
+The props waves A–D left primitive, each checked at guest distance. **ASSET_SPEC
+Group O** has every row (frames, what each replaces, budgets). New GLBs:
+`agave_leaf`, `croton_fringe`, `rain_tree` + `_leaves` (GEOMETRY ONLY, on the
+game's own materials), `chair_slipcover`, `garden_bench`, `island_bar_soffit` +
+`_rafters`, `dracaena_pot` (baked). Manifest 131 → 140 entries (the 9 new sidecars
+only; no earlier GLB re-exported). Shots: before `reference/photos/shots-waveE-before/`
+(f246727 in a worktree on :8811), after `shots-waveE/` — **137 views** (wave D's
+117 + 20 `waveE-*`, fixed WORLD cameras read once off the pre-wave build);
+`compare-*.jpg` side-by-sides for every waveE view + the ten existing views
+that show these props, `compare3-archA-court-threequarter.jpg` (f_001 | before |
+after), `compare3-waveE-dracaena.jpg` (f_009 | …) and
+`compare3-waveE-lobby-floor.jpg` (f_023 | …).
+
+| item | what changed | tris (was) |
+|---|---|---|
+| agave (campus `agaveI`, 6 rosettes × 8) | flush-time prototype swap (`WAVE4_PROTO`): each cone → a fan of 3 keeled, channelled blades from the rosette's centre (the pivot lesson below); agaveMat 0x74936c → 0x648a7c | 72 / inst (20) |
+| croton (`crotonI`, 4) | core → `shrub_core` @ .3 (small), crotonMat base → 0x4a4238 (the mottle becomes shadow), + a `croton_fringe` bucket (40 cards down to y −.8) on leafMat('croton') — generated `croton_leaf.webp`, cobalt-keyed | 80 + 80 (80) |
+| the two shade trees (water.js `shadeTree`) | a RAIN TREE: short buttressed trunk, five low-spreading limbs forking twice (plain Mesh on MAT.darkWood — the old trunk's program), an umbrella crown of 560 leaf-spray cards + an opaque hull (1-instance InstancedMesh on leafMat('rain') — the fronds' program), ONE uniform scale T.r for both trees; generated `rain_tree_leaf.webp` | 2,254 + 1,440 / tree (4 × 80 + ~40) |
+| brunch slipcovers (moments.js, 32 chairs) | `chair_slipcover` in the rattan chair's OWN frame (same matrix as `rtBrunchChairGlbI`): a fitted linen sleeve closed over the rail + a blush sash tied in a bow; 64 plain boxes → 1 InstancedMesh | 584 / chair (24) |
+| benches | `garden_bench` (slatted teak, backless) at the lawn's two (`benchGlbI`, the old envelope exactly) and the second-pool pavilion's two (`spBenchGlbI`, turned π/2, scaled to 2.6 × .62 × .455); colliders untouched | 568 (36) |
+| island bar underside (water.js) | `island_bar_soffit` (raked thatch lining under the roof's pitch, normals down) + `_rafters` (16 bamboo rafters, 3 purlins, the crown hub) replace the flat disc; the LINING's material carries the night glow (`ISLAND_SOFFIT_GLOW` .4 × RC.lampWarm, a uniform on the non-instanced baked program island_bar already has), the rafters stay dark against it | 624 + 1,468 (14) |
+| festoon run ends (prewedding 5, after party 6) | `festoon(…, post = true)` → `festoonPost()`: a Ø 64 mm black pole under the run's far end (derived from the endpoint, the cable ties off at its top), foot plate, collar, cap, eye-hook — 5 K.dark instances each, no draw call | +160 / post |
+| frangipani flowers | `frangipani_leaf.webp` re-derived PINK (`derive_frangi_pink.py`, from the ORIGINAL at 40fdfae): flower texels → rose pink keeping shading + yellow throats; measured (177.7, 78, 101.1) vs f_005/7/9 (190,112,122)/(183,94,104)/(192,83,100) | — |
+| dracaena bowls (arrival, 2) | `dracaena_pot` (egg bowl, 4 canes → 12 tips, 456 strap leaves) at the old foot, yaw 0 / π; collider unchanged | 4,514 (≈ 256) |
+| batter planting (arrival `retain()`) | same matrix / colour / rnd() order; maroon → the beds' `arrCordyGlbI` pair (cordyline_clump), green → new key `arrBatterShrubI` = shrub_core @ .5 + a shrub_fringe a/b fringe | 220 / 80 + 32 (80) |
+| lobby floor | the 酒廊's wave-D recipe: `floor_teak.webp` + its OWN envMap (`LOBBY_FLOOR_ENV` .20 / .14) + day colour `LOBBY_FLOOR_TINT` 0xedcc8f (night tint entry re-based). **(125,86,73) salmon-mauve → (91,52,39)** vs f_023's boards in shade (90,54,36) | — |
+
+| 137 views | before (f246727) | after |
+|---|---|---|
+| draw calls (sum) | 52,655 | **52,540 (−115)**; −82 / −54 / −28 at the three roof views (64 slip boxes → 1 bucket), −4…+6 elsewhere |
+| triangles (sum) | 101,832,766 | 102,651,020 (**+0.80 %**); 14 views +0, median +3.9k (the agave bucket — 48 × 72 — whenever the sea band is in frustum), max +37k at the roof views (the 32 slipcovers, main + the roof pool's mirror), +15…17k at the lobby / arrival / beach-tree-under views |
+| mirror pass (sum) | 17,196 calls / 31.40 M tris | 17,267 / 31.63 M |
+| shader programs | 113 | **113 at every view, day and night** |
+| feet / night flags | | identical at all 137 views |
+| colliders | | identical at every view except the prewedding (+1, 22 views) and the after party (+2, 8 views): the festoon posts past the pool plinth (below) |
+| `colliderHash` at load (scatter-probe) | `bc45a91cacd2` (10,942) | **`bc45a91cacd2` (10,942)** |
+| floorY (17 probes: benches, bowls, forecourt, court, batter, turf-edge posts, deck, the pavilion, the bar terrace, the beach tree), `MOMENT_PLACES`, every moment's spawn + interactables | | **identical** |
+| lights (guest journey) | 40 / 12 | 40 / 12 |
+| guest journey | | 0 stalls, every beat, Check-in PROMPT ✓, `ERRORS []` |
+
+fps: vsync 120 wherever it was. The full runs read lower at six uncapped views
+(island-bar thatch, arrival court, croton-sand, beach-tree-under, brunch-slips,
+batter); two A/B reruns there: run 1 before/after 100.5/100.4, 103.3/98.6,
+74.5/72.6, 92.9/91.6, 58.2/58.1, 92.6/91.7; run 2 87.8/91.3, 90.8/95.6,
+66.8/68.2, 84.5/88.1, 52.9/55.4, 84.8/86.8 — noise / thermal drift, no
+regression claimed or denied beyond that.
+
+**Scatter proof** (`tools/scatter-probe.mjs` + a matrix-level dump of the
+touched buckets): `allMatrixHash 9cf57cdceb34 → 841d6ac63d92`, as it must be.
+203 of 213 (name, chain) keys byte-identical (matrices + colours); `agaveI` and
+`crotonI` byte-identical with a new prototype. The rest, exactly the intended:
+- `arrPlantI` 82 → 48, after an ORDERED SUBSEQUENCE of before; of the 34
+  removed, 12 reappear matrix- and colour-identical in `arrCordyGlbI` (8 → 20,
+  before ⊂ after) and 18 in the new `arrBatterShrubI`; the other 4 are the two
+  dracaena bowls' blobs. `arrWhiteCylI` 9 → 7, `arrTrunkI` 2 → 0 (the bowls),
+  `spSlatI` 18 → 16 and `spDarkI` 10 → 6 (the pavilion benches, both ordered
+  subsequences), `benchI` gone.
+- moment buckets: the prewedding's and after party's `K.dark` 111 → 136 / 132
+  → 162 (+5 per post, before ⊂ after); the brunch gains the slipcover bucket.
+- new: `benchGlbI`, `spBenchGlbI`, `arrDracGlbI`, `arrBatterShrubI` + fringe
+  a/b, `crotonIFringe`, `water:rainTreeCrown` ×2. Every fringe's matrix k ==
+  its core's (checked). No rnd()/rndB() draw moved: the batter keeps its five
+  draws in order, nothing else new draws one.
+
+**Festoon-post colliders — 3 added, and only where a guest can reach a post.**
+Every run ends on `SITE.TURF.z1`, the hero pool's plinth line. Measured (the
+walker's .35 + a .40 m ring round each post, 49 positions): the eight posts
+along the plinth have **0 free positions** (inside the coping's collider band)
+and take none; the three past the plinth's end (prewedding x 8.6, after party
+x 7.2 / 10.4) had 23 / 31 / 8 free and take an r .08 circle
+(`postCollider()`: |x − POOL.cx| > w/2 + coping + .1). Proof: per moment, before
+is an ORDERED SUBSEQUENCE of after, the difference exactly those circles (moment
+0 / 2 / 3 / 4: +0; 1: +1; 5: +2); walks: the turf strip at z −5.3 ends at the
+same point both builds, walking at the x 7.2 post was held at z −4.43 (it walked
+through before), x 8.6 / 10.4 deflect round the pole; ceremony / cocktail /
+dinner / after-party beats all pass in the guest journey.
+
+Image generation (`venue-arch`, cap $15): **+2 images** (`croton_leaf_card`,
+`rain_tree_leaf_card`, 1K); running total **10 images, $1.34**.
+`frangipani_leaf.webp` re-derived locally.
+
+⚠ **What this wave learned:**
+1. **A unit-envelope prototype inherits the call site's PIVOT, not just its
+   envelope.** agave()'s cones are centred ON the rosette's axis and tilted
+   about their own middles, so a blade drawn from the envelope's floor starts
+   behind the centre and crosses it — the "skirt" was that crossing. The blade
+   is authored in metres for the mean instance with its base where the matrix
+   puts the ground at the rosette's centre, then divided by (.16, h, .16). And
+   with x/z scaled .16 against y's .77, a rotation about unit-space y does not
+   splay a blade at all — the side blades' angles are computed in metres too.
+2. **A fringe on a tall, raised blob needs cards down its flank and a core
+   that is smaller and darker than the card envelope** (croton_fringe).
+3. **`bmesh.faces.new` refuses a second face on the same vertex set** — a
+   double-sided leaf/ribbon needs its own vertices for the back face, and must
+   then skip `from_bmesh()`'s weld + `normals_make_consistent` (dracaena_pot /
+   chair_slipcover `_raw` builders).
+4. **`THREE.Color` has no `divide`**; re-basing a `tint()` night entry on a new
+   day colour is per-channel arithmetic (buildArrival §F).
+5. **Moment colliders are LOCAL until the next frame** (world.js
+   `worldifyLateRecords` maps the tail after setMoment) — a probe that reads
+   G.colliders right after setMoment and compares with world points is wrong
+   for the moment's own circles; wait two frames.
+6. An emissive uniform on a baked map flattens its texture at night — which is
+   why the island bar's rafters are their own GLB (dark silhouettes against the
+   lit lining) and the glow is .4, not the old disc's 1.6.
+
 ### Not in this pass (next)
 
 (Palms, hedges and topiary: done as PROTOTYPES in KAN-208 wave 2, above; the
 shrub / bougainvillea / ground-cover blobs, the river dressing's shrubs, the
 casuarinas, the atrium's topiary + pond-edge clusters and water.js's two hedge
-boxes: KAN-208 wave 4, above.) Still primitive planting: the two SHADE TREES'
-crowns (water.js `shadeTree`, four flat-green icosahedra — the big green dome
-in the lagoon views), campus.js's sea-band `crotonI` (flat orange blobs) and
-`agaveI` rosettes (pale cones);
-every other `nature.js`/`water.js`/`campus.js` object; (the welcome board's frame, the
-cocktail glassware, the pearl swags, the festoon and the parked cars: done in
-KAN-208 wave 3, above); the check-in staff / human figures; the festoon cable as
-real geometry (still 1-px lines — a 6 mm tube is sub-pixel at 5 m); the far
-ends of the prewedding / after-party festoon runs, which still end in mid-air
-over the turf edge (dark cable in night moments — not visible in any shot, but
-not anchored either); adopting the tight pack and the metallic fix in the library; the
-viewer's hook lift; `linen_ivory`'s pressed-fold crease tiles at ~0.7 m on every
-skirt (reads as rental linen; drop the tile size if it bothers anyone).
+boxes: KAN-208 wave 4, above; the shade trees, agave, croton, brunch
+slipcovers, benches, the island bar's underside, the festoon posts, the
+dracaena bowls + batter and the lobby floor: KAN-211 wave E, above.) Still
+primitive: every other `nature.js`/`water.js`/`campus.js` object (the arrival's
+lounge-shrub `arrPlantI` blobs by the 酒廊, the river dressing's lounger slabs,
+the lane's lamps and bollards, the backdrop villas, the hotel crescent's
+dressing); the check-in staff / human figures; the festoon cable as real
+geometry (still 1-px lines — a 6 mm tube is sub-pixel at 5 m); the island
+bar's night glow is still a flat emissive over its lining (an emissiveMap would
+be a new program); the dracaena heads are sparser than f_009's; the rain
+trees cast no shadow (castShadow stays off, as the blobs were — a shadow pass
+would add depth programs); adopting the tight pack and the metallic fix in the
+library; the viewer's hook lift; `linen_ivory`'s pressed-fold crease tiles at
+~0.7 m on every skirt (reads as rental linen; drop the tile size if it bothers
+anyone); the atrium's other ENVM entries and the GLB env knobs (FIX PASS
+finding) still bind nothing; the breakfast chairs' 1,330 tris each.
 
 **Adding an asset:** a row in `ASSET_SPEC.md` → `generators/<name>.py` from
 `_template.py` → `make_masters.py -- <name>` → `export_all.py -- <name>` →
@@ -3547,6 +3658,16 @@ makes the campus "look tidier" by undoing one, it is wrong:
   interior pier) — or the render runs across a doorway. `walkway_deck` reads
   campus.js §I's `bal()` list and column loop with the same arithmetic
   (`rails()` / `columns()`): change either in campus.js and mirror it there.
+
+- **KAN-211 wave E: two GLBs are authored for a CALL SITE's pivot, not a
+  neutral frame.** `agave_leaf` puts its blades' base where agave()'s tilted,
+  axis-centred matrices land the rosette centre for the MEAN instance (h .77,
+  θ .72) — change agave()'s `h * .38` centre, its tilt range or its .16 scale
+  and re-derive `H, TH, SXZ` in `generators/agave_leaf.py`. `chair_slipcover`
+  is in `dining_chair_rattan`'s own frame and takes the chair's matrix — change
+  the chair's back (stiles, rail, bow) and refit the sleeve. The festoon posts
+  are derived from each run's far end: move a run and its post follows, and
+  `postCollider()` decides by the POOL plinth span whether it needs a circle.
 
 - **KAN-211 wave B: `_arch.atrium()` re-derives atrium.js's consts** (X0…CZ1,
   H1/H2, SOF1/SOF2, STAIR, WELL) with the same arithmetic. Change one of those

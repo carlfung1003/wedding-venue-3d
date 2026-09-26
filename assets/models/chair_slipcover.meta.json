@@ -1,0 +1,17 @@
+{
+  "bytes": 30724,
+  "front": "+Z",
+  "material": "chair_slipcover",
+  "min": [
+    -0.251,
+    0.355,
+    -0.339
+  ],
+  "origin": "floor",
+  "size": [
+    0.498,
+    0.75,
+    0.189
+  ],
+  "tris": 584
+}

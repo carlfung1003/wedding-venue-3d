@@ -1,0 +1,17 @@
+{
+  "bytes": 78492,
+  "front": "-Z",
+  "material": "dracaena_pot",
+  "min": [
+    -0.553,
+    0.0,
+    -0.574
+  ],
+  "origin": "floor",
+  "size": [
+    1.107,
+    2.166,
+    1.147
+  ],
+  "tris": 4514
+}
