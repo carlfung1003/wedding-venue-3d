@@ -322,13 +322,58 @@ setProgress(.80, openNight ? 'Catching the golden hour' : 'Lighting the lanterns
 await yieldFrame();
 setNight(G, !openNight, { quiet: true });
 if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
-/* …and then one real frame in that state. compileAsync only ever compiles for
-   the DEFAULT framebuffer, and the pool's Reflector draws the whole campus a
-   second time into its own render target — where three.js forces NoToneMapping
-   and linear output, and therefore asks for a different program for every
-   material it touches. Nothing but an actual render through the mirror creates
-   those, and they were the last 32 of the stall. The loading card is opaque and
-   covers the canvas, so this frame is never seen. */
+/* ── the mirror's programs, and every texture, BEFORE the hidden frame ───────
+   Carl, 2026-09-26: "stuck at 80% for awhile" on a second phone. Measured: the
+   night flip compiles nothing any more (the light budget keeps the count
+   constant — 59 → 59 programs, 12 ms), and the whole 80% wait was the single
+   render() below, one blocked task of 1.3–3.1 s on an M-series Mac, so several
+   times that on a phone — with the bar frozen because nothing can repaint.
+   Two things were inside it:
+     · the Reflector's programs. It draws into its own render target, where
+       three.js asks for NoToneMapping + linear output — a different program
+       for every material. compile()/compileAsync() key programs off whatever
+       render target is BOUND, so binding the Reflector's target and running
+       compileAsync builds those ~53 in parallel (KHR_parallel_shader_compile)
+       instead of synchronously inside render();
+     · the first GPU upload of ~316 textures (atlases, photo maps, canvases),
+       which render() does all at once. initTexture() does the same upload one
+       texture at a time, so it is sliced ~40 ms at a go with the bar advancing.
+   Same total work; the longest block went 3,086 → <250 ms at 1× CPU and
+   2,035 → 361 ms at 4× throttle, and the bar moves the whole way. */
+{
+  const bound = renderer.getRenderTarget();
+  const mirrors = [];
+  scene.traverse(o => { if (o.isReflector) mirrors.push(o); });
+  for (const m of mirrors) {
+    renderer.setRenderTarget(m.getRenderTarget());
+    if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
+  }
+  renderer.setRenderTarget(bound);
+
+  const textures = new Set();
+  scene.traverse(o => {
+    const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
+    for (const m of mats) for (const k in m) {
+      const v = m[k];
+      if (v && v.isTexture && !v.isRenderTargetTexture) textures.add(v);
+    }
+  });
+  const label = openNight ? 'Catching the golden hour' : 'Lighting the lanterns';
+  let done = 0, slice = performance.now();
+  for (const t of textures) {
+    renderer.initTexture(t);
+    done++;
+    if (performance.now() - slice > 40) {
+      setProgress(.80 + (done / textures.size) * .12, label);
+      await yieldFrame();
+      slice = performance.now();
+    }
+  }
+}
+/* …and then one real frame in that state. It is cheap now — the programs and
+   textures above are resident — but it is still the only thing that creates
+   the last few Reflector-pass programs and uploads the geometry buffers. The
+   loading card is opaque and covers the canvas, so this frame is never seen. */
 renderer.render(scene, camera);
 setNight(G, openNight, { quiet: true });
 for (const [g, v] of _mvis) g.visible = v;   // exactly as setMoment left them
