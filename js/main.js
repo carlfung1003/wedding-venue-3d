@@ -33,7 +33,6 @@ import { initDetailCull } from './detailcull.js';
 import * as models from './models.js';
 import { bindEnvKnobs } from './materials.js';
 import { t, mt, onLang } from './i18n.js';
-import { initSound } from './sound.js';
 
 /* ── the loading card ────────────────────────────────────────────────────────
    The card is already on screen (index.html) — this only drives its copy, its
@@ -506,13 +505,6 @@ requestAnimationFrame(frame);
    shaders; it was ~0.5 s of blocked main thread before it did. */
 await yieldFrame();
 finishLoading();
-
-/* KAN-234 · the ambient soundscape — OFF by default. This only wires the
-   toggles and the preference: no AudioContext exists and js/audio/ is not
-   fetched until a guest turns the sound on (their tap is the gesture iOS
-   needs). Here, not earlier, so a remembered "on" can only start from a
-   gesture on a venue that is up. See js/sound.js. */
-initSound(G);
 
 /* ── debug hook, always on (house pattern) ──
    Assigned LAST on purpose: it is also the readiness signal. skipIntro() would

@@ -39,8 +39,6 @@ own coordinates. Change the layout there, never in a builder.
 | `js/touch.js` | Ported from lassen-camp: floating joystick → `touchInput`, drag-to-look, quick-tap interact, `.tbtn` buttons (interact, Fly/Land toggle, held ▲▼ in fly mode), first-run coach marks, release-everything on blur/visibilitychange. Pointer lock bypassed entirely in touch mode. |
 | `js/i18n.js` | (KAN-232) **Every guest-facing string, EN + Traditional ZH** — `t(key)`, `mt(m, field)`, `setLang`/`onLang`, the dated labels, the static-markup swap. See "I18N + DEEP LINKS — KAN-232". |
 | `js/ui.js` | (KAN-218) Every overlay surface: the invitation, the moment caption, the dated timeline, narration toasts (queue + `channel`), the interact prompt (a real button), the view-status pills, the controls sheet (a dialog that pauses the walk), the lock hint, idle dimming, and `go(i)` — the veil + title-reveal moment switch. See "UI/UX UPGRADE — KAN-218". |
-| `js/sound.js` | (KAN-234) **The ambient soundscape's switch** — OFF by default: the preference (`venue.sound`, `?sound=1/0`), the four `[data-sound-toggle]` buttons, M, the iOS/WeChat gesture unlock, visibility suspend/resume, the per-frame bed + listener feed. Lazily imports `js/audio/` on the first "on". See "SOUND — KAN-234". |
-| `js/audio/` | (KAN-234) `engine.js` (mixer, buses, reverb, spatial, look-ahead pump), `layers.js` (16 generators), `synth.js` (one-shot voices), `beds.js` (moment × light → layer levels). **All procedural Web Audio — no audio files.** |
 
 ## Reference assets
 
@@ -456,7 +454,7 @@ strict`. Latin inside Chinese strings still renders in Bodoni / Archivo.
 
 **Fonts:** Noto Serif TC 500, self-hosted (Google Fonts is unreachable from the
 mainland), two cuts by `tools/cjk-subset.mjs` from the copy (comments stripped):
-`assets/fonts/venue-serif-tc.woff2` **88.3 KB, 408 glyphs** (after KAN-234; 86.6 KB / 399 after KAN-233, 81.9 KB / 375 before) — only in the zh font
+`assets/fonts/venue-serif-tc.woff2` **86.6 KB, 399 glyphs** (after KAN-233; 81.9 KB / 375 before) — only in the zh font
 stacks, preloaded by the boot script; `venue-serif-tc-mini.woff2` **3.4 KB** —
 隱逸居 / 荔枝尼格羅尼 / 中, all the English page draws. A browser only fetches a face
 it draws with, so an English guest pays 3.4 KB (the old Noto Serif SC link, ~4 KB,
@@ -552,8 +550,7 @@ Any real input ends the film on the spot: a key that is not a tour key, a
 mouse press or a touch on the canvas (`pointerdown`, capture — it precedes
 `touchstart`/`mousedown`, so touch.js/player.js then see a normal walk gesture).
 Tour keys (window capture, before ui.js/player.js): **Space** pause · **← →**
-moments · **Esc** walk · **H / ?** help (the film pauses under it) · **M** sound
-on/off (KAN-234). Buttons are
+moments · **Esc** walk · **H / ?** help (the film pauses under it). Buttons are
 never a takeover; Enter on a focused button activates it; Tab moves focus (and is
 kept from toggling cursor mode). WASD / Shift / digits / N take over AND pass
 through (W starts walking at once, a digit switches, N flips the light); other
@@ -602,176 +599,11 @@ landscape) in every moment, `?tour=1` (+`&m=ceremony`), reduced motion, and the
 Step inside / `?m=` regressions. Screenshots `shots-tour/<run>-<moment|title|hint|
 paused|end|help|…>.png`; preview video `shots-tour/tour-preview.mp4`.
 
-⚠ **Fixed in KAN-234:** `poseAt` clamps `u` AFTER the smootherstep — at `tt ≈ dur`
-(23.9999 of 24) it overshoots 1 by ~2e-15 and `getPointAt(u > 1)` indexes past the
-last point: a TypeError every frame, the film never reaching its closing card
-(tour-test's phone beats run, ~1 in 5, depending on where the seek landed).
-
 ⚠ Gotchas: `G.ui.go()` early-returns (reveal only) on the current index, so
 `startSegment` sets `G.momentIndex = -1` first — a full switch every time. A
 takeover mid-veil must not place the player (setMoment is about to). ui.js
 `closeHelp` must not re-take the pointer lock during the film (`!G.tourActive`),
 or the mouse cannot reach the tour bar.
-
-## SOUND — KAN-234 (2026-09-27)
-
-An ambient soundscape per moment, **OFF by default**, that a guest can leave on:
-sea, wind, palms, pool water, crickets, birds, a murmuring crowd, glasses and
-cutlery, and a quiet music bed, all crossfading as the moments (and the light)
-change. **Everything is synthesised in Web Audio: no audio file, no sample, no
-recording, no generation service — zero bytes of audio downloaded, nothing to
-license.** No scene change: programs, lights, colliders untouched.
-
-### The switch — `js/sound.js` (always loaded, ~10 KB)
-
-- **Off costs nothing.** Until a guest turns it on there is no AudioContext and
-  `js/audio/` is never fetched; the ticker it registers returns at once.
-- **Four toggles**, all `[data-sound-toggle]`, one delegated listener (the i18n
-  pattern): the HUD corner (`#soundBtn`), the invitation beside *How to move*
-  (`#soundInv`, in `.subacts`), the help sheet's foot (`#helpSound`) and the tour
-  bar (`#tourSound`). Plus **M** (a keyboard row in the help sheet); during the
-  film tour.js routes M as a TOUR key, so it is never a takeover. Painted as the
-  speaker with waves (gold, "on") or with a cross ("off"); the invitation + help
-  sheet add a label (`snd.on` / `snd.off`).
-- **Preference:** `?sound=1|0` (this visit only, never persisted — like `?lang`) ›
-  localStorage `venue.sound` (try/catch) › off.
-- **ARMED** = the guest wants sound (stored or `?sound=1`) but has not touched the
-  page: toggles read "on" (`.armed`, the icon breathes) and the FIRST real gesture
-  anywhere — Step inside, Take the tour, a tap on the view, a key — starts it.
-  A click on a toggle while armed turns it OFF (the label said "on"). `?tour=1`
-  plays with no gesture, so its sound waits for the first tap on the tour bar.
-- ⚠ **Portrait phones:** a fifth top-row button squeezed the caption to
-  "Preweddi…" and wrapped its date, so ≤ 640 px portrait the corner is a 2×2 grid
-  and the speaker sits UNDER `?` (under `?` alone ≤ 360 px, where `中` is hidden);
-  the narration card moved from `edge-t + 88` to `+ 96` px to clear it.
-  Landscape and desktop keep one row.
-
-### iOS / WeChat unlock notes (read before touching `start()`)
-
-- The AudioContext is created, `resume()`d and fed ONE silent sample
-  **synchronously inside the gesture handler** — the only place iOS Safari (and
-  WeChat's WKWebView) lets a context start. The engine module is imported after
-  that, into an already-running context. Never create or resume it from a timer,
-  a promise continuation or `?sound=1` on load.
-- Gesture events listened for while armed: `pointerup`, `touchend`, `click`,
-  `keydown` (capture; Esc / modified keys skipped — not user activations). A
-  gesture the browser did not honour leaves the context suspended: 500 ms later
-  it re-arms and waits for the next one.
-- `navigator.audioSession.type = 'playback'` (Safari 17+) so a phone on the
-  silent switch still plays what the guest explicitly turned on.
-- **Hidden** (tab switch, WeChat to the background, the phone locking) and
-  `pagehide`: the pump stops, `ctx.suspend()`. **Visible** / `pageshow`
-  (bfcache restore): `resume()`; if the state is not `running` within 600 ms (iOS
-  after a call or Siri — `interrupted`), it re-ARMS and the next tap resumes it.
-  `ctx.onstatechange` re-arms too.
-- Chrome's FIRST `new AudioContext()` in a page starts the audio device on the main
-  thread: **~90–125 ms, once, in the tap’s frame** (measured headless AND headed;
-  every later context ~0.1 ms). It cannot move — iOS needs it inside the gesture.
-  Everything after it (import, buffers, graph) is sliced and measured clean.
-
-### The engine — `js/audio/` (lazy)
-
-`engine.js` builds, per enable: two 6.5 s stereo noise buffers (white + brown,
-seeded xorshift, the loop seam crossfaded so sample n−1 → 0 is continuous) and a
-2.2 s generated reverb impulse (darkening as it decays) — **in ≤ 1 s slices with a
-yield between each**; then the graph:
-
-`layer.in → mix (crossfade) → [spatial gain → low-pass → StereoPanner] → bus 'amb' | 'mus' (+ reverb send) → master (.55) → 45 Hz high-pass → compressor → out (on/off fade) → speakers`
-
-- **Layers exist only while audible.** `setScene` starts what the new bed needs and
-  linearly ramps every layer from its current level (tracked in JS, never read back
-  from the param) over **2.6 s for a moment switch** (it spans the veil), 1.8 s for a
-  light flip; a layer at 0 is stopped 0.3 s after its fade.
-- **Look-ahead pump:** every 100 ms (`setInterval`, not rAF — a slow frame never
-  starves the audio) each active layer schedules its events 0.8 s ahead on the
-  audio clock. Only ~1 ms of main-thread work per pump.
-- **Seeded** (`mulberry32(CFG.SEED)`, house rule) and **never a loop**: waves 6.5–11 s
-  apart, gusts, laps, chirps, syllables and bars are all drawn fresh; the music is
-  generative — original diatonic progressions (no melody, riff or arrangement from
-  any existing piece), revoiced and re-rhythmed every bar.
-- **Duck:** ui.js `showToast` → `G.sound.duck(kind !== 'system')`, `endToast` → off:
-  music bus → .55, ambience → .85 while a narration blurb is up.
-- **Spatial** (`SPATIAL` in engine.js, fed 10×/s from the camera by sound.js):
-  `shore` — the sea by distance to the waterline (`SITE.OCEAN.x1`), brighter and
-  louder toward the beach, panned to the sea's side; `pool` — lapping by distance to
-  the hero pool's nearest water; `suite` — the prewedding guitar from the great room,
-  muffled out on the lawn; `dj` — the after-party beat from the DJ booth, low-passed
-  240 → 1740 Hz by distance (heard "through" the deck); `ground` / `air` — flying
-  high fades the ground (× .2) and lifts the wind (× 2.3). Brunch floor = the roof.
-- **Beds** (`beds.js`, a day AND a night bed per moment — N works everywhere):
-
-| bed | nature | people | music (generative) |
-|---|---|---|---|
-| aerial (title card) | wind, the whole sea, a few birds | — | the ceremony's strings, far off |
-| brunch (roof, day) | stronger wind, the sea far below, a bird | café murmur, cups + glasses | bossa lounge, D major, 84 bpm (FM e-piano, bass, shaker) |
-| prewedding (pool, night) | pool lapping, crickets, a far sea | voices, a clink | nylon-string fingerpicking from the house, A major, 70 bpm |
-| ceremony (lawn, golden hour) | surf, palms, birds, breeze | — | string pad + felt piano, F major, 58 bpm |
-| cocktail (lawn) | surf, palms, birds | crowd murmur, glasses | soft swing: walking bass, brushes, e-piano shells, B♭, 100 bpm |
-| dinner (lawns, night) | crickets, far sea, a little pool | murmur, cutlery, glasses | warm ballad: e-piano arpeggios over a pad, E♭, 64 bpm |
-| after party (deck, night) | lapping, crickets, far sea | a crowd (with laughter) | muffled house beat from the booth, A minor, 120 bpm |
-
-  Night variants swap birds for crickets; day variants the reverse.
-- **Calibration:** each layer's `gain` in the `LAYERS` table was set by rendering it
-  solo and measuring a K-weighted RMS; each bed renders at about −25.5 to −29.5 dBFS
-  RMS, peaks ≤ −11 dBFS (the after party the loudest).
-
-### Licensing record
-
-**No third-party audio is used.** Every sound is synthesised at runtime by this
-repo's own code (oscillators, filtered seeded noise, a generated impulse
-response); the progressions are generic diatonic changes written for this
-project. Nothing from Suno, Vertex or any stock/CC library. If a recording is
-ever added, it must be CC0 / public domain with a row (source page, author,
-licence URL) in `assets/audio/LICENSES.md`, lazy-loaded only after sound is
-enabled, AAC/m4a (Safari-decodable), total ≲ 1.5 MB.
-
-### Verified (2026-09-27, local :8803)
-
-- **Weight:** 0 bytes of audio. JS: `js/sound.js` 9.9 KB always; `js/audio/` 50 KB
-  (4 modules, uncompressed) fetched only on the first "on". The zh font subset grew
-  86.6 → 88.3 KB (408 glyphs) for the new copy; the mini cut is unchanged (3.4 KB).
-- **Frame times** (Playwright, Metal, 60 Hz vsync desktop / uncapped phone emulation):
-  enable from the title card: 2 s before max 16.8 / p95 16.7 ms · **the tap's own
-  frame 117–126 ms** (Chrome's first `new AudioContext()`, see above) · the 2.75 s
-  after (engine build + fade-in) max 25 / p95 16.7 ms · engine audible 0.8 s after
-  the tap. Moment switches (timeline, all six + back), sound OFF vs ON: desktop
-  max 17.1 vs 17.4 / p95 16.7 vs 16.7 ms; phone max 17.1 vs 17.6 / p95 16.7 vs
-  16.7 ms. Per-moment cruise on the phone viewport, sound on: p95 8.5–9.2 ms, the
-  same as off (brunch 9.2 / 9.2). The pump: 0.02–0.09 ms mean, ≤ 1.1 ms max.
-- **Tests:** `tools/sound-test.mjs` **105 / 105** (zero-cost-when-off, enable,
-  switch desktop + phone, hidden / pagehide / pageshow, persist + armed + `?sound=`
-  + M, tour, duck, shots, preview; 0 console errors or warnings); WebKit
-  (mobile-web-hardening, iPhone 15 / 15 Pro Max / SE 3 / SE 1 × title off / title on /
-  walk off / walk on / help on / tour on × EN + ZH, the WebKit AudioContext asserted
-  `running` in every "on" state) **48 / 48 PASS**; `tools/tour-test.mjs` **129 / 129**
-  (after the poseAt clamp — it was 127 / 129 on the first run); guest journey 0 stalls,
-  every beat, Check-in PROMPT ✓, lights 40 / 12, `ERRORS []` (also with `?sound=1`).
-- **Levels** (offline, listener at the spawn): title −26.7 · brunch −29.1 · prewedding
-  −28.5 · ceremony −26.3 · cocktail −27.2 · dinner −29.5 · after party −25.5 · the
-  tour mix −28.3 dBFS RMS; peaks −11 to −16 dBFS.
-- **Not verified:** a physical iPhone, WeChat's WebView (iOS or Android), the silent
-  switch + `audioSession`, a phone call / Siri interruption (`interrupted`), Bluetooth
-  output latency, and how it SOUNDS to a human — it was judged by level meters and
-  spectrograms only. Listen to the previews before promoting it.
-
-**Listen remotely:** `reference/photos/shots-audio/0-title-aerial.m4a`,
-`1-brunch` … `6-afterparty.m4a` (20 s each, the listener at each spawn) and
-`7-tour-mix.m4a` (~2½ min following the film's camera, crossfades under the veils,
-ducks under each blurb) — OfflineAudioContext renders through the SAME engine
-(`node tools/sound-test.mjs`, `PARTS=preview`). Toggle shots: `shots-audio/ui-*.png`,
-WebKit: `shots-audio/webkit/<en|zh>-<state>/<device>.png`.
-
-`node tools/sound-test.mjs` (Playwright, Metal, `--autoplay-policy=user-gesture-required`
-— the strict policy, test only; an init script counts AudioContexts):
-`zero` · `enable` · `switch` (desktop + phone, sound on vs off) · `hidden` ·
-`persist` · `tour` · `duck` · `shots` · `preview`. Writes `report.json`.
-
-⚠ Gotchas: an oscillator above Nyquist warns in the console (the tests fail on
-warnings) — `clink` skips partials over 0.45 × sampleRate. `cancelScheduledValues`
-+ `setValueAtTime(levelAt(t))` at `ctx.currentTime` is the crossfade; a future `at`
-would snap the gain back to the previous ramp's start for that gap. A narrow
-(high-Q) noise band reads as a steady whine over minutes — the crickets' far
-chorus is Q 3.5 with a wandering centre for that reason.
 
 ## THE ASSET PASS — BLENDER GLB PROPS + AI TEXTURES — DONE 2026-09-16 (KAN-207)
 

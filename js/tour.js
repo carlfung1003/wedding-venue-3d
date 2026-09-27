@@ -22,8 +22,7 @@
 //     gesture (a key or a press — never Esc, which cannot lock);
 //   · one "You're walking now" system card.
 // Tour keys (never a takeover): Space pause/resume · ← → previous/next moment ·
-// Esc exit to the walk · H / ? the help sheet (the tour pauses while it is open) ·
-// M sound on/off (KAN-234).
+// Esc exit to the walk · H / ? the help sheet (the tour pauses while it is open).
 // Buttons (the tour bar, the timeline, the HUD) are never a takeover either.
 //
 // ── PATH AUTHORING ─────────────────────────────────────────────────────────
@@ -390,8 +389,7 @@ export function initTour(G) {
     if ((e.code === 'Enter' || e.code === 'NumpadEnter') && onButton) return;   // activating a focused control
     if (e.code === 'Tab') { e.stopImmediatePropagation(); return; }           // focus moves; no cursor-mode toggle
     const tourKey = { Space: () => togglePause(), ArrowRight: next, ArrowLeft: prev,
-      Escape: () => takeover({ reason: 'esc', gesture: false }),
-      KeyM: () => G.sound?.toggle() }[e.code];   // KAN-234: sound on/off is not a takeover
+      Escape: () => takeover({ reason: 'esc', gesture: false }) }[e.code];
     if (tourKey) {
       e.preventDefault(); e.stopImmediatePropagation();
       if (!e.repeat) tourKey();
