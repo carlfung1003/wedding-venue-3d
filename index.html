@@ -113,6 +113,9 @@
   <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13"/></symbol>
   <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6.5 5.5v13"/><path d="M18 6.2v11.6a.5.5 0 0 1-.8.4L9.6 12.4a.5.5 0 0 1 0-.8l7.6-5.8a.5.5 0 0 1 .8.4z"/></symbol>
   <symbol id="i-next" viewBox="0 0 24 24"><path d="M17.5 5.5v13"/><path d="M6 6.2v11.6a.5.5 0 0 0 .8.4l7.6-5.8a.5.5 0 0 0 0-.8L6.8 5.8a.5.5 0 0 0-.8.4z"/></symbol>
+  <!-- KAN-234 · the soundscape toggle: a speaker with its waves / with a cross -->
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4.5 9.4h3l4.2-3.6v12.4l-4.2-3.6h-3z"/><path d="M15.2 9.3a3.8 3.8 0 0 1 0 5.4"/><path d="M17.6 6.9a7.2 7.2 0 0 1 0 10.2"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4.5 9.4h3l4.2-3.6v12.4l-4.2-3.6h-3z"/><path d="M15.4 9.9l4.2 4.2M19.6 9.9l-4.2 4.2"/></symbol>
   <symbol id="i-seal" viewBox="0 0 100 100"><path d="M50 3C67 2 88 10 94 27c6 16 3 37-4 51-7 15-24 20-40 19C33 96 14 91 7 76 0 61 3 40 10 26 17 11 33 4 50 3Z"/></symbol>
 </svg>
 
@@ -166,7 +169,11 @@
       <!-- KAN-233: the hands-free film of the whole day — for the guests who will
            not steer (js/tour.js). ?tour=1 starts it on its own. -->
       <button id="tourStart" class="ghost" type="button"><svg aria-hidden="true"><use href="#i-play"/></svg><span data-i18n="inv.tour">Take the tour</span></button>
-      <button id="howto" class="link" type="button" aria-haspopup="dialog" data-i18n="inv.howto">How to move</button>
+      <!-- KAN-234: the sound toggle shares How to move's row (js/sound.js) -->
+      <div class="subacts">
+        <button id="howto" class="link" type="button" aria-haspopup="dialog" data-i18n="inv.howto">How to move</button>
+        <button id="soundInv" class="link snd" type="button" data-sound-toggle aria-pressed="false" aria-label="Sound off — play the venue’s sound (M)"><svg aria-hidden="true"><use href="#i-mute"/></svg><span class="lbl">Sound off</span></button>
+      </div>
     </div>
     <p class="legal rv" data-i18n="inv.legal">Modelled from our own site photos and the suite walkthrough. Not to survey accuracy.</p>
   </div>
@@ -193,6 +200,10 @@
     <button id="tourBtn" class="round deskOnly" type="button" aria-label="Take the tour from here" data-i18n-aria="tour.fromHere">
       <svg aria-hidden="true"><use href="#i-play"/></svg>
     </button>
+    <!-- KAN-234 · ambient sound, off by default (js/sound.js) -->
+    <button id="soundBtn" class="round snd" type="button" data-sound-toggle aria-pressed="false" aria-label="Sound off — play the venue’s sound (M)">
+      <svg aria-hidden="true"><use href="#i-mute"/></svg>
+    </button>
     <button id="langBtn" class="round lang" type="button" data-lang-toggle aria-label="中文 — switch to Chinese" data-i18n-aria="lang.otherAria"><span data-i18n="lang.other">中</span></button>
     <button id="helpBtn" class="round" type="button" aria-label="How to move (H)" aria-haspopup="dialog" data-i18n-aria="hud.help">
       <svg aria-hidden="true"><use href="#i-help"/></svg>
@@ -216,6 +227,7 @@
   <button id="tourPrev" class="tb" type="button" aria-label="Previous moment (←)"><svg aria-hidden="true"><use href="#i-prev"/></svg></button>
   <button id="tourPlay" class="tb play" type="button" aria-label="Pause (Space)" aria-pressed="false"><svg aria-hidden="true"><use href="#i-pause"/></svg></button>
   <button id="tourNext" class="tb" type="button" aria-label="Next moment (→)"><svg aria-hidden="true"><use href="#i-next"/></svg></button>
+  <button id="tourSound" class="tb snd" type="button" data-sound-toggle aria-pressed="false" aria-label="Sound off — play the venue’s sound (M)"><svg aria-hidden="true"><use href="#i-mute"/></svg></button>
   <button id="tourExit" class="tb exit" type="button" aria-label="Stop the tour and walk yourself (Esc)"><svg aria-hidden="true"><use href="#i-walk"/></svg><span data-i18n="tour.exit">Walk myself</span></button>
 </div>
 <div id="tourEnd" class="hidden" role="dialog" aria-labelledby="tourEndNames" aria-label="The end of the tour" data-i18n-aria="end.aria">
@@ -272,6 +284,7 @@
       <div><dt><kbd>Space</kbd><kbd>C</kbd></dt><dd data-i18n="k.climb">Climb · dive while flying</dd></div>
       <div><dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd data-i18n="k.jump">Jump through the timeline</dd></div>
       <div><dt><kbd>N</kbd></dt><dd data-i18n="k.night">Golden hour · night</dd></div>
+      <div><dt><kbd>M</kbd></dt><dd data-i18n="k.sound">Sound on · off</dd></div>
       <div><dt><kbd>Tab</kbd></dt><dd data-i18n="k.tab">Free the cursor to click the timeline</dd></div>
       <div><dt><kbd>Esc</kbd></dt><dd data-i18n="k.esc">Release the mouse</dd></div>
       <div><dt><kbd>H</kbd></dt><dd data-i18n="k.sheet">This sheet</dd></div>
@@ -282,6 +295,7 @@
       <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-spark"/></svg></span></dt><dd data-i18n-html="t.interact"><b>Interact</b> — tap the prompt, or this button</dd></div>
       <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-fly"/></svg></span></dt><dd data-i18n-html="t.fly"><b>Fly</b> · land — then <span class="tglyph sm"><svg aria-hidden="true"><use href="#i-up"/></svg></span><span class="tglyph sm"><svg aria-hidden="true"><use href="#i-down"/></svg></span> for height</dd></div>
       <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-moon"/></svg></span></dt><dd data-i18n-html="t.night"><b>Night</b> — the sun / moon at the top</dd></div>
+      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-sound"/></svg></span></dt><dd data-i18n-html="t.sound"><b>Sound</b> — the speaker at the top</dd></div>
       <div><dt><span class="gest g-dots" aria-hidden="true"></span></dt><dd data-i18n-html="t.timeline"><b>The timeline</b> — tap a moment at the bottom</dd></div>
     </dl>
     <button id="helpTour" type="button"><span class="tglyph"><svg aria-hidden="true"><use href="#i-play"/></svg></span><span class="ht"><b data-i18n="help.tour">Take the tour</b><span data-i18n="help.tourSub">Sit back — two minutes, all six moments</span></span></button>
@@ -290,6 +304,7 @@
       <div class="langsw dark" role="group" aria-label="Language" data-i18n-aria="lang.group">
         <button type="button" data-lang-pick="zh" lang="zh-Hant" aria-pressed="false">中</button><span aria-hidden="true">/</span><button type="button" data-lang-pick="en" lang="en" aria-pressed="true">EN</button>
       </div>
+      <button id="helpSound" class="snd" type="button" data-sound-toggle aria-pressed="false" aria-label="Sound off — play the venue’s sound (M)"><svg aria-hidden="true"><use href="#i-mute"/></svg><span class="lbl">Sound off</span></button>
       <button id="helpDone" type="button" data-i18n="help.done">Back to the venue</button>
     </div>
   </div>

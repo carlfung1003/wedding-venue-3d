@@ -160,6 +160,14 @@ const STR = {
     'end.walk': 'Walk it yourself',
     'end.again': 'Watch again',
 
+    /* the ambient soundscape (KAN-234, js/sound.js) — off by default */
+    'snd.on': 'Sound on',
+    'snd.off': 'Sound off',
+    'snd.onAria': 'Sound on — mute (M)',
+    'snd.offAria': 'Sound off — play the venue’s sound (M)',
+    'k.sound': 'Sound on · off',
+    't.sound': '<b>Sound</b> — the speaker at the top',
+
     'act.checkin': 'Check in',
     'say.checkin': '“Welcome to 隱逸居, Mr & Mrs Fung.” Rooms are LEFT along the upper gallery; the presidential suite is RIGHT, across the walkway. 🔑',
     'act.pour': 'Pour a glass',
@@ -287,6 +295,13 @@ const STR = {
     'end.lede': '海棠灣見。',
     'end.walk': '親自走一走',
     'end.again': '再看一次',
+
+    'snd.on': '聲音：開',
+    'snd.off': '聲音：關',
+    'snd.onAria': '聲音已開啟 — 靜音（M）',
+    'snd.offAria': '聲音已關閉 — 聆聽現場的聲音（M）',
+    'k.sound': '開啟 · 關閉聲音',
+    't.sound': '<b>聲音</b> — 輕觸頂部的喇叭',
 
     'act.checkin': '辦理入住',
     'say.checkin': '「歡迎蒞臨隱逸居。」客房在左邊，沿上層迴廊前行；總統套房在右邊，穿過連廊即達。',
