@@ -159,7 +159,11 @@ export function initTour(G) {
       const k = tt < s.dur / 2 ? 0 : s.pos.length - 1;
       _p.copy(s.pos[k]); _l.copy(s.look[k]);
     } else {
-      const u = smoother(THREE.MathUtils.clamp(tt / s.dur, 0, 1));
+      /* clamped AFTER the smootherstep too: at tt ≈ dur (23.9999 of 24) it can
+         overshoot 1 by an ulp, and getPointAt(u > 1) indexes past the last
+         point — a TypeError that ended the film without its closing card
+         (caught by tour-test's phone beats run, ~1 in 5; KAN-234) */
+      const u = Math.min(1, Math.max(0, smoother(THREE.MathUtils.clamp(tt / s.dur, 0, 1))));
       s.posC.getPointAt(u, _p);
       s.lookC.getPointAt(u, _l);
     }
