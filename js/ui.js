@@ -12,23 +12,25 @@
 // ⚠ G.setMoment itself is untouched and stays SYNCHRONOUS. Tests, the guest
 // journey and tools/shoot-moments.mjs call it directly and get no veil and no
 // reveal; only chips, the 1–6 keys and the landing of the dive go through go().
+//
+// KAN-232: no copy lives here any more — every string is t(key) / mt(m, field)
+// from js/i18n.js, resolved at RENDER time, and onLang() re-renders whatever is
+// on screen (caption, timeline, pills, lock hint, the showing narration card,
+// the CTA). toast() accepts a FUNCTION as its message for exactly that reason:
+// a card already up re-renders in the new language instead of finishing in the
+// old one. The URL follows the guest (?m=<moment id>, ?night= when it differs
+// from the moment's own lighting) — see syncURL().
 import { CFG } from './config.js';
+import { t, mt, onLang, dateLong, dateShort, dayHead, whenLong } from './i18n.js';
 
 const EMOJI = /\p{Extended_Pictographic}️?/gu;   // narration copy is typographic here
 const clean = s => String(s).replace(EMOJI, '').replace(/\s{2,}/g, ' ').trim();
 const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const say = msg => clean(typeof msg === 'function' ? msg() : msg);
 
-/* dates are calendar dates, not instants — format them at noon UTC so no
-   timezone can move one across midnight */
-const at = d => new Date(d + 'T12:00:00Z');
-const fmtLong = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' });
-const fmtWk = new Intl.DateTimeFormat('en-GB', { weekday: 'short', timeZone: 'UTC' });
-const fmtDM = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', timeZone: 'UTC' });
-const fmtShort = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
-export const whenLong = m => fmtLong.format(at(m.date)) + (m.time ? ` · ${m.time}` : '');
 /* the caption's date: long on most screens, short where the phone is narrow
    (CSS picks one — both are real text, no truncation) */
-const whenHTML = m => `<span class="l">${fmtLong.format(at(m.date))}</span><span class="s">${fmtShort.format(at(m.date))}</span>${m.time ? ` · ${m.time}` : ''}`;
+const whenHTML = m => `<span class="l">${dateLong(m.date)}</span><span class="s">${dateShort(m.date)}</span>${m.time ? ` · ${m.time}` : ''}`;
 
 export function initUI(G) {
   const el = id => document.getElementById(id);
@@ -53,8 +55,8 @@ export function initUI(G) {
   const wake = () => { lastActive = performance.now(); document.body.classList.remove('idle'); };
   const setText = (root, m) => {
     root.querySelector('.when').innerHTML = whenHTML(m);
-    root.querySelector('.title').textContent = m.name;
-    root.querySelector('.area').textContent = m.area;
+    root.querySelector('.title').textContent = mt(m, 'name');
+    root.querySelector('.area').textContent = mt(m, 'area');
   };
   const icon = (btn, id) => btn.querySelector('use').setAttribute('href', '#' + id);
 
@@ -63,7 +65,7 @@ export function initUI(G) {
     cur = t; toastT = t.secs;
     toastEl.classList.toggle('system', t.kind === 'system');
     toastEye.textContent = t.eyebrow || '';
-    toastMsg.textContent = t.msg;
+    toastMsg.textContent = say(t.msg);
     toastEl.classList.remove('hidden');
     void toastEl.offsetWidth;                // restart the entrance
     toastEl.classList.add('in');
@@ -83,14 +85,19 @@ export function initUI(G) {
     revealT = 1.75;                          // the blurb follows as the title fades
   }
 
-  function go(i) {
+  /* opts.before() runs under the veil just before the switch, opts.after()
+     just after it — the deep-link landing (main.js) hands the camera over and
+     applies ?night= there, so neither is ever seen happening. */
+  function go(i, opts = {}) {
     if (!G.started || G.overlayOpen || !CFG.MOMENTS[i]) return;
     wake();
     if (switching) { pending = i; return; }  // a second tap mid-fade retargets it
     if (i === G.momentIndex) { revealMoment(CFG.MOMENTS[i]); return; }
     revealT = 99;                            // hold the new blurb until the title has shown
     if (reduced.matches) {                   // no fade to black: switch + name it
+      opts.before?.();
       G.setMoment(i);
+      opts.after?.();
       revealMoment(CFG.MOMENTS[i]);
       return;
     }
@@ -99,7 +106,9 @@ export function initUI(G) {
     veil.classList.add('on');
     setTimeout(() => {
       const j = pending;
+      opts.before?.();
       G.setMoment(j);                        // dress + colliders + night + teleport, under the veil
+      opts.after?.();
       /* two frames so the new view has been DRAWN before the veil lifts */
       requestAnimationFrame(() => requestAnimationFrame(() => {
         veil.classList.add('out');
@@ -178,15 +187,51 @@ export function initUI(G) {
   }
   addEventListener('pointermove', () => { if (!document.pointerLockElement && !G.touchMode) wake(); }, { passive: true });
 
+  /* ── the address follows the guest: copy it and you share where you are ──
+     ?m=<id> once the walk has started (never for the title card's backdrop),
+     ?night=1|0 only while the lighting differs from that moment's own. Every
+     other parameter (?lang, the ?lb / ?dc / ?mf A/B hatches) is kept. */
+  function syncURL() {
+    if (!G.started) return;
+    const m = CFG.MOMENTS[G.momentIndex];
+    if (!m) return;
+    try {
+      const u = new URL(location.href);
+      u.searchParams.set('m', m.id);
+      if (!!G.night !== !!m.night) u.searchParams.set('night', G.night ? '1' : '0');
+      else u.searchParams.delete('night');
+      if (u.href !== location.href) history.replaceState(history.state, '', u);
+    } catch { /* sandboxed / file:// */ }
+  }
+
+  /* ── language: re-render everything that is on screen now ── */
+  function relabelChips() {
+    CFG.MOMENTS.forEach((m, i) => {
+      const b = chips[i]; if (!b) return;
+      b.setAttribute('aria-label', `${mt(m, 'name')} — ${whenLong(m)}`);
+      b.querySelector('.name').textContent = mt(m, 'short') || mt(m, 'name');
+    });
+    for (const d of days) d.el.querySelector('.day-h').innerHTML = dayHead(d.date);
+  }
+  onLang(() => {
+    relabelChips();
+    const m = CFG.MOMENTS[G.momentIndex];
+    if (m && G.started) setText(nameEl, m);
+    if (m && reveal.classList.contains('play')) setText(reveal, m);
+    G.ui.setMode(G.mode);
+    lastNight = undefined; lastLock = '_';   // repaint the light pill + lock hint next frame
+    if (cur) toastMsg.textContent = say(cur.msg);
+    const shown = promptShown; promptShown = undefined; if (shown) G.ui.prompt(G.player?.nearest ? G.player.nearest.label() : null);
+  });
+
   G.ui = {
     buildChips(moments) {
       let day = null;
       moments.forEach((m, i) => {
         if (!day || day.date !== m.date) {
-          const d = at(m.date);
           const g = document.createElement('div');
           g.className = 'day';
-          g.innerHTML = `<p class="day-h" aria-hidden="true">${fmtWk.format(d)} <b>${fmtDM.format(d).replace('/', '.')}</b></p><div class="nodes"></div>`;
+          g.innerHTML = `<p class="day-h" aria-hidden="true">${dayHead(m.date)}</p><div class="nodes"></div>`;
           bar.appendChild(g);
           day = { date: m.date, el: g, nodes: g.querySelector('.nodes'), idx: [] };
           days.push(day);
@@ -194,8 +239,8 @@ export function initUI(G) {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'chip' + (m.time ? '' : ' notime');
-        b.setAttribute('aria-label', `${m.name} — ${whenLong(m)}`);
-        b.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="name">${esc(m.short || m.name)}</span><span class="time" aria-hidden="true">${m.time || ''}</span>`;
+        b.setAttribute('aria-label', `${mt(m, 'name')} — ${whenLong(m)}`);
+        b.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="name">${esc(mt(m, 'short') || mt(m, 'name'))}</span><span class="time" aria-hidden="true">${m.time || ''}</span>`;
         b.addEventListener('click', e => { e.currentTarget.blur(); go(i); });
         day.nodes.appendChild(b);
         day.idx.push(i);
@@ -211,19 +256,20 @@ export function initUI(G) {
         if (i === idx) c.setAttribute('aria-current', 'step'); else c.removeAttribute('aria-current');
       });
       days.forEach(d => d.el.classList.toggle('current', d.idx.includes(idx)));
+      syncURL();
       wake();
     },
 
     setMode(mode) {
       const fly = mode === 'fly';
       icon(modeBtn, fly ? 'i-fly' : 'i-walk');
-      modeBtn.querySelector('.lbl').textContent = fly ? 'Flying' : 'Walking';
-      modeBtn.setAttribute('aria-label', fly ? 'Flying — land (F)' : 'Walking — fly (F)');
+      modeBtn.querySelector('.lbl').textContent = t(fly ? 'hud.flying' : 'hud.walking');
+      modeBtn.setAttribute('aria-label', t(fly ? 'hud.flyAria' : 'hud.walkAria'));
       modeBtn.classList.toggle('on', fly);
       const bf = el('btnFly');
       if (bf) {
-        bf.querySelector('span').textContent = fly ? 'Land' : 'Fly';
-        bf.setAttribute('aria-label', fly ? 'Land' : 'Fly');
+        bf.querySelector('span').textContent = t(fly ? 'tb.land' : 'tb.fly');
+        bf.setAttribute('aria-label', t(fly ? 'tb.land' : 'tb.fly'));
       }
       wake();
     },
@@ -244,6 +290,9 @@ export function initUI(G) {
     /* narration queues rather than clobbers — blurbs are worth reading out.
        `now` jumps the queue: a moment's blurb must never trail a moment behind
        when someone taps through the timeline quickly.
+       `msg` may be a string or a FUNCTION returning one — pass a function
+       (() => t(key)) so a card that is showing when the language changes
+       re-renders instead of finishing in the old language.
        opts: { kind: 'system' } renders the compact instruction style;
              { eyebrow } a mono line above the message;
              { channel } latest wins — a new toast on a channel drops the
@@ -255,7 +304,7 @@ export function initUI(G) {
         for (let i = queue.length - 1; i >= 0; i--) if (queue[i].channel === opts.channel) queue.splice(i, 1);
         if (cur && cur.channel === opts.channel) toastT = 0;
       }
-      queue.push({ msg: clean(msg), secs, kind: opts.kind, eyebrow: opts.eyebrow, channel: opts.channel });
+      queue.push({ msg: typeof msg === 'function' ? msg : clean(msg), secs, kind: opts.kind, eyebrow: opts.eyebrow, channel: opts.channel });
     },
 
     update(dt) {
@@ -273,9 +322,10 @@ export function initUI(G) {
       if (G.night !== lastNight) {
         lastNight = G.night;
         icon(lightBtn, G.night ? 'i-moon' : 'i-sun');
-        lightBtn.querySelector('.lbl').textContent = G.night ? 'Night' : 'Golden hour';
-        lightBtn.setAttribute('aria-label', G.night ? 'Night — switch to golden hour (N)' : 'Golden hour — switch to night (N)');
+        lightBtn.querySelector('.lbl').textContent = t(G.night ? 'hud.night' : 'hud.golden');
+        lightBtn.setAttribute('aria-label', t(G.night ? 'hud.nightAria' : 'hud.goldenAria'));
         lightBtn.classList.toggle('on', !!G.night);
+        syncURL();                             // N / the pill / setMoment all land here
       }
 
       /* desktop: the view is frozen until the canvas is clicked — say so */
@@ -287,9 +337,7 @@ export function initUI(G) {
         lastLock = lk;
         lockHint.classList.toggle('hidden', !lk);
         lockHint.classList.toggle('cursor', lk === 'cursor');
-        lockHint.innerHTML = lk === 'cursor'
-          ? 'Cursor free <kbd>Tab</kbd> to look around'
-          : 'Click the view to look around';
+        lockHint.innerHTML = t(lk === 'cursor' ? 'hud.lockCursor' : 'hud.lockClick');
       }
 
       /* idle: after a quiet spell the chrome steps back for the photograph —
@@ -303,7 +351,8 @@ export function initUI(G) {
     },
 
     go,
-    chipGo: go,
+    chipGo: i => go(i),
+    syncURL,
     revealMoment,
     openHelp,
     closeHelp,

@@ -68,16 +68,23 @@ export const CFG = {
      They come from ~/projects/wedding-app's itinerary (copy.ts): welcome party
      Fri 19 Mar 21:30; ceremony 16:30, cocktails 17:30, dinner 19:00, after
      party 21:00 on Sat 20 Mar. The brunch (Thu 18 Mar) has no published time
-     there, so it has none here — never invent one. `short` is the timeline label. */
+     there, so it has none here — never invent one. `short` is the timeline label.
+     `zh` (KAN-232) is the same copy in TRADITIONAL Chinese — read it through
+     i18n.js's mt(m, field), never directly. Names reuse the wedding-app's
+     itinerary (迎賓派對 / 婚禮儀式 / 雞尾酒會 / 晚宴 / 派對); see i18n.js. */
   MOMENTS: [
     { id: 'brunch', name: 'Welcome Brunch', short: 'Brunch', area: 'The Westin Rooftop',
       date: '2027-03-18', time: null,
       spawn: MOMENT_PLACES.BRUNCH, night: false,
-      blurb: 'Two days out, twenty-six floors up — the wedding party, long tables in the sun, and nothing past the pool but the sea.' },
+      blurb: 'Two days out, twenty-six floors up — the wedding party, long tables in the sun, and nothing past the pool but the sea.',
+      zh: { name: '迎賓早午餐', short: '早午餐', area: '威斯汀頂層露台',
+        blurb: '婚禮前兩天，二十六層樓之上 — 親友圍坐在陽光下的長桌旁，泳池之外，只有大海。' } },
     { id: 'setup', name: 'Prewedding Setup', short: 'Prewedding', area: 'Presidential Suite',
       date: '2027-03-19', time: '21:30',
       spawn: MOMENT_PLACES.PREWEDDING, night: true,
-      blurb: 'The night before — lanterns on the pool, the glass wall folded open, everyone spilling out of the living room.' },
+      blurb: 'The night before — lanterns on the pool, the glass wall folded open, everyone spilling out of the living room.',
+      zh: { name: '迎賓派對', short: '迎賓派對', area: '總統套房',
+        blurb: '婚禮前夜 — 燈籠浮在泳池上，整面玻璃牆摺起敞開，大家從客廳一路走到池邊。' } },
     /* Ceremony, Cocktail Hour and Wedding Dinner all MOVED on 2026-08-02 —
        Carl has been to the venue and none of the three was where the model had
        it. Ceremony and cocktails share the private beachfront lawn past the
@@ -89,19 +96,27 @@ export const CFG = {
     { id: 'ceremony', name: 'Ceremony', short: 'Ceremony', area: 'The Beachfront Lawn',
       date: '2027-03-20', time: '16:30',
       spawn: MOMENT_PLACES.CEREMONY, night: false,
-      blurb: 'Chairs on the grass, an aisle through the palms, and an arch with the sea behind it.' },
+      blurb: 'Chairs on the grass, an aisle through the palms, and an arch with the sea behind it.',
+      zh: { name: '婚禮儀式', short: '婚禮儀式', area: '海濱草坪',
+        blurb: '草地上的座椅，穿過棕櫚林的通道，花拱之後便是大海。' } },
     { id: 'cocktail', name: 'Cocktail Hour', short: 'Cocktails', area: 'The Beachfront Lawn',
       date: '2027-03-20', time: '17:30',
       spawn: MOMENT_PLACES.COCKTAIL, night: false,
-      blurb: 'Same lawn, other end. Teal parasols on the grass, something cold, and the tide coming in behind the bar.' },
+      blurb: 'Same lawn, other end. Teal parasols on the grass, something cold, and the tide coming in behind the bar.',
+      zh: { name: '雞尾酒會', short: '雞尾酒會', area: '海濱草坪',
+        blurb: '同一片草坪的另一端。草地上撐起青綠色的陽傘，手中一杯冰涼，吧台後潮水漸漲。' } },
     { id: 'dinner', name: 'Wedding Dinner', short: 'Dinner', area: 'The Pool Lawns',
       date: '2027-03-20', time: '19:00',
       spawn: MOMENT_PLACES.DINNER, night: true,
-      blurb: 'Eight rounds of eight on the two lawns outside the pool, festoon strung overhead and the water lit alongside.' },
+      blurb: 'Six rounds and two long tables on the two lawns outside the pool, festoon strung overhead and the water lit alongside.',
+      zh: { name: '晚宴', short: '晚宴', area: '泳池畔草坪',
+        blurb: '泳池旁的兩片草坪上，六張圓桌、兩張長桌；頭頂串燈交織，身旁池水映光。' } },
     { id: 'afterparty', name: 'After Party', short: 'After Party', area: 'Suite Pool Deck',
       date: '2027-03-20', time: '21:00',
       spawn: MOMENT_PLACES.AFTERPARTY, night: true,
-      blurb: 'The DJ takes the deck. Lanterns still burning on the water at 1 a.m.' },
+      blurb: 'The DJ takes the deck. Lanterns still burning on the water at 1 a.m.',
+      zh: { name: '派對', short: '派對', area: '套房泳池平台',
+        blurb: 'DJ 接手泳池平台。凌晨一點，水面上的燈籠依然亮著。' } },
   ],
 };
 

@@ -43,6 +43,7 @@ import { buildCampus, setCampusNight } from './campus.js';
 import { buildAtrium, setAtriumNight } from './atrium.js';
 import { buildSuite, setSuiteNight } from './suite.js';
 import { setEnvKnobsNight } from './materials.js';
+import { t as tr } from './i18n.js';
 
 /* The single source of ground truth (lassen `getHeight` pattern). Player,
    prop placement and the fly-mode altitude clamp all read this — never nudge
@@ -82,17 +83,18 @@ export function floorY(x, z, fromY) {
    re-tuning (`__game.G.buildProfile` in the console). The ORDER is load-bearing
    (nature last — see the comment in buildWorld); the weights are not. */
 const PHASES = [
-  /* label                              weight   measured, ms (1× / 6× CPU) */
-  ['Hanging the sky over Haitang Bay', 1],   //     3 /  15
-  ['Filling the pool', 9],                   //    48 / 284
-  ['Raising the villas', 4],                 //    16 /  90
-  ['Setting the atrium stone', 9],           //    50 / 285
-  ['Opening up the suite', 2],               //     6 /  35
-  ['Turning the clubhouse to the sea', 1],   //     3 /  16
-  ['Planting the palm grove', 12],           //    68 / 357
-  ['Setting the hour', 1],                   //     0 /   2
+  /* label = an i18n KEY (js/i18n.js — KAN-232); the English copy is beside it
+                                   weight   measured, ms (1× / 6× CPU) */
+  ['ph.sky', 1],       // Hanging the sky over Haitang Bay     3 /  15
+  ['ph.pool', 9],      // Filling the pool                    48 / 284
+  ['ph.villas', 4],    // Raising the villas                  16 /  90
+  ['ph.atrium', 9],    // Setting the atrium stone            50 / 285
+  ['ph.suite', 2],     // Opening up the suite                 6 /  35
+  ['ph.turn', 1],      // Turning the clubhouse to the sea     3 /  16
+  ['ph.palms', 12],    // Planting the palm grove             68 / 357
+  ['ph.hour', 1],      // Setting the hour                     0 /   2
 ];
-/* NB 'Lighting the lanterns' is main.js's label for the night SHADER WARM,
+/* NB 'Lighting the lanterns' (ph.lanterns) is main.js's label for the night SHADER WARM,
    which runs after this and is the expensive half of the lighting work. This
    phase is only the initial applyNight fan-out — property writes, no compile —
    hence the two different names for what look like the same step. */
@@ -497,7 +499,7 @@ function applyNight(G, on, quiet) {
   G.renderer.toneMappingExposure = on ? L.EXPOSURE_NIGHT : L.EXPOSURE_DAY;
 
   if (!quiet && G.ui) {
-    G.ui.toast(on ? 'Night over Haitang Bay.' : 'Golden hour.', 2.2, false, { channel: 'light' });
+    G.ui.toast(() => tr(on ? 'light.night' : 'light.golden'), 2.2, false, { channel: 'light' });
   }
 }
 

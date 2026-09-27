@@ -13,6 +13,7 @@ import { setFacing, syncCamera } from './player.js';
 import { setNight } from './world.js';
 import { mulberry32 } from './materials.js';
 import * as models from './models.js';
+import { t as tr, mt } from './i18n.js';
 
 const rnd = mulberry32(CFG.SEED);
 
@@ -2281,31 +2282,34 @@ export function initMoments(G) {
   /* champPt is the champagne service the brunch block just placed — the prompt
      rides the prop, so moving one can never strand the other again */
   G.interactables.push(
-    { x: champPt.x, z: champPt.z, r: 1.4, __world: true,
-      label: () => 'Pour a glass',
-      use: () => G.ui.toast('🥂 To the two of you — and to whoever booked the roof.', 3.4),
+    /* KAN-232: copy is i18n keys — label() and the toast resolve at render time,
+       so a switch of language re-renders the prompt and a card already up.
+       `id` is stable across languages: tests find an interactable by it. */
+    { id: 'pour', x: champPt.x, z: champPt.z, r: 1.4, __world: true,
+      label: () => tr('act.pour'),
+      use: () => G.ui.toast(() => tr('say.pour'), 3.4),
       enabled: when('brunch') },
-    { x: -3.4, z: D.z0 + 1.2, r: 1.2, label: () => 'Read the welcome sign',
-      use: () => G.ui.toast('“Carl & Rachel — welcome to Haitang Bay. Shoes optional.”', 3.4),
+    { id: 'sign', x: -3.4, z: D.z0 + 1.2, r: 1.2, label: () => tr('act.sign'),
+      use: () => G.ui.toast(() => tr('say.sign'), 3.4),
       enabled: when('setup') },
     /* all three moved 2026-08-02 with their moments — the arch is on the
        beachfront lawn, the bar is 26 m along the same lawn, and the dance floor
        is on the paved walk between the two dinner lawns. These are the same
        numbers the prop blocks above are built from; if one moves, both move. */
-    { x: -22, z: 71, r: 2.4, label: () => 'Stand at the arch',
-      use: () => G.ui.toast('This is where the “I do” happens — with the sea right behind you. 💍', 3.4),
+    { id: 'arch', x: -22, z: 71, r: 2.4, label: () => tr('act.arch'),
+      use: () => G.ui.toast(() => tr('say.arch'), 3.4),
       enabled: when('ceremony') },
     /* the drink is on the REAL menu — decor-cocktail-menu.jpg; the old
        "Yuzu 75" was not one of the four wedding cocktails */
-    { x: 4, z: 68, r: 2.2, label: () => 'Order from the bar',
-      use: () => G.ui.toast('🍸 One 荔枝尼格罗尼 — lychee negroni, amber, with the orange twist.', 3.2),
+    { id: 'bar', x: 4, z: 68, r: 2.2, label: () => tr('act.bar'),
+      use: () => G.ui.toast(() => tr('say.bar'), 3.2),
       enabled: when('cocktail') },
-    { x: (SITE.DINNER_WALK.x0 + SITE.DINNER_WALK.x1) / 2, z: 3, r: 2.2,
-      label: () => 'Step onto the dance floor',
-      use: () => G.ui.toast('The floor is yours — everyone joins after the second song.', 3.2),
+    { id: 'dance', x: (SITE.DINNER_WALK.x0 + SITE.DINNER_WALK.x1) / 2, z: 3, r: 2.2,
+      label: () => tr('act.dance'),
+      use: () => G.ui.toast(() => tr('say.dance'), 3.2),
       enabled: when('dinner') },
-    { x: 0, z: D.z0 + 1.4, r: 1.6, label: () => 'Request a song',
-      use: () => G.ui.toast('🎧 The DJ nods. It was always going to be this song.', 3),
+    { id: 'song', x: 0, z: D.z0 + 1.4, r: 1.6, label: () => tr('act.song'),
+      use: () => G.ui.toast(() => tr('say.song'), 3),
       enabled: when('afterparty') },
   );
 
@@ -2336,7 +2340,7 @@ export function initMoments(G) {
     syncCamera(G);
 
     G.ui.setMoment(m, idx);
-    if (!opts.quiet) G.ui.toast(m.blurb, 4.2, true);   // jump the queue
+    if (!opts.quiet) G.ui.toast(() => mt(m, 'blurb'), 4.2, true);   // jump the queue
   };
 }
 

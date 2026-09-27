@@ -9,6 +9,32 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#14110d">
 <meta name="color-scheme" content="dark">
+<!-- KAN-232 · the language, decided BEFORE first paint. js/i18n.js owns the
+     strings and the real detection; this repeats only the detection (it has to
+     run before that module can) so a Chinese guest never sees the loading card
+     flash in English: ?lang=zh|en › their own earlier choice › navigator.language.
+     Chinese hides the [data-i18n] text until i18n.js has swapped it (a second
+     at most — the class is dropped on a timer if the module never arrives) and
+     preloads the self-hosted Traditional-Chinese serif subset. Keep in step
+     with detectLang() in js/i18n.js. -->
+<script>
+(function () {
+  var l = null, d = document.documentElement;
+  try { l = new URLSearchParams(location.search).get('lang'); } catch (e) {}
+  if (l !== 'zh' && l !== 'en') { try { l = localStorage.getItem('venue.lang'); } catch (e) { l = null; } }
+  if (l !== 'zh' && l !== 'en') l = /^zh/i.test(navigator.language || '') ? 'zh' : 'en';
+  d.dataset.lang = l;
+  if (l === 'zh') {
+    d.lang = 'zh-Hant';
+    d.classList.add('i18n-pending');
+    setTimeout(function () { d.classList.remove('i18n-pending'); }, 1500);
+    var f = document.createElement('link');
+    f.rel = 'preload'; f.as = 'font'; f.type = 'font/woff2'; f.crossOrigin = 'anonymous';
+    f.href = 'assets/fonts/venue-serif-tc.woff2';
+    document.head.appendChild(f);
+  }
+})();
+</script>
 <title>Carl &amp; Rachel · The Big Day in 3D</title>
 <meta name="description" content="A first-person 3D walkthrough of Carl &amp; Rachel's wedding venue — six moments, from the rooftop welcome brunch to the after party. Free in your browser.">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
@@ -46,10 +72,13 @@
      and no text.
      KAN-218: the faces are the wedding-app's V2 guest-site system — Bodoni Moda
      (editorial), Archivo (body), JetBrains Mono (eyebrows, dates, key caps) —
-     plus Noto Serif SC subset to the three characters 隐逸居 with `text=`
-     (~4 KB instead of a CJK font). -->
+     KAN-232: the Chinese serif is SELF-HOSTED now (assets/fonts/venue-serif-tc.woff2,
+     Noto Serif TC 500 cut to exactly the glyphs js/i18n.js + config.js use —
+     `node tools/cjk-subset.mjs`), declared in css/style.css with a CJK
+     unicode-range. It replaced the Google `Noto Serif SC &text=隐逸居` link:
+     Traditional glyphs, and fonts.googleapis.com is unreachable from the
+     mainland, where many of the guests will open this. -->
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@500&text=%E9%9A%90%E9%80%B8%E5%B1%85&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
 <noscript><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/style.css">
 <script type="importmap">
@@ -62,7 +91,7 @@
 </script>
 </head>
 <body>
-<canvas id="scene" aria-label="The venue in 3D"></canvas>
+<canvas id="scene" aria-label="The venue in 3D" data-i18n-aria="a.canvas"></canvas>
 
 <!-- ────────────────────────── icon sprite ──────────────────────────
      One inline sprite, 24-unit grid, 1.5 stroke, round caps — drawn for this
@@ -97,10 +126,10 @@
   <div class="loading-art" aria-hidden="true"></div>
   <div class="card paper">
     <svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><use href="#i-seal"/><text x="36" y="56" class="seal-c">C</text><text x="50" y="63" class="seal-amp">&amp;</text><text x="65" y="72" class="seal-c">R</text></svg>
-    <p class="eyebrow">20 · 03 · 2027</p>
+    <p class="eyebrow" data-i18n="load.date">20 · 03 · 2027</p>
     <h2 class="names" translate="no">Carl <em>&amp;</em> Rachel</h2>
-    <p class="place">The Westin Sanya Haitang Bay</p>
-    <p class="phase" id="loadPhase" role="status" aria-live="polite">Setting the tables…</p>
+    <p class="place" data-i18n="load.place">The Westin Sanya Haitang Bay</p>
+    <p class="phase" id="loadPhase" role="status" aria-live="polite"><span data-i18n="ph.tables">Setting the tables</span>…</p>
     <div class="track" id="loadTrack" role="progressbar"
          aria-labelledby="loadPhase" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
       <i id="loadBar"></i>
@@ -118,17 +147,20 @@
   <div class="card paper invite" role="group" aria-labelledby="inviteNames">
     <img class="flora flora-a" src="assets/ui/hydrangea.webp" alt="" width="600" height="596" decoding="async">
     <img class="flora flora-b" src="assets/ui/hydrangea.webp" alt="" width="600" height="596" decoding="async">
-    <svg class="seal rv" viewBox="0 0 100 100" aria-hidden="true"><use href="#i-seal"/><text x="36" y="56" class="seal-c">C</text><text x="50" y="63" class="seal-amp">&amp;</text><text x="65" y="72" class="seal-c">R</text></svg>
-    <p class="eyebrow rv">The Big Day · a walkthrough</p>
-    <h1 class="names rv" id="inviteNames" translate="no">Carl <em>&amp;</em> Rachel</h1>
-    <p class="date rv"><span>Saturday</span> 20 · 03 · 2027</p>
-    <p class="venue rv">The Westin Sanya Haitang Bay<br><span class="cjk" lang="zh-Hans" translate="no">隐逸居</span> <span class="sep">·</span> The Serene Retreat</p>
-    <p class="lede rv">Walk our wedding day — before anyone else does.</p>
-    <div class="actions rv">
-      <button id="begin" type="button"><span>Step inside</span><svg aria-hidden="true"><use href="#i-arrow"/></svg></button>
-      <button id="howto" class="link" type="button" aria-haspopup="dialog">How to move</button>
+    <div class="langsw rv" role="group" aria-label="Language" data-i18n-aria="lang.group">
+      <button type="button" data-lang-pick="zh" lang="zh-Hant" aria-pressed="false">中</button><span aria-hidden="true">/</span><button type="button" data-lang-pick="en" lang="en" aria-pressed="true">EN</button>
     </div>
-    <p class="legal rv">Modelled from our own site photos and the suite walkthrough. Not to survey accuracy.</p>
+    <svg class="seal rv" viewBox="0 0 100 100" aria-hidden="true"><use href="#i-seal"/><text x="36" y="56" class="seal-c">C</text><text x="50" y="63" class="seal-amp">&amp;</text><text x="65" y="72" class="seal-c">R</text></svg>
+    <p class="eyebrow rv" data-i18n="inv.eyebrow">The Big Day · a walkthrough</p>
+    <h1 class="names rv" id="inviteNames" translate="no">Carl <em>&amp;</em> Rachel</h1>
+    <p class="date rv" data-i18n-html="inv.date"><span>Saturday</span> 20 · 03 · 2027</p>
+    <p class="venue rv" data-i18n-html="inv.venue">The Westin Sanya Haitang Bay<br><span class="cjk" lang="zh-Hant" translate="no">隱逸居</span> <span class="sep">·</span> The Serene Retreat</p>
+    <p class="lede rv" data-i18n-html="inv.lede">Walk our wedding day — before anyone else does.</p>
+    <div class="actions rv">
+      <button id="begin" type="button"><span id="beginLbl" data-i18n="inv.begin">Step inside</span><svg aria-hidden="true"><use href="#i-arrow"/></svg></button>
+      <button id="howto" class="link" type="button" aria-haspopup="dialog" data-i18n="inv.howto">How to move</button>
+    </div>
+    <p class="legal rv" data-i18n="inv.legal">Modelled from our own site photos and the suite walkthrough. Not to survey accuracy.</p>
   </div>
 </div>
 
@@ -136,7 +168,7 @@
      Three quiet corners and a caption. Nothing here sits over the middle of
      the frame: the venue is the photograph. -->
 <div id="hud" class="hidden">
-  <div class="status" role="group" aria-label="View">
+  <div class="status" role="group" aria-label="View" data-i18n-aria="hud.view">
     <button id="modeBtn" class="pill" type="button" aria-label="Walking — switch to fly (F)">
       <svg aria-hidden="true"><use href="#i-walk"/></svg><span class="lbl">Walking</span><kbd class="deskOnly">F</kbd>
     </button>
@@ -149,9 +181,12 @@
     <p class="title"></p>
     <p class="area"></p>
   </div>
-  <button id="helpBtn" class="round" type="button" aria-label="How to move (H)" aria-haspopup="dialog">
-    <svg aria-hidden="true"><use href="#i-help"/></svg>
-  </button>
+  <div class="corner">
+    <button id="langBtn" class="round lang" type="button" data-lang-toggle aria-label="中文 — switch to Chinese" data-i18n-aria="lang.otherAria"><span data-i18n="lang.other">中</span></button>
+    <button id="helpBtn" class="round" type="button" aria-label="How to move (H)" aria-haspopup="dialog" data-i18n-aria="hud.help">
+      <svg aria-hidden="true"><use href="#i-help"/></svg>
+    </button>
+  </div>
 </div>
 
 <!-- the moment switch: the veil hides the teleport, the reveal names the moment -->
@@ -165,20 +200,20 @@
 <button id="prompt" class="hidden" type="button"></button>
 <div id="toast" class="hidden" role="status" aria-live="polite"><p class="eyebrow"></p><p class="msg"></p></div>
 <div id="lockHint" class="hidden" aria-hidden="true"></div>
-<nav id="moments" class="hidden" aria-label="The wedding, in order"></nav>
+<nav id="moments" class="hidden" aria-label="The wedding, in order" data-i18n-aria="hud.timeline"></nav>
 
 <!-- ────────────────────────── touch ────────────────────────── -->
 <div id="touch" class="hidden">
   <div id="stick" aria-hidden="true"><div id="stickNub"></div></div>
   <div class="tbtns">
-    <button class="tbtn flyOnly" id="btnUp" type="button" aria-label="Climb"><svg aria-hidden="true"><use href="#i-up"/></svg></button>
-    <button class="tbtn flyOnly" id="btnDown" type="button" aria-label="Dive"><svg aria-hidden="true"><use href="#i-down"/></svg></button>
+    <button class="tbtn flyOnly" id="btnUp" type="button" aria-label="Climb" data-i18n-aria="tb.climb"><svg aria-hidden="true"><use href="#i-up"/></svg></button>
+    <button class="tbtn flyOnly" id="btnDown" type="button" aria-label="Dive" data-i18n-aria="tb.dive"><svg aria-hidden="true"><use href="#i-down"/></svg></button>
     <button class="tbtn" id="btnFly" type="button" aria-label="Fly"><svg aria-hidden="true"><use href="#i-fly"/></svg><span>Fly</span></button>
-    <button class="tbtn" id="btnInteract" type="button" aria-label="Interact"><svg aria-hidden="true"><use href="#i-spark"/></svg></button>
+    <button class="tbtn" id="btnInteract" type="button" aria-label="Interact" data-i18n-aria="tb.interact"><svg aria-hidden="true"><use href="#i-spark"/></svg></button>
   </div>
   <div id="coach" aria-hidden="true">
-    <p class="c-move"><b>Move</b>left thumb</p>
-    <p class="c-look"><b>Look</b>drag anywhere</p>
+    <p class="c-move" data-i18n-html="co.move"><b>Move</b>left thumb</p>
+    <p class="c-look" data-i18n-html="co.look"><b>Look</b>drag anywhere</p>
   </div>
 </div>
 
@@ -188,36 +223,42 @@
 <div id="help" class="hidden" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
   <div class="sheet">
     <header>
-      <p class="eyebrow">Getting around</p>
-      <h2 id="helpTitle">How to move</h2>
-      <button id="helpClose" class="round" type="button" aria-label="Close"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
+      <p class="eyebrow" data-i18n="help.eyebrow">Getting around</p>
+      <h2 id="helpTitle" data-i18n="help.title">How to move</h2>
+      <button id="helpClose" class="round" type="button" aria-label="Close" data-i18n-aria="help.close"><svg aria-hidden="true"><use href="#i-close"/></svg></button>
     </header>
     <dl class="keys deskOnly">
-      <div><dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Walk</dd></div>
-      <div><dt><kbd>Shift</kbd></dt><dd>Hurry — there’s a schedule</dd></div>
-      <div><dt><kbd class="wide">Mouse</kbd></dt><dd>Look around (click the view first)</dd></div>
-      <div><dt><kbd>E</kbd></dt><dd>Interact when a prompt appears</dd></div>
-      <div><dt><kbd>F</kbd></dt><dd>Fly · land</dd></div>
-      <div><dt><kbd>Space</kbd><kbd>C</kbd></dt><dd>Climb · dive while flying</dd></div>
-      <div><dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd>Jump through the timeline</dd></div>
-      <div><dt><kbd>N</kbd></dt><dd>Golden hour · night</dd></div>
-      <div><dt><kbd>Tab</kbd></dt><dd>Free the cursor to click the timeline</dd></div>
-      <div><dt><kbd>Esc</kbd></dt><dd>Release the mouse</dd></div>
-      <div><dt><kbd>H</kbd></dt><dd>This sheet</dd></div>
+      <div><dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd data-i18n="k.walk">Walk</dd></div>
+      <div><dt><kbd>Shift</kbd></dt><dd data-i18n="k.run">Hurry — there’s a schedule</dd></div>
+      <div><dt><kbd class="wide" data-i18n="k.mouse">Mouse</kbd></dt><dd data-i18n="k.look">Look around (click the view first)</dd></div>
+      <div><dt><kbd>E</kbd></dt><dd data-i18n="k.interact">Interact when a prompt appears</dd></div>
+      <div><dt><kbd>F</kbd></dt><dd data-i18n="k.fly">Fly · land</dd></div>
+      <div><dt><kbd>Space</kbd><kbd>C</kbd></dt><dd data-i18n="k.climb">Climb · dive while flying</dd></div>
+      <div><dt><kbd>1</kbd>–<kbd>6</kbd></dt><dd data-i18n="k.jump">Jump through the timeline</dd></div>
+      <div><dt><kbd>N</kbd></dt><dd data-i18n="k.night">Golden hour · night</dd></div>
+      <div><dt><kbd>Tab</kbd></dt><dd data-i18n="k.tab">Free the cursor to click the timeline</dd></div>
+      <div><dt><kbd>Esc</kbd></dt><dd data-i18n="k.esc">Release the mouse</dd></div>
+      <div><dt><kbd>H</kbd></dt><dd data-i18n="k.sheet">This sheet</dd></div>
     </dl>
     <dl class="keys touchOnly">
-      <div><dt><span class="gest g-stick" aria-hidden="true"></span></dt><dd><b>Move</b> — press and drag with your left thumb</dd></div>
-      <div><dt><span class="gest g-drag" aria-hidden="true"></span></dt><dd><b>Look</b> — drag anywhere else</dd></div>
-      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-spark"/></svg></span></dt><dd><b>Interact</b> — tap the prompt, or this button</dd></div>
-      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-fly"/></svg></span></dt><dd><b>Fly</b> · land — then <span class="tglyph sm"><svg aria-hidden="true"><use href="#i-up"/></svg></span><span class="tglyph sm"><svg aria-hidden="true"><use href="#i-down"/></svg></span> for height</dd></div>
-      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-moon"/></svg></span></dt><dd><b>Night</b> — the sun / moon at the top</dd></div>
-      <div><dt><span class="gest g-dots" aria-hidden="true"></span></dt><dd><b>The timeline</b> — tap a moment at the bottom</dd></div>
+      <div><dt><span class="gest g-stick" aria-hidden="true"></span></dt><dd data-i18n-html="t.move"><b>Move</b> — press and drag with your left thumb</dd></div>
+      <div><dt><span class="gest g-drag" aria-hidden="true"></span></dt><dd data-i18n-html="t.look"><b>Look</b> — drag anywhere else</dd></div>
+      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-spark"/></svg></span></dt><dd data-i18n-html="t.interact"><b>Interact</b> — tap the prompt, or this button</dd></div>
+      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-fly"/></svg></span></dt><dd data-i18n-html="t.fly"><b>Fly</b> · land — then <span class="tglyph sm"><svg aria-hidden="true"><use href="#i-up"/></svg></span><span class="tglyph sm"><svg aria-hidden="true"><use href="#i-down"/></svg></span> for height</dd></div>
+      <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-moon"/></svg></span></dt><dd data-i18n-html="t.night"><b>Night</b> — the sun / moon at the top</dd></div>
+      <div><dt><span class="gest g-dots" aria-hidden="true"></span></dt><dd data-i18n-html="t.timeline"><b>The timeline</b> — tap a moment at the bottom</dd></div>
     </dl>
-    <p class="fine">Six moments across three days — 18 to 20 March 2027. Nothing here is to survey accuracy; it is how the day will feel.</p>
-    <button id="helpDone" type="button">Back to the venue</button>
+    <p class="fine" data-i18n="help.fine">Six moments across three days — 18 to 20 March 2027. Nothing here is to survey accuracy; it is how the day will feel.</p>
+    <div class="helpFoot">
+      <div class="langsw dark" role="group" aria-label="Language" data-i18n-aria="lang.group">
+        <button type="button" data-lang-pick="zh" lang="zh-Hant" aria-pressed="false">中</button><span aria-hidden="true">/</span><button type="button" data-lang-pick="en" lang="en" aria-pressed="true">EN</button>
+      </div>
+      <button id="helpDone" type="button" data-i18n="help.done">Back to the venue</button>
+    </div>
   </div>
 </div>
 
+<script type="module" src="js/i18n.js"></script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>

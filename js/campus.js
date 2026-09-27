@@ -45,6 +45,7 @@ import { mulberry32, envKnob } from './materials.js';
    while the roof is being built, exactly as moments.js fills its own. */
 import { leafMat, protoGeo, fringeFor } from './foliage.js';
 import * as models from './models.js';
+import { t as tr } from './i18n.js';
 
 /* ════════════════════════════════════════════════════════════════════════
    shared geometry — every box in the campus is ONE unit cube, scaled
@@ -3770,10 +3771,10 @@ function buildArrival(G, g, rnd) {
          `__world` here would leave it 90° around the map — the mirror image
          of the Welcome Brunch's opt-out.                                    */
   G.interactables.push({
+    id: 'checkin',   // stable across languages (KAN-232) — the copy is i18n keys
     x: DX, z: DZ + 1.05, r: 1.5,
-    label: () => 'Check in',
-    use: () => G.ui.toast('“Welcome to 隐逸居, Mr & Mrs Fung.” Rooms are LEFT along the '
-      + 'upper gallery; the presidential suite is RIGHT, across the walkway. 🔑', 4.6),
+    label: () => tr('act.checkin'),
+    use: () => G.ui.toast(() => tr('say.checkin'), 4.6),
   });
 
   /* ══════════════════════════════════════════════════════════════════════

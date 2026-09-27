@@ -31,6 +31,7 @@ import { initLightBudget } from './lightbudget.js';
 import { initDetailCull } from './detailcull.js';
 import * as models from './models.js';
 import { bindEnvKnobs } from './materials.js';
+import { t, mt, onLang } from './i18n.js';
 
 /* ── the loading card ────────────────────────────────────────────────────────
    The card is already on screen (index.html) — this only drives its copy, its
@@ -44,7 +45,9 @@ const loadTrack = document.getElementById('loadTrack');
 const loadPhase = document.getElementById('loadPhase');
 const loadPct = document.getElementById('loadPct');
 let shownPct = 0;
+let phaseKey = null;   // the i18n key on the card now — re-rendered if the language changes
 
+/* `label` is an i18n KEY (js/i18n.js 'ph.*'), not copy */
 function setProgress(frac, label) {
   if (!loadEl) return;
   /* 99 is the ceiling until the scene is genuinely up — see finishLoading */
@@ -53,8 +56,14 @@ function setProgress(frac, label) {
   loadBar.style.transform = `scaleX(${pct / 100})`;
   loadPct.textContent = pct + '%';
   loadTrack.setAttribute('aria-valuenow', String(pct));
-  if (label) loadPhase.textContent = label + (pct < 100 ? '…' : '');
+  if (label) phaseKey = label;
+  if (label || frac >= 1) paintPhase();
 }
+function paintPhase() {
+  if (!loadEl || !phaseKey) return;
+  loadPhase.textContent = t(phaseKey) + (shownPct < 100 ? '…' : '');
+}
+onLang(paintPhase);
 
 /* Hand over to the title card. The orbit is already running behind it by the
    time this is called, so the card fades onto a live scene, never onto black.
@@ -62,7 +71,7 @@ function setProgress(frac, label) {
    leaves the DOM, so a stuck opacity transition can never eat a click on
    "Step inside". */
 function finishLoading() {
-  setProgress(1, 'Ready when you are');
+  setProgress(1, 'ph.ready');
   const ov = document.getElementById('overlay');
   ov.removeAttribute('inert');
   ov.classList.add('ready');   // KAN-218: runs the invitation's entrance
@@ -79,7 +88,7 @@ if (touchMode) document.body.classList.add('touch');
 /* THE FIRST YIELD, and the most important one: everything above is DOM, and
    everything below touches WebGL. Without this the whole boot can land in the
    same task as the parser and the card never paints at all. */
-setProgress(.02, 'Setting the tables');
+setProgress(.02, 'ph.tables');
 await yieldFrame();
 
 const renderer = new THREE.WebGLRenderer({
@@ -107,7 +116,7 @@ addEventListener('resize', () => {
 });
 
 /* environment probe — real reflections in the marble, gold and mirror ball */
-setProgress(.06, 'Warming the lights');
+setProgress(.06, 'ph.lights');
 await yieldFrame();
 const pmrem = new THREE.PMREMGenerator(renderer);
 pmrem.compileEquirectangularShader();
@@ -137,7 +146,7 @@ scene.environmentIntensity = CFG.LIGHT.ENV;
    .06 … .08 is the models' slice of the bar; buildWorld's own .08 … .54
    follows it, so the bar stays monotonic. */
 const modelsP = models.preload((f, name) => {
-  setProgress(.06 + f * .02, 'Unloading the florist’s van');
+  setProgress(.06 + f * .02, 'ph.florist');
 });
 
 /* ── the one context object threaded through every builder ── */
@@ -184,9 +193,8 @@ G.setMode = (mode, opts = {}) => {
   document.getElementById('touch').classList.toggle('flymode', mode === 'fly');
   if (!opts.quiet) {
     /* instructions, not narration — the compact 'system' card */
-    G.ui.toast(mode === 'fly'
-      ? (G.touchMode ? 'Flying — the arrows climb and dive' : 'Flying — Space / C climb and dive · F lands')
-      : 'Back on your feet', 2.4, false, { kind: 'system', channel: 'mode' });
+    const key = mode === 'fly' ? (G.touchMode ? 'mode.flyTouch' : 'mode.flyKeys') : 'mode.walk';
+    G.ui.toast(() => t(key), 2.4, false, { kind: 'system', channel: 'mode' });
   }
 };
 G.toggleMode = () => G.setMode(G.mode === 'fly' ? 'walk' : 'fly');
@@ -206,12 +214,12 @@ initUI(G);
 /* THE PROPS FIRST. campus.js and water.js read models.geometry()/material()
    while they build (see the preload banner above), so this await is part of
    buildWorld's contract now, not initMoments'. */
-setProgress(.08, 'Unloading the florist’s van');
+setProgress(.08, 'ph.florist');
 await modelsP;
 
 await buildWorld(G, (f, label) => setProgress(.08 + f * .46, label));
 
-setProgress(.56, 'Laying the places');
+setProgress(.56, 'ph.places');
 await yieldFrame();
 initPlayer(G);
 if (touchMode) initTouch(G);
@@ -263,7 +271,7 @@ initDetailCull(G);
 
 /* The title card plays over a drone orbit of the whole enclave — the aerial
    Carl photographed. The ceremony dressing is on the lawn below it. */
-setProgress(.68, 'Sending up the drone');
+setProgress(.68, 'ph.drone');
 await yieldFrame();
 /* index resolved by id — the Welcome Brunch took index 0 on 2026-08-02 */
 G.setMoment(momentIndex('ceremony'), { quiet: true });
@@ -274,7 +282,7 @@ initIntroCam(G);
    call. Doing it here instead, behind the card, keeps the handoff instant and
    lets the driver compile in parallel where the extension exists. Guarded
    because it is the one call in this file three.js has not always had. */
-setProgress(.72, 'Waiting on the light');
+setProgress(.72, 'ph.light');
 await yieldFrame();
 /* ── compile EVERY moment, not just the one on screen ────────────────────────
    renderer.compile() traverses only VISIBLE objects, so with one moment group
@@ -318,7 +326,7 @@ if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
    Written against G.night rather than a literal so CFG.START_AT_NIGHT keeps
    working: whatever we open on, this warms the opposite and restores. */
 const openNight = G.night;
-setProgress(.80, openNight ? 'Catching the golden hour' : 'Lighting the lanterns');
+setProgress(.80, openNight ? 'ph.golden' : 'ph.lanterns');
 await yieldFrame();
 setNight(G, !openNight, { quiet: true });
 if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
@@ -358,7 +366,7 @@ if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
       if (v && v.isTexture && !v.isRenderTargetTexture) textures.add(v);
     }
   });
-  const label = openNight ? 'Catching the golden hour' : 'Lighting the lanterns';
+  const label = openNight ? 'ph.golden' : 'ph.lanterns';
   let done = 0, slice = performance.now();
   for (const t of textures) {
     renderer.initTexture(t);
@@ -377,23 +385,69 @@ if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
 renderer.render(scene, camera);
 setNight(G, openNight, { quiet: true });
 for (const [g, v] of _mvis) g.visible = v;   // exactly as setMoment left them
-setProgress(.94, 'Opening the doors');
+setProgress(.94, 'ph.doors');
 await yieldFrame();
 
-/* ── begin: fly down out of the sky, over the pool, in through the folded-open
-   glass wall, and land standing in the great room ── */
+/* ── DEEP LINKS (KAN-232) ─────────────────────────────────────────────────────
+   ?m=<moment id>  (brunch · setup · ceremony · cocktail · dinner · afterparty —
+   the ids in CFG.MOMENTS, resolved through momentIndex, never an index) opens
+   straight into that moment. The title card STILL shows — "Step inside" has to
+   stay a user gesture for the pointer lock — but its CTA names the moment
+   ("Go to the Ceremony" / 「前往婚禮儀式」) and the landing goes there.
+   ?night=1|0 overrides that moment's own lighting once landed. Anything else
+   (an unknown id, night=2) falls back silently to the default opening. The URL
+   then follows the guest (ui.js syncURL), so copying it shares where they are. */
+const q = new URLSearchParams(location.search);
+const deepIdx = momentIndex(q.get('m') || '');
+const deepNight = q.get('night') === '1' ? true : q.get('night') === '0' ? false : null;
+const SETUP = momentIndex('setup');
+const landIdx = deepIdx >= 0 ? deepIdx : SETUP;
+G.deepLink = deepIdx >= 0 ? { id: CFG.MOMENTS[deepIdx].id, night: deepNight } : null;
+
+const beginLbl = document.getElementById('beginLbl');
+function paintBegin() {
+  if (!beginLbl) return;
+  beginLbl.textContent = deepIdx >= 0 ? t('inv.go', { name: mt(CFG.MOMENTS[deepIdx], 'name') }) : t('inv.begin');
+  document.getElementById('begin').classList.toggle('deep', deepIdx >= 0);
+}
+paintBegin();
+onLang(paintBegin);
+const applyNightParam = () => { if (deepNight !== null) setNight(G, deepNight); };
+
+/* ── begin ──
+   The default (and ?m=setup): fly down out of the sky, over the pool, in
+   through the folded-open glass wall, and land standing in the great room.
+   Any other ?m=: the dive would land in the wrong building, so the orbit hands
+   straight over under the veil (ui.go's before/after hooks) — same fade and
+   title reveal as a timeline switch. The pointer lock is taken INSIDE the click
+   on that path, while the gesture is still live. */
 document.getElementById('begin').addEventListener('click', e => {
   e.currentTarget.blur();   // Space is fly-ascend — a focused button would re-click
   G.overlayOpen = false;
   G.ui.hideOverlay();
-  startDive(G, () => {
-    G.started = true;
-    G.ui.showHUD();
-    if (G.touchMode) G.showTouchUI();
-    else lock(G);   // Esc naturally drops the lock; clicking the view re-locks
-    G.momentIndex = -1;   // force the switch even though the ceremony is dressed
-    G.setMoment(momentIndex('setup'));   // the dive lands in the great room
-    G.ui.revealMoment(CFG.MOMENTS[momentIndex('setup')]);   // …and names where you are
+  if (landIdx === SETUP) {
+    startDive(G, () => {
+      G.started = true;
+      G.ui.showHUD();
+      if (G.touchMode) G.showTouchUI();
+      else lock(G);   // Esc naturally drops the lock; clicking the view re-locks
+      G.momentIndex = -1;   // force the switch even though the ceremony is dressed
+      G.setMoment(SETUP);   // the dive lands in the great room
+      applyNightParam();
+      G.ui.revealMoment(CFG.MOMENTS[SETUP]);   // …and names where you are
+    });
+    return;
+  }
+  G.started = true;
+  if (!G.touchMode) lock(G);
+  G.momentIndex = -1;   // the title backdrop may already BE this moment (ceremony)
+  G.ui.go(landIdx, {
+    before() {
+      G.introActive = false;   // the orbit stops under the veil
+      G.ui.showHUD();
+      if (G.touchMode) G.showTouchUI();
+    },
+    after: applyNightParam,
   });
 });
 

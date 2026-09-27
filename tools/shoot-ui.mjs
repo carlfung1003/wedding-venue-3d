@@ -5,6 +5,11 @@
      node tools/shoot-ui.mjs <outDir>            (serve first: python3 serve.py 8803)
      VENUE_URL=http://127.0.0.1:8811/ node tools/shoot-ui.mjs reference/photos/shots-ui-before
      ONLY=desktop,phone STATES=title,help node tools/shoot-ui.mjs /tmp/x
+     UI_LANG=zh node tools/shoot-ui.mjs reference/photos/shots-i18n   (KAN-232)
+
+   UI_LANG=en|zh loads ?lang= and names files <viewport>-<lang>-<state>.png.
+   (Not LANG — that is the shell's own locale variable.) The deep-link states
+   (deeplink-title / deeplink-reveal / deeplink-landing) load ?m=ceremony.
 
    Writes <outDir>/<viewport>-<state>.png plus report.json (console errors,
    fonts, per-state notes). States that the build does not have (the help sheet
@@ -17,7 +22,10 @@ const { chromium } = require(process.env.PLAYWRIGHT_PATH
   || '/Users/carlfung/projects/wedding-app/node_modules/playwright');
 
 const OUT = process.argv[2] || 'reference/photos/shots-ui';
-const URL = process.env.VENUE_URL || 'http://127.0.0.1:8803/';
+const BASE = process.env.VENUE_URL || 'http://127.0.0.1:8803/';
+const UI_LANG = process.env.UI_LANG || '';
+const URL = BASE + (UI_LANG ? `?lang=${UI_LANG}` : '');
+const DEEP_URL = BASE + '?m=ceremony' + (UI_LANG ? `&lang=${UI_LANG}` : '');
 fs.mkdirSync(OUT, { recursive: true });
 
 const VIEWPORTS = {
@@ -41,7 +49,7 @@ for (const vpName of only) {
   const notes = {};
   const shot = async name => {
     if (!want(name)) return;
-    await page.screenshot({ path: path.join(OUT, `${vpName}-${name}.png`) });
+    await page.screenshot({ path: path.join(OUT, `${vpName}${UI_LANG ? '-' + UI_LANG : ''}-${name}.png`) });
     notes[name] = 'ok';
   };
 
@@ -104,7 +112,8 @@ for (const vpName of only) {
     const g = window.__game, G = g.G;
     g.setMoment(ci);
     const P = await import('./js/player.js');
-    const it = G.interactables.find(i => i.label && i.label() === 'Stand at the arch');
+    /* by id (KAN-232 — the label is translated); the label is the pre-i18n fallback */
+    const it = G.interactables.find(i => i.id === 'arch') || G.interactables.find(i => i.label && i.label() === 'Stand at the arch');
     G.player.pos.set(it.x + 2.2, G.player.pos.y, it.z + 0.4);   // fixed approach
     P.setFacing(Math.atan2(-(it.x - G.player.pos.x), -(it.z - G.player.pos.z)));
     P.syncCamera(G);
@@ -121,14 +130,18 @@ for (const vpName of only) {
 
   /* 7 · night (N) on the ceremony lawn */
   await page.evaluate(() => window.__game.toggleNight());
-  await page.waitForTimeout(2600);
+  await page.waitForTimeout(650);
+  await shot('night-toast');             // the system card, while it is up (KAN-232)
+  await page.waitForTimeout(1950);
   await shot('night');
   await page.evaluate(() => window.__game.toggleNight());
   await page.waitForTimeout(2600);
 
   /* 8 · fly mode, lifted 30 m */
   await page.evaluate(() => { const G = window.__game.G; G.setMode('fly'); G.player.pos.y += 30; });
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(650);
+  await shot('fly-toast');
+  await page.waitForTimeout(2350);
   await shot('fly');
   await page.evaluate(() => window.__game.G.setMode('walk', { quiet: true }));
 
@@ -140,10 +153,28 @@ for (const vpName of only) {
     await page.evaluate(() => window.__game.G.ui.closeHelp());
   }
 
+  /* 10 · a deep link (?m=ceremony): the title card's CTA names the moment, and
+     "Go to the Ceremony" lands there under the veil (KAN-232) */
+  if (want('deeplink-title') || want('deeplink-reveal') || want('deeplink-landing')) {
+    await page.goto(DEEP_URL, { waitUntil: 'load' });
+    await page.waitForFunction(() => window.__game, null, { timeout: 180000 });
+    await page.waitForTimeout(2200);
+    notes.deepCTA = await page.$eval('#begin', e => e.textContent.trim());
+    await shot('deeplink-title');
+    await page.click('#begin');
+    await page.waitForTimeout(900);
+    await shot('deeplink-reveal');
+    await page.waitForTimeout(2600);
+    await page.evaluate(() => { window.__game.G.player.locked = true; });
+    await page.waitForTimeout(200);
+    await shot('deeplink-landing');
+    notes.deepURL = await page.evaluate(() => location.search);
+  }
+
   report[vpName] = { notes, errors: errs };
   console.log(vpName, JSON.stringify(notes.fonts?.length), 'fonts;', errs.length, 'errors', notes.promptLabel ? `prompt "${notes.promptLabel}"` : '');
   if (errs.length) console.log('  ', errs.slice(0, 6).join('\n   '));
   await ctx.close();
 }
-fs.writeFileSync(path.join(OUT, 'report.json'), JSON.stringify(report, null, 2));
+fs.writeFileSync(path.join(OUT, `report${UI_LANG ? '-' + UI_LANG : ''}.json`), JSON.stringify(report, null, 2));
 await browser.close();

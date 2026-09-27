@@ -36,6 +36,7 @@ own coordinates. Change the layout there, never in a builder.
 | `js/moments.js` | The six moment prop groups + per-moment colliders, the one-interactable-per-moment registry, `G.setMoment` (dress + collider swap + night flip + teleport) |
 | `js/player.js` | Ported from lassen-camp: pointer-lock FPS look (module-level yaw/pitch), Tab cursor mode, nearest-interactable prompt, and BOTH movement modes — walk (WASD + stick, walk/run, `{x,z,r}` cylinder collision, `floorY` eye-height clamp) and fly (spectator flight along the look direction, Space/C altitude, no collisions, altitude clamp) |
 | `js/touch.js` | Ported from lassen-camp: floating joystick → `touchInput`, drag-to-look, quick-tap interact, `.tbtn` buttons (interact, Fly/Land toggle, held ▲▼ in fly mode), first-run coach marks, release-everything on blur/visibilitychange. Pointer lock bypassed entirely in touch mode. |
+| `js/i18n.js` | (KAN-232) **Every guest-facing string, EN + Traditional ZH** — `t(key)`, `mt(m, field)`, `setLang`/`onLang`, the dated labels, the static-markup swap. See "I18N + DEEP LINKS — KAN-232". |
 | `js/ui.js` | (KAN-218) Every overlay surface: the invitation, the moment caption, the dated timeline, narration toasts (queue + `channel`), the interact prompt (a real button), the view-status pills, the controls sheet (a dialog that pauses the walk), the lock hint, idle dimming, and `go(i)` — the veil + title-reveal moment switch. See "UI/UX UPGRADE — KAN-218". |
 
 ## Reference assets
@@ -384,6 +385,111 @@ across-pool night camera, 159 KB) — the old one predated every asset pass.
    later HUD text becomes a new, meaningless LCP candidate.
 7. `Chromium at 390 px ≠ Safari`: the WebKit run caught the 320 px caption
    truncation ("Prewedding …") that no Chromium shot showed.
+
+## I18N + DEEP LINKS — KAN-232 (2026-09-27)
+
+Guests open this from the invitation, mostly on phones, and many read Chinese.
+Every guest-facing string is now bilingual (中 / EN), and a link can open straight
+into one moment. No scene change: programs, lights, colliders, spawns untouched —
+the builder diffs (campus.js / moments.js / world.js) are copy lines only.
+
+### The module — `js/i18n.js` (ALL copy lives here)
+
+- `t(key, vars?)` — the string in the current language (`{name}` placeholders);
+  `mt(m, field)` — a `CFG.MOMENTS` field (name / short / area / blurb), Chinese from
+  `m.zh` (the only copy outside i18n.js, by design: it sits beside its moment).
+- `getLang()` · `setLang('en'|'zh', {remember})` · `onLang(fn)` — live switching;
+  `dateLong` / `dateShort` / `dayHead` / `whenLong` — the dated labels
+  ("Saturday 20 March" / "3 月 20 日 星期六", "Sat 20 Mar" / "週六 3.20").
+- `applyStatic()` swaps the markup: `data-i18n` (text), `data-i18n-html` (our own
+  HTML only), `data-i18n-aria` (aria-label); also `<html lang>` (`zh-Hant`), `<title>`,
+  meta description. index.html keeps the ENGLISH text inline (no-JS / crawler default).
+- Key families: `doc.*` `load.*` `ph.*` (loading phases — world.js PHASES and
+  main.js `setProgress` pass KEYS, not copy) `inv.*` (invitation + CTA) `lang.*`
+  `hud.*` `tb.*` / `co.*` (touch) `help.*` `k.*` (keyboard rows) `t.*` (touch rows)
+  `mode.*` / `light.*` (system cards) `act.*` / `say.*` (the 7 interactables' prompt +
+  what they say).
+- Builders import it as `{ t as tr }` — they use `t` as a local name everywhere.
+- **Toasts take a FUNCTION** (`G.ui.toast(() => tr('say.arch'), …)`) so a card that is
+  up when the language changes re-renders. `label()` resolves per frame, so prompts
+  follow for free. Interactables carry a stable `id` (`checkin`, `pour`, `sign`,
+  `arch`, `bar`, `dance`, `song`) — **tests find them by id, never by label**
+  (shoot-ui.mjs does; guest-journey.mjs still matches English labels and passes
+  because headless Chromium is en-US).
+
+**How to add a string:** add the key to BOTH `en` and `zh` in i18n.js (a missing zh
+falls back to en, a missing key warns and prints the key); markup → a `data-i18n*`
+attribute, JS → `t('key')` at render time (never cache the string); if it can be
+on screen during a switch, re-render it in ui.js's `onLang` handler. Then
+**`node tools/cjk-subset.mjs`** — a Chinese glyph missing from the font falls back to
+the system serif mid-word, silently (`--check` verifies without re-cutting).
+
+**Language choice**, strongest first: `?lang=zh|en` · the guest's own toggle
+(localStorage `venue.lang`, try/catch) · `navigator.language` (zh* → zh). An inline
+boot script in `<head>` repeats that detection so the loading card never flashes
+English for a Chinese guest (it hides `[data-i18n]` text via `.i18n-pending` until
+i18n.js applies, ≤ 1.5 s) — keep it in step with `detectLang()`. Toggling rewrites
+an existing `?lang=` in the address (it outranks the stored choice); `?lang=` itself
+is never persisted. The switches: `中 / EN` on the invitation (moves to the viewport's
+top-right on landscape phones and ≤ 620 px-tall ones, where the card has no free
+corner), a round `中`/`EN` button beside `?` in the HUD (hidden ≤ 360 px — the caption
+needs the room; the switch stays in the help sheet), and `中 / EN` in the help sheet.
+One delegated click listener (`data-lang-pick` / `data-lang-toggle`) serves all three.
+
+**The Chinese:** TRADITIONAL, reusing ~/projects/wedding-app's copy wherever it
+exists — 三亞海棠灣威斯汀度假酒店, **隱逸居** (now also on the English page, was 隐逸居),
+迎賓派對 / 婚禮儀式 / 雞尾酒會 / 晚宴 / 派對, 立即進入, 3D 場地漫遊, 總統套房, the date
+forms. The couple stay "Carl & Rachel" in Chinese (the wedding-app has no Chinese
+names); the check-in greeting drops "Mr & Mrs Fung" in zh rather than guess a
+surname. ⚠ One deliberate difference: full-width `，；（）` where the wedding-app
+writes ASCII commas — an ASCII comma sits cramped against CJK and gave the lede no
+break point (it split 走/進 at 390 px).
+
+**Typography (zh):** `html[data-lang="zh"]` in style.css — the self-hosted serif under
+every display face, the system Traditional sans (PingFang TC / JhengHei / Noto Sans
+CJK TC) for reading and for the mono lines, **no italics** (CJK has none — it would
+be sheared), tighter tracking and a size step up on every mono label, `line-break:
+strict`. Latin inside Chinese strings still renders in Bodoni / Archivo.
+
+**Fonts:** Noto Serif TC 500, self-hosted (Google Fonts is unreachable from the
+mainland), two cuts by `tools/cjk-subset.mjs` from the copy (comments stripped):
+`assets/fonts/venue-serif-tc.woff2` **81.9 KB, 375 glyphs** — only in the zh font
+stacks, preloaded by the boot script; `venue-serif-tc-mini.woff2` **3.4 KB** —
+隱逸居 / 荔枝尼格羅尼 / 中, all the English page draws. A browser only fetches a face
+it draws with, so an English guest pays 3.4 KB (the old Noto Serif SC link, ~4 KB,
+is gone).
+
+### The URL contract
+
+| param | values | effect |
+|---|---|---|
+| `m` | `brunch` `setup` `ceremony` `cocktail` `dinner` `afterparty` (the `CFG.MOMENTS` ids, via `momentIndex`) | the title card still shows (Step inside must stay a user gesture for the pointer lock), its CTA names the moment ("Go to the Ceremony" / 「前往婚禮儀式」), and the landing goes there. `setup` keeps the dive; any other moment hands the orbit over under the veil (`G.ui.go(i, {before, after})`) with the lock taken inside the click |
+| `night` | `1` / `0` | overrides that moment's lighting once landed |
+| `lang` | `zh` / `en` | forces the language (not persisted) |
+
+Invalid values fall back silently (unknown id → the default opening; `night=7` →
+the moment's own lighting). Once the walk has started the address follows the
+guest (`ui.js syncURL`, `history.replaceState`): `?m=` on every switch, `?night=`
+only while it differs from the moment's own, every other param kept (`?lang`,
+`?lb` / `?dc` / `?mf` / `?ml`). `G.deepLink` records what the page was opened with.
+`G.setMoment` is still untouched and synchronous; `skipIntro()` still lands in setup.
+
+Links for the invitation: `https://venue.carlfung.dev/?m=<id>` and `…?m=<id>&lang=zh`.
+
+### Verified (2026-09-27, local :8803)
+
+Shots: `reference/photos/shots-i18n/<desktop|phone|landscape>-<en|zh>-<state>.png`
+(loading, title, help, moment-0…5, transition(-reveal), prompt, toast, night-toast,
+night, fly-toast, fly, help-ingame, deeplink-title / -reveal / -landing) — re-shoot
+with `UI_LANG=zh node tools/shoot-ui.mjs reference/photos/shots-i18n`. Playwright:
+36/36 (en-US / zh-TW / zh-CN defaults, live switch from the title card and the HUD
+re-rendering caption / timeline / pills / narration / prompt, persistence across
+reload, `?lang` beating the stored choice and not persisting, all six `?m=` × both
+languages + an invalid one, `?night=1` / `night=7`, URL sync on switch and on N; 0
+console errors). WebKit (mobile-web-hardening, iPhone 15 / 15 Pro Max / SE 3 / SE 1,
+title + in-game, en + zh): **16 / 16 PASS**. Guest journey: 0 stalls, every beat,
+Check-in PROMPT ✓, lights 40 / 12, `ERRORS []`. Not verified: a physical phone,
+WeChat's WebView, a screen reader.
 
 ## THE ASSET PASS — BLENDER GLB PROPS + AI TEXTURES — DONE 2026-09-16 (KAN-207)
 
