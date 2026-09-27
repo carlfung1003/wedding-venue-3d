@@ -31,6 +31,7 @@ own coordinates. Change the layout there, never in a builder.
 | `js/campus.js` | The entrance pavilion (the 酒廊 at grade + the check-in lobby above), the ten guest keys (3 real types — **walk-in rooms attached to the atrium**, hollow, private side facing out), **the grass ground** (`buildGrassGround` — the mown lawn panels, the spine + cross paths, the planted terrace edge, the fire pit), event plaza, pergola, signage pillar, arrival road, and the main Westin crescent backdrop |
 | `js/atrium.js` | The clubhouse's central courtyard AND its corridor — timber-soffit galleries on black stone columns, black mirror ponds in gravel, cloud topiary, the copper-handrail stair, and the **ten real guest-room doors** (`buildRoomDoor`) with their lit number plaques — since KAN-211 wave B drawn as Blender GLBs (ASSET_SPEC Group L), primitives kept as the fallback |
 | `js/suite.js` | The presidential suite, inside and out — folding glass wall, great room, dining, pantry, the L-stair with its chandelier, the spa, the 2F lounge and balcony |
+| `js/tour.js` | (KAN-233) **"Take the tour"** — the hands-free film of all six moments: scripted camera paths, the tour bar, the closing card, the takeover to the walk. See "GUIDED TOUR — KAN-233". |
 | `js/introcam.js` | The opening: a drone orbit of the enclave behind the title card, then a bezier dive over the pool and in through the glass wall, handing the look state to `player.js` on landing |
 | `js/materials.js` | Shared CanvasTexture recipes + `M.*`; also exports `mulberry32` (seeded PRNG). Builders define their own local materials — only `mulberry32` is universally imported. |
 | `js/moments.js` | The six moment prop groups + per-moment colliders, the one-interactable-per-moment registry, `G.setMoment` (dress + collider swap + night flip + teleport) |
@@ -453,7 +454,7 @@ strict`. Latin inside Chinese strings still renders in Bodoni / Archivo.
 
 **Fonts:** Noto Serif TC 500, self-hosted (Google Fonts is unreachable from the
 mainland), two cuts by `tools/cjk-subset.mjs` from the copy (comments stripped):
-`assets/fonts/venue-serif-tc.woff2` **81.9 KB, 375 glyphs** — only in the zh font
+`assets/fonts/venue-serif-tc.woff2` **86.6 KB, 399 glyphs** (after KAN-233; 81.9 KB / 375 before) — only in the zh font
 stacks, preloaded by the boot script; `venue-serif-tc-mini.woff2` **3.4 KB** —
 隱逸居 / 荔枝尼格羅尼 / 中, all the English page draws. A browser only fetches a face
 it draws with, so an English guest pays 3.4 KB (the old Noto Serif SC link, ~4 KB,
@@ -490,6 +491,119 @@ console errors). WebKit (mobile-web-hardening, iPhone 15 / 15 Pro Max / SE 3 / S
 title + in-game, en + zh): **16 / 16 PASS**. Guest journey: 0 stalls, every beat,
 Check-in PROMPT ✓, lights 40 / 12, `ERRORS []`. Not verified: a physical phone,
 WeChat's WebView, a screen reader.
+
+## GUIDED TOUR — KAN-233 (2026-09-27)
+
+Guests open this from the invitation, mostly on phones, and many are older
+relatives who will not steer a joystick. **"Take the tour"** is a ~2¼-minute
+hands-free film: a scripted camera glides through all six moments in order
+(brunch → prewedding → ceremony → cocktail → dinner → after party), each on its
+hero shot, with the KAN-218 veil + title reveal between them, the blurb at its
+beat, and a closing card (names, date, *Walk it yourself* / *Watch again*).
+No scene change: lights, programs, colliders, floorY, spawns untouched.
+
+**Ways in:** the title card's second button (`#tourStart`), `?tour=1` (starts on
+its own ~2.6 s after the invitation appears — it needs no pointer lock, so no
+gesture; combines with `?lang=` and with `?m=<id>` to start at that moment), the
+desktop HUD's ▶ (`#tourBtn`) and the touch column's **Tour** (`#btnTour`) — both
+resume the film from the moment you are in — and the help sheet's *Take the
+tour* (`#helpTour`, from the start). While it plays the address carries
+`?tour=1`; a takeover removes it.
+
+### The module — `js/tour.js`
+
+It OWNS THE CAMERA while `G.tourActive` (main.js: `introActive → updateIntroCam`,
+`tourActive → updateTour`, else `updatePlayer`) — the introcam precedent. It only
+moves `G.camera` and switches moments through `G.ui.go(i, {before, after, quiet})`
+(ui.js gained `opts.quiet` → `setMoment(j, {quiet})`, and `isSwitching()`), so the
+light budget, the detail cull and the mirror frustum keep working off the camera.
+`body.touring` hides the walk's controls (view pills, prompt, touch UI, lock
+hint); the caption, the timeline (the active node's hairline fills — `--tp`),
+narration, help and language stay. A timeline node during the film JUMPS the film
+(`G.tour.jump`), it does not take over. Test API: `__game.tour` / `G.tour`
+(`start(k)`, `jump(momentIdx)`, `seek(s)`, `togglePause`, `next`, `prev`,
+`takeover`, `state`, `poseAt(k, s)`, `standSpot()`).
+
+### Path authoring (`SEGMENTS` in `buildSegments()`)
+
+One entry per moment id: `dur` (s), `beat` (s — when the blurb shows; the brunch
+waits out the one-line hint), `pos` and `look` keys, `stand` points. Frames:
+`E(x, y, z)` = **enclave-local** x/z (MOMENT_PLACES_LOCAL's frame) through
+`enclaveToWorld`, y absolute; `R(th, r, h)` = **the hotel roof** (world, polar on
+`HOTEL_ROOF`, h above `deckY`) — the brunch is world-space, never push it through
+the enclave. Each segment is ONE smootherstep of its clock over a centripetal
+Catmull-Rom by arc length, so it starts and ends at rest (every cut is under the
+veil); pitch clamped ±0.28 rad, never roll. Composed shots: brunch — over the
+rooftop pool looking down the tables, easing round to the infinity edge and the
+sea; prewedding — low over the west half of the pool among the lanterns, trucking
+in on the lit suite (the signature); ceremony — up the aisle from the palm-belt
+gap, 3.2 m → eye height; cocktail — in toward the round bar between the
+high-tops; dinner — up the inner lawn's lane under the festoon; after party —
+across the turf past the DJ booth, rising at the east end (stays DECK-side of the
+turf band: from the pool side the WESTIN letters read mirrored). To re-compose:
+`G.tour.poseAt(k, s)` + a screenshot, or `tools/tour-test.mjs` (beats); judge in
+the game, at phone width too. Keep average speed ≲ 1 m/s (the film test prints it).
+
+### The takeover contract
+
+Any real input ends the film on the spot: a key that is not a tour key, a
+mouse press or a touch on the canvas (`pointerdown`, capture — it precedes
+`touchstart`/`mousedown`, so touch.js/player.js then see a normal walk gesture).
+Tour keys (window capture, before ui.js/player.js): **Space** pause · **← →**
+moments · **Esc** walk · **H / ?** help (the film pauses under it). Buttons are
+never a takeover; Enter on a focused button activates it; Tab moves focus (and is
+kept from toggling cursor mode). WASD / Shift / digits / N take over AND pass
+through (W starts walking at once, a digit switches, N flips the light); other
+keys are consumed after the takeover. The guest lands:
+- **feet ON floorY at a standing spot for the current moment** — the camera's
+  ground point if valid, else the nearest authored `stand` point, else the spawn;
+  valid = `floorY` within ±0.35 m of the moment's floor (never the pool basin, a
+  plinth, the roof's pool) and clear of every live collider by `r + PLAYER_R + .05`
+  at that feet height;
+- facing the camera's heading (pitch levelled), walk mode, touch UI shown, the
+  pointer lock taken when the input was a gesture (not Esc);
+- a "You're walking now" system card. Mid-veil, the switch's own `setMoment`
+  places them at that moment's spawn instead.
+
+### Reduced motion
+
+`prefers-reduced-motion`: no flying. Each segment is two STATIC framed shots (its
+first and last key), and every cut — shot and moment — is a cross-fade: `snapshot()`
+renders the current frame and `drawImage`s it into `#tourFade` (2D canvas, z 1)
+in the same task (no `preserveDrawingBuffer`), cuts underneath, fades it out
+over 1.1 s. One extra render per cut, reduced motion only.
+
+### Verified (2026-09-27, local :8803)
+
+**Length 136–138 s** of film (brunch 22 · prewedding 24 · ceremony 24 · cocktail 20 ·
+dinner 22 · after party 24, + six ~0.5 s switches), then the closing card. Clean
+timing runs (`NOSHOT=1`, no screenshots — a Playwright screenshot blocks rAF for
+60–250 ms and the log books it as a spike): **programs 115 before, after and at
+every frame**; cruise p95 9.5–9.8 ms everywhere except the lantern night at the
+prewedding (17.8 desktop / 17.2 phone — that view's own cost) and the brunch on
+desktop (16.8); cruise max ≤ 25.9 ms; switch-frame max 26.6 ms (brunch / prewedding
+arrive on their heaviest views) vs the timeline's own switch max 16.8 / 18.1 ms.
+One 234 ms first-cut frame appeared once on phone ZH and did not reproduce in
+3 + 3 reruns (tour vs chip, max 17–25 ms). Camera speed avg 0.26–0.65 m/s, peak ≤ 1.9.
+Tests: `tools/tour-test.mjs` 129/129 (+ the clean runs 16/16); guest journey 0
+stalls, every beat, Check-in PROMPT ✓, lights 40 / 12, `ERRORS []`; WebKit
+(mobile-web-hardening, iPhone 15 / 15 Pro Max / SE 3 / SE 1 × title, tour, paused,
+end card, walk-after-takeover × EN + ZH) **40 / 40 PASS**. Not verified: a physical
+phone, WeChat's WebView, a screen reader.
+
+`node tools/tour-test.mjs` (Playwright, Metal): the film in real time (desktop EN,
+phone ZH) with a frame log (`frames-<run>.json`: max / p95 per segment, switch
+frames apart, programs before/after, camera speed), beat shots for the other
+runs, controls, takeover by key + mouse drag (desktop) and tap + drag (phone,
+landscape) in every moment, `?tour=1` (+`&m=ceremony`), reduced motion, and the
+Step inside / `?m=` regressions. Screenshots `shots-tour/<run>-<moment|title|hint|
+paused|end|help|…>.png`; preview video `shots-tour/tour-preview.mp4`.
+
+⚠ Gotchas: `G.ui.go()` early-returns (reveal only) on the current index, so
+`startSegment` sets `G.momentIndex = -1` first — a full switch every time. A
+takeover mid-veil must not place the player (setMoment is about to). ui.js
+`closeHelp` must not re-take the pointer lock during the film (`!G.tourActive`),
+or the mouse cannot reach the tour bar.
 
 ## THE ASSET PASS — BLENDER GLB PROPS + AI TEXTURES — DONE 2026-09-16 (KAN-207)
 

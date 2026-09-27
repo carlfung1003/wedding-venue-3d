@@ -108,6 +108,11 @@
   <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 14.5l6-6 6 6"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M4 12h15M14 7l5 5-5 5"/></symbol>
+  <!-- KAN-233 · the guided tour -->
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.2 5.6v12.8a.6.6 0 0 0 .9.5l10.2-6.4a.6.6 0 0 0 0-1L9.1 5.1a.6.6 0 0 0-.9.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13"/></symbol>
+  <symbol id="i-prev" viewBox="0 0 24 24"><path d="M6.5 5.5v13"/><path d="M18 6.2v11.6a.5.5 0 0 1-.8.4L9.6 12.4a.5.5 0 0 1 0-.8l7.6-5.8a.5.5 0 0 1 .8.4z"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M17.5 5.5v13"/><path d="M6 6.2v11.6a.5.5 0 0 0 .8.4l7.6-5.8a.5.5 0 0 0 0-.8L6.8 5.8a.5.5 0 0 0-.8.4z"/></symbol>
   <symbol id="i-seal" viewBox="0 0 100 100"><path d="M50 3C67 2 88 10 94 27c6 16 3 37-4 51-7 15-24 20-40 19C33 96 14 91 7 76 0 61 3 40 10 26 17 11 33 4 50 3Z"/></symbol>
 </svg>
 
@@ -158,6 +163,9 @@
     <p class="lede rv" data-i18n-html="inv.lede">Walk our wedding day — before anyone else does.</p>
     <div class="actions rv">
       <button id="begin" type="button"><span id="beginLbl" data-i18n="inv.begin">Step inside</span><svg aria-hidden="true"><use href="#i-arrow"/></svg></button>
+      <!-- KAN-233: the hands-free film of the whole day — for the guests who will
+           not steer (js/tour.js). ?tour=1 starts it on its own. -->
+      <button id="tourStart" class="ghost" type="button"><svg aria-hidden="true"><use href="#i-play"/></svg><span data-i18n="inv.tour">Take the tour</span></button>
       <button id="howto" class="link" type="button" aria-haspopup="dialog" data-i18n="inv.howto">How to move</button>
     </div>
     <p class="legal rv" data-i18n="inv.legal">Modelled from our own site photos and the suite walkthrough. Not to survey accuracy.</p>
@@ -182,6 +190,9 @@
     <p class="area"></p>
   </div>
   <div class="corner">
+    <button id="tourBtn" class="round deskOnly" type="button" aria-label="Take the tour from here" data-i18n-aria="tour.fromHere">
+      <svg aria-hidden="true"><use href="#i-play"/></svg>
+    </button>
     <button id="langBtn" class="round lang" type="button" data-lang-toggle aria-label="中文 — switch to Chinese" data-i18n-aria="lang.otherAria"><span data-i18n="lang.other">中</span></button>
     <button id="helpBtn" class="round" type="button" aria-label="How to move (H)" aria-haspopup="dialog" data-i18n-aria="hud.help">
       <svg aria-hidden="true"><use href="#i-help"/></svg>
@@ -197,6 +208,30 @@
   <p class="area"></p>
 </div>
 
+<!-- KAN-233 · the guided tour: the cross-fade layer (reduced motion), the
+     control bar and the closing card. js/tour.js owns all three. -->
+<canvas id="tourFade" aria-hidden="true"></canvas>
+<div id="tourBar" class="hidden" role="toolbar" aria-label="Tour controls" data-i18n-aria="tour.bar">
+  <div class="tp" aria-hidden="true"><b><i></i></b><b><i></i></b><b><i></i></b><b><i></i></b><b><i></i></b><b><i></i></b></div>
+  <button id="tourPrev" class="tb" type="button" aria-label="Previous moment (←)"><svg aria-hidden="true"><use href="#i-prev"/></svg></button>
+  <button id="tourPlay" class="tb play" type="button" aria-label="Pause (Space)" aria-pressed="false"><svg aria-hidden="true"><use href="#i-pause"/></svg></button>
+  <button id="tourNext" class="tb" type="button" aria-label="Next moment (→)"><svg aria-hidden="true"><use href="#i-next"/></svg></button>
+  <button id="tourExit" class="tb exit" type="button" aria-label="Stop the tour and walk yourself (Esc)"><svg aria-hidden="true"><use href="#i-walk"/></svg><span data-i18n="tour.exit">Walk myself</span></button>
+</div>
+<div id="tourEnd" class="hidden" role="dialog" aria-labelledby="tourEndNames" aria-label="The end of the tour" data-i18n-aria="end.aria">
+  <div class="card paper">
+    <svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><use href="#i-seal"/><text x="36" y="56" class="seal-c">C</text><text x="50" y="63" class="seal-amp">&amp;</text><text x="65" y="72" class="seal-c">R</text></svg>
+    <p class="eyebrow" data-i18n="end.eyebrow">That was our wedding day</p>
+    <h2 class="names" id="tourEndNames" translate="no">Carl <em>&amp;</em> Rachel</h2>
+    <p class="date" data-i18n-html="inv.date"><span>Saturday</span> 20 · 03 · 2027</p>
+    <p class="lede" data-i18n="end.lede">See you in Haitang Bay.</p>
+    <div class="actions">
+      <button id="tourWalk" class="cta" type="button"><span data-i18n="end.walk">Walk it yourself</span><svg aria-hidden="true"><use href="#i-arrow"/></svg></button>
+      <button id="tourAgain" class="ghost" type="button"><svg aria-hidden="true"><use href="#i-play"/></svg><span data-i18n="end.again">Watch again</span></button>
+    </div>
+  </div>
+</div>
+
 <button id="prompt" class="hidden" type="button"></button>
 <div id="toast" class="hidden" role="status" aria-live="polite"><p class="eyebrow"></p><p class="msg"></p></div>
 <div id="lockHint" class="hidden" aria-hidden="true"></div>
@@ -209,6 +244,7 @@
     <button class="tbtn flyOnly" id="btnUp" type="button" aria-label="Climb" data-i18n-aria="tb.climb"><svg aria-hidden="true"><use href="#i-up"/></svg></button>
     <button class="tbtn flyOnly" id="btnDown" type="button" aria-label="Dive" data-i18n-aria="tb.dive"><svg aria-hidden="true"><use href="#i-down"/></svg></button>
     <button class="tbtn" id="btnFly" type="button" aria-label="Fly"><svg aria-hidden="true"><use href="#i-fly"/></svg><span>Fly</span></button>
+    <button class="tbtn" id="btnTour" type="button" aria-label="Take the tour from here" data-i18n-aria="tour.fromHere"><svg aria-hidden="true"><use href="#i-play"/></svg><span data-i18n="tb.tour">Tour</span></button>
     <button class="tbtn" id="btnInteract" type="button" aria-label="Interact" data-i18n-aria="tb.interact"><svg aria-hidden="true"><use href="#i-spark"/></svg></button>
   </div>
   <div id="coach" aria-hidden="true">
@@ -248,6 +284,7 @@
       <div><dt><span class="tglyph"><svg aria-hidden="true"><use href="#i-moon"/></svg></span></dt><dd data-i18n-html="t.night"><b>Night</b> — the sun / moon at the top</dd></div>
       <div><dt><span class="gest g-dots" aria-hidden="true"></span></dt><dd data-i18n-html="t.timeline"><b>The timeline</b> — tap a moment at the bottom</dd></div>
     </dl>
+    <button id="helpTour" type="button"><span class="tglyph"><svg aria-hidden="true"><use href="#i-play"/></svg></span><span class="ht"><b data-i18n="help.tour">Take the tour</b><span data-i18n="help.tourSub">Sit back — two minutes, all six moments</span></span></button>
     <p class="fine" data-i18n="help.fine">Six moments across three days — 18 to 20 March 2027. Nothing here is to survey accuracy; it is how the day will feel.</p>
     <div class="helpFoot">
       <div class="langsw dark" role="group" aria-label="Language" data-i18n-aria="lang.group">

@@ -26,6 +26,7 @@ import { initPlayer, updatePlayer, lock } from './player.js';
 import { initTouch } from './touch.js';
 import { initMoments } from './moments.js';
 import { initIntroCam, updateIntroCam, startDive } from './introcam.js';
+import { initTour, updateTour } from './tour.js';
 import { initUI } from './ui.js';
 import { initLightBudget } from './lightbudget.js';
 import { initDetailCull } from './detailcull.js';
@@ -233,6 +234,10 @@ initMoments(G);
 bindEnvKnobs(scene.environment);
 G.ui.buildChips(CFG.MOMENTS);
 G.ui.setMode(G.mode);
+/* KAN-233: the guided tour — builds its camera paths from site.js, wires the
+   title card's "Take the tour", the HUD / touch / help-sheet buttons and the
+   tour bar. It moves only the camera; nothing here touches lights or programs. */
+initTour(G);
 
 /* ── the point-light budget ──────────────────────────────────────────────────
    THIS LINE'S POSITION IS THE CONTRACT. It must come:
@@ -451,6 +456,21 @@ document.getElementById('begin').addEventListener('click', e => {
   });
 });
 
+/* ── ?tour=1 (KAN-233) ──
+   The guided tour needs no pointer lock, so unlike Step inside it may start
+   without a gesture: the invitation shows its entrance, then the film begins on
+   its own — the link an older relative is sent just plays. Step inside or the
+   help sheet before then wins (the language switch does not — it only
+   re-letters the card). Combines with ?lang=, and with ?m=<id> to start the
+   film at that moment. */
+if (q.get('tour') === '1') {
+  setTimeout(() => {
+    if (G.started || G.helpOpen) return;
+    const k = deepIdx >= 0 ? G.tour.segments.findIndex(s => s.id === CFG.MOMENTS[deepIdx].id) : 0;
+    G.tour.start(Math.max(0, k));
+  }, 2600);
+}
+
 /* N — golden hour ↔ the lantern-lit night, any time */
 addEventListener('keydown', e => {
   if (e.code === 'KeyN' && G.started && !G.overlayOpen) toggleNight(G);
@@ -468,6 +488,7 @@ function frame(now) {
   time += dt;
 
   if (G.introActive) updateIntroCam(G, dt);
+  else if (G.tourActive) updateTour(G);          // the tour owns the camera (KAN-233)
   else if (G.started && !G.overlayOpen) updatePlayer(G, dt);
   updateWorld(G, dt, time);
   G.ui.update(dt);
@@ -492,6 +513,7 @@ finishLoading();
 window.__game = {
   G,
   setMoment: i => G.setMoment(i),
+  tour: G.tour,
   toggleNight: () => toggleNight(G),
   /* skip the opening dive — tests and screenshots want the ground immediately */
   skipIntro() {

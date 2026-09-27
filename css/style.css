@@ -923,3 +923,180 @@ html[data-lang="zh"] #helpDone{font-family:var(--f-body);font-size:14px;letter-s
 @media (forced-colors:active){
   .pill,.round,.tbtn,.chip,#prompt,#begin,#helpDone{border:1px solid ButtonText}
 }
+
+/* ────────────────────────── the guided tour (KAN-233) ──────────────────────────
+   js/tour.js. While the film runs `body.touring` puts the walk's controls away
+   (the view pills, the prompt, the touch stick + buttons, the lock hint) and
+   keeps what reads as the film's titles: the caption, the timeline (the active
+   node's hairline fills as the segment plays), the narration, help + language.
+   The bar sits where the thumbs are not: above the timeline, or on the right
+   edge of a landscape phone. No backdrop-filter (the KAN-218 rule). */
+body.touring #hud .status,body.touring #prompt,body.touring #touch,body.touring #lockHint,body.touring #tourBtn{display:none !important}
+body.touring .chip.active .dot::before{
+  background:linear-gradient(90deg,var(--gold) calc(var(--tp,0) * 100%),var(--hair) 0);
+}
+
+/* the title card's second action: an outline twin of Step inside */
+.ghost{
+  display:inline-flex;align-items:center;justify-content:center;gap:12px;
+  min-height:46px;padding:0 24px 0 20px;
+  font-family:var(--f-mono);font-size:11.5px;font-weight:500;letter-spacing:var(--track);text-transform:uppercase;
+  color:var(--deep);background:transparent;
+  border:1px solid rgba(7,51,59,.55);border-radius:1px;
+  transition:background-color .3s var(--ease),border-color .3s var(--ease),transform .3s var(--ease);
+}
+.ghost svg{font-size:15px;fill:currentColor;stroke-width:1.2}
+.ghost:hover{background:rgba(7,51,59,.06);border-color:var(--deep)}
+.ghost:active{transform:scale(.975)}
+html[data-lang="zh"] .ghost{font-family:var(--f-body);font-size:14px;letter-spacing:.24em}
+
+/* the control bar */
+#tourBar{
+  position:fixed;left:50%;bottom:calc(var(--edge-b) + var(--tl-h) + 16px);z-index:22;
+  transform:translateX(-50%);
+  width:max-content;   /* left:50% alone would shrink-wrap it to half the viewport */
+  display:flex;align-items:center;gap:2px;
+  padding:6px 6px 6px;
+  background:var(--glass-hi);
+  border:1px solid var(--hair);border-radius:28px;
+  box-shadow:0 14px 34px -18px rgba(0,0,0,.7);
+  animation:bloom .5s var(--ease) both;
+  transition:opacity .9s var(--ease);
+}
+body.idle #tourBar{opacity:.55}
+#tourBar .tp{   /* the film's six segments — the current one fills */
+  position:absolute;left:24px;right:24px;top:-1px;height:2px;
+  display:flex;gap:4px;pointer-events:none;
+}
+#tourBar .tp b{flex:1;background:var(--hair);overflow:hidden}
+#tourBar .tp i{display:block;height:100%;background:var(--gold);transform:scaleX(0);transform-origin:left center}
+.tb{
+  position:relative;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-width:44px;height:44px;border-radius:22px;
+  color:var(--on-dark-2);
+  transition:color .2s var(--ease),background-color .2s var(--ease);
+}
+.tb svg{font-size:19px}
+.tb:hover{color:var(--on-dark);background:rgba(242,236,225,.07)}
+.tb:active{transform:scale(.95)}
+.tb.play{width:48px;height:48px;border-radius:50%;color:var(--gold);border:1px solid rgba(212,175,122,.5);background:rgba(212,175,122,.08)}
+.tb.play svg{font-size:20px}
+#tourPlay svg,#tourPrev svg,#tourNext svg{fill:currentColor;stroke-width:1.2}   /* solid transport glyphs; the pause bars are strokes */
+#tourPlay svg{stroke-width:2.2}
+.tb.exit{
+  padding:0 16px 0 12px;margin-left:6px;white-space:nowrap;
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--on-dark);
+  border:1px solid var(--hair-2);
+}
+.tb.exit svg{font-size:17px}
+.tb.exit:hover{border-color:var(--gold)}
+html[data-lang="zh"] .tb.exit{font-family:var(--f-body);font-size:13px;letter-spacing:.14em}
+
+/* the closing card — the invitation's paper, over a dusk scrim */
+#tourEnd{
+  position:fixed;inset:0;z-index:30;
+  display:flex;align-items:center;justify-content:center;
+  padding:var(--edge-t) var(--edge-r) var(--edge-b) var(--edge-l);
+  background:radial-gradient(ellipse at 50% 55%,rgba(12,10,8,.25) 0%,rgba(12,10,8,.62) 100%);
+  opacity:0;transition:opacity .9s var(--ease);
+}
+#tourEnd.in{opacity:1}
+#tourEnd .card{width:100%;max-width:380px;padding:34px 30px 24px}
+#tourEnd.in .card{animation:rise .9s .15s var(--ease) both}
+#tourEnd .seal{width:50px;height:50px;margin-bottom:12px}
+#tourEnd .eyebrow{margin-bottom:12px}
+#tourEnd .names{font-size:48px}
+#tourEnd .date{
+  margin-top:14px;font-family:var(--f-mono);font-size:12px;letter-spacing:var(--track);text-transform:uppercase;
+  color:var(--on-paper);font-variant-numeric:tabular-nums;
+}
+#tourEnd .date span{color:var(--gold-ink);margin-right:.5em}
+#tourEnd .lede{
+  margin:16px auto 0;font-family:var(--f-display);font-style:italic;font-size:19px;line-height:1.35;color:var(--on-paper);
+}
+#tourEnd .actions{margin-top:22px;display:flex;flex-direction:column;align-items:stretch;gap:10px}
+.cta{
+  display:inline-flex;align-items:center;justify-content:center;gap:14px;
+  min-height:50px;padding:0 26px;
+  font-family:var(--f-mono);font-size:12px;font-weight:500;letter-spacing:var(--track);text-transform:uppercase;
+  color:var(--bone);background:var(--deep);border-radius:1px;
+  box-shadow:0 10px 24px -12px rgba(7,51,59,.8);
+  transition:background-color .3s var(--ease),transform .3s var(--ease);
+}
+.cta svg{font-size:18px}
+.cta:hover{background:var(--teal)}
+.cta:active{transform:scale(.975)}
+html[data-lang="zh"] .cta{font-family:var(--f-body);font-size:15px;letter-spacing:.3em}
+html[data-lang="zh"] #tourEnd .lede{font-style:normal;letter-spacing:.08em}
+html[data-lang="zh"] #tourEnd .date{letter-spacing:.16em}
+
+/* reduced motion: the cut is a cross-fade from a snapshot of the last frame */
+#tourFade{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;opacity:0}
+#tourFade.on{opacity:1}
+#tourFade.fading{transition:opacity 1.1s ease-out}
+
+/* the help sheet's way in */
+#helpTour{
+  display:flex;align-items:center;gap:14px;width:100%;
+  margin-top:16px;padding:12px 14px;text-align:left;
+  border:1px solid rgba(212,175,122,.4);border-radius:2px;
+  background:rgba(212,175,122,.06);
+  transition:border-color .2s var(--ease),background-color .2s var(--ease);
+}
+#helpTour:hover{border-color:var(--gold);background:rgba(212,175,122,.1)}
+#helpTour .tglyph{color:var(--gold);border-color:rgba(212,175,122,.55)}
+#helpTour .tglyph svg{fill:currentColor;stroke-width:1}
+#helpTour .ht{display:flex;flex-direction:column;gap:3px}
+#helpTour .ht b{font-family:var(--f-display);font-weight:500;font-size:18px;color:var(--on-dark)}
+#helpTour .ht span{font-size:12.5px;color:var(--on-dark-2)}
+html[data-lang="zh"] #helpTour .ht b{letter-spacing:.08em}
+
+/* the HUD / touch way back in (resumes the film from the moment you are in) */
+#tourBtn svg,#btnTour svg{fill:currentColor;stroke-width:1}
+#tourBtn svg{font-size:16px}
+#btnTour svg{font-size:18px}
+#touch.flymode #btnTour{display:none}
+
+@media (max-width:640px){
+  .invite #tourStart{width:100%;min-height:48px}
+  #tourBar{bottom:calc(var(--edge-b) + var(--tl-h) + 12px)}
+  #tourEnd{align-items:flex-end;padding-bottom:max(12px,calc(var(--safe-b) + 8px))}
+  #tourEnd .card{max-width:420px;padding:28px 22px 18px}
+  #tourEnd .names{font-size:42px}
+  #helpTour{margin-top:12px}
+}
+@media (max-width:360px){
+  .tb.exit{padding:0 12px 0 10px;letter-spacing:.12em}
+  #tourBar{gap:0}
+}
+/* short phones: the closing card drops its seal */
+@media (max-width:640px) and (max-height:620px){
+  #tourEnd .seal{display:none}
+  #tourEnd .card{padding-top:22px}
+}
+@media (max-height:500px) and (orientation:landscape){
+  /* Step inside keeps the full row; the tour and How to move share the next */
+  .invite .actions{flex-direction:row;flex-wrap:wrap;justify-content:center;gap:0 6px}
+  .invite #begin{flex-basis:100%}
+  .invite #tourStart{min-height:42px;margin-top:6px;padding:0 16px 0 14px}
+  /* the bar goes to the right edge, where the thumb is */
+  #tourBar{
+    left:auto;right:var(--edge-r);bottom:auto;top:50%;transform:translateY(-50%);
+    flex-direction:column;padding:6px;border-radius:28px;width:auto;
+  }
+  #tourBar .tp{display:none}
+  .tb.exit{margin:6px 0 0;padding:0;width:44px;flex-direction:column;gap:0;height:auto;min-height:52px;border-radius:22px}
+  .tb.exit span{font-size:8px;letter-spacing:.1em}
+  html[data-lang="zh"] .tb.exit span{font-size:10.5px;letter-spacing:.04em}
+  #tourEnd .seal,#tourEnd .lede{display:none}
+  #tourEnd .card{padding:20px 22px 14px;max-width:340px}
+  #tourEnd .names{font-size:34px}
+  #tourEnd .actions{margin-top:14px;flex-direction:row;gap:8px}
+  #tourEnd .actions > *{flex:1 1 0;min-width:0;min-height:46px;padding:0 10px;font-size:11px;letter-spacing:.1em;gap:8px}
+  #btnTour{grid-column:1;grid-row:2}
+}
+@media (prefers-reduced-motion:reduce){
+  #tourBar{animation:bloom .2s linear both}
+  #tourEnd.in .card{animation:bloom .3s linear both}
+}

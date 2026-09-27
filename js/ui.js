@@ -7,7 +7,8 @@
 // CONTRACTS kept from before (other modules call these):
 //   buildChips(moments) · setMoment(m, idx) · setMode(mode) · prompt(label)
 //   toast(msg, secs, now[, opts]) · update(dt) · showHUD() · hideOverlay()
-// New: go(i) — the UI's own moment switch (veil → G.setMoment → reveal);
+// New: go(i, {before, after, quiet}) — the UI's own moment switch (veil →
+//   G.setMoment → reveal; quiet = no blurb, KAN-233) · isSwitching();
 //   revealMoment(m) · openHelp() · closeHelp().
 // ⚠ G.setMoment itself is untouched and stays SYNCHRONOUS. Tests, the guest
 // journey and tools/shoot-moments.mjs call it directly and get no veil and no
@@ -96,7 +97,7 @@ export function initUI(G) {
     revealT = 99;                            // hold the new blurb until the title has shown
     if (reduced.matches) {                   // no fade to black: switch + name it
       opts.before?.();
-      G.setMoment(i);
+      G.setMoment(i, { quiet: !!opts.quiet });
       opts.after?.();
       revealMoment(CFG.MOMENTS[i]);
       return;
@@ -107,7 +108,8 @@ export function initUI(G) {
     setTimeout(() => {
       const j = pending;
       opts.before?.();
-      G.setMoment(j);                        // dress + colliders + night + teleport, under the veil
+      /* opts.quiet (KAN-233): the tour shows the blurb at its own beat */
+      G.setMoment(j, { quiet: !!opts.quiet && j === i });   // dress + colliders + night + teleport, under the veil
       opts.after?.();
       /* two frames so the new view has been DRAWN before the veil lifts */
       requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -146,7 +148,7 @@ export function initUI(G) {
     else document.activeElement?.blur?.();
     /* back into the walk: a click is a user gesture, so the lock can be
        re-taken right here; after Esc it cannot, and the lock hint says so */
-    if (G.started && !G.overlayOpen && !G.touchMode && !G.cursorMode && G.lock) G.lock();
+    if (G.started && !G.overlayOpen && !G.touchMode && !G.cursorMode && !G.tourActive && G.lock) G.lock();
     wake();
   }
   el('howto').addEventListener('click', openHelp);
@@ -241,7 +243,8 @@ export function initUI(G) {
         b.className = 'chip' + (m.time ? '' : ' notime');
         b.setAttribute('aria-label', `${mt(m, 'name')} — ${whenLong(m)}`);
         b.innerHTML = `<span class="dot" aria-hidden="true"></span><span class="name">${esc(mt(m, 'short') || mt(m, 'name'))}</span><span class="time" aria-hidden="true">${m.time || ''}</span>`;
-        b.addEventListener('click', e => { e.currentTarget.blur(); go(i); });
+        /* during the guided tour (KAN-233) a node jumps the FILM to that moment */
+        b.addEventListener('click', e => { e.currentTarget.blur(); if (G.tour && G.tour.active) G.tour.jump(i); else go(i); });
         day.nodes.appendChild(b);
         day.idx.push(i);
         chips.push(b);
@@ -330,7 +333,7 @@ export function initUI(G) {
 
       /* desktop: the view is frozen until the canvas is clicked — say so */
       let lk = '';
-      if (!G.touchMode && G.started && !G.overlayOpen && !G.introActive && !G.player.locked) {
+      if (!G.touchMode && G.started && !G.overlayOpen && !G.introActive && !G.tourActive && !G.player.locked) {
         lk = G.cursorMode ? 'cursor' : 'click';
       }
       if (lk !== lastLock) {
@@ -351,6 +354,7 @@ export function initUI(G) {
     },
 
     go,
+    isSwitching: () => switching,            // KAN-233: the tour waits for a switch in flight
     chipGo: i => go(i),
     syncURL,
     revealMoment,
