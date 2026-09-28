@@ -34,6 +34,7 @@ import * as models from './models.js';
 import { bindEnvKnobs, holdPhotos, setPhotoUploader } from './materials.js';
 import { TIER, BASE_RATIO, initDynRes } from './perftier.js';
 import { t, mt, onLang } from './i18n.js';
+import { initSound } from './sound.js';
 
 /* ── the loading card ────────────────────────────────────────────────────────
    The card is already on screen (index.html) — this only drives its copy, its
@@ -520,6 +521,15 @@ finishLoading();
 /* KAN-235: the photographs still in flight (or held since the warm-up) now
    upload one file per frame, in their own slice, behind the invitation */
 setPhotoUploader(renderer);
+
+/* KAN-234 · the music + ambience (Carl's Suno tracks) — OFF by default. This
+   only wires the toggles and the preference: no AudioContext, no <audio>
+   element and no request under assets/audio/ until a guest turns it on (their
+   tap is the gesture iOS needs). Here, not earlier, so a remembered "on" can
+   only start from a gesture on a venue that is up. A small module imported
+   statically above — nothing is lazily loaded when the guest taps. See
+   js/sound.js. */
+initSound(G);
 
 /* ── debug hook, always on (house pattern) ──
    Assigned LAST on purpose: it is also the readiness signal. skipIntro() would

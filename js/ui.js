@@ -70,10 +70,12 @@ export function initUI(G) {
     toastEl.classList.remove('hidden');
     void toastEl.offsetWidth;                // restart the entrance
     toastEl.classList.add('in');
+    G.sound?.duck(t.kind !== 'system');      // KAN-234: the music steps back under narration
   }
   function endToast() {
     cur = null; gapT = .32;                  // the exit transition's length
     toastEl.classList.remove('in');
+    G.sound?.duck(false);
   }
 
   /* ── the moment switch ── */

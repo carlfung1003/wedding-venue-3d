@@ -1100,3 +1100,58 @@ html[data-lang="zh"] #helpTour .ht b{letter-spacing:.08em}
   #tourBar{animation:bloom .2s linear both}
   #tourEnd.in .card{animation:bloom .3s linear both}
 }
+
+/* ────────────────────────── sound (KAN-234) ──────────────────────────
+   One toggle in four places — the HUD corner, the invitation (sharing How to
+   move's row), the help sheet's foot and the tour bar — all [data-sound-toggle],
+   painted by js/sound.js: the speaker with its waves when on (gold, the "now"
+   colour), with a cross when off. Off by default. `.armed` = the guest wants
+   sound but has not touched the page yet (the first gesture starts it). */
+.subacts{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0 4px}
+.link.snd{position:relative;display:inline-flex;align-items:center;gap:7px;text-decoration:none}
+.link.snd::after{content:'';position:absolute;inset:-2px 0}
+.link.snd svg{font-size:16px;stroke-width:1.4}
+.link.snd .lbl{text-decoration:underline;text-decoration-color:var(--hair-paper);text-underline-offset:5px}
+.link.snd:hover .lbl{text-decoration-color:var(--gold-ink)}
+.link.snd.on{color:var(--gold-ink)}
+#soundBtn svg{font-size:19px}
+#soundBtn.on{color:var(--gold);border-color:rgba(212,175,122,.45)}
+.tb.snd.on{color:var(--gold)}
+#helpSound{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:48px;padding:0 14px;white-space:nowrap;
+  font-family:var(--f-mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--on-dark-2);border:1px solid var(--hair-2);border-radius:1px;
+  transition:color .2s var(--ease),border-color .2s var(--ease);
+}
+#helpSound svg{font-size:17px}
+#helpSound:hover{color:var(--on-dark);border-color:var(--on-dark-3)}
+#helpSound.on{color:var(--gold-soft);border-color:rgba(212,175,122,.45)}
+#helpSound.on svg{color:var(--gold)}
+html[data-lang="zh"] #helpSound{font-family:var(--f-body);font-size:13px;letter-spacing:.1em}
+html[data-lang="zh"] .link.snd .lbl{letter-spacing:.1em}
+/* armed: the waves breathe until the first touch starts them */
+.snd.armed svg{animation:sndArmed 1.8s var(--ease) infinite}
+@keyframes sndArmed{50%{opacity:.45}}
+@media (max-width:640px){
+  .helpFoot{flex-wrap:wrap;gap:10px 12px}
+  .helpFoot #helpDone{flex-basis:100%}
+  .helpFoot .langsw{margin-right:auto}
+}
+@media (prefers-reduced-motion:reduce){ .snd.armed svg{animation:none;opacity:.7} }
+/* portrait phones: a fifth button in the top row squeezed the caption to
+   "Preweddi…" and wrapped its date, so the speaker takes a SECOND row under ?
+   — the corner stays two buttons wide, and the narration card steps down 8 px
+   to clear it. (Landscape and desktop keep one row: there is room.) */
+@media (max-width:640px) and (min-height:501px),(max-width:640px) and (orientation:portrait){
+  #hud .corner{display:grid;grid-template-columns:repeat(2,38px);grid-auto-rows:38px;gap:8px}
+  #hud .corner #langBtn{grid-area:1/1}
+  #hud .corner #helpBtn{grid-area:1/2}
+  #hud .corner #soundBtn{grid-area:2/2}
+  #toast{top:calc(var(--edge-t) + 96px)}
+}
+@media (max-width:360px){
+  #hud .corner{grid-template-columns:38px}
+  #hud .corner #helpBtn{grid-area:1/1}
+  #hud .corner #soundBtn{grid-area:2/1}
+}

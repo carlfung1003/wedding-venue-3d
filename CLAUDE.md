@@ -41,6 +41,7 @@ own coordinates. Change the layout there, never in a builder.
 | `js/touch.js` | Ported from lassen-camp: floating joystick → `touchInput`, drag-to-look, quick-tap interact, `.tbtn` buttons (interact, Fly/Land toggle, held ▲▼ in fly mode), first-run coach marks, release-everything on blur/visibilitychange. Pointer lock bypassed entirely in touch mode. |
 | `js/i18n.js` | (KAN-232) **Every guest-facing string, EN + Traditional ZH** — `t(key)`, `mt(m, field)`, `setLang`/`onLang`, the dated labels, the static-markup swap. See "I18N + DEEP LINKS — KAN-232". |
 | `js/ui.js` | (KAN-218) Every overlay surface: the invitation, the moment caption, the dated timeline, narration toasts (queue + `channel`), the interact prompt (a real button), the view-status pills, the controls sheet (a dialog that pauses the walk), the lock hint, idle dimming, and `go(i)` — the veil + title-reveal moment switch. See "UI/UX UPGRADE — KAN-218". |
+| `js/sound.js` | (KAN-234 v2) **The music + ambience** — Carl's Suno tracks in `assets/audio/`, OFF by default: the preference (`venue.sound`, `?sound=1/0`), the four `[data-sound-toggle]` buttons, M, the iOS/WeChat gesture unlock, visibility suspend/resume, the per-moment track (streamed through `<audio>` decks) + the ocean/night loop (decoded, sample-seamless), crossfades, the narration duck. One small module, imported statically. See "SOUND — KAN-234 (v2, Suno)". |
 
 ## Reference assets
 
@@ -701,7 +702,7 @@ strict`. Latin inside Chinese strings still renders in Bodoni / Archivo.
 
 **Fonts:** Noto Serif TC 500, self-hosted (Google Fonts is unreachable from the
 mainland), two cuts by `tools/cjk-subset.mjs` from the copy (comments stripped):
-`assets/fonts/venue-serif-tc.woff2` **86.6 KB, 399 glyphs** (after KAN-233; 81.9 KB / 375 before) — only in the zh font
+`assets/fonts/venue-serif-tc.woff2` **88.3 KB, 408 glyphs** (after KAN-234's sound strings; 86.6 KB / 399 after KAN-233, 81.9 KB / 375 before) — only in the zh font
 stacks, preloaded by the boot script; `venue-serif-tc-mini.woff2` **3.4 KB** —
 隱逸居 / 荔枝尼格羅尼 / 中, all the English page draws. A browser only fetches a face
 it draws with, so an English guest pays 3.4 KB (the old Noto Serif SC link, ~4 KB,
@@ -797,7 +798,8 @@ Any real input ends the film on the spot: a key that is not a tour key, a
 mouse press or a touch on the canvas (`pointerdown`, capture — it precedes
 `touchstart`/`mousedown`, so touch.js/player.js then see a normal walk gesture).
 Tour keys (window capture, before ui.js/player.js): **Space** pause · **← →**
-moments · **Esc** walk · **H / ?** help (the film pauses under it). Buttons are
+moments · **Esc** walk · **H / ?** help (the film pauses under it) · **M** sound
+on/off (KAN-234 — never a takeover). Buttons are
 never a takeover; Enter on a focused button activates it; Tab moves focus (and is
 kept from toggling cursor mode). WASD / Shift / digits / N take over AND pass
 through (W starts walking at once, a digit switches, N flips the light); other
@@ -851,6 +853,161 @@ paused|end|help|…>.png`; preview video `shots-tour/tour-preview.mp4`.
 takeover mid-veil must not place the player (setMoment is about to). ui.js
 `closeHelp` must not re-take the pointer lock during the film (`!G.tourActive`),
 or the mouse cannot reach the tour bar.
+
+## SOUND — KAN-234 (v2, Suno) (2026-09-27)
+
+Music + ambience per moment, **OFF by default**. Attempt 1 (069fc68, reverted in
+6396712) synthesised everything live in Web Audio; Carl listened on production:
+*"the sounds are not that great, lets remove them for now"*. **v2 plays FILES only —
+nothing is synthesised.** No scene change: programs, lights, colliders, floorY untouched.
+
+### Sources + licence
+
+`assets/audio/` — **made by Carl in his Suno Pro account (commercial rights); he
+picked every take.** AAC-LC 96 kbps 44.1 kHz stereo `.m4a`, loudness-normalised to
+~−20 LUFS (measured −19.5…−20.4; the two loops −18.5 / −18.7), faded in 1.5 s / out 4 s.
+
+| file | plays | length | KB |
+|---|---|---|---|
+| `venue-00-title` | title card, loading, the opening dive | 2:53 | 2,067 |
+| `venue-01-brunch` | Welcome Brunch — bossa lounge | 3:13 | 2,310 |
+| `venue-02-prewedding` | Prewedding — nylon guitar + piano | 3:08 | 2,250 |
+| `venue-03-ceremony` | Ceremony — strings / piano / harp | 3:03 | 2,185 |
+| `venue-04-cocktail` | Cocktail — light jazz trio | 2:43 | 1,951 |
+| `venue-05-dinner` | Dinner — jazz ballad | 3:12 | 2,290 |
+| `venue-06-afterparty` | After party — soft deep house | 3:21 | 2,468 |
+| `venue-amb-ocean` | SEAMLESS LOOP: surf, palms, seabirds (day) | 12.36 s | 148 |
+| `venue-amb-night` | SEAMLESS LOOP: crickets, pool lapping, far waves (night) | 11.92 s | 143 |
+
+### The engine — `js/sound.js` (one module, imported statically by main.js)
+
+- **Off costs nothing:** no AudioContext, no `<audio>` element, no request under
+  `assets/audio/` until a guest turns it on (tested through all six moments, N and the tour).
+- **Music is STREAMED:** a pool of 4 `<audio>` "decks" → `MediaElementAudioSourceNode`
+  → per-deck gain → music bus (the duck) → master (on/off fade) → speakers. Never decoded
+  whole. **A track loops** by starting a second deck on the same file 4 s before its end at
+  full level — the files' own 4 s fade-out / 1.5 s fade-in are the crossfade (measured: no
+  dip through the overlap).
+- **Ambience is DECODED:** fetch + `decodeAudioData` → `loopBuffer()` → an
+  `AudioBufferSourceNode` with `loop = true` over the WHOLE of a fresh buffer (no
+  loopStart/loopEnd, so no fractional loop point). `loopBuffer` compares the decoded
+  length with the file's true frame count (`AMB[k].frames`, the edit list's duration) and
+  skips the AAC priming (1,024) if a decoder left it in. **Measured: Chromium AND WebKit
+  honour the edit list** — exactly 593,280 / 572,160 samples at 48 kHz, 545,076 / 525,672
+  at 44.1 kHz, skip 0. ⚠ **The night file's own seam carries a small step** (last sample
+  −0.058 → first −0.039, in ffmpeg's decode too — the file, not a decoder; its click
+  energy there ranked above every other point of the loop), so every loop gets a
+  1,024-sample (~21 ms) equal-power micro-crossfade over the wrap (`SEAM_XF`).
+- **Which:** music = the moment's track (`title` while `!G.started || G.introActive`; a
+  switch in flight — momentIndex −1 under the tour's veil — HOLDS the current track);
+  ambience = `G.night ? night : ocean`. N swaps the loop only; the music stays.
+- **Crossfades are equal-power** (8-segment linear approximation of sin/cos, the level
+  tracked in JS): **2.5 s** on a moment switch (timeline, keys, tour, deep-link veil), **1.5 s**
+  day↔night, 1.2 s in on enable, 0.6 s out on disable. The outgoing deck is released
+  (src removed) after its fade.
+- **Duck:** ui.js `showToast` → `G.sound.duck(kind !== 'system')`, `endToast` → off: music
+  bus ×.5 (−6 dB) in 0.4 s, back in 0.9 s. The ambience is not ducked.
+- **Tour prefetch:** during the guided tour only, once a segment's switch fade is done,
+  `requestIdleCallback` buffers the NEXT moment's track on a spare deck (`preload=auto`);
+  the switch then plays that deck (one request per file). A stale prefetch (the film jumped)
+  is released.
+- **PHONE tier** (`perftier.js`): one ambience decode at a time, and only the loop in use
+  stays decoded (a 12 s stereo loop is ~4.7 MB of float PCM at 48 kHz) — so N / a day↔night
+  moment change re-fetches a 145 KB loop on phones.
+
+### Levels (gains, linear) — `LEVEL` in sound.js
+
+music **.50** (−6 dB → ≈ −26 LUFS) · ambience **.27** (−11.4 dB → ≈ −30 LUFS, a touch under
+the music) · brunch ambience **.14** (−17 dB: the roof is far above the sea) · duck **×.5**.
+Measured: the recorded tour mix −25.4 LUFS integrated, true peak −10.9 / −11.1 dBFS;
+master at the title card −27.4 dBFS RMS (Chromium), −29.7 (WebKit).
+
+### Weight (only after the guest turns it on)
+
+Enable = the current moment's track + its loop: title 2,067 + ocean 148 = **2.2 MB**. Per
+moment afterwards: its track (1.95–2.47 MB, streamed — a switch before it finishes stops
+the download) + its loop the first time that loop is needed (145 KB; every time on
+PHONE). Whole tour with sound: 7 tracks + 2 loops ≈ **15.8 MB** (5 tracks prefetched).
+Cache: Vercel's defaults (`max-age=0, must-revalidate`) — unversioned names, no immutable.
+`vercel.json` only pins `Content-Type: audio/mp4` for `/assets/audio/*.m4a`.
+
+### The toggle, the preference, the unlock
+
+- **Four toggles**, all `[data-sound-toggle]`, one delegated listener: HUD (`#soundBtn`),
+  the invitation beside *How to move* (`#soundInv`), the help sheet foot (`#helpSound`),
+  the tour bar (`#tourSound`); **M** anywhere (help row `k.sound`) — during the film tour.js
+  routes M as a TOUR key (never a takeover). Portrait phones put the speaker under `?`
+  (2×2 corner grid) — markup, CSS and zh strings reused from attempt 1.
+- **Preference:** `?sound=1|0` (this visit, never persisted) › localStorage `venue.sound` ›
+  off. Wanting sound with no gesture yet = **ARMED** (toggles read on and breathe; the first
+  real gesture anywhere starts it). `?tour=1&sound=1` plays the film silent until the first tap.
+- **THE TAP.** Inside the gesture, synchronously: deck elements play a 1 s silent WAV
+  (a `blob:` URL — no request); on **WebKit / every iOS browser / WeChat iOS / Firefox** the
+  AudioContext is created + resumed + fed one silent sample right there and the first
+  track's `play()` is issued in the same gesture (every deck is unlocked this way — WebKit
+  requires a gesture per element). On **Chromium** (desktop + Android) only deck 0 plays the
+  silence and the context is created ~250 ms after its `playing` event (≤ 700 ms): Chrome's
+  first `new AudioContext()` opens the output device ON THE MAIN THREAD — **89–197 ms
+  measured** — while a media element opens it off-thread; made after that it costs 3–9 ms.
+  That, not a lazy import, is what attempt 1's 117–133 ms enable frame was; v2 has no lazy
+  module at all. `navigator.audioSession.type = 'playback'` (Safari 17+) for the silent switch.
+- **Hidden / pagehide:** decks paused, context suspended. **Visible / pageshow:** resume +
+  play; if the browser wants a new gesture (iOS after a call/Siri) it re-ARMS.
+
+### To swap a track
+
+Same filename in `assets/audio/` (AAC-LC .m4a, 44.1 kHz, ~−20 LUFS, faded in/out) — or edit
+`MUSIC` in sound.js. A new **loop** must be seamless and its `frames` in `AMB` must be its
+true sample count at 44.1 kHz (`ffprobe -v error -show_entries stream=duration_ts`), not the
+AAC frame count. Then `node tools/sound-test.mjs` (the `seam` part checks it in Chromium,
+`webkit` in WebKit).
+
+### Local serving — why serve.py changed
+
+`serve.py` now answers HTTP **Range** requests (206) and serves `.m4a` as `audio/mp4`.
+Python's SimpleHTTPServer ignored Range and typed .m4a `audio/mp4a-latm`; WebKit will not
+play a media element from a server without Range, so the local build could not be tested
+in Safari's engine. Vercel already does both. Nothing else changed in it.
+
+### Verified (2026-09-27/28, local :8803, headless Playwright — Metal)
+
+- **`tools/sound-test.mjs`** (Chromium `--autoplay-policy=user-gesture-required` + a WebKit
+  part): zero · enable · switch · seam · loop · hidden · persist · tour · duck · shots ·
+  webkit · tourframes · mix. Report `reference/photos/shots-audio2/report.json`.
+- **Frame times, enable** (2 s before → the 3.2 s from the tap): desktop max 17.3 → 25.0 /
+  p95 16.7 → 16.7 ms (tap handler 6.9 ms, context 2.9 ms at +441 ms); phone viewport max
+  10.3 → 17.0 / p95 9.9 → 10.0 (tap handler 0.4 ms, context 3.2 ms). An A/B of a plain
+  click vs the toggle showed at most one 25–33 ms frame ~160 ms after the tap
+  (media pipeline start), no 100 ms frame. ⚠ In 1 of 5 desktop runs the tap handler
+  itself took 43.6 ms and that frame was 66.6 ms (the other four: handler 6–8 ms, max
+  25–33 ms; phone viewport 5 / 5 clean, handler ≤ 0.6 ms) — Chromium's first `new
+  Audio()` + `play()` in the page, cold. Not isolated further; on a real phone, unmeasured.
+- **Frame times, moment switches** (timeline, 7 switches, sound off vs on): desktop max
+  18.2 vs 18.7 / p95 16.8 vs 16.9; phone max 18.0 vs 18.2 / p95 16.8 vs 16.7.
+  **The whole film in real time** (~14–16k frames, off vs on), two runs: desktop max
+  33.3 → 26.4 and 58.3 → 41.7 / p95 16.7 → 16.7…17.2; phone max 25.2 → 23.6 and
+  25.0 → 33.4 ms. Singles of 40–58 ms appear with sound OFF too (switch frames), so
+  they are this Mac's noise. ⚠ Headless frame cadence is bimodal between runs (p95 ≈ 10
+  or ≈ 16.7 ms at the SAME mean 8.7–8.8 ms): one full run failed the phone p95 check
+  (off 10.4 vs on 16.3, means 8.7 / 8.8), the rerun passed (off 16.5, on 9.4).
+- `sound-test.mjs` full run 160 / 161 (that cadence check), rerun of the part 6 / 6; a
+  post-interruption recheck 44 / 45 (the 66.6 ms enable frame above), enable ×3 more 6 / 6.
+- WebKit (mobile-web-hardening, iPhone 15 / 15 Pro Max / SE 3 / SE 1 × title-off,
+  title-on, walk-off, walk-on, help-on, tour-on × EN + ZH, the context asserted running
+  in every "on" state): **48 / 48 PASS** — one run crashed WebKit's page process once
+  (zh walk-on, SE 3), then passed 4 / 4 twice; shots `reference/photos/shots-audio2/webkit/`.
+- Seam: both loops, both rates, both engines — decoded length exact, seam click energy
+  inside the loop's own distribution (the raw night seam ranked 1.0), a 3-loop render
+  bit-exact to the buffer.
+- Guest journey 0 stalls, every beat, Check-in PROMPT ✓, lights 40 / 12, `ERRORS []`;
+  `tools/tour-test.mjs` 129 / 129; `tools/perf-dynres.mjs` 14 / 14.
+- **Listen remotely:** `reference/photos/shots-audio2/tour-mix.m4a` — ~2½ min recorded off
+  the real master bus (MediaRecorder) while the tour plays: 4 s of the title card, then all
+  six moments, the crossfades under each veil and the duck under each blurb.
+- **Not verified:** a physical iPhone / Android, WeChat's WebView (iOS or Android), the
+  per-element unlock surviving a `src` change on real iOS, the silent switch +
+  `audioSession`, a call / Siri interruption, Bluetooth latency, a real mobile network,
+  mainland reachability of the audio files — and how it sounds to Carl.
 
 ## THE ASSET PASS — BLENDER GLB PROPS + AI TEXTURES — DONE 2026-09-16 (KAN-207)
 
@@ -4502,5 +4659,6 @@ vercel --prod
 ```
 
 Domain `venue.carlfung.dev` is attached in the Vercel dashboard. `vercel.json`
-(KAN-235) only marks `/vendor/` immutable (versioned path); everything else keeps
+(KAN-235) only marks `/vendor/` immutable (versioned path) and (KAN-234) types
+`/assets/audio/*.m4a` as `audio/mp4`; everything else keeps
 Vercel's default `max-age=0, must-revalidate` — no other file is content-hashed.
