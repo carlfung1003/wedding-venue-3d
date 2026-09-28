@@ -16,7 +16,7 @@
 
 import * as THREE from 'three';
 import { SITE, ROOM_DOORS, ARRIVAL_ATRIUM_DOOR } from './site.js';
-import { mulberry32, envKnob, envKnobList } from './materials.js';
+import { mulberry32, envKnob, envKnobList, photoTexture } from './materials.js';
 import * as models from './models.js';
 import { leafMat as foliageLeaf, fringeFor } from './foliage.js';
 
@@ -885,7 +885,7 @@ export function buildAtrium(G) {
      materials already carry a map, so no program is added — at ~1.1 m a tile.
      The two pale patches are the photo's SUN patches: the same stones, warm. */
   if (HB.ponds) {
-    new THREE.TextureLoader().load(new URL('../assets/textures/gravel_crushed.webp', import.meta.url).href, (t) => {
+    photoTexture('gravel_crushed.webp', (t) => {   // KAN-235: shared load (materials.js)
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
       const put = (m, rx, ry, col) => {
@@ -2028,7 +2028,7 @@ function buildPlanting(parent, M, rnd, colliders) {
       clipMats.push(m);
       envKnob(m, null, 'atrium:topiary clip');
     }
-    new THREE.TextureLoader().load(new URL('../assets/textures/hedge.webp', import.meta.url).href, (t) => {
+    photoTexture('hedge.webp', (t) => {   // KAN-235: shared load (materials.js)
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
       t.wrapS = t.wrapT = THREE.RepeatWrapping;
       for (const m of clipMats) { m.map = t; m.needsUpdate = true; }
@@ -2139,7 +2139,7 @@ function buildPlanting(parent, M, rnd, colliders) {
       return m;
     };
     broadMats = new Map([[leafMat, mk([.25, .42, .52])], [foliageMats[3], mk([.27, .36, .40])]]);
-    new THREE.TextureLoader().load(new URL('../assets/textures/shrub.webp', import.meta.url).href, (t) => {
+    photoTexture('shrub.webp', (t) => {   // KAN-235: shared load (materials.js)
       t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
       t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2);
       for (const m of broadMats.values()) { m.map = t; m.needsUpdate = true; }

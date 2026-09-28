@@ -2,7 +2,8 @@
 
 First-person 3D walkthrough of Carl & Rachel's wedding venue — **The Westin
 Sanya Haitang Bay, 隐逸居 (Yinyiju) clubhouse enclave** — told as five
-"moments" of the wedding day. Three.js r180 via CDN importmap — pure static
+"moments" of the wedding day. Three.js r180 via an importmap, SELF-HOSTED in
+`vendor/three@0.180.0/` (KAN-235 — no third-party origin at all) — pure static
 HTML/CSS/JS, **no build step**, no dependencies.
 
 Run it: `python3 serve.py` → http://localhost:8799 (`file://` won't load ES modules)
@@ -24,6 +25,7 @@ own coordinates. Change the layout there, never in a builder.
 | `js/config.js` | ALL tuning — walk + fly feel, camera, the intro orbit/dive, day-vs-night lighting levels, the `MOMENTS` table. No magic numbers elsewhere, and **no coordinates** (those are site.js). |
 | `js/main.js` | Renderer bootstrap (PMREM RoomEnvironment, sRGB, ACES), the `G` context object, `G.setMode`/`G.toggleMode` (walk ↔ fly), the begin→dive flow, N-key night toggle, resize, clock loop, `window.__game` debug hook |
 | `js/world.js` | **The integrator.** Builds nothing itself: calls each builder in order, owns `floorY(x,z)` (delegates to `siteFloorY`), owns the day↔night fan-out (`setNight`/`toggleNight`), and runs `G.tickers` each frame. |
+| `js/perftier.js` | (KAN-235) the PHONE tier (`PHONE`, `?tier=`) and its dynamic-resolution controller (`initDynRes`, `G.dynres`). See "PERFORMANCE — KAN-235". |
 | `js/sky.js` | Sky dome (day + night gradients), sun/moon, stars, fog, and the whole global lighting rig |
 | `js/nature.js` | Ground, beach, animated ocean, the palm population, hedges, topiary, bougainvillea |
 | `js/foliage.js` | (KAN-208 wave 4) the understory's shared leaf-card materials (`leafMat('shrub'|'boug')`), `protoGeo()` (a GLB prototype, optionally a scaled clone) and `fringeFor()` (a leaf-card bucket on a core bucket's matrices) — used by nature.js, water.js, campus.js and atrium.js |
@@ -224,6 +226,251 @@ when two corrections disagree.
   STRAFE, which moves you SEAWARD from the tables at r 97.9 into the pool at
   r 90.10…96.40 — i.e. the pool is where the pool is, and Carl asked for
   exactly that (the water takes the edge, the tables sit behind it).
+## PERFORMANCE — KAN-235 (2026-09-27)
+
+Guests open this from the invitation on phones: iPhones, older Androids, WeChat's
+in-app browser, many in mainland China on mobile data. This pass measured the cold
+load, the runtime cost at phone resolution and GPU memory, fixed what the numbers
+justified, and proved the desktop look unchanged. **Programs, lights, colliders,
+floorY and geometry are unchanged: 115 programs, 40 / 12 lights, and identical
+calls, tris and colliders at all 141 views.** Baseline = 069fc68 (the soundscape
+build, sound off; 6396712 minus ~10 KB of sound.js). Not verified on a physical
+phone or inside WeChat.
+
+### Tools (all in `tools/`, dev-only, vercelignored)
+
+| tool | what |
+|---|---|
+| `perf-serve.mjs <root> <port>` | a local Vercel stand-in for LOAD numbers: HTTP/2 + TLS (a self-signed cert in `$TMPDIR/venue-perf-cert`), brotli q4 on text **and GLB** (measured against production: main.js is 11,147 B from Vercel, 10,913 B at q4), `max-age=0, must-revalidate` + ETag, plus any `vercel.json` headers. serve.py (`no-store`, HTTP/1.1, six connections) is wrong for load timing. |
+| `perf-load.mjs` | a cold (+`WARM=1` reload, `REPS=n`) load on a 390 × 844 @3 touch phone per network × CPU profile (DevTools' Slow 4G = old "Fast 3G" 1.44 Mbps / 562 ms, Fast 4G 8.1 Mbps / 165 ms, `mob10` 10 Mbps / 100 ms; CDP CPU 4× / 6×): bytes by type / origin / before the title card, FCP, title card (`#overlay.ready`), TTI (`window.__game`), when the network goes quiet, long tasks. Chromium is told to TRUST the cert by SPKI: with `--ignore-certificate-errors` Chrome does not cache at all and a warm reload re-fetches everything. |
+| `perf-gpu.mjs` | every shoot-moments view (the list is read from that file) on the phone viewport: ms/frame at pixel ratio 3 / 2 / 1.5 (N synchronous renders closed by a 1 px readPixels, median of 3), calls / tris for the whole frame (main + shadow + mirror), the frame with the shadow map frozen and with the mirror skipped, texture / render-target / geometry memory (textures deduped by Source). `INST=1` adds the off-screen share of every InstancedMesh. `PHONE=0` = desktop. |
+| `perf-lo-ab.mjs` | the phone-tier atlases, EXACTLY: one frame rendered twice in-page (hi atlases, then the lo twins' maps on the same materials) → `<view>.png` = A \| B \| \|A−B\|×8 + `ab.json`. |
+| `perf-dynres.mjs` | the tier + the dynamic-resolution controller, driven by a synthetic fill cost (14 checks). |
+
+Numbers vary run to run on this Mac: ±15 % between runs for load, up to ~25 % for
+GPU after long runs (heat). Tables quote medians of interleaved runs.
+
+### Before / after
+
+**Cold load, phone (390 × 844 @3), medians of 3 (Slow 4G: the lower of 2).** "title"
+is the invitation appearing = the moment Step inside works (they are the same
+moment here). "all" = the network goes quiet (the photo textures stream in behind
+the invitation, as they always did).
+
+| profile | bytes (pre-title) | FCP (loading card) | title = TTI | all loaded | longest block (pre / post title) | warm reload → title |
+|---|---|---|---|---|---|---|
+| unthrottled, 1× | 13.12 → **11.62 MB** (all) | 92 → 100 ms | 2.85 → **1.46 s** | — | 128 → 135 ms | 1.93 → 1.39 s |
+| 10 Mbps, 4× | (9.52 → 8.03) | 412 → 416 | 10.99 → **8.93 s** | 12.1 → 10.4 s | 672 (317 / 672) → **277** (277 / 145) | 5.23 → 4.29 s |
+| 10 Mbps, 6× | (13.12 → 8.56) | 452 → 420 | 13.54 → **10.08 s** | 12.2 → 10.7 s | **1,432** (1,432 / 240) → **426** (426 / 231) | 7.25 → 5.68 s |
+| Fast 4G, 4× | (8.96 → 7.47) | 552 → 552 | 12.48 → **10.64 s** | 14.6 → 13.0 s | 481 (288 / 481) → **280** (280 / 127) | 5.88 → 4.55 s |
+| Fast 4G, 6× | (9.77 → 8.03) | 588 → 604 | 13.73 → **11.57 s** | 14.8 → 13.2 s | 814 (455 / 814) → **410** (410 / 221) | 7.74 → 6.04 s |
+| Slow 4G, 4× | (8.91 → 7.42) | 1,680 → 1,668 | 55.5 → **46.3 s** | 77.3 → 68.4 s | 332 → 266 | 9.36 → 8.27 s |
+| Slow 4G, 6× | (8.91 → 7.42) | 1,704 → 1,740 | 56.6 → **47.4 s** | 77.5 → 68.7 s | 497 → 407 | 10.94 → 9.57 s |
+
+Bytes by type, phone: GLB 7,431 → 6,206 KB · images 4,419 (same) · JS 1,086 → 761 KB
+(+ 59 KB WASM) · fonts 147 → 146 KB · **third-party origins 4 → 0** (712 KB used to
+come from jsdelivr + Google). Desktop / full tier: 13.12 → 12.85 MB (no lo atlases),
+unthrottled title 2.85 → 1.94 s. Requests 306 → 309. ⚠ Slow 4G is still ~46 s to the
+invitation: 11.6 MB at 1.44 Mbps is ~65 s of pure transfer, so the loading card is
+doing real work there. Only fewer bytes moves that further (see "next" below).
+
+**GPU at phone resolution** (390 × 844; ms per frame, render only, M-series Metal —
+an iPhone GPU is several times slower, so read the RATIOS; interleaved base / after
+runs, mean of 2). The ten worst views of the first full sweep plus four references:
+
+| view | ratio 3 | ratio 2 (the cap, all tiers) | ratio 1.5 | calls / tris (whole frame) | mirror pass: ms of the frame · calls (first sweep, ratio 2) |
+|---|---|---|---|---|---|
+| waveE-brunch-slips | 11.9 → 13.2 | 11.3 → 11.9 | 11.0 → 11.7 | 1,706 / 2.80 M | 2.2 of 11.8 ms · 393 calls |
+| archC-across-pool-night | 10.3 → 10.7 | 10.1 → 10.9 | 9.9 → 10.8 | 1,906 / 1.95 M | 8.0 of 14.9 · 892 |
+| palms-belt-crowns-night | 9.9 → 9.6 | 9.7 → 9.5 | 9.6 → 9.5 | 1,679 / 2.17 M | 5.4 of 11.0 · 656 |
+| archC-across-pool | 9.6 → 9.7 | 9.3 → 9.2 | 9.2 → 9.2 | 1,801 / 1.87 M | 6.9 of 13.5 · 837 |
+| palms-belt-crowns | 9.1 → 9.2 | 8.8 → 9.0 | 8.8 → 9.3 | 1,548 / 2.08 M | 5.9 of 12.2 · 590 |
+| waveE-croton-sand | 9.0 → 9.0 | 8.6 → 9.0 | 8.6 → 9.0 | 1,516 / 1.88 M | 4.7 of 9.7 · 557 |
+| archC-signature-night | 9.0 → 9.9 | 8.6 → 9.4 | 8.5 → 8.4 | 1,521 / 1.83 M | 6.4 of 12.8 · 704 |
+| brunch-spawn | 7.7 → 7.8 | 7.2 → 7.1 | 7.2 → 7.1 | 1,109 / 1.81 M | 2.8 of 10.0 · 418 |
+| lagoon-swim-up-bar | 7.5 → 7.4 | 7.2 → 7.1 | 7.0 → 7.1 | 1,218 / 2.19 M | 4.3 of 10.1 · 453 |
+| pool-light-fittings | 7.2 → 7.2 | 6.8 → 6.7 | 6.6 → 6.5 | 1,116 / 1.84 M | 3.3 of 9.6 · 396 |
+| river-island-bar-thatch | 6.9 → 7.0 | 6.6 → 6.6 | 6.5 → 6.5 | 1,100 / 1.70 M | 3.0 of 9.2 · 294 |
+| archC-portal | 6.2 → 6.3 | 5.9 → 6.1 | 5.8 → 5.9 | 870 / 2.30 M | 2.8 of 6.8 · 319 |
+| setup-spawn | 5.6 → 5.4 | 5.4 → 4.9 | 5.4 → 4.8 | 689 / 1.62 M | 3.1 of 7.2 · 334 |
+| ceremony-spawn | 2.7 → 2.6 | 1.7 → 1.7 | 1.4 → 1.4 | 67 / 1.09 M | 0 · 0 |
+
+**Unchanged within noise, as it must be:** this pass removed no draw call and no
+triangle (calls and tris identical at all 141 views). The worst views are
+DRAW-CALL-bound (1,100–1,900 calls, the hero pool's mirror about half of them:
+`base − noMirror` in the first sweep) — on this GPU ratio 3 → 1.5 barely moves
+them, while light views scale with pixels (ceremony 2.7 → 1.4; 141-view mean 5.68 /
+4.41 / 3.94 ms at 3 / 2 / 1.5). A phone GPU is far more fill-limited, which is what
+the dynamic resolution below is for. The shadow pass is 8 draw calls at every view
+(freezing it measured inside the noise).
+
+**Memory (whole scene, all six moments — the warm-up uploads everything):**
+
+| | before | after, desktop / full | after, phone |
+|---|---|---|---|
+| textures (w × h × 4 B × 4/3 mips, one per Source) | **668 MiB** (292) | 626 MiB (284) | **466 MiB** (284) |
+| · GLB atlases (106) | 456 | 456 | 296 |
+| · photographs | 107 (21) | 64.5 (13) | 64.5 (13) |
+| · canvases (164) / PMREM | 93 / 12 | same | same |
+| render targets (mirror 1024 × 512 MSAA 4, shadow 2048²) | 52 | 52 | 52 |
+| geometry (attributes + index + instance buffers) | 20.8 | 20.8 | 20.8 |
+
+### What changed (in order of win per risk)
+
+1. **three.js self-hosted, and minified** — `vendor/three@0.180.0/` (npm three@0.180.0,
+   byte-identical: `build/three.{module,core}.min.js`, the five addons we import,
+   `libs/draco/gltf/`, LICENSE); importmap → `./vendor/…`; `tools/viewer.html` too.
+   376 → 179 KB of three on the wire. Same library, so the pixels are the same.
+2. **Draco: the glTF WASM decoder, fetched early.** models.js forced `{ type: 'js' }`
+   ("wasm needs COOP/COEP we do not set" — it does not: COOP/COEP gate
+   SharedArrayBuffer; the Draco worker is single-threaded WASM). Now the default
+   (WASM, with the asm.js twin beside it as DRACOLoader's own fallback), 144 → 71 KB,
+   decode of all 140 GLBs 286 → 129 ms, and `DRACOLoader.preload()` runs beside the
+   manifest (at 10 Mbps it used to finish at 6.8 s, behind 7 MB of GLBs, while the
+   first GLB had landed at 2.5 s). **All 140 GLBs decode bit-identically** (every
+   attribute and index hashed: old default-build JS decoder vs glTF WASM vs glTF JS).
+3. **The Latin fonts self-hosted** — `css/fonts.css` + `assets/fonts/latin/` (17
+   files): Google's own woff2 and unicode-range subsets for Bodoni Moda, Archivo,
+   JetBrains Mono (OFL), still out of the render path (`media="print"` → `all`). The
+   browser fetches the same four files (146 KB) it fetched from gstatic.
+4. **Photographs loaded once** — `materials.js photoTexture(file, onLoad)` replaces six
+   modules' own `TextureLoader().load()`: hedge.webp had been loaded four times,
+   shrub.webp five, boug and floor_teak twice — each a separate image, decode and
+   5.3 MiB GPU texture. Callers get `clone()`s (own wrap / repeat, SAME Source; three
+   r180 shares one WebGLTexture per Source + upload parameters). −43 MiB GPU memory.
+5. **Late photographs paced** — on a slow link the photos land after the warm-up
+   collected its textures, and were uploaded inside the hidden warm-up frame (the
+   1,432 ms block at 94 % on 10 Mbps / 6×) or inside the first frames behind the
+   invitation (the 814 ms at Fast 4G / 6×). Now: `img.decode()` first; `holdPhotos()`
+   (main.js, just before the warm-up's texture scan) queues arrivals; after the title
+   card `setPhotoUploader(renderer)` drains them ONE file per frame, cloning every
+   waiting caller together (a clone bumps the Source version — one batch = one
+   upload) and `initTexture()`-ing right there. ⚠ A first version paced them DURING
+   the warm-up too: the title then waited for the uploads — Fast 4G / 6× title
+   13.7 → 14.0–15.0 s in 2 of 3 runs. Hold, don't pace, until the card is up.
+6. **The PHONE tier** (`js/perftier.js`, `PHONE` = coarse pointer + short screen side
+   < 600 px, `?tier=phone|full`): **(a)** ten of the twelve 2048² architecture atlases
+   as 1024² twins, `assets/models/lo/` (`assets/blender/derive_lo.py` — the same GLB
+   with only the atlas resampled, WebP q80; `lo.json` records the hi bytes + tris
+   each twin came from and models.js ignores a stale twin) — −1.2 MB and −160 MiB;
+   **(b)** dynamic resolution (below). Desktop, laptops and tablets are the FULL tier:
+   same GLBs, fixed ratio, no controller.
+7. **`vercel.json`**: `/vendor/(.*)` → `public, max-age=31536000, immutable` (the version
+   is in the path). Nothing else: no other asset is content-hashed, and a returning
+   guest mixing an old GLB with a new main.js is worse than 300 revalidations.
+
+### The phone tier, shown
+
+`reference/photos/shots-perf/lo-ab/<view>.png` (A = 2048 | B = 1024 | |Δ| × 8, one
+frame rendered twice in-page, 390 × 844 @2) + `ab.json`. At the spawns the atlases
+sit below mip 0 and the difference is 0 (ceremony, dinner, after party, prewedding
+lanterns) or ~0 (brunch 0.0003, setup 0.15 mean |Δ|/255). Close to the architecture it
+is board joints and seams a little softer — mean |Δ| 0.2–1.8, e.g. archC-signature-night
+0.19, archC-balcony 1.84, archD-suite-back 1.24 — hard to see at phone size. **Two atlases
+were judged and KEPT at 2048 on phones** (`derive_lo.py EXCLUDE`): the walkway
+pergola (its fine vertical corten streaks — the wave-A2 look — smear at 1024:
+archD-walk-from-lobby 2.20 mean |Δ|, 10.8 % of pixels > 8/255) and the island bar's
+photographed thatch (already atlas-starved, visibly soft from under the roof,
+waveE-bar-under 1.64). With them excluded those views read 0.64 and 0.
+
+### Dynamic resolution (phone tier only)
+
+Starts where every phone always started, min(DPR, 2), and steps the drawing buffer
+down 0.25 at a time to a floor of 1.25 only while frames are measurably slow:
+medians of ~1 s windows (≥ 12 samples, or 3 s of ≥ 4 for a crawling phone), not
+counted while hidden, under the moment veil, or 1.5 s after a change / resize /
+switch; DOWN after 2 windows > 22 ms, UP after 5 windows < 17.5 ms, and a level left
+for being slow is BURNT for 30 s (a moment switch clears the burns) — so a phone on
+the edge settles one step below it and retries at most twice a minute. It samples
+from the first frame, so it converges on the title card's orbit. The detail cull
+sizes objects in CSS px (renderer.getSize), so a ratio change never changes what is
+culled. `?dr=off` pins, `?dr=1.5` pins a ratio, `G.dynres.stats()` / `.disable()` /
+`.force(r)`. **`tools/perf-dynres.mjs` 14 / 14:** desktop = full tier (no lo/
+request, ratio pinned), phone `?tier=full` = full, phone = 10 lo GLBs + a live
+controller; with a synthetic cost {2: 34, 1.75: 28, 1.5: 6} ms it steps 2 → 1.75
+(2.0 s) → 1.5 (5.5 s), holds 1.5 through the 30 s burn, retries 1.75 once (at +30.7 s),
+drops back, holds; a moment switch clears the burns; with no cost it climbs 1.5 →
+1.75 → 2; programs 115 before and after; drawing buffer 780 × 1688 at 2.
+
+### Proof the look is unchanged on desktop
+
+`reference/photos/shots-perf-before/` (069fc68 on :8811), `shots-perf-after/`, and a
+second before run as the control, `shots-perf-before2/` — 141 views, 1600 × 900:
+**calls, tris, mirror calls / tris, programs (115), colliders, feet and night flags
+identical at every view.** Pixel mean |Δ|/255 before ↔ after: median 0.014, max 0.51
+(waveE-afterparty-festoon-end, whose own before ↔ before control reads 2.42); control
+median 0.032; 31 views exactly 0. No view differs by more than its control
+(`shots-perf-after/pixdiff.json`). The one real change behind it (photo dedupe) is the
+same file with the same upload parameters; the Draco geometry is bit-identical.
+
+### Measured and REJECTED
+
+- **`<link rel="modulepreload">` for the whole module graph** (30 hints). Title only
+  −0.3 s (Fast 4G 10.17 → 9.86 s, 10 Mbps 8.64 → 8.36, Slow 4G 43.2 → 42.9) but the
+  hints fetch ~760 KB of JS in parallel with style.css and pushed the LOADING CARD's
+  first paint back: FCP 548 → 832 ms (Fast 4G), 430 → 640 (10 Mbps), **1.70 → 3.28 s
+  (Slow 4G)**. The card is what tells a guest the link is not broken. Removed.
+- **Chunking / per-instance LOD of the campus-wide instanced buckets.** They are real
+  waste — main-pass instanced tris drawn vs on screen: ceremony 784k vs 172k, setup
+  580k vs 77k, signature 739k vs 221k (palms 152 / 109 / 825 shrubs top the list) —
+  but hiding EVERY large nature bucket outright (the upper bound) saves only 0.2–0.34 ms
+  a frame here, and mostly at views that are already light (ceremony 1.75 → 1.45 ms;
+  setup 5.00 → 4.73). The palms' matrices are rewritten per frame by nature's sway
+  ticker (index-bound to the bucket) and every fringe shares its core's matrices, so
+  chunking is a real refactor for a small, unmeasurable-here win. Next lever if a
+  real phone proves vertex-bound.
+- **Mirror every 2nd frame on phones** (`TUNE.MIRROR_EVERY`): the mirror is half the
+  cost of the worst views, but since the frustum narrowing (mirrorfrustum.js) a stale
+  render target only holds the LAST frame's sub-rectangle — a moving camera would
+  sample unrendered edges. Not done.
+- **Lower mirror / shadow resolution on phones**: the mirror pass is draw-call cost,
+  not fill (fixed 1024 × 512 target); the shadow pass is 8 calls. Nothing to buy.
+- **KTX2 / Basis**: 4–8× less GPU memory, but a ~250 KB transcoder, a second encoder
+  in the asset pipeline and a changed look on desktop too. The lo twins got 160 MiB
+  with none of that. Revisit only if real phones still run out of memory.
+- **Starting the photo downloads at boot** (so they are in before the title): the
+  link is bandwidth-bound, so the title would simply wait for them. Title first.
+- **Long-lived caching of non-versioned assets** (GLBs, textures, fonts): not
+  content-hashed; a stale-while-revalidate mix of an old GLB and a new main.js is a
+  broken venue for a returning guest. Only `/vendor/` is immutable.
+
+### THE CHINA FINDING
+
+The page used **three third-party origins, and they were exactly the ones the mainland
+blocks or poisons**: `cdn.jsdelivr.net` (three.js, the addons and the Draco decoder —
+jsdelivr lost its ICP licence in Dec 2021 and has been intermittently DNS-poisoned /
+blocked in China since; **nothing renders without three**), and `fonts.googleapis.com`
++ `fonts.gstatic.com` (the Latin faces — Google is blocked; the stylesheet was
+non-blocking, so guests got system fallbacks). All three are gone: the page is now
+ONE origin, `venue.carlfung.dev` — whatever reachability Vercel has in China, the
+whole venue has, no more and no less. **Not verified from inside China.** Vercel's own
+reachability from the mainland (custom domains usually resolve; `*.vercel.app` is
+blocked) is the remaining risk and is outside this repo.
+
+### Verified (2026-09-27, local, on 6396712 + this pass)
+
+Guest journey: 0 stalls, every beat, Check-in PROMPT ✓, lights 40 / 12, `ERRORS []`.
+`tools/tour-test.mjs` **129 / 129**. `tools/perf-dynres.mjs` **14 / 14**. WebKit
+(mobile-web-hardening, iPhone 15 / 15 Pro Max / SE 3 / SE 1 × title + in-game × EN + ZH)
+**16 / 16 PASS** (`reference/photos/shots-perf/webkit/`), and WebKit boots the phone
+tier (10 lo GLBs, controller live at 2). Programs 115 everywhere. **Not verified:** a
+physical iPhone / Android, WeChat's WebView, a real mobile network, the mainland.
+
+### Gotchas
+
+- `vendor/three@0.180.0/` is a versioned, immutable path: upgrading three = a NEW
+  directory + the importmap + models.js's DRACO_PATH + viewer.html, never files swapped
+  in place (a year-long immutable cache would serve the old ones).
+- After `export_all.py` touches any 2048² GLB, run `python3 assets/blender/derive_lo.py`
+  (`--check` lists stale twins). A stale twin is ignored (phones get the hi GLB), never
+  wrong — but it is 250 KB more on their data plan.
+- New photo texture? Use `photoTexture()` (materials.js), never a new TextureLoader —
+  or it is a second GPU copy and an unpaced upload.
+- `perf-load.mjs` must trust perf-serve's cert by SPKI (it does); with
+  `--ignore-certificate-errors` Chrome caches nothing and every "warm" number lies.
+  Its Draco worker `blob:` URLs never report a finish — they are excluded from the
+  network-quiet wait.
+
 ## UI/UX UPGRADE — KAN-218 (2026-09-25)
 
 Carl: *"do a major upgrade of the full ux and ui to be extremely high fidelity and
@@ -4254,5 +4501,6 @@ makes the campus "look tidier" by undoing one, it is wrong:
 vercel --prod
 ```
 
-Domain `venue.carlfung.dev` is attached in the Vercel dashboard. No
-`vercel.json` — it's a static site, the defaults are correct.
+Domain `venue.carlfung.dev` is attached in the Vercel dashboard. `vercel.json`
+(KAN-235) only marks `/vendor/` immutable (versioned path); everything else keeps
+Vercel's default `max-age=0, must-revalidate` — no other file is content-hashed.

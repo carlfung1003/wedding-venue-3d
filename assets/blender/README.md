@@ -20,6 +20,7 @@ generators/*.py      one module per asset: NAME, ATLAS, build()  (+ build_<suffi
 generators/_template.py   commented starter — copy it
 make_masters.py      generators → bevel → unwrap → bake → masters/<name>.blend
 export_all.py        masters → ../models/<name>.glb + <name>.meta.json; REBUILDS models.json
+derive_lo.py         (KAN-235, SYSTEM python3) ../models/lo/<name>.glb — the phone tier's 1024² twin of every GLB with a 2048² atlas
 preview_all.py       masters → ../previews/<name>.webp   (Workbench 3/4 view — shape check)
 ../../tools/viewer.html      in-engine viewer (the venue's PMREM + ACES + sun rig)
 ../../tools/shoot-models.mjs Playwright → ../previews/<name>-ingame.png  (LOOK check)
@@ -43,6 +44,10 @@ $B --background --factory-startup --python assets/blender/make_masters.py -- fas
 
 # masters → GLB (Draco 6, WebP q80) + sidecars, then models.json from ALL sidecars
 $B --background --factory-startup --python assets/blender/export_all.py    # [-- names...]
+# …then the PHONE tier's 1024² twins (KAN-235). Re-run after ANY export that touches a
+# 2048² atlas; until then models.js serves that GLB's hi file to phones (lo.json records
+# which hi bytes + tris each twin came from). --check lists stale / missing, writes nothing.
+python3 assets/blender/derive_lo.py            # [--check]
 
 # Workbench previews (shape)                            in-engine screenshots (look)
 $B --background --factory-startup --python assets/blender/preview_all.py   # [-- names] [turn=4]

@@ -44,7 +44,7 @@
 import * as THREE from 'three';
 import { SITE, siteFloorY, ENCLAVE, enclaveToWorld, worldToEnclave, VILLA_ZONES, MOMENT_PLACES } from './site.js';
 import { CFG } from './config.js';
-import { mulberry32, envKnob } from './materials.js';
+import { mulberry32, envKnob, photoTexture } from './materials.js';
 /* KAN-208 wave 2: the palm + hedge PROTOTYPES are Blender-authored (assets/
    blender/generators/palm_*.py, hedge_run.py) — GEOMETRY ONLY. The materials,
    the photographic maps, the scatter and every rnd() draw stay here. main.js
@@ -123,11 +123,10 @@ function tex(w, h, draw, repeat, srgb = true) {
    ⚠ assets/textures/, NOT assets/blender/textures/. The latter is a bake input and
    .vercelignore hides the whole of assets/blender/ from the CLI deploy — a runtime
    texture left in there works on localhost and 404s in production. */
-const PHOTO_LOADER = new THREE.TextureLoader();
-
+/* KAN-235: through materials.js photoTexture() — one load per file for the
+   whole campus (it was a separate image + GPU texture per module). */
 function photoMap(mats, file, repeat, clamp = false) {
-  const url = new URL(`../assets/textures/${file}`, import.meta.url).href;
-  PHOTO_LOADER.load(url, (t) => {
+  photoTexture(file, (t) => {
     t.colorSpace = THREE.SRGBColorSpace;          // colour maps only (house rule)
     t.anisotropy = 8;                             // matches tex()
     t.wrapS = t.wrapT = clamp ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping;
@@ -141,7 +140,7 @@ function photoMap(mats, file, repeat, clamp = false) {
       m.needsUpdate = true;
       if (old && old.isCanvasTexture && old !== t) old.dispose();
     }
-  }, undefined, () => {
+  }, () => {
     console.warn(`nature: ${file} did not load — keeping the canvas fallback`);
   });
 }

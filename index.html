@@ -55,8 +55,6 @@
 <meta name="twitter:title" content="The Big Day — 3D wedding venue walkthrough">
 <meta name="twitter:description" content="Walk Carl &amp; Rachel's wedding venue in 3D — six moments, in first person, free in your browser.">
 <meta name="twitter:image" content="https://venue.carlfung.dev/assets/og.jpg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- The loading card's watercolour: the one decorative image a guest sees
      first, preloaded per orientation so it is not queued behind three.js. -->
 <link rel="preload" as="image" href="assets/ui/venue-dusk-wide.webp" media="(min-aspect-ratio: 1/1)" fetchpriority="high">
@@ -78,14 +76,27 @@
      unicode-range. It replaced the Google `Noto Serif SC &text=隐逸居` link:
      Traditional glyphs, and fonts.googleapis.com is unreachable from the
      mainland, where many of the guests will open this. -->
-<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&family=Bodoni+Moda:ital,opsz,wght@0,6..96,400;0,6..96,500;1,6..96,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<!-- KAN-235: the three Latin faces are SELF-HOSTED now (css/fonts.css,
+     assets/fonts/latin/ — Google's own files and unicode-range subsets), for the
+     same reason as the Chinese serif: fonts.googleapis.com and fonts.gstatic.com
+     do not answer on the mainland. Still loaded out of the render path. -->
+<link href="css/fonts.css" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="css/fonts.css" rel="stylesheet"></noscript>
 <link rel="stylesheet" href="css/style.css">
+<!-- KAN-235 · three.js is SELF-HOSTED (vendor/three@0.180.0/, byte-identical
+     to npm three@0.180.0: the MINIFIED build + the five addons we import + the
+     glTF Draco decoder). It came from cdn.jsdelivr.net, which lost its China
+     ICP licence in Dec 2021 and has been intermittently DNS-poisoned / blocked
+     on the mainland since — one origin guests in China may not reach, and with
+     it the whole venue (nothing renders without three). Now the page is ONE
+     origin: if venue.carlfung.dev loads, so does everything it needs. The
+     version is in the PATH, so vercel.json can cache it immutably. Upgrading
+     three = a new vendor/three@<v>/ directory, never files swapped in place. -->
 <script type="importmap">
 {
   "imports": {
-    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
-    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+    "three": "./vendor/three@0.180.0/build/three.module.min.js",
+    "three/addons/": "./vendor/three@0.180.0/examples/jsm/"
   }
 }
 </script>

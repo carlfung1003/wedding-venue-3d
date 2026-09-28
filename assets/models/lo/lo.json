@@ -1,0 +1,62 @@
+{
+ "arrival_entry": {
+  "atlas": 1024,
+  "bytes": 27432,
+  "srcBytes": 58748,
+  "srcTris": 564
+ },
+ "arrival_roof": {
+  "atlas": 1024,
+  "bytes": 70772,
+  "srcBytes": 269004,
+  "srcTris": 664
+ },
+ "arrival_shell": {
+  "atlas": 1024,
+  "bytes": 104120,
+  "srcBytes": 358872,
+  "srcTris": 3528
+ },
+ "atrium_ponds": {
+  "atlas": 1024,
+  "bytes": 92884,
+  "srcBytes": 129056,
+  "srcTris": 11088
+ },
+ "lounge_facade": {
+  "atlas": 1024,
+  "bytes": 65104,
+  "srcBytes": 152564,
+  "srcTris": 1680
+ },
+ "suite_facade": {
+  "atlas": 1024,
+  "bytes": 67308,
+  "srcBytes": 133592,
+  "srcTris": 2160
+ },
+ "suite_roof": {
+  "atlas": 1024,
+  "bytes": 170308,
+  "srcBytes": 359952,
+  "srcTris": 3132
+ },
+ "suite_soffit": {
+  "atlas": 1024,
+  "bytes": 71404,
+  "srcBytes": 233868,
+  "srcTris": 336
+ },
+ "suite_walls": {
+  "atlas": 1024,
+  "bytes": 105880,
+  "srcBytes": 220248,
+  "srcTris": 2232
+ },
+ "walkway_deck": {
+  "atlas": 1024,
+  "bytes": 79672,
+  "srcBytes": 157852,
+  "srcTris": 3432
+ }
+}

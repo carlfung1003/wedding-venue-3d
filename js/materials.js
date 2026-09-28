@@ -51,6 +51,92 @@ export function setEnvKnobsNight(on) {
 /* probes / tests only */
 export function envKnobList() { return ENVK.slice(); }
 
+/* ══ THE PHOTOGRAPHS — ONE DOWNLOAD, ONE DECODE, ONE GPU TEXTURE (KAN-235) ══════
+   Six modules swap a generated photograph (assets/textures/*.webp) over a canvas
+   stand-in, each with its own `new THREE.TextureLoader().load(url)`. The same
+   file was therefore loaded as SEPARATE images — hedge.webp four times, shrub.webp
+   five, boug.webp and floor_teak.webp twice — and three uploads a separate GPU
+   texture per image: 1024² × 4 B × 4/3 = 5.3 MiB each, ~48 MiB of duplicates on a
+   phone that already holds ~670 MiB of textures (measured, tools/perf-gpu.mjs).
+   photoTexture(file, onLoad) loads each URL ONCE and hands every caller a
+   `clone()` — its own wrap / repeat / colorSpace, the SAME Source — and three
+   r180 shares one WebGLTexture between Textures with the same Source and the
+   same upload parameters (wrap, filters, anisotropy, colour space). Pixels are
+   identical; the call sites set exactly what they set before, on their clone.
+
+   AND THE UPLOAD IS PACED. On a slow link these photographs are still arriving
+   after the title card is up (nothing waits for them — they replace canvas
+   stand-ins), and each one used to be decoded + uploaded + mipmapped inside
+   whichever frame first drew it: 486–814 ms blocks behind the invitation at
+   Fast 4G / 4–6× CPU (tools/perf-load.mjs). Now: `img.decode()` first (off
+   the main thread where the browser can), then — once main.js has handed over
+   the renderer (setPhotoUploader) — ONE file per animation frame: every waiting
+   caller gets its clone in one batch (a clone bumps the shared Source's
+   version, so cloning them together means one upload, not one per clone) and
+   renderer.initTexture() uploads it right there, in its own slice.
+   The boot has three states, and the middle one matters:
+     · before main.js's warm-up collects its textures: a photo is applied at
+       once, exactly as before — the warm-up's sliced initTexture pass uploads it;
+     · holdPhotos() (main.js, just before that collection) until the title card
+       is up: arrivals WAIT. Applied then, they were uploaded inside the hidden
+       warm-up frame (a 1.4 s block at 94 % on a 10 Mbps / 6× phone), and paced
+       then, they pushed the title card back ~1–2 s at Fast 4G / 6× (measured);
+     · setPhotoUploader(renderer) (after the title card): the queue drains one
+       file per frame, behind the invitation. */
+const _photos = new Map();          // url -> { tex, waiting: [[onLoad, onError]], err }
+let _uploader = null, _held = false;
+const _jobs = [];
+let _pumping = false;
+export function holdPhotos() { _held = true; }
+export function setPhotoUploader(renderer) { _uploader = renderer || null; _held = false; pumpPhotos(); }
+function pumpPhotos() {
+  if (_pumping || !_jobs.length || !_uploader) return;
+  _pumping = true;
+  let ran = false;
+  const run = () => {
+    if (ran) return;
+    ran = true; _pumping = false;
+    const job = _jobs.shift();
+    if (job) job();
+    pumpPhotos();
+  };
+  requestAnimationFrame(run);
+  setTimeout(run, 250);             // a hidden tab has no frames; never strand a photo
+}
+function flushPhoto(e) {
+  const w = e.waiting;
+  e.waiting = [];
+  if (!w.length) return;
+  const clones = w.map(([ok]) => { const t = e.tex.clone(); ok(t); return t; });
+  if (_uploader) for (const t of clones) _uploader.initTexture(t);
+}
+function schedulePhoto(e) {
+  if (!_uploader && !_held) { flushPhoto(e); return; }
+  _jobs.push(() => flushPhoto(e));
+  pumpPhotos();
+}
+export function photoTexture(file, onLoad, onError) {
+  const url = new URL(`../assets/textures/${file}`, import.meta.url).href;
+  let e = _photos.get(url);
+  if (!e) {
+    e = { tex: null, waiting: [], err: null };
+    _photos.set(url, e);
+    new THREE.TextureLoader().load(url, (t) => {
+      const img = t.image;
+      const decoded = img && typeof img.decode === 'function' ? img.decode().catch(() => {}) : Promise.resolve();
+      decoded.then(() => { e.tex = t; schedulePhoto(e); });
+    }, undefined, (err) => {
+      e.err = err || new Error(url);
+      const w = e.waiting;
+      e.waiting = [];
+      for (const [, no] of w) if (no) no(e.err);
+    });
+  }
+  if (e.err) { if (onError) onError(e.err); return; }
+  e.waiting.push([onLoad, onError]);
+  if (e.tex) schedulePhoto(e);
+}
+
 /* ── seeded PRNG — never Math.random() for placement or noise (house rule) ── */
 export function mulberry32(seed) {
   let a = seed | 0;

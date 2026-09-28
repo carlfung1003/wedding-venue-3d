@@ -24,7 +24,7 @@
 import * as THREE from 'three';
 import { Reflector } from 'three/addons/objects/Reflector.js';
 import { SITE } from './site.js';
-import { mulberry32, envKnob } from './materials.js';
+import { mulberry32, envKnob, photoTexture } from './materials.js';
 /* nature.js owns the ONE coconut palm this campus uses. The river cannot
    plant through nature's own scatter (it avoids G.colliders, and the channel's
    colliders are exactly what would reject a palm leaning over the water), so
@@ -528,7 +528,7 @@ function buildMaterials() {
   MAT.hedge = new THREE.MeshStandardMaterial({
     map: hedgeTex(2, 1), color: new THREE.Color().setHSL(.26, .40, .39), roughness: .92,
   });
-  new THREE.TextureLoader().load(new URL('../assets/textures/hedge.webp', import.meta.url).href, (t) => {
+  photoTexture('hedge.webp', (t) => {   // KAN-235: shared load (materials.js)
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 1);
     MAT.hedge.map = t; MAT.hedge.needsUpdate = true;
@@ -3733,7 +3733,7 @@ function buildRiverDressing(G, g, basins, R, lines, islandShrubs, inWater) {
   plantTex.colorSpace = THREE.SRGBColorSpace;
   const plantM = new THREE.MeshStandardMaterial({ map: plantTex, roughness: .92, metalness: 0 });
   plantM.color.setScalar(7);
-  new THREE.TextureLoader().load(new URL('../assets/textures/shrub.webp', import.meta.url).href, (t) => {
+  photoTexture('shrub.webp', (t) => {   // KAN-235: shared load (materials.js)
     t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 2);
     plantM.map = t; plantM.needsUpdate = true; plantTex.dispose();

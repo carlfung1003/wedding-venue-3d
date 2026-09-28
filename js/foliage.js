@@ -33,6 +33,7 @@
    from setNatureNight, which world.js fans out on every moment switch. */
 import * as THREE from 'three';
 import * as models from './models.js';
+import { photoTexture } from './materials.js';
 
 const LEAF = {
   /* day colour is a small warm-green lift/grade on top of the photograph so the
@@ -72,7 +73,7 @@ export function leafMat(key) {
     alphaTest: .5, side: THREE.DoubleSide, roughness: .86, metalness: 0,
   });
   m.name = 'leaf_' + key;
-  new THREE.TextureLoader().load(new URL(`../assets/textures/${L.file}`, import.meta.url).href, (t) => {
+  photoTexture(L.file, (t) => {   // KAN-235: shared load (materials.js)
     t.colorSpace = THREE.SRGBColorSpace;
     t.anisotropy = 8;
     t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping;   // one card = the whole clump
@@ -80,7 +81,7 @@ export function leafMat(key) {
     m.map = t;
     m.needsUpdate = true;          // same defines (USE_MAP was there) — a cache hit
     if (old && old.isCanvasTexture) old.dispose();
-  }, undefined, () => console.warn(`foliage: ${L.file} did not load — keeping the stand-in`));
+  }, () => console.warn(`foliage: ${L.file} did not load — keeping the stand-in`));
   MATS[key] = m;
   return m;
 }

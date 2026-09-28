@@ -15,33 +15,51 @@
 
    Ported from seventh-floor's js/models.js. Differences: no ?b= cache-busting
    (Vercel serves max-age=0, must-revalidate; the manifest is fetched with
-   cache:'no-cache'), Draco from jsdelivr at the importmap's exact three
-   version, and paths resolve against THIS MODULE so tools/viewer.html (one
+   cache:'no-cache'), Draco self-hosted at the importmap's exact three
+   version (vendor/, KAN-235), and paths resolve against THIS MODULE so tools/viewer.html (one
    directory down) reads the same files as index.html. */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { envKnob } from './materials.js';
+import { PHONE } from './perftier.js';
 
 /* 'assets/models/' relative to the site root, resolved via the module URL. */
 const DIR = new URL('../assets/models/', import.meta.url).href;
-const DRACO_PATH = 'https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/libs/draco/';
+/* KAN-235: self-hosted beside three (see index.html), and the glTF build of the
+   decoder (the one three's own GLTF examples use — KHR_draco_mesh_compression's
+   branch) as WASM, with its asm.js twin in the same folder as the fallback
+   DRACOLoader picks when WebAssembly is missing. */
+const DRACO_PATH = new URL('../vendor/three@0.180.0/examples/jsm/libs/draco/gltf/', import.meta.url).href;
 
 let manifest = null;
+/* KAN-235: the PHONE tier's 1024² twins of the 2048² atlases (assets/models/lo/,
+   derived by assets/blender/derive_lo.py). lo.json says which hi GLB each one
+   was derived FROM (its bytes + tris); a twin is used only while that still
+   matches models.json, so a re-exported GLB that was not re-derived loads its
+   hi self instead of a stale atlas. Never fetched on the full tier. */
+let lo = {};
 /* name -> { root, mesh } (mesh is the single Mesh, or null if the GLB had several)
    | null when the load failed. The template is never added to a scene. */
 const cache = new Map();
 let _aniso = 8;
-let _loader = null;
+let _loader = null, _draco = null;
 const IDENTITY = new THREE.Matrix4();
 
 export function setAnisotropy(n) { _aniso = Math.max(1, n | 0); }
 
 function loader() {
   if (!_loader) {
-    const draco = new DRACOLoader();
+    const draco = _draco = new DRACOLoader();
     draco.setDecoderPath(DRACO_PATH);
-    draco.setDecoderConfig({ type: 'js' });     // wasm needs COOP/COEP we do not set
+    /* KAN-235: WASM (DRACOLoader's default; it falls back to the JS decoder by
+       itself where WebAssembly is missing). This used to force { type: 'js' }
+       with the note "wasm needs COOP/COEP we do not set" — it does not: COOP/COEP
+       gate SharedArrayBuffer, and the Draco worker is plain single-threaded
+       WASM. The glTF WASM decoder is 71 KB on the wire against the JS one's
+       144 KB, and decodes the 140 GLBs faster (measured in CLAUDE.md
+       "PERFORMANCE — KAN-235"); the decoded geometry is bit-identical (same C++,
+       checked by hashing every attribute of every GLB both ways). */
     _loader = new GLTFLoader();
     _loader.setDRACOLoader(draco);
   }
@@ -118,6 +136,9 @@ function prepare(root) {
 
 export async function loadManifest() {
   if (manifest) return manifest;
+  const loP = PHONE
+    ? fetch(DIR + 'lo/lo.json', { cache: 'no-cache' }).then(r => (r.ok ? r.json() : {})).catch(() => ({}))
+    : Promise.resolve({});
   try {
     const r = await fetch(DIR + 'models.json', { cache: 'no-cache' });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -127,8 +148,15 @@ export async function loadManifest() {
       '(every has() is false; call sites keep their primitives)');
     manifest = {};
   }
+  lo = await loP;
   return manifest;
 }
+function glbURL(name) {
+  const r = lo[name], m = manifest && manifest[name];
+  return r && m && r.srcBytes === m.bytes && r.srcTris === m.tris ? `${DIR}lo/${name}.glb` : `${DIR}${name}.glb`;
+}
+/* tests / probes: which GLBs this tier actually loads from lo/ */
+export function loNames() { return Object.keys(lo).filter(n => glbURL(n).includes('/lo/')); }
 
 export function names() { return Object.keys(manifest || {}); }
 export function info(name) { return (manifest || {})[name] || null; }
@@ -136,7 +164,7 @@ export function info(name) { return (manifest || {})[name] || null; }
 function loadOne(name) {
   return new Promise((resolve) => {
     loader().load(
-      `${DIR}${name}.glb`,
+      glbURL(name),
       (gltf) => {
         const entry = prepare(gltf.scene);
         entry.root.name = name;
@@ -159,6 +187,12 @@ function countMeshes(root) { let n = 0; root.traverse((o) => { if (o.isMesh) n++
 /* Load everything in the manifest, reporting 0..1 progress. Resolves to the
    cache; never rejects. */
 export async function preload(onProgress) {
+  /* KAN-235: fetch + compile the Draco decoder NOW, beside the manifest, not
+     when the first GLB lands — on a 10 Mbps phone it used to queue behind ~7 MB
+     of GLBs (done at 6.8 s while the first GLB had arrived at 2.5 s), so every
+     decode waited for it. DRACOLoader.preload() is its own API for exactly this. */
+  loader();
+  _draco.preload();
   await loadManifest();
   const list = Object.keys(manifest);
   let done = 0;

@@ -31,7 +31,8 @@ import { initUI } from './ui.js';
 import { initLightBudget } from './lightbudget.js';
 import { initDetailCull } from './detailcull.js';
 import * as models from './models.js';
-import { bindEnvKnobs } from './materials.js';
+import { bindEnvKnobs, holdPhotos, setPhotoUploader } from './materials.js';
+import { TIER, BASE_RATIO, initDynRes } from './perftier.js';
 import { t, mt, onLang } from './i18n.js';
 
 /* ── the loading card ────────────────────────────────────────────────────────
@@ -95,7 +96,9 @@ await yieldFrame();
 const renderer = new THREE.WebGLRenderer({
   canvas, antialias: !touchMode, powerPreference: 'high-performance',
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+/* min(DPR, 2) on every tier, as before KAN-235; on the PHONE tier js/perftier.js
+   then steps it down while frames are measurably slow (initDynRes, below) */
+renderer.setPixelRatio(BASE_RATIO);
 renderer.setSize(innerWidth, innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -205,6 +208,11 @@ G.toggleNight = () => { if (G.started && !G.overlayOpen) toggleNight(G); };
 G.lock = () => lock(G);
 
 initUI(G);
+/* KAN-235: the phone tier's dynamic resolution (a no-op controller on the full
+   tier). Sampled from frame() below, so it is already converging on the title
+   card's orbit, before the guest steps inside. */
+G.tier = TIER;
+initDynRes(G);
 
 /* The long one. buildWorld reports each builder as it goes and yields between
    them; .08 … .54 is the world's share of the bar, which is roughly its share
@@ -363,6 +371,9 @@ if (renderer.compileAsync) await renderer.compileAsync(scene, camera);
   }
   renderer.setRenderTarget(bound);
 
+  /* KAN-235: a photograph that lands after THIS collection waits for the title
+     card instead of being uploaded inside the hidden frame below (materials.js) */
+  holdPhotos();
   const textures = new Set();
   scene.traverse(o => {
     const mats = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : [];
@@ -486,6 +497,7 @@ function frame(now) {
   const dt = Math.max(0, Math.min(.05, (now - last) / 1000));
   last = now;
   time += dt;
+  G.dynres.sample(now);          // KAN-235: raw rAF interval (before the clamp)
 
   if (G.introActive) updateIntroCam(G, dt);
   else if (G.tourActive) updateTour(G);          // the tour owns the camera (KAN-233)
@@ -505,6 +517,9 @@ requestAnimationFrame(frame);
    shaders; it was ~0.5 s of blocked main thread before it did. */
 await yieldFrame();
 finishLoading();
+/* KAN-235: the photographs still in flight (or held since the warm-up) now
+   upload one file per frame, in their own slice, behind the invitation */
+setPhotoUploader(renderer);
 
 /* ── debug hook, always on (house pattern) ──
    Assigned LAST on purpose: it is also the readiness signal. skipIntro() would

@@ -38,7 +38,7 @@ import * as THREE from 'three';
 import { SITE, HOTEL_ROOF, ROOMS, worldToEnclave, enclaveToWorld,
   ARRIVAL_LOBBY_Y, ARRIVAL_LOUNGE_CEIL, ARRIVAL_LANE_Y } from './site.js';
 import { CFG } from './config.js';
-import { mulberry32, envKnob } from './materials.js';
+import { mulberry32, envKnob, photoTexture } from './materials.js';
 /* The Blender-authored props (assets/models/, KAN-207 + the Group E resort
    furniture). ⚠ main.js awaits models.preload() BEFORE buildWorld for this —
    the buckets below are filled synchronously from models.geometry()/material()
@@ -163,8 +163,8 @@ function casuNeedleTex() {
    The material must ALREADY have a map (and its alphaTest) or this is a shader
    recompile — see the banner at casuNeedle. Mirrors nature.js's photoMap(). */
 function photoTex(mat, file, repeat) {
-  new THREE.TextureLoader().load(
-    new URL(`../assets/textures/${file}`, import.meta.url).href,
+  photoTexture(   // KAN-235: one load per file, shared (materials.js)
+    file,
     (t) => {
       t.colorSpace = THREE.SRGBColorSpace;
       t.anisotropy = 8;
@@ -175,7 +175,6 @@ function photoTex(mat, file, repeat) {
       mat.needsUpdate = true;
       if (old && old.isCanvasTexture && old !== t) old.dispose();
     },
-    undefined,
     () => console.warn(`campus: ${file} did not load — keeping the canvas fallback`),
   );
 }
